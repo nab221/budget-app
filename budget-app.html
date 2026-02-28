@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Budget Console</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<script src="https://cdn.jsdelivr.net/npm/dexie@4.0.8/dist/dexie.min.js"></script>
+<style>
+:root{
+  --bg:#0b1120;--bg-alt:#111827;--card:rgba(15,23,42,0.98);--card2:rgba(17,24,39,0.98);
+  --accent:#22c55e;--accent-soft:rgba(34,197,94,0.18);--accent-border:rgba(34,197,94,0.5);
+  --danger:#ef4444;--warn:#f59e0b;--info:#3b82f6;
+  --text:#e5e7eb;--text-soft:#9ca3af;--text-dim:#6b7280;
+  --border:#1e293b;--border-light:rgba(148,163,184,0.08);
+  --shadow:0 8px 24px rgba(0,0,0,0.5);--radius:10px;--tr:0.15s ease-out;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:radial-gradient(ellipse at top,#1e293b 0%,#020617 60%);color:var(--text);min-height:100vh}
+.shell{max-width:1200px;margin:0 auto;padding:14px}
+
+/* ── HEADER ── */
+header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+header h1{font-size:1.5rem;display:flex;align-items:center;gap:8px}
+.pill{font-size:.65rem;text-transform:uppercase;padding:2px 7px;border-radius:999px;background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent-border)}
+.toolbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+
+/* ── BUTTONS / INPUTS ── */
+button,select,input,textarea{font:inherit;border-radius:999px;border:1px solid var(--border);background:rgba(15,23,42,0.85);color:var(--text);padding:5px 10px;outline:none;transition:border-color var(--tr),background var(--tr),transform var(--tr),box-shadow var(--tr)}
+button{cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+button.primary{background:linear-gradient(135deg,#22c55e,#16a34a);border-color:#16a34a;color:#022c22;font-weight:600;box-shadow:0 6px 16px rgba(22,163,74,0.35)}
+button.primary:hover{filter:brightness(1.06);transform:translateY(-1px)}
+button.ghost{background:rgba(15,23,42,0.9)}
+button.ghost:hover{border-color:rgba(148,163,184,0.6)}
+button.danger{border-color:rgba(248,113,113,0.4);color:#fecaca}
+button.danger:hover{background:rgba(127,29,29,0.85);border-color:#f87171}
+button.info{border-color:rgba(59,130,246,0.4);color:#bfdbfe}
+button.info:hover{background:rgba(30,64,175,0.5);border-color:#60a5fa}
+button.sm{padding:3px 7px;font-size:.75rem}
+button:disabled{opacity:.45;cursor:default;transform:none;box-shadow:none}
+textarea{border-radius:var(--radius);resize:vertical;min-height:60px}
+select{padding-right:24px}
+input[type="number"]{text-align:right}
+
+/* ── LAYOUT ── */
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px}
+.card{background:linear-gradient(145deg,var(--card),var(--card2));border-radius:var(--radius);padding:14px;box-shadow:var(--shadow);border:1px solid var(--border-light);position:relative}
+.card-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px}
+.card-hd h2{font-size:.9rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-soft)}
+
+/* ── SUMMARY ── */
+.sum-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:8px}
+.sum-item{background:radial-gradient(circle at top left,rgba(34,197,94,0.06),rgba(15,23,42,0.9));border-radius:9px;padding:9px;border:1px solid var(--border);display:flex;flex-direction:column;gap:3px}
+.sum-label{font-size:.65rem;text-transform:uppercase;color:var(--text-soft);letter-spacing:.07em}
+.sum-val{font-size:1.05rem;font-weight:600}
+.sum-note{font-size:.65rem;color:var(--text-dim)}
+
+/* ── TABS ── */
+.tabs{display:flex;gap:4px;overflow-x:auto;padding-bottom:4px;margin-bottom:8px;-webkit-overflow-scrolling:touch}
+.tab{padding:5px 10px;border-radius:999px;background:rgba(15,23,42,0.8);border:1px solid rgba(31,41,55,0.9);font-size:.78rem;cursor:pointer;white-space:nowrap;transition:all var(--tr)}
+.tab.active{background:var(--accent-soft);border-color:var(--accent-border);color:var(--accent);font-weight:600}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+
+/* ── TABLE ── */
+.tbl{width:100%;border-collapse:collapse;font-size:.78rem;margin-top:4px}
+.tbl th,.tbl td{padding:5px 4px;text-align:left;border-bottom:1px solid rgba(30,41,59,0.7)}
+.tbl th{font-size:.67rem;text-transform:uppercase;letter-spacing:.07em;color:var(--text-soft)}
+.tbl tbody tr:nth-child(odd){background:rgba(15,23,42,0.55)}
+.tbl tbody tr:nth-child(even){background:rgba(15,23,42,0.35)}
+.r{text-align:right}.nw{white-space:nowrap}
+
+/* ── CHIPS / TAGS ── */
+.chip{display:inline-flex;align-items:center;gap:3px;border-radius:999px;padding:2px 6px;font-size:.67rem;border:1px solid rgba(75,85,99,0.7)}
+.chip-paid{background:rgba(34,197,94,0.14);color:#bbf7d0;border-color:rgba(34,197,94,0.6)}
+.chip-pending{background:rgba(248,113,113,0.14);color:#fecaca;border-color:rgba(248,113,113,0.6)}
+.chip-cc{background:rgba(59,130,246,0.14);color:#bfdbfe;border-color:rgba(59,130,246,0.5)}
+.chip-loan{background:rgba(245,158,11,0.14);color:#fde68a;border-color:rgba(245,158,11,0.5)}
+.chip-mortgage{background:rgba(168,85,247,0.14);color:#e9d5ff;border-color:rgba(168,85,247,0.5)}
+.tag{font-size:.67rem;color:var(--text-soft);border-radius:999px;padding:2px 6px;border:1px solid rgba(55,65,81,0.8);background:rgba(15,23,42,0.95)}
+
+/* ── FORMS ── */
+.form-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+.form-row>*{flex:1 1 120px;min-width:0}
+.form-row label{font-size:.7rem;color:var(--text-soft);display:block;margin-bottom:2px}
+.hint{font-size:.68rem;color:var(--text-dim);margin-top:2px;margin-bottom:6px}
+.file-input{display:none}
+
+/* ── MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal{background:#0f172a;border:1px solid var(--border);border-radius:var(--radius);padding:20px;max-width:650px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.8)}
+.modal h3{margin-bottom:10px;font-size:1rem}
+.modal .form-row{margin-bottom:8px}
+
+/* ── PLANNER ── */
+.planner-card{background:rgba(15,23,42,0.7);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-top:10px}
+.planner-card h3{font-size:.85rem;margin-bottom:8px;color:var(--accent)}
+.strategy-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:700px){.strategy-grid{grid-template-columns:1fr}}
+.strategy-box{background:rgba(15,23,42,0.9);border:1px solid var(--border);border-radius:8px;padding:10px}
+.strategy-box h4{font-size:.8rem;margin-bottom:6px}
+.strategy-box .big{font-size:1.3rem;font-weight:700}
+.bar-track{height:6px;background:rgba(55,65,81,0.6);border-radius:99px;margin:4px 0;overflow:hidden}
+.bar-fill{height:100%;border-radius:99px;transition:width .4s ease}
+.green{color:var(--accent)}.red{color:var(--danger)}.amber{color:var(--warn)}.blue{color:var(--info)}.purple{color:#a78bfa}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ════════ HEADER ════════ -->
+<header>
+  <div>
+    <h1>Budget Console <span class="pill">Local · IndexedDB</span></h1>
+    <div class="hint">All data stored locally. Export regularly for backups.</div>
+  </div>
+  <div class="toolbar">
+    <button id="exportBtn" class="ghost">⬇ Export</button>
+    <label for="importFile" class="ghost" style="cursor:pointer;display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border:1px solid var(--border);border-radius:999px;font-size:inherit">
+      ⬆ Import <input id="importFile" type="file" accept="application/json" class="file-input"/>
+    </label>
+    <button id="resetBtn" class="danger">✖ Reset</button>
+  </div>
+</header>
+
+<!-- ════════ SUMMARY ════════ -->
+<section class="card" style="margin-bottom:14px">
+  <div class="card-hd">
+    <h2>Dashboard</h2>
+    <div style="display:flex;gap:6px;align-items:center">
+      <input type="month" id="monthPicker" style="font-size:.8rem"/>
+      <select id="viewSelect" style="font-size:.8rem">
+        <option value="current">Month</option>
+        <option value="ytd">YTD</option>
+        <option value="all">All</option>
+      </select>
+    </div>
+  </div>
+  <div class="sum-grid" id="summaryGrid"></div>
+</section>
+
+<!-- ════════ MAIN TABS ════════ -->
+<section class="card">
+  <div class="tabs" id="mainTabs">
+    <button class="tab active" data-tab="income">Income</button>
+    <button class="tab" data-tab="fixed">Fixed Spends</button>
+    <button class="tab" data-tab="variable">Variable</button>
+    <button class="tab" data-tab="subs">Subscriptions</button>
+    <button class="tab" data-tab="debts">Debts</button>
+    <button class="tab" data-tab="assets">Assets</button>
+    <button class="tab" data-tab="settings">⚙ Settings</button>
+  </div>
+
+  <!-- ── INCOME ── -->
+  <div class="tab-panel active" data-panel="income">
+    <div class="form-row">
+      <div><label>Date</label><input id="incDate" type="date"/></div>
+      <div><label>Source</label><input id="incSource" type="text" placeholder="e.g. Anderson, Morag"/></div>
+      <div><label>Amount (£)</label><input id="incAmount" type="number" step="0.01"/></div>
+      <div style="display:flex;align-items:flex-end"><button id="addIncBtn" class="primary">+ Add</button></div>
+    </div>
+    <table class="tbl"><thead><tr><th>Date</th><th>Source</th><th class="r">Amount</th><th></th></tr></thead><tbody id="incBody"></tbody></table>
+  </div>
+
+  <!-- ── FIXED SPENDS ── -->
+  <div class="tab-panel" data-panel="fixed">
+    <div class="form-row">
+      <div><label>Date</label><input id="fixDate" type="date"/></div>
+      <div><label>Category</label><select id="fixCat"></select></div>
+      <div><label>Description</label><input id="fixLabel" type="text" placeholder="e.g. Octopus Gas"/></div>
+      <div><label>Amount (£)</label><input id="fixAmt" type="number" step="0.01"/></div>
+      <div><label>Status</label><select id="fixStatus"><option value="pending">Pending</option><option value="paid">Paid</option></select></div>
+      <div style="display:flex;align-items:flex-end"><button id="addFixBtn" class="primary">+ Add</button></div>
+    </div>
+    <table class="tbl"><thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Status</th><th class="r">Amount</th><th></th></tr></thead><tbody id="fixBody"></tbody></table>
+  </div>
+
+  <!-- ── VARIABLE ── -->
+  <div class="tab-panel" data-panel="variable">
+    <div class="form-row">
+      <div><label>Date</label><input id="varDate" type="date"/></div>
+      <div><label>Category</label><select id="varCat"></select></div>
+      <div><label>Note</label><input id="varNote" type="text" placeholder="Optional"/></div>
+      <div><label>Amount (£)</label><input id="varAmt" type="number" step="0.01"/></div>
+      <div style="display:flex;align-items:flex-end"><button id="addVarBtn" class="primary">+ Add</button></div>
+    </div>
+    <table class="tbl"><thead><tr><th>Date</th><th>Category</th><th>Note</th><th class="r">Amount</th><th></th></tr></thead><tbody id="varBody"></tbody></table>
+  </div>
+
+  <!-- ── SUBSCRIPTIONS ── -->
+  <div class="tab-panel" data-panel="subs">
+    <div class="form-row">
+      <div><label>Name</label><input id="subName" type="text" placeholder="e.g. Perplexity, Netflix"/></div>
+      <div><label>Amount (£)</label><input id="subAmt" type="number" step="0.01"/></div>
+      <div><label>Frequency</label><select id="subFreq"><option value="monthly">Monthly</option><option value="annually">Annually</option></select></div>
+      <div><label>Next payment</label><input id="subNext" type="date"/></div>
+      <div><label>Payment method</label><select id="subMethod"><option value="direct_debit">Direct Debit</option><option value="card_212">Card (212)</option><option value="card_other">Card (other)</option></select></div>
+      <div style="display:flex;align-items:flex-end"><button id="addSubBtn" class="primary">+ Add</button></div>
+    </div>
+    <table class="tbl"><thead><tr><th>Name</th><th class="r">Amount</th><th>Freq</th><th>Method</th><th>Next</th><th class="r">Monthly eq.</th><th></th></tr></thead><tbody id="subBody"></tbody></table>
+  </div>
+
+  <!-- ── DEBTS ── -->
+  <div class="tab-panel" data-panel="debts">
+    <div class="form-row">
+      <div><label>Name</label><input id="debtName" type="text" placeholder="e.g. TSB Anderson, Lloyds CC"/></div>
+      <div><label>Type</label><select id="debtType"><option value="credit_card">Credit Card</option><option value="loan">Loan</option><option value="mortgage">Mortgage</option></select></div>
+      <div><label>Credit Limit (£)</label><input id="debtLimit" type="number" step="0.01" placeholder="0 for loans"/></div>
+      <div><label>APR (%)</label><input id="debtAPR" type="number" step="0.01"/></div>
+      <div><label>Min pay rule</label><select id="debtMinRule"><option value="pct_plus_interest">% of bal + interest</option><option value="pct_of_balance">% of balance</option><option value="fixed">Fixed amount</option></select></div>
+      <div><label>Min pay value</label><input id="debtMinVal" type="number" step="0.01" placeholder="e.g. 1 for 1%, or 150"/></div>
+      <div><label>Min floor (£)</label><input id="debtMinFloor" type="number" step="0.01" value="5"/></div>
+      <div style="display:flex;align-items:flex-end"><button id="addDebtBtn" class="primary">+ Add Debt</button></div>
+    </div>
+    <div class="hint">After adding a debt, click <strong>+ Statement</strong> to log monthly balances, purchases, payments and interest.</div>
+    <table class="tbl"><thead><tr><th>Name</th><th>Type</th><th class="r">Limit</th><th class="r">APR</th><th class="r">Balance</th><th class="r">Min Pay</th><th class="r">Utilisation</th><th></th></tr></thead><tbody id="debtBody"></tbody></table>
+
+    <!-- Payoff Planner -->
+    <div class="planner-card">
+      <h3>⚡ Payoff Planner</h3>
+      <div class="form-row" style="margin-bottom:10px">
+        <div><label>Extra monthly budget (£)</label><input id="extraBudget" type="number" step="1" value="100"/></div>
+        <div style="display:flex;align-items:flex-end"><button id="calcPayoff" class="info">Calculate Strategies</button></div>
+      </div>
+      <div class="strategy-grid" id="strategyGrid"></div>
+      <div id="payoffTable" style="margin-top:10px"></div>
+    </div>
+  </div>
+
+  <!-- ── ASSETS ── -->
+  <div class="tab-panel" data-panel="assets">
+    <div class="form-row">
+      <div><label>Name</label><input id="astName" type="text" placeholder="e.g. House, Trade 212 ISA"/></div>
+      <div><label>Value (£)</label><input id="astAmt" type="number" step="0.01"/></div>
+      <div><label>As of</label><input id="astDate" type="date"/></div>
+      <div style="display:flex;align-items:flex-end"><button id="addAstBtn" class="primary">+ Add</button></div>
+    </div>
+    <table class="tbl"><thead><tr><th>Name</th><th class="r">Value</th><th>As of</th><th></th></tr></thead><tbody id="astBody"></tbody></table>
+  </div>
+
+  <!-- ── SETTINGS ── -->
+  <div class="tab-panel" data-panel="settings">
+    <h3 style="font-size:.9rem;margin-bottom:8px">Manage Categories</h3>
+    <div class="hint">Categories appear in the dropdowns for Fixed Spends and Variable expenses. Add, rename or delete as needed.</div>
+    <div class="form-row" style="margin-bottom:8px">
+      <div><label>Group</label><select id="catGroup"><option value="fixed">Fixed</option><option value="variable">Variable</option></select></div>
+      <div><label>Category name</label><input id="catName" type="text" placeholder="e.g. Housing, Groceries"/></div>
+      <div style="display:flex;align-items:flex-end"><button id="addCatBtn" class="primary">+ Add Category</button></div>
+      <div style="display:flex;align-items:flex-end"><button id="seedCatsBtn" class="ghost">Seed defaults</button></div>
+    </div>
+    <div class="grid2">
+      <div>
+        <h4 style="font-size:.8rem;color:var(--text-soft);margin-bottom:4px">Fixed Categories</h4>
+        <div id="fixedCatList"></div>
+      </div>
+      <div>
+        <h4 style="font-size:.8rem;color:var(--text-soft);margin-bottom:4px">Variable Categories</h4>
+        <div id="varCatList"></div>
+      </div>
+    </div>
+  </div>
+
+</section>
+</div>
+
+<!-- ════════ STATEMENT MODAL ════════ -->
+<div class="modal-overlay hidden" id="stmtModal">
+  <div class="modal">
+    <h3>📄 Add Monthly Statement for: <span id="stmtDebtName"></span></h3>
+    <div class="form-row">
+      <div><label>Month</label><input id="stmtMonth" type="month"/></div>
+      <div><label>Opening Balance (£)</label><input id="stmtOpen" type="number" step="0.01"/></div>
+    </div>
+    <div class="form-row">
+      <div><label>Purchases / new charges (£)</label><input id="stmtPurchases" type="number" step="0.01" value="0"/></div>
+      <div><label>Payments in (£)</label><input id="stmtPayments" type="number" step="0.01" value="0"/></div>
+    </div>
+    <div class="form-row">
+      <div><label>Interest charged (£)</label><input id="stmtInterest" type="number" step="0.01" value="0"/></div>
+      <div><label>Fees (£)</label><input id="stmtFees" type="number" step="0.01" value="0"/></div>
+    </div>
+    <div class="form-row">
+      <div><label>Closing Balance (£)</label><input id="stmtClose" type="number" step="0.01"/></div>
+      <div><label>Notes</label><input id="stmtNotes" type="text" placeholder="Optional"/></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button id="saveStmtBtn" class="primary">Save Statement</button>
+      <button id="cancelStmtBtn" class="ghost">Cancel</button>
+    </div>
+    <div id="stmtHistory" style="margin-top:12px"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// DATABASE SCHEMA
+// ═══════════════════════════════════════════════
+const db = new Dexie('BudgetConsoleDB');
+db.version(1).stores({
+  income:         '++id, date, source, amount',
+  fixedSpends:    '++id, date, category, label, status, amount',
+  variableSpends: '++id, date, category, note, amount',
+  subscriptions:  '++id, name, amount, frequency, nextDate, method',
+  debts:          '++id, name, type, limit, apr, minRule, minValue, minFloor',
+  statements:     '++id, debtId, month, openBal, purchases, payments, interest, fees, closeBal, notes',
+  assets:         '++id, name, amount, asOf',
+  categories:     '++id, group, name'
+});
+
+// ═══════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════
+const £ = v => {
+  if(v==null||isNaN(v)) return '£0.00';
+  const neg = v < 0;
+  return (neg?'-':'') + '£' + Math.abs(v).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2});
+};
+const fmtDate = d => {if(!d)return '';const dt=new Date(d);return isNaN(dt)?'':dt.toLocaleDateString('en-GB',{year:'numeric',month:'short',day:'2-digit'})};
+const fmtMonth = m => {if(!m)return '';const [y,mo]=m.split('-');return new Date(y,mo-1).toLocaleDateString('en-GB',{year:'numeric',month:'short'})};
+const pct = (a,b) => b>0?((a/b)*100).toFixed(1)+'%':'—';
+
+let anchorYear, anchorMonth;
+const monthPicker = document.getElementById('monthPicker');
+const viewSelect = document.getElementById('viewSelect');
+
+function initPeriod(){
+  const n=new Date();anchorYear=n.getFullYear();anchorMonth=n.getMonth();
+  monthPicker.value=`${anchorYear}-${String(anchorMonth+1).padStart(2,'0')}`;
+}
+monthPicker.addEventListener('change',()=>{const[y,m]=monthPicker.value.split('-').map(Number);anchorYear=y;anchorMonth=m-1;refreshAll()});
+viewSelect.addEventListener('change',()=>refreshAll());
+
+function inRange(dateStr,mode){
+  if(mode==='all')return true;if(!dateStr)return false;
+  const d=new Date(dateStr);if(isNaN(d))return false;
+  const y=d.getFullYear(),m=d.getMonth();
+  if(mode==='current')return y===anchorYear&&m===anchorMonth;
+  if(mode==='ytd')return y===anchorYear&&m<=anchorMonth;
+  return true;
+}
+
+// ═══════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════
+document.getElementById('mainTabs').addEventListener('click',e=>{
+  const t=e.target.closest('.tab');if(!t)return;
+  document.querySelectorAll('#mainTabs .tab').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active');
+  document.querySelectorAll('.tab-panel').forEach(p=>{p.classList.toggle('active',p.dataset.panel===t.dataset.tab)});
+});
+
+// ═══════════════════════════════════════════════
+// CATEGORIES (Settings)
+// ═══════════════════════════════════════════════
+const DEFAULT_CATS = {
+  fixed: ['Housing','Utilities','Credit Cards & Loans','Insurance','Health','Childcare','Professional Subscriptions','Savings','Other Fixed'],
+  variable: ['Groceries','Eating Out / Takeaway','Clothing','Fuel / Transport','Miscellaneous','Entertainment','Gifts','Home / Garden']
+};
+
+document.getElementById('seedCatsBtn').addEventListener('click', async ()=>{
+  if(!confirm('This will add default categories (without duplicating existing ones). Continue?'))return;
+  const existing = await db.categories.toArray();
+  const existSet = new Set(existing.map(c=>c.group+'|'+c.name));
+  const toAdd=[];
+  for(const[g,names]of Object.entries(DEFAULT_CATS)){
+    for(const n of names){if(!existSet.has(g+'|'+n))toAdd.push({group:g,name:n})}
+  }
+  if(toAdd.length)await db.categories.bulkAdd(toAdd);
+  refreshAll();
+});
+
+document.getElementById('addCatBtn').addEventListener('click', async ()=>{
+  const group=document.getElementById('catGroup').value;
+  const name=document.getElementById('catName').value.trim();
+  if(!name)return;
+  await db.categories.add({group,name});
+  document.getElementById('catName').value='';
+  refreshAll();
+});
+
+async function renderCategories(){
+  const cats = await db.categories.toArray();
+  for(const g of ['fixed','variable']){
+    const container = document.getElementById(g==='fixed'?'fixedCatList':'varCatList');
+    const items = cats.filter(c=>c.group===g);
+    container.innerHTML = items.map(c=>`<span class="tag" style="display:inline-flex;align-items:center;gap:4px;margin:2px">${c.name} <button class="sm danger" onclick="deleteCat(${c.id})" style="border:none;background:none;color:#f87171;cursor:pointer;padding:0;font-size:.75rem">✕</button></span>`).join('');
+  }
+  // populate dropdowns
+  for(const[selId,grp]of [['fixCat','fixed'],['varCat','variable']]){
+    const sel=document.getElementById(selId);if(!sel)continue;
+    const items=cats.filter(c=>c.group===grp);
+    const cur=sel.value;
+    sel.innerHTML=items.map(c=>`<option value="${c.name}">${c.name}</option>`).join('')+`<option value="__other">Other…</option>`;
+    if(cur&&[...sel.options].some(o=>o.value===cur))sel.value=cur;
+  }
+}
+window.deleteCat = async id=>{await db.categories.delete(id);refreshAll()};
+
+// ═══════════════════════════════════════════════
+// INCOME
+// ═══════════════════════════════════════════════
+document.getElementById('addIncBtn').addEventListener('click', async ()=>{
+  const date=document.getElementById('incDate').value;
+  const source=document.getElementById('incSource').value.trim()||'Unknown';
+  const amount=parseFloat(document.getElementById('incAmount').value);
+  if(!date||isNaN(amount))return;
+  await db.income.add({date,source,amount});
+  document.getElementById('incAmount').value='';
+  refreshAll();
+});
+
+async function renderIncome(){
+  const mode=viewSelect.value;
+  const rows=(await db.income.orderBy('date').toArray()).filter(r=>inRange(r.date,mode));
+  document.getElementById('incBody').innerHTML=rows.map(r=>`<tr><td>${fmtDate(r.date)}</td><td>${r.source}</td><td class="r">${£(r.amount)}</td><td class="r"><button class="ghost danger sm" onclick="del('income',${r.id})">✕</button></td></tr>`).join('');
+  return rows.reduce((s,r)=>s+(r.amount||0),0);
+}
+
+// ═══════════════════════════════════════════════
+// FIXED SPENDS
+// ═══════════════════════════════════════════════
+document.getElementById('addFixBtn').addEventListener('click', async ()=>{
+  const date=document.getElementById('fixDate').value;
+  let category=document.getElementById('fixCat').value;
+  if(category==='__other')category=prompt('Enter category name:')||'Other';
+  const label=document.getElementById('fixLabel').value.trim();
+  const status=document.getElementById('fixStatus').value;
+  const amount=parseFloat(document.getElementById('fixAmt').value);
+  if(!date||isNaN(amount))return;
+  await db.fixedSpends.add({date,category,label,status,amount});
+  document.getElementById('fixAmt').value='';
+  refreshAll();
+});
+
+async function renderFixed(){
+  const mode=viewSelect.value;
+  const rows=(await db.fixedSpends.orderBy('date').toArray()).filter(r=>inRange(r.date,mode));
+  document.getElementById('fixBody').innerHTML=rows.map(r=>{
+    const sc=r.status==='paid'?'chip-paid':'chip-pending';
+    return `<tr><td>${fmtDate(r.date)}</td><td>${r.category}</td><td>${r.label}</td><td><span class="chip ${sc}">${r.status}</span></td><td class="r">${£(r.amount)}</td><td class="r"><button class="ghost danger sm" onclick="del('fixedSpends',${r.id})">✕</button></td></tr>`;
+  }).join('');
+  return rows.reduce((s,r)=>s+(r.amount||0),0);
+}
+
+// ═══════════════════════════════════════════════
+// VARIABLE
+// ═══════════════════════════════════════════════
+document.getElementById('addVarBtn').addEventListener('click', async ()=>{
+  const date=document.getElementById('varDate').value;
+  let category=document.getElementById('varCat').value;
+  if(category==='__other')category=prompt('Enter category name:')||'Variable';
+  const note=document.getElementById('varNote').value.trim();
+  const amount=parseFloat(document.getElementById('varAmt').value);
+  if(!date||isNaN(amount))return;
+  await db.variableSpends.add({date,category,note,amount});
+  document.getElementById('varAmt').value='';
+  refreshAll();
+});
+
+async function renderVariable(){
+  const mode=viewSelect.value;
+  const rows=(await db.variableSpends.orderBy('date').toArray()).filter(r=>inRange(r.date,mode));
+  document.getElementById('varBody').innerHTML=rows.map(r=>`<tr><td>${fmtDate(r.date)}</td><td>${r.category}</td><td>${r.note}</td><td class="r">${£(r.amount)}</td><td class="r"><button class="ghost danger sm" onclick="del('variableSpends',${r.id})">✕</button></td></tr>`).join('');
+  return rows.reduce((s,r)=>s+(r.amount||0),0);
+}
+
+// ═══════════════════════════════════════════════
+// SUBSCRIPTIONS
+// ═══════════════════════════════════════════════
+document.getElementById('addSubBtn').addEventListener('click', async ()=>{
+  const name=document.getElementById('subName').value.trim();
+  const amount=parseFloat(document.getElementById('subAmt').value);
+  const frequency=document.getElementById('subFreq').value;
+  const nextDate=document.getElementById('subNext').value||null;
+  const method=document.getElementById('subMethod').value;
+  if(!name||isNaN(amount))return;
+  await db.subscriptions.add({name,amount,frequency,nextDate,method});
+  document.getElementById('subName').value='';document.getElementById('subAmt').value='';
+  refreshAll();
+});
+
+async function renderSubs(){
+  const rows=await db.subscriptions.orderBy('name').toArray();
+  document.getElementById('subBody').innerHTML=rows.map(r=>{
+    const meq=r.frequency==='annually'?(r.amount/12).toFixed(2):r.amount.toFixed(2);
+    return `<tr><td>${r.name}</td><td class="r">${£(r.amount)}</td><td>${r.frequency}</td><td>${r.method||''}</td><td>${fmtDate(r.nextDate)}</td><td class="r">${£(parseFloat(meq))}</td><td class="r"><button class="ghost danger sm" onclick="del('subscriptions',${r.id})">✕</button></td></tr>`;
+  }).join('');
+  return rows.reduce((s,r)=>s+(r.frequency==='annually'?r.amount/12:r.amount),0);
+}
+
+// ═══════════════════════════════════════════════
+// DEBTS + STATEMENTS
+// ═══════════════════════════════════════════════
+document.getElementById('addDebtBtn').addEventListener('click', async ()=>{
+  const name=document.getElementById('debtName').value.trim();
+  const type=document.getElementById('debtType').value;
+  const limit=parseFloat(document.getElementById('debtLimit').value)||0;
+  const apr=parseFloat(document.getElementById('debtAPR').value)||0;
+  const minRule=document.getElementById('debtMinRule').value;
+  const minValue=parseFloat(document.getElementById('debtMinVal').value)||2.25;
+  const minFloor=parseFloat(document.getElementById('debtMinFloor').value)||5;
+  if(!name)return;
+  await db.debts.add({name,type,limit,apr,minRule,minValue,minFloor});
+  document.getElementById('debtName').value='';document.getElementById('debtLimit').value='';document.getElementById('debtAPR').value='';
+  refreshAll();
+});
+
+function calcMinPayment(debt, balance){
+  if(balance<=0)return 0;
+  const monthlyRate=debt.apr/100/12;
+  const interest=balance*monthlyRate;
+  let min=0;
+  if(debt.minRule==='pct_plus_interest'){
+    min = Math.max((debt.minValue/100)*balance + interest, (2.25/100)*balance, debt.minFloor||5);
+  } else if(debt.minRule==='pct_of_balance'){
+    min = Math.max((debt.minValue/100)*balance, debt.minFloor||5);
+  } else {
+    min = debt.minValue||25;
+  }
+  return Math.min(min, balance + interest);
+}
+
+async function getLatestBalance(debtId){
+  const stmts = await db.statements.where('debtId').equals(debtId).toArray();
+  if(!stmts.length)return 0;
+  stmts.sort((a,b)=>a.month>b.month?1:-1);
+  return stmts[stmts.length-1].closeBal||0;
+}
+
+async function renderDebts(){
+  const debts=await db.debts.toArray();
+  let totalBal=0;
+  const bodyRows=[];
+  for(const d of debts){
+    const bal=await getLatestBalance(d.id);
+    totalBal+=bal;
+    const minPay=calcMinPayment(d,bal);
+    const util=d.limit>0?pct(bal,d.limit):'—';
+    const typeChip=d.type==='credit_card'?'chip-cc':d.type==='loan'?'chip-loan':'chip-mortgage';
+    bodyRows.push(`<tr>
+      <td>${d.name}</td>
+      <td><span class="chip ${typeChip}">${d.type.replace('_',' ')}</span></td>
+      <td class="r">${d.limit>0?£(d.limit):'—'}</td>
+      <td class="r">${d.apr}%</td>
+      <td class="r ${bal>0?'red':''}">${£(bal)}</td>
+      <td class="r">${£(minPay)}</td>
+      <td class="r">${util}</td>
+      <td class="r nw">
+        <button class="ghost info sm" onclick="openStmtModal(${d.id})">+ Stmt</button>
+        <button class="ghost danger sm" onclick="del('debts',${d.id})">✕</button>
+      </td>
+    </tr>`);
+  }
+  document.getElementById('debtBody').innerHTML=bodyRows.join('');
+  return totalBal;
+}
+
+// Statement modal
+let currentDebtId=null;
+window.openStmtModal = async (debtId)=>{
+  currentDebtId=debtId;
+  const debt=await db.debts.get(debtId);
+  document.getElementById('stmtDebtName').textContent=debt.name;
+  const now=new Date();
+  document.getElementById('stmtMonth').value=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const bal=await getLatestBalance(debtId);
+  document.getElementById('stmtOpen').value=bal.toFixed(2);
+  document.getElementById('stmtPurchases').value='0';
+  document.getElementById('stmtPayments').value='0';
+  document.getElementById('stmtInterest').value='0';
+  document.getElementById('stmtFees').value='0';
+  document.getElementById('stmtClose').value='';
+  document.getElementById('stmtNotes').value='';
+  await renderStmtHistory(debtId);
+  document.getElementById('stmtModal').classList.remove('hidden');
+};
+
+document.getElementById('cancelStmtBtn').addEventListener('click',()=>document.getElementById('stmtModal').classList.add('hidden'));
+
+document.getElementById('saveStmtBtn').addEventListener('click', async ()=>{
+  if(!currentDebtId)return;
+  const month=document.getElementById('stmtMonth').value;
+  const openBal=parseFloat(document.getElementById('stmtOpen').value)||0;
+  const purchases=parseFloat(document.getElementById('stmtPurchases').value)||0;
+  const payments=parseFloat(document.getElementById('stmtPayments').value)||0;
+  const interest=parseFloat(document.getElementById('stmtInterest').value)||0;
+  const fees=parseFloat(document.getElementById('stmtFees').value)||0;
+  let closeBal=parseFloat(document.getElementById('stmtClose').value);
+  if(isNaN(closeBal))closeBal=openBal+purchases-payments+interest+fees;
+  const notes=document.getElementById('stmtNotes').value.trim();
+  await db.statements.add({debtId:currentDebtId,month,openBal,purchases,payments,interest,fees,closeBal,notes});
+  document.getElementById('stmtModal').classList.add('hidden');
+  refreshAll();
+});
+
+async function renderStmtHistory(debtId){
+  const stmts=(await db.statements.where('debtId').equals(debtId).toArray()).sort((a,b)=>b.month>a.month?-1:1).reverse();
+  if(!stmts.length){document.getElementById('stmtHistory').innerHTML='<div class="hint">No statements yet.</div>';return}
+  document.getElementById('stmtHistory').innerHTML=`
+    <h4 style="font-size:.8rem;margin-bottom:4px">Statement History</h4>
+    <table class="tbl"><thead><tr><th>Month</th><th class="r">Open</th><th class="r">Purchases</th><th class="r">Paid In</th><th class="r">Interest</th><th class="r">Fees</th><th class="r">Close</th><th></th></tr></thead>
+    <tbody>${stmts.map(s=>`<tr><td>${fmtMonth(s.month)}</td><td class="r">${£(s.openBal)}</td><td class="r">${£(s.purchases)}</td><td class="r green">${£(s.payments)}</td><td class="r red">${£(s.interest)}</td><td class="r">${£(s.fees)}</td><td class="r">${£(s.closeBal)}</td><td><button class="ghost danger sm" onclick="delStmt(${s.id})">✕</button></td></tr>`).join('')}</tbody></table>`;
+}
+window.delStmt = async id=>{await db.statements.delete(id);if(currentDebtId)await renderStmtHistory(currentDebtId);refreshAll()};
+
+// ═══════════════════════════════════════════════
+// PAYOFF PLANNER (Snowball vs Avalanche)
+// ═══════════════════════════════════════════════
+document.getElementById('calcPayoff').addEventListener('click', async ()=>{
+  const extra=parseFloat(document.getElementById('extraBudget').value)||0;
+  const debts=await db.debts.toArray();
+  if(!debts.length){document.getElementById('strategyGrid').innerHTML='<div class="hint">Add debts first.</div>';return}
+  const debtData=[];
+  for(const d of debts){
+    const bal=await getLatestBalance(d.id);
+    if(bal<=0)continue;
+    debtData.push({name:d.name,balance:bal,apr:d.apr,minPay:calcMinPayment(d,bal),minRule:d.minRule,minValue:d.minValue,minFloor:d.minFloor,aprNum:d.apr});
+  }
+  if(!debtData.length){document.getElementById('strategyGrid').innerHTML='<div class="hint">All debts have zero balance.</div>';return}
+
+  function simulate(order, extraMonthly){
+    const ds=order.map(d=>({...d,bal:d.balance}));
+    let months=0, totalInterest=0, totalPaid=0;
+    const maxMonths=600;
+    while(ds.some(d=>d.bal>0)&&months<maxMonths){
+      months++;
+      let extraLeft=extraMonthly;
+      // pay interest & minimums
+      for(const d of ds){
+        if(d.bal<=0)continue;
+        const mi=d.bal*(d.apr/100/12);
+        d.bal+=mi;
+        totalInterest+=mi;
+        const mp=Math.min(d.bal, Math.max((d.minValue/100)*d.bal, d.minFloor||5));
+        d.bal-=mp;
+        totalPaid+=mp;
+      }
+      // apply extra to priority debt
+      for(const d of ds){
+        if(d.bal<=0||extraLeft<=0)continue;
+        const pay=Math.min(d.bal,extraLeft);
+        d.bal-=pay;
+        extraLeft-=pay;
+        totalPaid+=pay;
+      }
+    }
+    return {months,totalInterest,totalPaid};
+  }
+
+  // Snowball: smallest balance first
+  const snowOrder=[...debtData].sort((a,b)=>a.balance-b.balance);
+  const snow=simulate(snowOrder,extra);
+
+  // Avalanche: highest APR first
+  const avaOrder=[...debtData].sort((a,b)=>b.apr-a.apr);
+  const ava=simulate(avaOrder,extra);
+
+  // Minimum only (no extra)
+  const minOnly=simulate([...debtData],0);
+
+  const fmtTime=m=>{const y=Math.floor(m/12);const mo=m%12;return y>0?`${y}y ${mo}m`:`${mo}m`};
+  const saved=minOnly.totalInterest-Math.min(snow.totalInterest,ava.totalInterest);
+  const best=ava.totalInterest<=snow.totalInterest?'Avalanche':'Snowball';
+
+  document.getElementById('strategyGrid').innerHTML=`
+    <div class="strategy-box">
+      <h4>🏔️ Avalanche <span class="tag">${best==='Avalanche'?'★ Recommended':''}</span></h4>
+      <div>Highest APR first — saves most interest</div>
+      <div class="big green" style="margin-top:6px">${fmtTime(ava.months)}</div>
+      <div class="hint">Total interest: ${£(ava.totalInterest)}</div>
+      <div class="hint">Order: ${avaOrder.map(d=>d.name).join(' → ')}</div>
+    </div>
+    <div class="strategy-box">
+      <h4>❄️ Snowball <span class="tag">${best==='Snowball'?'★ Recommended':''}</span></h4>
+      <div>Smallest balance first — quick psychological wins</div>
+      <div class="big blue" style="margin-top:6px">${fmtTime(snow.months)}</div>
+      <div class="hint">Total interest: ${£(snow.totalInterest)}</div>
+      <div class="hint">Order: ${snowOrder.map(d=>d.name).join(' → ')}</div>
+    </div>
+  `;
+
+  document.getElementById('payoffTable').innerHTML=`
+    <table class="tbl"><thead><tr><th>Strategy</th><th class="r">Months</th><th class="r">Total Interest</th><th class="r">Total Paid</th></tr></thead><tbody>
+    <tr><td>Minimum payments only</td><td class="r">${fmtTime(minOnly.months)}</td><td class="r red">${£(minOnly.totalInterest)}</td><td class="r">${£(minOnly.totalPaid)}</td></tr>
+    <tr><td>Avalanche (+${£(extra)}/mo extra)</td><td class="r">${fmtTime(ava.months)}</td><td class="r">${£(ava.totalInterest)}</td><td class="r">${£(ava.totalPaid)}</td></tr>
+    <tr><td>Snowball (+${£(extra)}/mo extra)</td><td class="r">${fmtTime(snow.months)}</td><td class="r">${£(snow.totalInterest)}</td><td class="r">${£(snow.totalPaid)}</td></tr>
+    </tbody></table>
+    <div class="hint" style="margin-top:6px">Using ${best} with £${extra}/mo extra saves you <strong class="green">${£(saved)}</strong> in interest vs minimum payments only.</div>
+  `;
+});
+
+// ═══════════════════════════════════════════════
+// ASSETS
+// ═══════════════════════════════════════════════
+document.getElementById('addAstBtn').addEventListener('click', async ()=>{
+  const name=document.getElementById('astName').value.trim();
+  const amount=parseFloat(document.getElementById('astAmt').value);
+  const asOf=document.getElementById('astDate').value||null;
+  if(!name||isNaN(amount))return;
+  await db.assets.add({name,amount,asOf});
+  document.getElementById('astName').value='';document.getElementById('astAmt').value='';
+  refreshAll();
+});
+
+async function renderAssets(){
+  const rows=await db.assets.orderBy('name').toArray();
+  document.getElementById('astBody').innerHTML=rows.map(r=>`<tr><td>${r.name}</td><td class="r">${£(r.amount)}</td><td>${fmtDate(r.asOf)}</td><td class="r"><button class="ghost danger sm" onclick="del('assets',${r.id})">✕</button></td></tr>`).join('');
+  return rows.reduce((s,r)=>s+(r.amount||0),0);
+}
+
+// ═══════════════════════════════════════════════
+// SUMMARY DASHBOARD
+// ═══════════════════════════════════════════════
+async function renderSummary(totalIncome,totalFixed,totalVar,totalSubs,totalDebt,totalAssets){
+  const totalExpenses=totalFixed+totalVar;
+  const net=totalIncome-totalExpenses;
+  const netWorth=totalAssets-totalDebt;
+  const fixedRatio=totalIncome>0?((totalFixed/totalIncome)*100).toFixed(0):0;
+  const subsMonthly=totalSubs;
+
+  document.getElementById('summaryGrid').innerHTML=`
+    <div class="sum-item"><div class="sum-label">Income</div><div class="sum-val green">${£(totalIncome)}</div></div>
+    <div class="sum-item"><div class="sum-label">Fixed Expenses</div><div class="sum-val">${£(totalFixed)}</div></div>
+    <div class="sum-item"><div class="sum-label">Variable Expenses</div><div class="sum-val">${£(totalVar)}</div></div>
+    <div class="sum-item"><div class="sum-label">Net Position</div><div class="sum-val ${net>=0?'green':'red'}">${£(net)}</div><div class="sum-note">${net>=0?'Surplus':'Deficit'}</div></div>
+    <div class="sum-item"><div class="sum-label">Subscriptions /mo</div><div class="sum-val">${£(subsMonthly)}</div></div>
+    <div class="sum-item"><div class="sum-label">Total Debt</div><div class="sum-val red">${£(totalDebt)}</div></div>
+    <div class="sum-item"><div class="sum-label">Total Assets</div><div class="sum-val">${£(totalAssets)}</div></div>
+    <div class="sum-item"><div class="sum-label">Net Worth</div><div class="sum-val ${netWorth>=0?'green':'red'}">${£(netWorth)}</div></div>
+    <div class="sum-item"><div class="sum-label">Fixed / Income</div><div class="sum-val ${fixedRatio>50?'red':'green'}">${fixedRatio}%</div><div class="sum-note">Target: &lt;50%</div></div>
+  `;
+}
+
+// ═══════════════════════════════════════════════
+// GENERIC DELETE
+// ═══════════════════════════════════════════════
+window.del = async (table,id)=>{await db[table].delete(id);refreshAll()};
+
+// ═══════════════════════════════════════════════
+// REFRESH ALL
+// ═══════════════════════════════════════════════
+async function refreshAll(){
+  const[totalIncome,totalFixed,totalVar,totalSubs,totalDebt,totalAssets]=await Promise.all([
+    renderIncome(),renderFixed(),renderVariable(),renderSubs(),renderDebts(),renderAssets()
+  ]);
+  await renderCategories();
+  await renderSummary(totalIncome,totalFixed,totalVar,totalSubs,totalDebt,totalAssets);
+}
+
+// ═══════════════════════════════════════════════
+// EXPORT / IMPORT / RESET
+// ═══════════════════════════════════════════════
+document.getElementById('exportBtn').addEventListener('click', async ()=>{
+  const payload={meta:{version:2,exportedAt:new Date().toISOString()},
+    income:await db.income.toArray(),fixedSpends:await db.fixedSpends.toArray(),
+    variableSpends:await db.variableSpends.toArray(),subscriptions:await db.subscriptions.toArray(),
+    debts:await db.debts.toArray(),statements:await db.statements.toArray(),
+    assets:await db.assets.toArray(),categories:await db.categories.toArray()};
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='budget-backup-'+new Date().toISOString().slice(0,10)+'.json';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+});
+
+document.getElementById('importFile').addEventListener('change', async e=>{
+  const file=e.target.files[0];if(!file)return;
+  let data;
+  try{data=JSON.parse(await file.text())}catch{alert('Invalid JSON');return}
+  if(!confirm('Import will merge data into current database. Continue?'))return;
+  const strip=arr=>arr.map(({id,...rest})=>rest);
+  if(Array.isArray(data.income))await db.income.bulkAdd(strip(data.income));
+  if(Array.isArray(data.fixedSpends))await db.fixedSpends.bulkAdd(strip(data.fixedSpends));
+  if(Array.isArray(data.variableSpends))await db.variableSpends.bulkAdd(strip(data.variableSpends));
+  if(Array.isArray(data.subscriptions))await db.subscriptions.bulkAdd(strip(data.subscriptions));
+  if(Array.isArray(data.debts))await db.debts.bulkAdd(strip(data.debts));
+  if(Array.isArray(data.statements))await db.statements.bulkAdd(strip(data.statements));
+  if(Array.isArray(data.assets))await db.assets.bulkAdd(strip(data.assets));
+  if(Array.isArray(data.categories))await db.categories.bulkAdd(strip(data.categories));
+  refreshAll();e.target.value='';
+});
+
+document.getElementById('resetBtn').addEventListener('click', async ()=>{
+  if(!confirm('Permanently delete ALL data? Export first!'))return;
+  await Promise.all([db.income.clear(),db.fixedSpends.clear(),db.variableSpends.clear(),
+    db.subscriptions.clear(),db.debts.clear(),db.statements.clear(),db.assets.clear(),db.categories.clear()]);
+  refreshAll();
+});
+
+// ═══════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════
+initPeriod();
+refreshAll();
+</script>
+</body>
+</html>
