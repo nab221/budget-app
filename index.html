@@ -97,7 +97,21 @@
 
           <!-- SUBSCRIPTIONS -->
           <div class="tab-panel" data-panel="subs">
-            <table class="tbl"><thead><tr><th>Name</th><th class="r">Amount</th><th>Freq</th><th></th></tr></thead><tbody id="subBody"></tbody></table>
+            <div class="form-row">
+              <div><label>Name</label><input id="subName" type="text" placeholder="e.g. Netflix"/></div>
+              <div><label>Category</label><select id="subCat"></select></div>
+              <div><label>Amount (£)</label><input id="subAmt" type="number" step="0.01"/></div>
+              <div><label>Freq</label>
+                <select id="subFreq">
+                  <option value="monthly">Monthly</option>
+                  <option value="quarterly">Quarterly</option>
+                  <option value="annual">Annual</option>
+                </select>
+              </div>
+              <div><label>Next Date</label><input id="subNextDate" type="date"/></div>
+              <div style="display:flex;align-items:flex-end"><button id="addSubBtn" class="primary">+ Add</button></div>
+            </div>
+            <table class="tbl"><thead><tr><th>Name</th><th>Category</th><th class="r">Amount</th><th>Freq</th><th>Next Date</th><th class="r">Monthly Eq.</th><th></th></tr></thead><tbody id="subBody"></tbody></table>
           </div>
 
           <!-- DEBTS -->
