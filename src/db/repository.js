@@ -196,6 +196,30 @@ export const netWorthRepository = {
   ...createBaseRepository(db.netWorthSnapshots, ['totalAssets', 'totalDebt', 'netWorth']),
   async getByMonth(monthStr) {
     return await db.netWorthSnapshots.where('month').equals(monthStr).first();
+  },
+  async checkAndTakeSnapshot() {
+    const today = new Date().toISOString().slice(0, 7); // YYYY-MM
+    const existing = await this.getByMonth(today);
+    
+    if (existing) return;
+
+    const [debts, assets] = await Promise.all([
+      db.debts.toArray(),
+      db.assets.toArray()
+    ]);
+
+    const totalDebt = debts.reduce((acc, curr) => acc + (curr.currentBalance || 0), 0);
+    const totalAssets = assets.reduce((acc, curr) => acc + (curr.currentBalance || 0), 0);
+
+    await db.netWorthSnapshots.add({
+      month: today,
+      totalAssets,
+      totalDebt,
+      netWorth: totalAssets - totalDebt,
+      timestamp: new Date().toISOString()
+    });
+    
+    console.log(`Snapshot taken for ${today}`);
   }
 };
 
@@ -236,6 +260,15 @@ export async function getDashboardData(periodType, targetMonth) {
 
   const sum = (arr, field = 'amount') => arr.reduce((acc, curr) => acc + (curr[field] || 0), 0);
 
+  // Group spending by categoryId
+  const categorySpending = {};
+  [...fixedList, ...variableList].forEach(spend => {
+    const cid = spend.categoryId;
+    if (cid) {
+      categorySpending[cid] = (categorySpending[cid] || 0) + (spend.amount || 0);
+    }
+  });
+
   const incomeTotal = sum(incomeList);
   const fixedTotal = sum(fixedList);
   const variableTotal = sum(variableList);
@@ -252,6 +285,7 @@ export async function getDashboardData(periodType, targetMonth) {
     totalDebt,
     totalAssets,
     netWorth: totalAssets - totalDebt,
-    fixedToIncomeRatio: incomeTotal > 0 ? Math.round((fixedTotal / incomeTotal) * 100) : 0
+    fixedToIncomeRatio: incomeTotal > 0 ? Math.round((fixedTotal / incomeTotal) * 100) : 0,
+    categorySpending
   };
 }

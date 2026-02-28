@@ -1,7 +1,7 @@
 import { initTheme, toggleTheme } from './ui/theme';
 import { ensurePersistence } from './utils/storage';
 import { categoryUI } from './ui/categories';
-import { categoryRepository } from './db/repository';
+import { categoryRepository, netWorthRepository } from './db/repository';
 import { transactionUI } from './ui/transactions';
 import { subscriptionUI } from './ui/subscriptions';
 import { debtUI } from './ui/debts';
@@ -101,6 +101,9 @@ async function init() {
   // 5. Initialize UI Modules
   // First seed defaults if necessary
   await categoryRepository.seedDefaultCategories();
+  
+  // Take monthly snapshot
+  await netWorthRepository.checkAndTakeSnapshot();
   
   // Then init all modules
   await categoryUI.init();

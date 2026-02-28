@@ -45,6 +45,17 @@
         <div class="sum-grid" id="summaryGrid">
           <!-- Summary items will be rendered here -->
         </div>
+
+        <div class="grid2" style="margin-top:20px; gap:20px; border-top:1px solid var(--border); padding-top:20px">
+          <div>
+            <h3 style="font-size:.9rem; margin-bottom:12px">Budget Progress</h3>
+            <div id="dashboardProgress" class="hint">Set targets in Settings to see progress.</div>
+          </div>
+          <div>
+            <h3 style="font-size:.9rem; margin-bottom:12px">Net Worth History</h3>
+            <div id="dashboardSnapshots" class="hint">No snapshots recorded yet.</div>
+          </div>
+        </div>
       </section>
 
       <!-- ════════ MAIN CONTENT / TABS ════════ -->
@@ -91,6 +102,11 @@
               <div id="payoffTableContainer">
                 <!-- Comparison table or list here -->
               </div>
+            </div>
+
+            <!-- Balance Transfer Modeler -->
+            <div id="btModelerContainer" style="margin-top:20px">
+              <!-- Rendered by renderBTModeler in payoff.js -->
             </div>
           </div>
 

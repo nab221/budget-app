@@ -1,4 +1,4 @@
-import { getDashboardData, debtRepository } from '../db/repository.js';
+import { getDashboardData, debtRepository, categoryRepository, targetRepository, netWorthRepository } from '../db/repository.js';
 import { formatGBP } from '../utils/currency.js';
 import { simulatePayoff } from '../utils/finance.js';
 
@@ -57,4 +57,97 @@ export async function renderDashboard(containerId, periodType, targetMonth) {
       </div>
     </div>
   `).join('');
+
+  // Also render progress bars and snapshots
+  renderProgressBars(data.categorySpending);
+  renderSnapshots();
+}
+
+/**
+ * Renders category budget progress bars on the dashboard.
+ * @param {Object} categorySpending - Map of categoryId -> spentPence
+ */
+async function renderProgressBars(categorySpending) {
+  const container = document.getElementById('dashboardProgress');
+  if (!container) return;
+
+  const [categories, targets] = await Promise.all([
+    categoryRepository.getCategories(),
+    targetRepository.getAll()
+  ]);
+
+  const targetMap = new Map(targets.map(t => [t.categoryId, t.amount]));
+  const categoriesWithTargets = categories.filter(c => targetMap.has(c.id));
+
+  if (categoriesWithTargets.length === 0) {
+    container.innerHTML = '<div class="hint">Set targets in Settings to see progress.</div>';
+    return;
+  }
+
+  container.innerHTML = categoriesWithTargets.map(cat => {
+    const actual = categorySpending[cat.id] || 0;
+    const target = targetMap.get(cat.id);
+    const percent = Math.min(Math.round((actual / target) * 100), 100);
+    const isOver = actual > target;
+    
+    let barColor = 'var(--success)';
+    if (percent >= 100) barColor = 'var(--danger)';
+    else if (percent >= 80) barColor = 'var(--warn)';
+
+    return `
+      <div style="margin-bottom:12px">
+        <div style="display:flex; justify-content:space-between; font-size:.8rem; margin-bottom:4px">
+          <span>${cat.name}</span>
+          <span style="font-weight:600; color:${isOver ? 'var(--danger)' : 'inherit'}">
+            ${formatGBP(actual)} / ${formatGBP(target)}
+          </span>
+        </div>
+        <div style="height:8px; background:var(--bg-alt); border-radius:4px; overflow:hidden">
+          <div style="height:100%; width:${percent}%; background:${barColor}"></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+/**
+ * Renders historical net worth snapshots on the dashboard.
+ */
+async function renderSnapshots() {
+  const container = document.getElementById('dashboardSnapshots');
+  if (!container) return;
+
+  const snapshots = await netWorthRepository.getAll();
+  // Sort by month descending
+  snapshots.sort((a, b) => b.month.localeCompare(a.month));
+
+  if (snapshots.length === 0) {
+    container.innerHTML = '<div class="hint">Waiting for first monthly snapshot...</div>';
+    return;
+  }
+
+  container.innerHTML = `
+    <table class="tbl" style="font-size:.8rem">
+      <thead>
+        <tr>
+          <th>Month</th>
+          <th class="r">Assets</th>
+          <th class="r">Debt</th>
+          <th class="r">Net Worth</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${snapshots.slice(0, 6).map(s => `
+          <tr>
+            <td>${s.month}</td>
+            <td class="r">${formatGBP(s.totalAssets)}</td>
+            <td class="r" style="color:var(--danger)">${formatGBP(s.totalDebt)}</td>
+            <td class="r" style="font-weight:600; color:${s.netWorth >= 0 ? 'var(--success)' : 'var(--danger)'}">
+              ${formatGBP(s.netWorth)}
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
 }
