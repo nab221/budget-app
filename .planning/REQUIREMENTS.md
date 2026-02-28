@@ -160,34 +160,95 @@
 
 ## Traceability
 
-*Populated during roadmap creation.*
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FOUND-01 to FOUND-04 | Phase 1 | Pending |
-| CAT-01 to CAT-04 | Phase 1 | Pending |
-| INC-01 to INC-04 | Phase 2 | Pending |
-| FIXED-01 to FIXED-04 | Phase 2 | Pending |
-| VAR-01 to VAR-04 | Phase 2 | Pending |
-| SUB-01 to SUB-04 | Phase 2 | Pending |
-| REC-01 to REC-04 | Phase 2 | Pending |
-| DEBT-01 to DEBT-06 | Phase 2 | Pending |
-| PAY-01 to PAY-05 | Phase 3 | Pending |
-| BT-01 to BT-03 | Phase 3 | Pending |
-| ASSET-01 to ASSET-03 | Phase 2 | Pending |
-| DASH-01 to DASH-05 | Phase 3 | Pending |
-| CHART-01 to CHART-02 | Phase 4 | Pending |
-| THEME-01 to THEME-02 | Phase 4 | Pending |
-| DATA-01 to DATA-05 | Phase 2 | Pending |
-| CLOUD-01 to CLOUD-04 | Phase 6 | Pending |
-| PDF-01 to PDF-05 | Phase 5 | Pending |
-| PWA-01 to PWA-04 | Phase 4 | Pending |
+| FOUND-01 | Phase 1 | Pending |
+| FOUND-02 | Phase 1 | Pending |
+| FOUND-03 | Phase 1 | Pending |
+| FOUND-04 | Phase 1 | Pending |
+| CAT-01 | Phase 1 | Pending |
+| CAT-02 | Phase 1 | Pending |
+| CAT-03 | Phase 1 | Pending |
+| CAT-04 | Phase 1 | Pending |
+| THEME-01 | Phase 1 | Pending |
+| THEME-02 | Phase 1 | Pending |
+| INC-01 | Phase 2 | Pending |
+| INC-02 | Phase 2 | Pending |
+| INC-03 | Phase 2 | Pending |
+| INC-04 | Phase 2 | Pending |
+| FIXED-01 | Phase 2 | Pending |
+| FIXED-02 | Phase 2 | Pending |
+| FIXED-03 | Phase 2 | Pending |
+| FIXED-04 | Phase 2 | Pending |
+| VAR-01 | Phase 2 | Pending |
+| VAR-02 | Phase 2 | Pending |
+| VAR-03 | Phase 2 | Pending |
+| VAR-04 | Phase 2 | Pending |
+| SUB-01 | Phase 2 | Pending |
+| SUB-02 | Phase 2 | Pending |
+| SUB-03 | Phase 2 | Pending |
+| SUB-04 | Phase 2 | Pending |
+| REC-01 | Phase 2 | Pending |
+| REC-02 | Phase 2 | Pending |
+| REC-03 | Phase 2 | Pending |
+| REC-04 | Phase 2 | Pending |
+| DEBT-01 | Phase 2 | Pending |
+| DEBT-02 | Phase 2 | Pending |
+| DEBT-03 | Phase 2 | Pending |
+| DEBT-04 | Phase 2 | Pending |
+| DEBT-05 | Phase 2 | Pending |
+| DEBT-06 | Phase 2 | Pending |
+| ASSET-01 | Phase 2 | Pending |
+| ASSET-02 | Phase 2 | Pending |
+| ASSET-03 | Phase 2 | Pending |
+| DATA-01 | Phase 2 | Pending |
+| DATA-02 | Phase 2 | Pending |
+| DATA-03 | Phase 2 | Pending |
+| DATA-04 | Phase 2 | Pending |
+| DATA-05 | Phase 2 | Pending |
+| PAY-01 | Phase 3 | Pending |
+| PAY-02 | Phase 3 | Pending |
+| PAY-03 | Phase 3 | Pending |
+| PAY-04 | Phase 3 | Pending |
+| PAY-05 | Phase 3 | Pending |
+| BT-01 | Phase 3 | Pending |
+| BT-02 | Phase 3 | Pending |
+| BT-03 | Phase 3 | Pending |
+| DASH-01 | Phase 3 | Pending |
+| DASH-02 | Phase 3 | Pending |
+| DASH-03 | Phase 3 | Pending |
+| DASH-04 | Phase 3 | Pending |
+| DASH-05 | Phase 3 | Pending |
+| CHART-01 | Phase 4 | Pending |
+| CHART-02 | Phase 4 | Pending |
+| PWA-01 | Phase 4 | Pending |
+| PWA-02 | Phase 4 | Pending |
+| PWA-03 | Phase 4 | Pending |
+| PWA-04 | Phase 4 | Pending |
+| PDF-01 | Phase 5 | Pending |
+| PDF-02 | Phase 5 | Pending |
+| PDF-03 | Phase 5 | Pending |
+| PDF-04 | Phase 5 | Pending |
+| PDF-05 | Phase 5 | Pending |
+| CLOUD-01 | Phase 6 | Pending |
+| CLOUD-02 | Phase 6 | Pending |
+| CLOUD-03 | Phase 6 | Pending |
+| CLOUD-04 | Phase 6 | Pending |
 
 **Coverage:**
-- v1 requirements: 63 total
-- Mapped to phases: 63
-- Unmapped: 0 ✓
+- v1 requirements: 72 total
+- Mapped to phases: 72
+- Unmapped: 0
+
+| Phase | Requirements |
+|-------|-------------|
+| Phase 1: Foundation | FOUND-01 to FOUND-04, CAT-01 to CAT-04, THEME-01 to THEME-02 (10 total) |
+| Phase 2: Core Budget Features | INC-01 to INC-04, FIXED-01 to FIXED-04, VAR-01 to VAR-04, SUB-01 to SUB-04, REC-01 to REC-04, DEBT-01 to DEBT-06, ASSET-01 to ASSET-03, DATA-01 to DATA-05 (34 total) |
+| Phase 3: Dashboard, Payoff Planner, Budget Targets | PAY-01 to PAY-05, BT-01 to BT-03, DASH-01 to DASH-05 (13 total) |
+| Phase 4: PWA and Charts | CHART-01 to CHART-02, PWA-01 to PWA-04 (6 total) |
+| Phase 5: PDF Bank Statement Import | PDF-01 to PDF-05 (5 total) |
+| Phase 6: Cloud Backup | CLOUD-01 to CLOUD-04 (4 total) |
 
 ---
 *Requirements defined: 2026-02-28*
-*Last updated: 2026-02-28 after initial definition*
+*Last updated: 2026-02-28 after roadmap creation — traceability populated, count corrected to 72*
