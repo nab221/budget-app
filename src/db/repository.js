@@ -1,4 +1,5 @@
 import { db } from './schema.js';
+import { toPence } from '../utils/currency.js';
 
 /**
  * Category Repository
@@ -86,3 +87,94 @@ export const categoryRepository = {
   }
 };
 
+/**
+ * Base Repository implementation for standard CRUD
+ */
+const createBaseRepository = (table, amountFields = ['amount']) => ({
+  async get(id) {
+    return await table.get(id);
+  },
+
+  async getAll() {
+    return await table.toArray();
+  },
+
+  async add(data) {
+    const toSave = { ...data };
+    for (const field of amountFields) {
+      if (toSave[field] !== undefined) {
+        toSave[field] = toPence(toSave[field]);
+      }
+    }
+    return await table.add(toSave);
+  },
+
+  async update(id, data) {
+    const toUpdate = { ...data };
+    for (const field of amountFields) {
+      if (toUpdate[field] !== undefined) {
+        toUpdate[field] = toPence(toUpdate[field]);
+      }
+    }
+    return await table.update(id, toUpdate);
+  },
+
+  async delete(id) {
+    return await table.delete(id);
+  }
+});
+
+/**
+ * Income Repository
+ */
+export const incomeRepository = {
+  ...createBaseRepository(db.income),
+  async getByMonth(monthStr) {
+    return await db.income.where('date').startsWith(monthStr).toArray();
+  }
+};
+
+/**
+ * Fixed Spends Repository
+ */
+export const fixedSpendRepository = {
+  ...createBaseRepository(db.fixedSpends),
+  async getByMonth(monthStr) {
+    return await db.fixedSpends.where('date').startsWith(monthStr).toArray();
+  }
+};
+
+/**
+ * Variable Spends Repository
+ */
+export const variableSpendRepository = {
+  ...createBaseRepository(db.variableSpends),
+  async getByMonth(monthStr) {
+    return await db.variableSpends.where('date').startsWith(monthStr).toArray();
+  }
+};
+
+/**
+ * Subscription Repository
+ */
+export const subscriptionRepository = createBaseRepository(db.subscriptions);
+
+/**
+ * Debt Repository
+ */
+export const debtRepository = createBaseRepository(db.debts, ['currentBalance', 'creditLimit']);
+
+/**
+ * Asset Repository
+ */
+export const assetRepository = createBaseRepository(db.assets, ['currentBalance']);
+
+/**
+ * Recurring Template Repository
+ */
+export const recurringTemplateRepository = createBaseRepository(db.recurringTemplates);
+
+/**
+ * Statement Repository
+ */
+export const statementRepository = createBaseRepository(db.statements, ['amount', 'interest', 'fees']);
