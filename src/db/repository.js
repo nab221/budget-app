@@ -178,3 +178,18 @@ export const recurringTemplateRepository = createBaseRepository(db.recurringTemp
  * Statement Repository
  */
 export const statementRepository = createBaseRepository(db.statements, ['amount', 'interest', 'fees']);
+
+/**
+ * Target Repository
+ */
+export const targetRepository = createBaseRepository(db.targets);
+
+/**
+ * Net Worth Snapshot Repository
+ */
+export const netWorthRepository = {
+  ...createBaseRepository(db.netWorthSnapshots, ['totalAssets', 'totalDebt', 'netWorth']),
+  async getByMonth(monthStr) {
+    return await db.netWorthSnapshots.where('month').equals(monthStr).first();
+  }
+};

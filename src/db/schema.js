@@ -69,6 +69,21 @@ db.version(2).stores({
   });
 });
 
+// Define version 3 schema with targets and snapshots
+db.version(3).stores({
+  income: '++id, date, source, amount, categoryId',
+  fixedSpends: '++id, date, categoryId, label, amount, status',
+  variableSpends: '++id, date, categoryId, note, amount',
+  subscriptions: '++id, name, amount, categoryId, frequency, nextDate',
+  recurringTemplates: '++id, name, amount, categoryId, frequency, type',
+  debts: '++id, name, type, apr, creditLimit, currentBalance',
+  statements: '++id, debtId, date, amount, interest, fees',
+  assets: '++id, name, type, asOfDate, currentBalance',
+  categories: '++id, name, group',
+  targets: '++id, categoryId, amount',
+  netWorthSnapshots: '++id, month, totalAssets, totalDebt, netWorth'
+});
+
 // Handle schema updates in other tabs
 db.on('versionchange', function() {
   db.close();
