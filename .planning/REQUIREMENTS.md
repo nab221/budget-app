@@ -126,10 +126,10 @@
 
 ### PWA
 
-- [ ] **PWA-01**: App has a valid PWA manifest (name, icons, theme colour, display: standalone)
-- [ ] **PWA-02**: App works fully offline after first load (service worker precaches all assets)
+- [x] **PWA-01**: App has a valid PWA manifest (name, icons, theme colour, display: standalone)
+- [x] **PWA-02**: App works fully offline after first load (service worker precaches all assets)
 - [ ] **PWA-03**: App shows a custom "Add to Home Screen" banner on iOS Safari (since beforeinstallprompt does not fire on iOS)
-- [ ] **PWA-04**: App prompts user to refresh when a new version is available (service worker update flow)
+- [x] **PWA-04**: App prompts user to refresh when a new version is available (service worker update flow)
 
 ---
 
@@ -221,10 +221,10 @@
 | DASH-05 | Phase 3 | Completed |
 | CHART-01 | Phase 4 | Complete |
 | CHART-02 | Phase 4 | Pending |
-| PWA-01 | Phase 4 | Pending |
-| PWA-02 | Phase 4 | Pending |
+| PWA-01 | Phase 4 | Complete |
+| PWA-02 | Phase 4 | Complete |
 | PWA-03 | Phase 4 | Pending |
-| PWA-04 | Phase 4 | Pending |
+| PWA-04 | Phase 4 | Complete |
 | PDF-01 | Phase 5 | Pending |
 | PDF-02 | Phase 5 | Pending |
 | PDF-03 | Phase 5 | Pending |

@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-02-28T21:30:00.000Z"
+last_updated: "2026-02-28T22:52:55.403Z"
 progress:
-  total_phases: 6
+  total_phases: 4
   completed_phases: 3
-  total_plans: 12
-  completed_plans: 13
+  total_plans: 15
+  completed_plans: 14
 ---
 
 # Project State
@@ -49,6 +49,8 @@ Progress: [▓▓▓▓▓░░░░░] 54%
 
 *Updated after each plan completion*
 
+| Phase 04-pwa-and-charts P01 | 8 min | 2 tasks | 7 files |
+
 ## Accumulated Context
 
 ### Decisions
@@ -63,6 +65,8 @@ Recent decisions affecting current work:
 - [Phase 04-02]: Chart.js tree-shaken — register only CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip, Legend to keep bundle small.
 - [Phase 04-02]: Okabe-Ito palette for color-blind accessibility: Income=#0072B2 (Blue), Fixed=#D55E00 (Orange), Variable=#F0E442 (Yellow).
 - [Phase 04-02]: Chart instances tracked in module Map and destroyed before re-render to avoid canvas-already-in-use errors.
+- [Phase 04-pwa-and-charts]: registerType=prompt chosen over autoUpdate to avoid unexpected page reloads on mobile during form entry
+- [Phase 04-pwa-and-charts]: Install button hidden by default, only shown when beforeinstallprompt fires — gracefully handles iOS Safari and already-installed contexts
 
 ### Pending Todos
 
