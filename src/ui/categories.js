@@ -140,6 +140,7 @@ export const categoryUI = {
   updateDropdowns(categories) {
     const fixCatDropdown = document.getElementById('fixCat');
     const varCatDropdown = document.getElementById('varCat');
+    const subCatDropdown = document.getElementById('subCat');
 
     if (fixCatDropdown) {
       const fixedCats = categories.filter(c => c.group === 'fixed');
@@ -149,6 +150,12 @@ export const categoryUI = {
     if (varCatDropdown) {
       const varCats = categories.filter(c => c.group === 'variable');
       this.populateDropdown(varCatDropdown, varCats);
+    }
+
+    if (subCatDropdown) {
+      // Subscriptions are usually fixed categories
+      const fixedCats = categories.filter(c => c.group === 'fixed');
+      this.populateDropdown(subCatDropdown, fixedCats);
     }
     
     // Phase 1 Task 2.4: "Implement a way to populate the Fixed and Variable spending dropdowns 
