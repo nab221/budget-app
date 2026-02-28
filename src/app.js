@@ -6,6 +6,8 @@ import { transactionUI } from './ui/transactions';
 import { subscriptionUI } from './ui/subscriptions';
 import { debtUI } from './ui/debts';
 import { assetUI } from './ui/assets';
+import { templateUI } from './ui/templates';
+import { backupUI } from './ui/backup';
 
 /**
  * Main application entry point.
@@ -56,7 +58,10 @@ async function init() {
       if (panelId === 'subs') await subscriptionUI.render();
       if (panelId === 'debts') await debtUI.render();
       if (panelId === 'assets') await assetUI.render();
-      if (panelId === 'settings') await categoryUI.render();
+      if (panelId === 'settings') {
+        await categoryUI.render();
+        await templateUI.renderTemplates();
+      }
     });
   }
 
@@ -79,6 +84,8 @@ async function init() {
   await subscriptionUI.init();
   await debtUI.init();
   await assetUI.init();
+  await templateUI.init();
+  await backupUI.init();
 
   console.log('Budget App ready');
 }
