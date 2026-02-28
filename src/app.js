@@ -4,6 +4,8 @@ import { categoryUI } from './ui/categories';
 import { categoryRepository } from './db/repository';
 import { transactionUI } from './ui/transactions';
 import { subscriptionUI } from './ui/subscriptions';
+import { debtUI } from './ui/debts';
+import { assetUI } from './ui/assets';
 
 /**
  * Main application entry point.
@@ -37,16 +39,24 @@ async function init() {
 
   const mainTabs = document.getElementById('mainTabs');
   if (mainTabs) {
-    mainTabs.addEventListener('click', e => {
+    mainTabs.addEventListener('click', async (e) => {
       const t = e.target.closest('.tab');
       if (!t) return;
       
       document.querySelectorAll('#mainTabs .tab').forEach(x => x.classList.remove('active'));
       t.classList.add('active');
       
+      const panelId = t.dataset.tab;
       document.querySelectorAll('.tab-panel').forEach(p => {
-        p.classList.toggle('active', p.dataset.panel === t.dataset.tab);
+        p.classList.toggle('active', p.dataset.panel === panelId);
       });
+
+      // Refresh data when switching tabs
+      if (panelId === 'income' || panelId === 'fixed' || panelId === 'variable') await transactionUI.render();
+      if (panelId === 'subs') await subscriptionUI.render();
+      if (panelId === 'debts') await debtUI.render();
+      if (panelId === 'assets') await assetUI.render();
+      if (panelId === 'settings') await categoryUI.render();
     });
   }
 
@@ -67,6 +77,8 @@ async function init() {
   await categoryUI.init();
   await transactionUI.init();
   await subscriptionUI.init();
+  await debtUI.init();
+  await assetUI.init();
 
   console.log('Budget App ready');
 }
