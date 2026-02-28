@@ -182,7 +182,12 @@ export const statementRepository = createBaseRepository(db.statements, ['amount'
 /**
  * Target Repository
  */
-export const targetRepository = createBaseRepository(db.targets);
+export const targetRepository = {
+  ...createBaseRepository(db.targets),
+  async getByCategory(categoryId) {
+    return await db.targets.where('categoryId').equals(Number(categoryId)).first();
+  }
+};
 
 /**
  * Net Worth Snapshot Repository
