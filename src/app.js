@@ -1,9 +1,11 @@
 import { initTheme, toggleTheme } from './ui/theme';
 import { ensurePersistence } from './utils/storage';
+import { categoryUI } from './ui/categories';
+import { categoryRepository } from './db/repository';
 
 /**
  * Main application entry point.
- * Initializes core services: Theme and Storage Persistence.
+ * Initializes core services: Theme, Storage Persistence, and UI Modules.
  */
 async function init() {
   console.log('Budget App initializing...');
@@ -11,7 +13,7 @@ async function init() {
   // 1. Initialize Theme
   initTheme();
   
-  // 2. Bind UI elements
+  // 2. Bind Global UI elements
   const themeToggle = document.getElementById('themeToggle');
   if (themeToggle) {
     themeToggle.addEventListener('click', () => {
@@ -20,7 +22,23 @@ async function init() {
     });
   }
 
-  // 3. Ensure Storage Persistence (Safari/Mobile mitigation)
+  // 3. Tab Navigation
+  const mainTabs = document.getElementById('mainTabs');
+  if (mainTabs) {
+    mainTabs.addEventListener('click', e => {
+      const t = e.target.closest('.tab');
+      if (!t) return;
+      
+      document.querySelectorAll('#mainTabs .tab').forEach(x => x.classList.remove('active'));
+      t.classList.add('active');
+      
+      document.querySelectorAll('.tab-panel').forEach(p => {
+        p.classList.toggle('active', p.dataset.panel === t.dataset.tab);
+      });
+    });
+  }
+
+  // 4. Ensure Storage Persistence (Safari/Mobile mitigation)
   const isPersisted = await ensurePersistence();
   if (!isPersisted) {
     const warning = document.getElementById('persistence-warning');
@@ -29,11 +47,11 @@ async function init() {
     }
   }
 
-  // 4. Initial render placeholder
-  const appContainer = document.getElementById('app');
-  if (appContainer) {
-    appContainer.innerHTML = '<p>Shell loaded. Ready for data modules.</p>';
-  }
+  // 5. Initialize Category Module
+  // First seed defaults if necessary
+  await categoryRepository.seedDefaultCategories();
+  // Then init UI
+  await categoryUI.init();
 
   console.log('Budget App ready');
 }

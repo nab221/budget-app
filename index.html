@@ -60,8 +60,83 @@
         </div>
 
         <div id="tab-content">
-          <!-- Individual tab panels (from budget-app.html) will go here after dynamic wiring -->
-          <div id="app">Loading...</div>
+          <!-- INCOME -->
+          <div class="tab-panel active" data-panel="income">
+            <div class="form-row">
+              <div><label>Date</label><input id="incDate" type="date"/></div>
+              <div><label>Source</label><input id="incSource" type="text" placeholder="e.g. Salary"/></div>
+              <div><label>Amount (£)</label><input id="incAmount" type="number" step="0.01"/></div>
+              <div style="display:flex;align-items:flex-end"><button id="addIncBtn" class="primary">+ Add</button></div>
+            </div>
+            <table class="tbl"><thead><tr><th>Date</th><th>Source</th><th class="r">Amount</th><th></th></tr></thead><tbody id="incBody"></tbody></table>
+          </div>
+
+          <!-- FIXED SPENDS -->
+          <div class="tab-panel" data-panel="fixed">
+            <div class="form-row">
+              <div><label>Date</label><input id="fixDate" type="date"/></div>
+              <div><label>Category</label><select id="fixCat"></select></div>
+              <div><label>Description</label><input id="fixLabel" type="text" placeholder="e.g. Rent"/></div>
+              <div><label>Amount (£)</label><input id="fixAmt" type="number" step="0.01"/></div>
+              <div style="display:flex;align-items:flex-end"><button id="addFixBtn" class="primary">+ Add</button></div>
+            </div>
+            <table class="tbl"><thead><tr><th>Date</th><th>Category</th><th>Description</th><th class="r">Amount</th><th></th></tr></thead><tbody id="fixBody"></tbody></table>
+          </div>
+
+          <!-- VARIABLE -->
+          <div class="tab-panel" data-panel="variable">
+            <div class="form-row">
+              <div><label>Date</label><input id="varDate" type="date"/></div>
+              <div><label>Category</label><select id="varCat"></select></div>
+              <div><label>Note</label><input id="varNote" type="text" placeholder="Optional"/></div>
+              <div><label>Amount (£)</label><input id="varAmt" type="number" step="0.01"/></div>
+              <div style="display:flex;align-items:flex-end"><button id="addVarBtn" class="primary">+ Add</button></div>
+            </div>
+            <table class="tbl"><thead><tr><th>Date</th><th>Category</th><th>Note</th><th class="r">Amount</th><th></th></tr></thead><tbody id="varBody"></tbody></table>
+          </div>
+
+          <!-- SUBSCRIPTIONS -->
+          <div class="tab-panel" data-panel="subs">
+            <table class="tbl"><thead><tr><th>Name</th><th class="r">Amount</th><th>Freq</th><th></th></tr></thead><tbody id="subBody"></tbody></table>
+          </div>
+
+          <!-- DEBTS -->
+          <div class="tab-panel" data-panel="debts">
+            <table class="tbl"><thead><tr><th>Name</th><th class="r">Balance</th><th class="r">Min Pay</th><th></th></tr></thead><tbody id="debtBody"></tbody></table>
+          </div>
+
+          <!-- ASSETS -->
+          <div class="tab-panel" data-panel="assets">
+            <table class="tbl"><thead><tr><th>Name</th><th class="r">Value</th><th></th></tr></thead><tbody id="astBody"></tbody></table>
+          </div>
+
+          <!-- SETTINGS -->
+          <div class="tab-panel" data-panel="settings">
+            <h3 style="font-size:.9rem;margin-bottom:8px">Manage Categories</h3>
+            <div class="hint">Categories appear in the dropdowns for Fixed Spends and Variable expenses. Add, rename or delete as needed.</div>
+            <div class="form-row" style="margin-bottom:8px">
+              <div><label>Group</label><select id="catGroup"><option value="fixed">Fixed</option><option value="variable">Variable</option></select></div>
+              <div><label>Category name</label><input id="catName" type="text" placeholder="e.g. Housing, Groceries"/></div>
+              <div style="display:flex;align-items:flex-end"><button id="addCatBtn" class="primary">+ Add Category</button></div>
+              <div style="display:flex;align-items:flex-end"><button id="seedCatsBtn" class="ghost">Seed defaults</button></div>
+            </div>
+            
+            <div class="grid2">
+              <div>
+                <h4 style="font-size:.8rem;color:var(--text-soft);margin-bottom:4px">Fixed Categories</h4>
+                <div id="fixedCatList"></div>
+              </div>
+              <div>
+                <h4 style="font-size:.8rem;color:var(--text-soft);margin-bottom:4px">Variable Categories</h4>
+                <div id="varCatList"></div>
+              </div>
+            </div>
+
+            <div style="margin-top:20px; padding-top:10px; border-top:1px solid var(--border)">
+              <h4 style="font-size:.8rem;color:var(--text-soft);margin-bottom:4px">Test Dropdown (Phase 1 Verification)</h4>
+              <select id="testDropdown"></select>
+            </div>
+          </div>
         </div>
       </section>
     </div>
