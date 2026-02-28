@@ -12,6 +12,12 @@
       ⚠️ <strong>Data Persistence Not Guaranteed:</strong> Your browser may purge your data to save space. Export regularly or add to your home screen.
     </div>
 
+    <!-- PWA Update Bar (shown when a new version is available) -->
+    <div id="update-bar" class="update-bar hidden">
+      <span>A new version is available.</span>
+      <button class="primary sm" onclick="location.reload()">Update now</button>
+    </div>
+
     <div class="shell">
       <!-- ════════ HEADER ════════ -->
       <header>
@@ -296,6 +302,14 @@
                 </thead>
                 <tbody id="tplBody"></tbody>
               </table>
+            </div>
+
+            <!-- Install App -->
+            <div style="margin-top:20px; padding-top:20px; border-top:1px solid var(--border)">
+              <h3 style="font-size:.9rem;margin-bottom:8px">Install App</h3>
+              <div class="hint" style="margin-bottom:10px">Install Budget Console on your device for quick offline access without opening a browser.</div>
+              <button id="installAppBtn" class="primary hidden">Install App</button>
+              <p id="installNotSupported" class="hint" style="display:none">Installation is not available in this browser or the app is already installed.</p>
             </div>
           </div>
         </div>

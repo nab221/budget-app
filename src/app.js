@@ -11,12 +11,16 @@ import { targetsUI } from './ui/targets';
 import { backupUI } from './ui/backup';
 import { renderDashboard } from './ui/dashboard';
 import { renderPayoffPlanner } from './ui/payoff';
+import { initPWA, installApp } from './ui/pwa-ux';
 
 /**
  * Main application entry point.
  */
 async function init() {
   console.log('Budget App initializing...');
+
+  // 0. Initialize PWA (service worker registration + install prompt interception)
+  initPWA();
 
   // 1. Initialize Theme
   initTheme();
@@ -116,6 +120,12 @@ async function init() {
 
   // Initial dashboard render
   refreshDashboard();
+
+  // 6. Install App button
+  const installBtn = document.getElementById('installAppBtn');
+  if (installBtn) {
+    installBtn.addEventListener('click', () => installApp());
+  }
 
   console.log('Budget App ready');
 }
