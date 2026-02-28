@@ -193,3 +193,60 @@ export const netWorthRepository = {
     return await db.netWorthSnapshots.where('month').equals(monthStr).first();
   }
 };
+
+/**
+ * Dashboard Data Aggregation
+ * @param {string} periodType - 'month', 'ytd', or 'all'
+ * @param {string} targetMonth - YYYY-MM string
+ * @returns {Promise<Object>}
+ */
+export async function getDashboardData(periodType, targetMonth) {
+  let incomeQuery = db.income;
+  let fixedQuery = db.fixedSpends;
+  let variableQuery = db.variableSpends;
+
+  if (periodType === 'month') {
+    incomeQuery = incomeQuery.where('date').startsWith(targetMonth);
+    fixedQuery = fixedQuery.where('date').startsWith(targetMonth);
+    variableQuery = variableQuery.where('date').startsWith(targetMonth);
+  } else if (periodType === 'ytd') {
+    const year = targetMonth.split('-')[0];
+    const startOfYear = `${year}-01-01`;
+    // Using a high day number to cover the end of the month
+    const endOfMonth = `${targetMonth}-31`; 
+    incomeQuery = incomeQuery.where('date').between(startOfYear, endOfMonth, true, true);
+    fixedQuery = fixedQuery.where('date').between(startOfYear, endOfMonth, true, true);
+    variableQuery = variableQuery.where('date').between(startOfYear, endOfMonth, true, true);
+  }
+  // For 'all', we use the full table (no .where())
+
+  const [incomeList, fixedList, variableList, subs, debts, assets] = await Promise.all([
+    incomeQuery.toArray(),
+    fixedQuery.toArray(),
+    variableQuery.toArray(),
+    db.subscriptions.toArray(),
+    db.debts.toArray(),
+    db.assets.toArray()
+  ]);
+
+  const sum = (arr, field = 'amount') => arr.reduce((acc, curr) => acc + (curr[field] || 0), 0);
+
+  const incomeTotal = sum(incomeList);
+  const fixedTotal = sum(fixedList);
+  const variableTotal = sum(variableList);
+  const totalSubscriptions = sum(subs);
+  const totalDebt = sum(debts, 'currentBalance');
+  const totalAssets = sum(assets, 'currentBalance');
+
+  return {
+    income: incomeTotal,
+    fixed: fixedTotal,
+    variable: variableTotal,
+    netPosition: incomeTotal - (fixedTotal + variableTotal),
+    totalSubscriptions,
+    totalDebt,
+    totalAssets,
+    netWorth: totalAssets - totalDebt,
+    fixedToIncomeRatio: incomeTotal > 0 ? Math.round((fixedTotal / incomeTotal) * 100) : 0
+  };
+}
