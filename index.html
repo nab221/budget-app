@@ -55,6 +55,7 @@
           <button class="tab" data-tab="variable">Variable</button>
           <button class="tab" data-tab="subs">Subscriptions</button>
           <button class="tab" data-tab="debts">Debts</button>
+          <button class="tab" data-tab="payoff">Payoff Planner</button>
           <button class="tab" data-tab="assets">Assets</button>
           <button class="tab" data-tab="settings">⚙ Settings</button>
         </div>
@@ -69,6 +70,28 @@
               <div style="display:flex;align-items:flex-end"><button id="addIncBtn" class="primary">+ Add</button></div>
             </div>
             <table class="tbl"><thead><tr><th>Date</th><th>Source</th><th class="r">Amount</th><th></th></tr></thead><tbody id="incBody"></tbody></table>
+          </div>
+
+          <!-- PAYOFF PLANNER -->
+          <div class="tab-panel" data-panel="payoff">
+            <div class="form-row" style="margin-bottom:20px; background:var(--bg-alt); padding:15px; border-radius:8px">
+              <div style="flex:1">
+                <label style="font-weight:600; margin-bottom:4px; display:block">Extra Monthly Payment (£)</label>
+                <div class="hint" style="margin-bottom:8px">Funds available each month <strong>on top of</strong> all minimum payments.</div>
+                <input id="payoffExtra" type="number" step="1" value="0" style="font-size:1.1rem; padding:8px; width:100%"/>
+              </div>
+            </div>
+
+            <div id="payoffComparison" class="grid3" style="gap:15px; margin-bottom:20px">
+              <!-- Strategy cards injected here -->
+            </div>
+
+            <div id="payoffDetails" class="card" style="padding:15px; border:1px solid var(--border)">
+              <h3 style="margin-bottom:10px">Strategy Details</h3>
+              <div id="payoffTableContainer">
+                <!-- Comparison table or list here -->
+              </div>
+            </div>
           </div>
 
           <!-- FIXED SPENDS -->
@@ -218,6 +241,10 @@
                 <h4 style="font-size:.8rem;color:var(--text-soft);margin-bottom:4px">Variable Categories</h4>
                 <div id="varCatList"></div>
               </div>
+            </div>
+
+            <div id="targetSettingsContainer">
+              <!-- Budget targets will be rendered here by targetsUI.js -->
             </div>
 
             <div style="margin-top:20px; padding-top:20px; border-top:1px solid var(--border)">

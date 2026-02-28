@@ -7,6 +7,7 @@ import { subscriptionUI } from './ui/subscriptions';
 import { debtUI } from './ui/debts';
 import { assetUI } from './ui/assets';
 import { templateUI } from './ui/templates';
+import { targetsUI } from './ui/targets';
 import { backupUI } from './ui/backup';
 import { renderDashboard } from './ui/dashboard';
 import { renderPayoffPlanner } from './ui/payoff';
@@ -80,6 +81,7 @@ async function init() {
       if (panelId === 'settings') {
         await categoryUI.render();
         await templateUI.renderTemplates();
+        await targetsUI.renderTargetSettings();
       }
       
       // Always refresh dashboard in case totals changed
