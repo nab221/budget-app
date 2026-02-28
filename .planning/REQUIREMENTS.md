@@ -65,17 +65,17 @@
 
 ### Payoff Planner
 
-- [ ] **PAY-01**: User can view Avalanche (highest APR first) payoff simulation with months to clear, total interest, total paid
-- [ ] **PAY-02**: User can view Snowball (smallest balance first) payoff simulation with the same metrics
-- [ ] **PAY-03**: User can view minimum-payments-only baseline side-by-side with Avalanche and Snowball
-- [ ] **PAY-04**: User can enter an extra monthly payment amount and instantly see updated time/interest savings for each strategy
-- [ ] **PAY-05**: Payoff simulation uses the same calcMinPayment() as the debt tracker (no diverging logic)
+- [x] **PAY-01**: User can view Avalanche (highest APR first) payoff simulation with months to clear, total interest, total paid
+- [x] **PAY-02**: User can view Snowball (smallest balance first) payoff simulation with the same metrics
+- [x] **PAY-03**: User can view minimum-payments-only baseline side-by-side with Avalanche and Snowball
+- [x] **PAY-04**: User can enter an extra monthly payment amount and instantly see updated time/interest savings for each strategy
+- [x] **PAY-05**: Payoff simulation uses the same calcMinPayment() as the debt tracker (no diverging logic)
 
 ### Balance-Transfer Modelling
 
-- [ ] **BT-01**: User can model a balance transfer by selecting a source debt, entering a 0% promotional period (months), transfer fee %, and optional fee cap
-- [ ] **BT-02**: App shows total cost (fee + any remaining interest after promo period) vs keeping current debt
-- [ ] **BT-03**: App shows recommended minimum monthly payment to clear balance within the 0% window
+- [x] **BT-01**: User can model a balance transfer by selecting a source debt, entering a 0% promotional period (months), transfer fee %, and optional fee cap
+- [x] **BT-02**: App shows total cost (fee + any remaining interest after promo period) vs keeping current debt
+- [x] **BT-03**: App shows recommended minimum monthly payment to clear balance within the 0% window
 
 ### Assets
 
@@ -85,15 +85,15 @@
 
 ### Dashboard
 
-- [ ] **DASH-01**: Dashboard shows 9 summary cards: total income, total fixed expenses, total variable expenses, net position, total subscriptions, total debt, total assets, net worth, fixed-to-income ratio
-- [ ] **DASH-02**: All cards react to a month/period filter
-- [ ] **DASH-03**: Dashboard shows a debt-free date countdown based on the selected payoff strategy
-- [ ] **DASH-04**: Dashboard shows budget target progress bars per spending category (actual vs limit)
-- [ ] **DASH-05**: Dashboard shows a net worth over time chart using monthly snapshots
+- [x] **DASH-01**: Dashboard shows 9 summary cards: total income, total fixed expenses, total variable expenses, net position, total subscriptions, total debt, total assets, net worth, fixed-to-income ratio
+- [x] **DASH-02**: All cards react to a month/period filter
+- [x] **DASH-03**: Dashboard shows a debt-free date countdown based on the selected payoff strategy
+- [x] **DASH-04**: Dashboard shows budget target progress bars per spending category (actual vs limit)
+- [x] **DASH-05**: Dashboard shows a net worth over time chart using monthly snapshots
 
 ### Charts
 
-- [ ] **CHART-01**: User can view a monthly spending trends chart (income vs fixed vs variable bar/line — Chart.js)
+- [x] **CHART-01**: User can view a monthly spending trends chart (income vs fixed vs variable bar/line — Chart.js)
 - [ ] **CHART-02**: User can view a debt payoff timeline chart (balance projection over time for each debt)
 
 ### Theme
@@ -206,20 +206,20 @@
 | DATA-03 | Phase 2 | Completed |
 | DATA-04 | Phase 2 | Completed |
 | DATA-05 | Phase 2 | Completed |
-| PAY-01 | Phase 3 | Pending |
-| PAY-02 | Phase 3 | Pending |
-| PAY-03 | Phase 3 | Pending |
-| PAY-04 | Phase 3 | Pending |
-| PAY-05 | Phase 3 | Pending |
-| BT-01 | Phase 3 | Pending |
-| BT-02 | Phase 3 | Pending |
-| BT-03 | Phase 3 | Pending |
-| DASH-01 | Phase 3 | Pending |
-| DASH-02 | Phase 3 | Pending |
-| DASH-03 | Phase 3 | Pending |
-| DASH-04 | Phase 3 | Pending |
-| DASH-05 | Phase 3 | Pending |
-| CHART-01 | Phase 4 | Pending |
+| PAY-01 | Phase 3 | Completed |
+| PAY-02 | Phase 3 | Completed |
+| PAY-03 | Phase 3 | Completed |
+| PAY-04 | Phase 3 | Completed |
+| PAY-05 | Phase 3 | Completed |
+| BT-01 | Phase 3 | Completed |
+| BT-02 | Phase 3 | Completed |
+| BT-03 | Phase 3 | Completed |
+| DASH-01 | Phase 3 | Completed |
+| DASH-02 | Phase 3 | Completed |
+| DASH-03 | Phase 3 | Completed |
+| DASH-04 | Phase 3 | Completed |
+| DASH-05 | Phase 3 | Completed |
+| CHART-01 | Phase 4 | Complete |
 | CHART-02 | Phase 4 | Pending |
 | PWA-01 | Phase 4 | Pending |
 | PWA-02 | Phase 4 | Pending |

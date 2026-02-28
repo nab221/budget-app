@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation** - Build infrastructure, fix core architectural risks, and deliver category management
 - [x] **Phase 2: Core Budget Features** - Income, fixed/variable spending, subscriptions, recurring templates, debt tracker, assets, and data safety
-- [ ] **Phase 3: Dashboard, Payoff Planner, and Budget Targets** - Computation-heavy display features that depend on Phase 2 data
+- [x] **Phase 3: Dashboard, Payoff Planner, and Budget Targets** - Computation-heavy display features that depend on Phase 2 data
 - [ ] **Phase 4: PWA and Charts** - Make the app installable and offline; add spending trend and debt payoff timeline charts
 - [ ] **Phase 5: PDF Bank Statement Import** - Auto-parse UK bank PDFs with manual fallback for bulk transaction import
 - [ ] **Phase 6: Cloud Backup** - Dropbox and Google Drive backup integration for cross-device data access
@@ -62,7 +62,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. User can model a balance transfer by selecting a source debt, entering a 0% promotional period and transfer fee; the app shows total cost vs keeping the current debt and the minimum monthly payment needed to clear within the 0% window
   4. Dashboard shows a debt-free date countdown derived from the selected payoff strategy
   5. Dashboard shows budget target progress bars per spending category (actual spend vs set limit) and a net worth over time chart using monthly snapshots
-**Plans**: TBD
+**Plans**:
+- [x] 03-01-PLAN.md — Data Layer & Utilities (2026-02-28)
+- [x] 03-02-PLAN.md — Dashboard Core UI (2026-02-28)
+- [x] 03-03-PLAN.md — Targets & Snapshots (2026-02-28)
+- [x] 03-04-PLAN.md — Payoff Planner UI (2026-02-28)
+- [x] 03-05-PLAN.md — BT Modeler & Finalize (2026-02-28)
 
 ### Phase 4: PWA and Charts
 **Goal**: The app is installable on desktop and mobile, works fully offline, and provides spending trend and debt payoff timeline charts
@@ -73,7 +78,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. The app loads and works fully — including all data entry and viewing — with no network connection after first load
   3. When a new version of the app is deployed, the user sees a prompt to refresh and the update applies cleanly
   4. User can view a monthly spending trends chart (income vs fixed vs variable over the last 12 months) and a debt payoff timeline chart showing projected balance over time for each debt
-**Plans**: TBD
+**Plans**:
+- [ ] 04-01-PLAN.md — PWA Foundation & Offline Capability
+- [ ] 04-02-PLAN.md — Chart.js Integration & Spending Trends
+- [ ] 04-03-PLAN.md — Debt Payoff Timeline & PWA UX Polish
 
 ### Phase 5: PDF Bank Statement Import
 **Goal**: Users can upload a UK bank PDF statement and bulk-import transactions with auto-parsing for common banks and a manual column-mapping fallback
@@ -81,7 +89,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Requirements**: PDF-01, PDF-02, PDF-03, PDF-04, PDF-05
 **Success Criteria** (what must be TRUE):
   1. User can upload a PDF from Barclays, HSBC, NatWest, Lloyds, or Santander and see a transaction preview (date, description, amount) with the option to confirm or deselect individual rows before importing
-  2. If auto-parse fails or user selects manual mode, user can map PDF columns to date, description, amount, and debit/credit fields and proceed to import
+  2. If auto-parse fails or user selects manual mode, user can map PDF columns to date, description, amount, and debt/credit fields and proceed to import
   3. If the PDF is image-based or scanned (no text layer), the app clearly tells the user it cannot be parsed and suggests manual entry instead
   4. After import, the user sees a summary of how many transactions were imported, skipped, or rejected, and imported entries appear in the correct tab (income or variable spending) based on user selection
 **Plans**: TBD
@@ -106,7 +114,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 |-------|----------------|--------|-----------|
 | 1. Foundation | 3/3 | Complete | 2026-02-28 |
 | 2. Core Budget Features | 4/4 | Complete | 2026-02-28 |
-| 3. Dashboard, Payoff Planner, and Budget Targets | 0/TBD | Not started | - |
-| 4. PWA and Charts | 0/TBD | Not started | - |
+| 3. Dashboard, Payoff Planner, and Budget Targets | 5/5 | Complete | 2026-02-28 |
+| 4. PWA and Charts | 1/3 | In Progress|  |
 | 5. PDF Bank Statement Import | 0/TBD | Not started | - |
 | 6. Cloud Backup | 0/TBD | Not started | - |
