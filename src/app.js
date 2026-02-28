@@ -2,10 +2,11 @@ import { initTheme, toggleTheme } from './ui/theme';
 import { ensurePersistence } from './utils/storage';
 import { categoryUI } from './ui/categories';
 import { categoryRepository } from './db/repository';
+import { transactionUI } from './ui/transactions';
+import { subscriptionUI } from './ui/subscriptions';
 
 /**
  * Main application entry point.
- * Initializes core services: Theme, Storage Persistence, and UI Modules.
  */
 async function init() {
   console.log('Budget App initializing...');
@@ -22,7 +23,18 @@ async function init() {
     });
   }
 
-  // 3. Tab Navigation
+  // 3. Month Picker and Tab Navigation
+  const monthPicker = document.getElementById('monthPicker');
+  if (monthPicker) {
+    if (!monthPicker.value) {
+      monthPicker.value = new Date().toISOString().slice(0, 7);
+    }
+    monthPicker.addEventListener('change', () => {
+      console.log(`Month changed to: ${monthPicker.value}`);
+      transactionUI.render(monthPicker.value);
+    });
+  }
+
   const mainTabs = document.getElementById('mainTabs');
   if (mainTabs) {
     mainTabs.addEventListener('click', e => {
@@ -47,11 +59,14 @@ async function init() {
     }
   }
 
-  // 5. Initialize Category Module
+  // 5. Initialize UI Modules
   // First seed defaults if necessary
   await categoryRepository.seedDefaultCategories();
-  // Then init UI
+  
+  // Then init all modules
   await categoryUI.init();
+  await transactionUI.init();
+  await subscriptionUI.init();
 
   console.log('Budget App ready');
 }
