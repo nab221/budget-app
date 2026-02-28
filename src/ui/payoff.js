@@ -1,6 +1,7 @@
 import { debtRepository } from '../db/repository.js';
-import { simulatePayoff, modelBalanceTransfer } from '../utils/finance.js';
+import { simulatePayoff, modelBalanceTransfer, calcMinPayment } from '../utils/finance.js';
 import { formatGBP, toPence } from '../utils/currency.js';
+import { renderDebtPayoffChart } from './charts.js';
 
 /**
  * Renders the Debt Payoff Planner view.
@@ -17,6 +18,86 @@ export async function renderPayoffPlanner() {
     document.getElementById('btModelerContainer').innerHTML = '';
     return;
   }
+
+  /**
+   * Compute per-debt balance-over-time series for the Avalanche strategy.
+   * Returns data in the format expected by renderDebtPayoffChart.
+   *
+   * @param {Array} debtsArr - Debt objects with currentBalance and apr
+   * @param {number} extraPence - Extra monthly payment in pence
+   * @returns {Array<{name: string, balances: number[]}>}
+   */
+  const computeBalanceSeries = (debtsArr, extraPence) => {
+    const MAX_MONTHS = 600;
+    const CHART_MONTHS = 120; // cap series at 10 years for chart data volume
+
+    // Clone debts
+    const currentDebts = debtsArr.map(d => ({
+      ...d,
+      balance: d.currentBalance,
+      isCleared: d.currentBalance <= 0
+    }));
+
+    // Series arrays per debt (month 0 = initial balance)
+    const series = currentDebts.map(d => ({ name: d.name, balances: [d.balance] }));
+
+    const initialMinimums = currentDebts.map(d => calcMinPayment(d.balance, d.apr));
+    const totalMonthlyBudget = initialMinimums.reduce((a, b) => a + b, 0) + extraPence;
+
+    let month = 0;
+    while (currentDebts.some(d => d.balance > 0) && month < MAX_MONTHS) {
+      month++;
+
+      // Avalanche: sort by highest APR
+      const sortedByApr = [...currentDebts].sort((a, b) => b.apr - a.apr || b.balance - a.balance);
+
+      let available = totalMonthlyBudget;
+      const payments = new Map();
+
+      // Pay minimums first
+      for (const debt of currentDebts) {
+        if (debt.balance <= 0) { payments.set(debt.id, 0); continue; }
+        const min = calcMinPayment(debt.balance, debt.apr);
+        const payment = Math.min(debt.balance, min);
+        payments.set(debt.id, payment);
+        available -= payment;
+      }
+
+      // Apply extra to priority debt
+      if (available > 0) {
+        for (const debt of sortedByApr) {
+          if (debt.balance > (payments.get(debt.id) || 0)) {
+            const extra = Math.min(debt.balance - (payments.get(debt.id) || 0), available);
+            payments.set(debt.id, (payments.get(debt.id) || 0) + extra);
+            available -= extra;
+            if (available <= 0) break;
+          }
+        }
+      }
+
+      // Update balances
+      for (const debt of currentDebts) {
+        if (debt.balance <= 0) continue;
+        const payment = payments.get(debt.id) || 0;
+        debt.balance -= payment;
+        if (debt.balance > 0) {
+          const monthlyInterest = Math.round((debt.balance * (debt.apr / 100)) / 12);
+          debt.balance += monthlyInterest;
+        }
+        if (debt.balance < 0) debt.balance = 0;
+      }
+
+      // Record balances if within chart cap
+      if (month <= CHART_MONTHS) {
+        currentDebts.forEach((debt, idx) => {
+          series[idx].balances.push(Math.max(0, debt.balance));
+        });
+      }
+    }
+
+    // If we hit MAX_MONTHS but debts aren't cleared, pad to end
+    return series;
+  };
 
   // Handle extra payment change
   const updateSimulations = () => {
@@ -86,6 +167,10 @@ export async function renderPayoffPlanner() {
         </tbody>
       </table>
     `;
+
+    // Render the debt payoff timeline chart
+    const projectionData = computeBalanceSeries(debts, extraPence);
+    renderDebtPayoffChart('payoffChart', projectionData);
   };
 
   // Initial render
