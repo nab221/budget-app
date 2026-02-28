@@ -3,10 +3,69 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Budget App</title>
+    <title>Budget Console</title>
+    <link rel="stylesheet" href="/css/main.css">
   </head>
   <body>
-    <div id="app"></div>
+    <!-- Persistence Warning Banner -->
+    <div id="persistence-warning" class="hidden" style="background:var(--warn);color:#000;padding:8px 14px;font-size:.8rem;text-align:center">
+      ⚠️ <strong>Data Persistence Not Guaranteed:</strong> Your browser may purge your data to save space. Export regularly or add to your home screen.
+    </div>
+
+    <div class="shell">
+      <!-- ════════ HEADER ════════ -->
+      <header>
+        <div>
+          <h1>Budget Console <span class="pill">Local · IndexedDB</span></h1>
+          <div class="hint">All data stored locally. Export regularly for backups.</div>
+        </div>
+        <div class="toolbar">
+          <button id="themeToggle" class="ghost" title="Toggle Light/Dark Mode">🌓 Theme</button>
+          <button id="exportBtn" class="ghost">⬇ Export</button>
+          <label for="importFile" class="ghost" style="cursor:pointer;display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border:1px solid var(--border);border-radius:999px;font-size:inherit">
+            ⬆ Import <input id="importFile" type="file" accept="application/json" class="file-input"/>
+          </label>
+          <button id="resetBtn" class="danger">✖ Reset</button>
+        </div>
+      </header>
+
+      <!-- ════════ DASHBOARD SUMMARY ════════ -->
+      <section class="card" style="margin-bottom:14px">
+        <div class="card-hd">
+          <h2>Dashboard</h2>
+          <div style="display:flex;gap:6px;align-items:center">
+            <input type="month" id="monthPicker" style="font-size:.8rem"/>
+            <select id="viewSelect" style="font-size:.8rem">
+              <option value="current">Month</option>
+              <option value="ytd">YTD</option>
+              <option value="all">All</option>
+            </select>
+          </div>
+        </div>
+        <div class="sum-grid" id="summaryGrid">
+          <!-- Summary items will be rendered here -->
+        </div>
+      </section>
+
+      <!-- ════════ MAIN CONTENT / TABS ════════ -->
+      <section class="card">
+        <div class="tabs" id="mainTabs">
+          <button class="tab active" data-tab="income">Income</button>
+          <button class="tab" data-tab="fixed">Fixed Spends</button>
+          <button class="tab" data-tab="variable">Variable</button>
+          <button class="tab" data-tab="subs">Subscriptions</button>
+          <button class="tab" data-tab="debts">Debts</button>
+          <button class="tab" data-tab="assets">Assets</button>
+          <button class="tab" data-tab="settings">⚙ Settings</button>
+        </div>
+
+        <div id="tab-content">
+          <!-- Individual tab panels (from budget-app.html) will go here after dynamic wiring -->
+          <div id="app">Loading...</div>
+        </div>
+      </section>
+    </div>
+
     <script type="module" src="/src/app.js"></script>
   </body>
 </html>
