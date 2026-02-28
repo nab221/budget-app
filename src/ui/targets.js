@@ -1,6 +1,6 @@
 import { categoryRepository, targetRepository } from '../db/repository.js';
 import { safeHTML } from './render.js';
-import { toPence, fromPence, £ } from '../utils/currency.js';
+import { toPence, fromPence } from '../utils/currency.js';
 
 /**
  * Targets UI Module

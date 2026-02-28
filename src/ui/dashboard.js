@@ -1,6 +1,7 @@
-import { getDashboardData, debtRepository, categoryRepository, targetRepository, netWorthRepository } from '../db/repository.js';
+import { getDashboardData, getSpendingTrends, debtRepository, categoryRepository, targetRepository, netWorthRepository } from '../db/repository.js';
 import { formatGBP } from '../utils/currency.js';
 import { simulatePayoff } from '../utils/finance.js';
+import { renderTrendsChart } from './charts.js';
 
 /**
  * Render the dashboard summary cards.
@@ -57,6 +58,14 @@ export async function renderDashboard(containerId, periodType, targetMonth) {
       </div>
     </div>
   `).join('');
+
+  // Render spending trends chart (12 months)
+  try {
+    const trendsData = await getSpendingTrends(targetMonth);
+    renderTrendsChart('trendsChart', trendsData);
+  } catch (err) {
+    console.warn('Could not render trends chart:', err);
+  }
 
   // Also render progress bars and snapshots
   renderProgressBars(data.categorySpending);
