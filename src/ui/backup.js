@@ -1,6 +1,7 @@
 import { db } from '../db/schema.js';
 import { encryptData, decryptData } from '../utils/security.js';
 import { templateUI } from './templates.js'; // Reuse modal logic
+import { LAST_EXPORT_KEY } from './pwa-ux.js';
 
 export const backupUI = {
   elements: {
@@ -75,7 +76,10 @@ export const backupUI = {
     a.download = fileName;
     a.click();
     URL.revokeObjectURL(url);
-    
+
+    // Record export timestamp so the export reminder can track recency
+    localStorage.setItem(LAST_EXPORT_KEY, String(Date.now()));
+
     templateUI.closeModal();
   },
 

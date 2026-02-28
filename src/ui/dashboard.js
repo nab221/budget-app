@@ -2,6 +2,7 @@ import { getDashboardData, getSpendingTrends, debtRepository, categoryRepository
 import { formatGBP } from '../utils/currency.js';
 import { simulatePayoff } from '../utils/finance.js';
 import { renderTrendsChart } from './charts.js';
+import { checkStoragePersistence } from './pwa-ux.js';
 
 /**
  * Render the dashboard summary cards.
@@ -16,8 +17,11 @@ export async function renderDashboard(containerId, periodType, targetMonth) {
   // Map 'current' (from UI) to 'month' (from repository)
   const normalizedPeriod = periodType === 'current' ? 'month' : periodType;
 
-  const data = await getDashboardData(normalizedPeriod, targetMonth);
-  
+  const [data, isPersisted] = await Promise.all([
+    getDashboardData(normalizedPeriod, targetMonth),
+    checkStoragePersistence()
+  ]);
+
   // Calculate debt-free countdown
   const debts = await debtRepository.getAll();
   let debtFreeText = 'No debt';
@@ -37,6 +41,11 @@ export async function renderDashboard(containerId, periodType, targetMonth) {
     }
   }
 
+  // Build Net Worth label — append a red "Risk" badge when persistence is denied
+  const netWorthLabel = isPersisted
+    ? 'Net Worth'
+    : 'Net Worth <span class="pill" style="background:var(--danger);color:#fff;font-size:.65rem;vertical-align:middle" title="Storage persistence not granted. Your data may be purged by the browser.">Risk</span>';
+
   const cards = [
     { label: 'Income', value: data.income, color: 'var(--accent)' },
     { label: 'Fixed Expenses', value: data.fixed, color: 'var(--danger)' },
@@ -45,7 +54,7 @@ export async function renderDashboard(containerId, periodType, targetMonth) {
     { label: 'Subscriptions', value: data.totalSubscriptions, color: 'var(--text-soft)' },
     { label: 'Total Debt', value: data.totalDebt, color: 'var(--danger)' },
     { label: 'Total Assets', value: data.totalAssets, color: 'var(--accent)' },
-    { label: 'Net Worth', value: data.netWorth, color: data.netWorth >= 0 ? 'var(--accent)' : 'var(--danger)' },
+    { label: netWorthLabel, value: data.netWorth, color: data.netWorth >= 0 ? 'var(--accent)' : 'var(--danger)', isRaw: false, labelIsHtml: true },
     { label: 'Fixed-to-Income', value: `${data.fixedToIncomeRatio}%`, color: data.fixedToIncomeRatio > 50 ? 'var(--warn)' : 'var(--text-soft)', isRaw: true },
     { label: 'Debt-Free In', value: debtFreeText, color: debtFreeColor, isRaw: true }
   ];

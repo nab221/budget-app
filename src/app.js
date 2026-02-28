@@ -11,7 +11,7 @@ import { targetsUI } from './ui/targets';
 import { backupUI } from './ui/backup';
 import { renderDashboard } from './ui/dashboard';
 import { renderPayoffPlanner } from './ui/payoff';
-import { initPWA, installApp } from './ui/pwa-ux';
+import { initPWA, installApp, checkExportReminder } from './ui/pwa-ux';
 
 /**
  * Main application entry point.
@@ -21,6 +21,9 @@ async function init() {
 
   // 0. Initialize PWA (service worker registration + install prompt interception)
   initPWA();
+
+  // Check export reminder (shows banner if last backup was > 7 days ago)
+  checkExportReminder();
 
   // 1. Initialize Theme
   initTheme();
