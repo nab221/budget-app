@@ -8,6 +8,8 @@ import { debtUI } from './ui/debts';
 import { assetUI } from './ui/assets';
 import { templateUI } from './ui/templates';
 import { backupUI } from './ui/backup';
+import { renderDashboard } from './ui/dashboard';
+import { renderPayoffPlanner } from './ui/payoff';
 
 /**
  * Main application entry point.
@@ -27,8 +29,16 @@ async function init() {
     });
   }
 
-  // 3. Month Picker and Tab Navigation
+  // 3. Month Picker, View Select and Tab Navigation
   const monthPicker = document.getElementById('monthPicker');
+  const viewSelect = document.getElementById('viewSelect');
+
+  const refreshDashboard = () => {
+    if (monthPicker && viewSelect) {
+      renderDashboard('summaryGrid', viewSelect.value, monthPicker.value);
+    }
+  };
+
   if (monthPicker) {
     if (!monthPicker.value) {
       monthPicker.value = new Date().toISOString().slice(0, 7);
@@ -36,6 +46,14 @@ async function init() {
     monthPicker.addEventListener('change', () => {
       console.log(`Month changed to: ${monthPicker.value}`);
       transactionUI.render(monthPicker.value);
+      refreshDashboard();
+    });
+  }
+
+  if (viewSelect) {
+    viewSelect.addEventListener('change', () => {
+      console.log(`Period changed to: ${viewSelect.value}`);
+      refreshDashboard();
     });
   }
 
@@ -58,10 +76,14 @@ async function init() {
       if (panelId === 'subs') await subscriptionUI.render();
       if (panelId === 'debts') await debtUI.render();
       if (panelId === 'assets') await assetUI.render();
+      if (panelId === 'payoff') await renderPayoffPlanner();
       if (panelId === 'settings') {
         await categoryUI.render();
         await templateUI.renderTemplates();
       }
+      
+      // Always refresh dashboard in case totals changed
+      refreshDashboard();
     });
   }
 
@@ -86,6 +108,9 @@ async function init() {
   await assetUI.init();
   await templateUI.init();
   await backupUI.init();
+
+  // Initial dashboard render
+  refreshDashboard();
 
   console.log('Budget App ready');
 }
