@@ -224,6 +224,45 @@ export const netWorthRepository = {
 };
 
 /**
+ * Spending Trends Aggregation - last 12 months from targetMonth.
+ * Returns Income, Fixed, and Variable totals per month.
+ * All amounts are in pence.
+ * @param {string} targetMonth - YYYY-MM string (the current/reference month)
+ * @returns {Promise<Array<{month: string, income: number, fixed: number, variable: number}>>}
+ */
+export async function getSpendingTrends(targetMonth) {
+  // Build list of the last 12 months in ascending order
+  const [year, month] = targetMonth.split('-').map(Number);
+  const months = [];
+  for (let i = 11; i >= 0; i--) {
+    let m = month - i;
+    let y = year;
+    while (m <= 0) { m += 12; y -= 1; }
+    const mm = String(m).padStart(2, '0');
+    months.push(`${y}-${mm}`);
+  }
+
+  const results = await Promise.all(
+    months.map(async (monthStr) => {
+      const [incomeList, fixedList, variableList] = await Promise.all([
+        db.income.where('date').startsWith(monthStr).toArray(),
+        db.fixedSpends.where('date').startsWith(monthStr).toArray(),
+        db.variableSpends.where('date').startsWith(monthStr).toArray()
+      ]);
+      const sum = (arr) => arr.reduce((acc, r) => acc + (r.amount || 0), 0);
+      return {
+        month: monthStr,
+        income: sum(incomeList),
+        fixed: sum(fixedList),
+        variable: sum(variableList)
+      };
+    })
+  );
+
+  return results;
+}
+
+/**
  * Dashboard Data Aggregation
  * @param {string} periodType - 'month', 'ytd', or 'all'
  * @param {string} targetMonth - YYYY-MM string
