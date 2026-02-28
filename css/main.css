@@ -90,6 +90,8 @@ input[type="number"] { text-align: right; }
 
 /* ── LAYOUT ── */
 .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 14px; }
+.grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+.border-primary { border: 2px solid var(--accent) !important; }
 .card {
   background: linear-gradient(145deg, var(--card), var(--card2));
   border-radius: var(--radius);
@@ -199,4 +201,26 @@ input[type="number"] { text-align: right; }
 .bar-track { height: 6px; background: var(--border); border-radius: 99px; margin: 4px 0; overflow: hidden; }
 .bar-fill { height: 100%; border-radius: 99px; transition: width .4s ease; }
 .green { color: var(--accent); } .red { color: var(--danger); } .amber { color: var(--warn); } .blue { color: var(--info); } .purple { color: #a78bfa; }
+/* ── CHART ── */
+.chart-container {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.chart-title {
+  font-size: .78rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--text-soft);
+  margin-bottom: 8px;
+}
+.chart-container canvas {
+  width: 100% !important;
+  max-height: 260px;
+}
+@media (max-width: 600px) {
+  .chart-container canvas {
+    max-height: 200px;
+  }
+}
 .hidden { display: none !important; }

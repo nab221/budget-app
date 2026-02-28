@@ -1,5 +1,5 @@
 import { recurringTemplateRepository, fixedSpendRepository, incomeRepository, categoryRepository } from '../db/repository.js';
-import { formatCurrency, toPence } from '../utils/currency.js';
+import { formatGBP as formatCurrency, toPence } from '../utils/currency.js';
 import { safeHTML } from './render.js';
 
 export const templateUI = {
