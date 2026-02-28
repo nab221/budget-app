@@ -72,16 +72,17 @@ Decimal phases appear between their surrounding integers in numeric order.
 ### Phase 4: PWA and Charts
 **Goal**: The app is installable on desktop and mobile, works fully offline, and provides spending trend and debt payoff timeline charts
 **Depends on**: Phase 3
-**Requirements**: CHART-01, CHART-02, PWA-01, PWA-02, PWA-03, PWA-04
+**Requirements**: CHART-01, CHART-02, PWA-01, PWA-02, PWA-04
+**Note**: PWA-03 (iOS Safari "Add to Home Screen" banner) was descoped — Android/Chrome and Windows/Edge cover the primary target platforms.
 **Success Criteria** (what must be TRUE):
-  1. User can install the app to their home screen on Android/Chrome and on iOS Safari (with a custom "Add to Home Screen" instruction banner) and the installed app opens in standalone mode
+  1. User can install the app to their home screen on Android/Chrome and on Windows/Edge and the installed app opens in standalone mode
   2. The app loads and works fully — including all data entry and viewing — with no network connection after first load
   3. When a new version of the app is deployed, the user sees a prompt to refresh and the update applies cleanly
   4. User can view a monthly spending trends chart (income vs fixed vs variable over the last 12 months) and a debt payoff timeline chart showing projected balance over time for each debt
 **Plans**:
-- [ ] 04-01-PLAN.md — PWA Foundation & Offline Capability
-- [ ] 04-02-PLAN.md — Chart.js Integration & Spending Trends
-- [ ] 04-03-PLAN.md — Debt Payoff Timeline & PWA UX Polish
+- [x] 04-01-PLAN.md — PWA Foundation & Offline Capability (2026-02-28)
+- [x] 04-02-PLAN.md — Chart.js Integration & Spending Trends (2026-02-28)
+- [x] 04-03-PLAN.md — Debt Payoff Timeline & PWA UX Polish (2026-02-28)
 
 ### Phase 5: PDF Bank Statement Import
 **Goal**: Users can upload a UK bank PDF statement and bulk-import transactions with auto-parsing for common banks and a manual column-mapping fallback

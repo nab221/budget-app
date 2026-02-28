@@ -128,7 +128,7 @@
 
 - [x] **PWA-01**: App has a valid PWA manifest (name, icons, theme colour, display: standalone)
 - [x] **PWA-02**: App works fully offline after first load (service worker precaches all assets)
-- [ ] **PWA-03**: App shows a custom "Add to Home Screen" banner on iOS Safari (since beforeinstallprompt does not fire on iOS)
+- ~~**PWA-03**: App shows a custom "Add to Home Screen" banner on iOS Safari (since beforeinstallprompt does not fire on iOS)~~ — **Deferred** (explicitly descoped in 04-CONTEXT.md; beforeinstallprompt works on Android/Windows/Chrome which covers the primary target platforms)
 - [x] **PWA-04**: App prompts user to refresh when a new version is available (service worker update flow)
 
 ---
@@ -223,7 +223,7 @@
 | CHART-02 | Phase 4 | Complete |
 | PWA-01 | Phase 4 | Complete |
 | PWA-02 | Phase 4 | Complete |
-| PWA-03 | Phase 4 | Pending |
+| PWA-03 | Deferred | Out of Scope (v1) |
 | PWA-04 | Phase 4 | Complete |
 | PDF-01 | Phase 5 | Pending |
 | PDF-02 | Phase 5 | Pending |
