@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 1: Foundation** - Build infrastructure, fix core architectural risks, and deliver category management
 - [ ] **Phase 2: Core Budget Features** - Income, fixed/variable spending, subscriptions, recurring templates, debt tracker, assets, and data safety
 - [ ] **Phase 3: Dashboard, Payoff Planner, and Budget Targets** - Computation-heavy display features that depend on Phase 2 data
-- [ ] **Phase 4: PWA and Charts** - Make the app installable and offline; add spending trend and debt timeline charts
+- [ ] **Phase 4: PWA and Charts** - Make the app installable and offline; add spending trend and debt payoff timeline charts
 - [ ] **Phase 5: PDF Bank Statement Import** - Auto-parse UK bank PDFs with manual fallback for bulk transaction import
 - [ ] **Phase 6: Cloud Backup** - Dropbox and Google Drive backup integration for cross-device data access
 
@@ -31,7 +31,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. All money values throughout the app are stored and calculated as pence integers — no floating-point rounding errors visible in any output
   4. Opening the app in a second tab while an IndexedDB schema migration is in progress shows a "please reload this tab" message rather than hanging silently
   5. The app calls storage.persist() on first load and shows a persistent export reminder if permission is denied (Safari ITP protection active)
-**Plans**: TBD
+**Plans**:
+- [ ] 01-01-PLAN.md — Infrastructure & Data Layer
+- [ ] 01-02-PLAN.md — App Shell & Security
+- [ ] 01-03-PLAN.md — Category Management Feature
 
 ### Phase 2: Core Budget Features
 **Goal**: Users can record all their financial data — income, fixed and variable expenses, subscriptions, recurring templates, debts, assets — and export or import it safely
@@ -97,7 +100,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/TBD | Not started | - |
+| 1. Foundation | 0/3 | Not started | - |
 | 2. Core Budget Features | 0/TBD | Not started | - |
 | 3. Dashboard, Payoff Planner, and Budget Targets | 0/TBD | Not started | - |
 | 4. PWA and Charts | 0/TBD | Not started | - |
