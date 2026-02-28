@@ -94,7 +94,7 @@
 ### Charts
 
 - [x] **CHART-01**: User can view a monthly spending trends chart (income vs fixed vs variable bar/line — Chart.js)
-- [ ] **CHART-02**: User can view a debt payoff timeline chart (balance projection over time for each debt)
+- [x] **CHART-02**: User can view a debt payoff timeline chart (balance projection over time for each debt)
 
 ### Theme
 
@@ -220,7 +220,7 @@
 | DASH-04 | Phase 3 | Completed |
 | DASH-05 | Phase 3 | Completed |
 | CHART-01 | Phase 4 | Complete |
-| CHART-02 | Phase 4 | Pending |
+| CHART-02 | Phase 4 | Complete |
 | PWA-01 | Phase 4 | Complete |
 | PWA-02 | Phase 4 | Complete |
 | PWA-03 | Phase 4 | Pending |

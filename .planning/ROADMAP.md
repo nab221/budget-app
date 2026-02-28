@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Foundation** - Build infrastructure, fix core architectural risks, and deliver category management
 - [x] **Phase 2: Core Budget Features** - Income, fixed/variable spending, subscriptions, recurring templates, debt tracker, assets, and data safety
 - [x] **Phase 3: Dashboard, Payoff Planner, and Budget Targets** - Computation-heavy display features that depend on Phase 2 data
-- [ ] **Phase 4: PWA and Charts** - Make the app installable and offline; add spending trend and debt payoff timeline charts
+- [x] **Phase 4: PWA and Charts** - Make the app installable and offline; add spending trend and debt payoff timeline charts (completed 2026-02-28)
 - [ ] **Phase 5: PDF Bank Statement Import** - Auto-parse UK bank PDFs with manual fallback for bulk transaction import
 - [ ] **Phase 6: Cloud Backup** - Dropbox and Google Drive backup integration for cross-device data access
 
@@ -115,6 +115,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 1. Foundation | 3/3 | Complete | 2026-02-28 |
 | 2. Core Budget Features | 4/4 | Complete | 2026-02-28 |
 | 3. Dashboard, Payoff Planner, and Budget Targets | 5/5 | Complete | 2026-02-28 |
-| 4. PWA and Charts | 2/3 | In Progress|  |
+| 4. PWA and Charts | 3/3 | Complete   | 2026-02-28 |
 | 5. PDF Bank Statement Import | 0/TBD | Not started | - |
 | 6. Cloud Backup | 0/TBD | Not started | - |
