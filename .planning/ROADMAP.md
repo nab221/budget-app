@@ -13,7 +13,7 @@ A clean rebuild of a buggy monolithic budget app into a modular, offline-first P
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation** - Build infrastructure, fix core architectural risks, and deliver category management
-- [ ] **Phase 2: Core Budget Features** - Income, fixed/variable spending, subscriptions, recurring templates, debt tracker, assets, and data safety
+- [x] **Phase 2: Core Budget Features** - Income, fixed/variable spending, subscriptions, recurring templates, debt tracker, assets, and data safety
 - [ ] **Phase 3: Dashboard, Payoff Planner, and Budget Targets** - Computation-heavy display features that depend on Phase 2 data
 - [ ] **Phase 4: PWA and Charts** - Make the app installable and offline; add spending trend and debt payoff timeline charts
 - [ ] **Phase 5: PDF Bank Statement Import** - Auto-parse UK bank PDFs with manual fallback for bulk transaction import
@@ -46,7 +46,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. User can create a recurring transaction template; when a new month begins the app prompts to confirm due items, and accepting creates the entry while dismissing skips it
   4. User can add a debt with APR and minimum payment rule; the debt list shows balance, credit utilisation %, and the calculated minimum payment using a single shared calcMinPayment() function; statement history is sorted chronologically
   5. User can export all data as a plain JSON backup, import a backup (with confirmation that it replaces — not merges — existing data), export an encrypted password-protected JSON backup, and import an encrypted backup by entering the password
-**Plans**: TBD
+**Plans**:
+- [x] 02-01-PLAN.md — Data Layer & Security (2026-02-28)
+- [x] 02-02-PLAN.md — Core CRUD Features (2026-02-28)
+- [x] 02-03-PLAN.md — Debt Tracker & Assets (2026-02-28)
+- [x] 02-04-PLAN.md — Recurring Templates & Data Safety (2026-02-28)
 
 ### Phase 3: Dashboard, Payoff Planner, and Budget Targets
 **Goal**: Users can see a complete financial picture — a live summary dashboard, debt payoff projections with strategy comparison, balance-transfer cost modelling, and per-category budget targets with progress bars
@@ -101,7 +105,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 3/3 | Complete | 2026-02-28 |
-| 2. Core Budget Features | 0/TBD | Not started | - |
+| 2. Core Budget Features | 4/4 | Complete | 2026-02-28 |
 | 3. Dashboard, Payoff Planner, and Budget Targets | 0/TBD | Not started | - |
 | 4. PWA and Charts | 0/TBD | Not started | - |
 | 5. PDF Bank Statement Import | 0/TBD | Not started | - |

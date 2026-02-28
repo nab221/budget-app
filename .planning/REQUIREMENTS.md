@@ -7,61 +7,61 @@
 
 ### Foundation
 
-- [ ] **FOUND-01**: App uses pence-integer arithmetic for all money calculations (no float rounding errors in debt simulations)
-- [ ] **FOUND-02**: Dexie schema includes versioned migrations with versionchange and blocked handlers (prevents tab deadlock and data loss)
-- [ ] **FOUND-03**: App calls storage.persist() at first load and shows export reminder if permission denied (prevents Safari ITP data loss after 7 days)
-- [ ] **FOUND-04**: All user-generated text rendered with textContent or DOMPurify — no innerHTML with unsanitised data (fixes XSS vulnerability)
+- [x] **FOUND-01**: App uses pence-integer arithmetic for all money calculations (no float rounding errors in debt simulations)
+- [x] **FOUND-02**: Dexie schema includes versioned migrations with versionchange and blocked handlers (prevents tab deadlock and data loss)
+- [x] **FOUND-03**: App calls storage.persist() at first load and shows export reminder if permission denied (prevents Safari ITP data loss after 7 days)
+- [x] **FOUND-04**: All user-generated text rendered with textContent or DOMPurify — no innerHTML with unsanitised data (fixes XSS vulnerability)
 
 ### Categories
 
-- [ ] **CAT-01**: User can view default seeded categories for Fixed and Variable spending
-- [ ] **CAT-02**: User can add a custom category to Fixed or Variable group
-- [ ] **CAT-03**: User can delete a category (with warning if used by existing transactions)
-- [ ] **CAT-04**: Category dropdowns in all entry forms reflect current category list
+- [x] **CAT-01**: User can view default seeded categories for Fixed and Variable spending
+- [x] **CAT-02**: User can add a custom category to Fixed or Variable group
+- [x] **CAT-03**: User can delete a category (with warning if used by existing transactions)
+- [x] **CAT-04**: Category dropdowns in all entry forms reflect current category list
 
 ### Income
 
-- [ ] **INC-01**: User can log an income entry with date (defaulting to today), source, and amount
-- [ ] **INC-02**: User can edit an existing income entry
-- [ ] **INC-03**: User can delete an income entry
-- [ ] **INC-04**: User can view all income entries filtered by month
+- [x] **INC-01**: User can log an income entry with date (defaulting to today), source, and amount
+- [x] **INC-02**: User can edit an existing income entry
+- [x] **INC-03**: User can delete an income entry
+- [x] **INC-04**: User can view all income entries filtered by month
 
 ### Fixed Spending
 
-- [ ] **FIXED-01**: User can log a fixed spend with date (defaulting to today), category, label, amount, and paid/pending status
-- [ ] **FIXED-02**: User can edit a fixed spend entry
-- [ ] **FIXED-03**: User can delete a fixed spend entry
-- [ ] **FIXED-04**: User can view fixed spends filtered by month
+- [x] **FIXED-01**: User can log a fixed spend with date (defaulting to today), category, label, amount, and paid/pending status
+- [x] **FIXED-02**: User can edit a fixed spend entry
+- [x] **FIXED-03**: User can delete a fixed spend entry
+- [x] **FIXED-04**: User can view fixed spends filtered by month
 
 ### Variable Spending
 
-- [ ] **VAR-01**: User can log a variable spend with date (defaulting to today), category, note, and amount
-- [ ] **VAR-02**: User can edit a variable spend entry
-- [ ] **VAR-03**: User can delete a variable spend entry
-- [ ] **VAR-04**: User can view variable spends filtered by month
+- [x] **VAR-01**: User can log a variable spend with date (defaulting to today), category, note, and amount
+- [x] **VAR-02**: User can edit a variable spend entry
+- [x] **VAR-03**: User can delete a variable spend entry
+- [x] **VAR-04**: User can view variable spends filtered by month
 
 ### Subscriptions
 
-- [ ] **SUB-01**: User can add a subscription with name, amount, frequency (monthly/quarterly/annual), next date, and payment method
-- [ ] **SUB-02**: Subscription list shows monthly-equivalent cost for quarterly and annual items
-- [ ] **SUB-03**: User can edit a subscription entry
-- [ ] **SUB-04**: User can delete a subscription entry
+- [x] **SUB-01**: User can add a subscription with name, amount, frequency (monthly/quarterly/annual), next date, and payment method
+- [x] **SUB-02**: Subscription list shows monthly-equivalent cost for quarterly and annual items
+- [x] **SUB-03**: User can edit a subscription entry
+- [x] **SUB-04**: User can delete a subscription entry
 
 ### Recurring Templates
 
-- [ ] **REC-01**: User can create a recurring transaction template with name, amount, category, and frequency (monthly/quarterly/annual)
-- [ ] **REC-02**: App prompts user to confirm due recurring transactions at the start of a new period
-- [ ] **REC-03**: User can accept a prompted recurring transaction (creates the entry) or dismiss it
-- [ ] **REC-04**: User can edit or delete a recurring template
+- [x] **REC-01**: User can create a recurring transaction template with name, amount, category, and frequency (monthly/quarterly/annual)
+- [x] **REC-02**: App prompts user to confirm due recurring transactions at the start of a new period
+- [x] **REC-03**: User can accept a prompted recurring transaction (creates the entry) or dismiss it
+- [x] **REC-04**: User can edit or delete a recurring template
 
 ### Debt Tracker
 
-- [ ] **DEBT-01**: User can add a debt with name, type (credit card/loan/mortgage), credit limit, APR %, and minimum payment rule
-- [ ] **DEBT-02**: App calculates minimum payment using a single shared calcMinPayment() function with UK rules: max(1% balance + interest, 2.25% balance, £5 floor) — overridable per card
-- [ ] **DEBT-03**: Debt list shows current balance, credit utilisation %, and calculated minimum payment
-- [ ] **DEBT-04**: User can log a monthly statement for a debt (opening balance, purchases, payments, interest, fees, closing balance)
-- [ ] **DEBT-05**: Statement history is sorted chronologically (not lexicographically)
-- [ ] **DEBT-06**: User can edit or delete a debt entry
+- [x] **DEBT-01**: User can add a debt with name, type (credit card/loan/mortgage), credit limit, APR %, and minimum payment rule
+- [x] **DEBT-02**: App calculates minimum payment using a single shared calcMinPayment() function with UK rules: max(1% balance + interest, 2.25% balance, £5 floor) — overridable per card
+- [x] **DEBT-03**: Debt list shows current balance, credit utilisation %, and calculated minimum payment
+- [x] **DEBT-04**: User can log a monthly statement for a debt (opening balance, purchases, payments, interest, fees, closing balance)
+- [x] **DEBT-05**: Statement history is sorted chronologically (not lexicographically)
+- [x] **DEBT-06**: User can edit or delete a debt entry
 
 ### Payoff Planner
 
@@ -79,9 +79,9 @@
 
 ### Assets
 
-- [ ] **ASSET-01**: User can add an asset with name, value, and as-of date
-- [ ] **ASSET-02**: User can edit or delete an asset entry
-- [ ] **ASSET-03**: Asset values are included in net worth calculation on the dashboard
+- [x] **ASSET-01**: User can add an asset with name, value, and as-of date
+- [x] **ASSET-02**: User can edit or delete an asset entry
+- [x] **ASSET-03**: Asset values are included in net worth calculation on the dashboard
 
 ### Dashboard
 
@@ -98,16 +98,16 @@
 
 ### Theme
 
-- [ ] **THEME-01**: User can toggle between dark and light theme
-- [ ] **THEME-02**: Selected theme persists across sessions (localStorage)
+- [x] **THEME-01**: User can toggle between dark and light theme
+- [x] **THEME-02**: Selected theme persists across sessions (localStorage)
 
 ### Data Safety
 
-- [ ] **DATA-01**: User can export all data as a JSON backup file
-- [ ] **DATA-02**: User can import a JSON backup (replaces existing data, not merges — with confirmation prompt)
-- [ ] **DATA-03**: User can export an encrypted (password-protected) JSON backup using AES-GCM via SubtleCrypto
-- [ ] **DATA-04**: User can import an encrypted backup by entering the password
-- [ ] **DATA-05**: Reset button requires explicit typed confirmation before deleting all data
+- [x] **DATA-01**: User can export all data as a JSON backup file
+- [x] **DATA-02**: User can import a JSON backup (replaces existing data, not merges — with confirmation prompt)
+- [x] **DATA-03**: User can export an encrypted (password-protected) JSON backup using AES-GCM via SubtleCrypto
+- [x] **DATA-04**: User can import an encrypted backup by entering the password
+- [x] **DATA-05**: Reset button requires explicit typed confirmation before deleting all data
 
 ### Cloud Backup
 
@@ -162,50 +162,50 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FOUND-01 | Phase 1 | Pending |
-| FOUND-02 | Phase 1 | Pending |
-| FOUND-03 | Phase 1 | Pending |
-| FOUND-04 | Phase 1 | Pending |
-| CAT-01 | Phase 1 | Pending |
-| CAT-02 | Phase 1 | Pending |
-| CAT-03 | Phase 1 | Pending |
-| CAT-04 | Phase 1 | Pending |
-| THEME-01 | Phase 1 | Pending |
-| THEME-02 | Phase 1 | Pending |
-| INC-01 | Phase 2 | Pending |
-| INC-02 | Phase 2 | Pending |
-| INC-03 | Phase 2 | Pending |
-| INC-04 | Phase 2 | Pending |
-| FIXED-01 | Phase 2 | Pending |
-| FIXED-02 | Phase 2 | Pending |
-| FIXED-03 | Phase 2 | Pending |
-| FIXED-04 | Phase 2 | Pending |
-| VAR-01 | Phase 2 | Pending |
-| VAR-02 | Phase 2 | Pending |
-| VAR-03 | Phase 2 | Pending |
-| VAR-04 | Phase 2 | Pending |
-| SUB-01 | Phase 2 | Pending |
-| SUB-02 | Phase 2 | Pending |
-| SUB-03 | Phase 2 | Pending |
-| SUB-04 | Phase 2 | Pending |
-| REC-01 | Phase 2 | Pending |
-| REC-02 | Phase 2 | Pending |
-| REC-03 | Phase 2 | Pending |
-| REC-04 | Phase 2 | Pending |
-| DEBT-01 | Phase 2 | Pending |
-| DEBT-02 | Phase 2 | Pending |
-| DEBT-03 | Phase 2 | Pending |
-| DEBT-04 | Phase 2 | Pending |
-| DEBT-05 | Phase 2 | Pending |
-| DEBT-06 | Phase 2 | Pending |
-| ASSET-01 | Phase 2 | Pending |
-| ASSET-02 | Phase 2 | Pending |
-| ASSET-03 | Phase 2 | Pending |
-| DATA-01 | Phase 2 | Pending |
-| DATA-02 | Phase 2 | Pending |
-| DATA-03 | Phase 2 | Pending |
-| DATA-04 | Phase 2 | Pending |
-| DATA-05 | Phase 2 | Pending |
+| FOUND-01 | Phase 1 | Completed |
+| FOUND-02 | Phase 1 | Completed |
+| FOUND-03 | Phase 1 | Completed |
+| FOUND-04 | Phase 1 | Completed |
+| CAT-01 | Phase 1 | Completed |
+| CAT-02 | Phase 1 | Completed |
+| CAT-03 | Phase 1 | Completed |
+| CAT-04 | Phase 1 | Completed |
+| THEME-01 | Phase 1 | Completed |
+| THEME-02 | Phase 1 | Completed |
+| INC-01 | Phase 2 | Completed |
+| INC-02 | Phase 2 | Completed |
+| INC-03 | Phase 2 | Completed |
+| INC-04 | Phase 2 | Completed |
+| FIXED-01 | Phase 2 | Completed |
+| FIXED-02 | Phase 2 | Completed |
+| FIXED-03 | Phase 2 | Completed |
+| FIXED-04 | Phase 2 | Completed |
+| VAR-01 | Phase 2 | Completed |
+| VAR-02 | Phase 2 | Completed |
+| VAR-03 | Phase 2 | Completed |
+| VAR-04 | Phase 2 | Completed |
+| SUB-01 | Phase 2 | Completed |
+| SUB-02 | Phase 2 | Completed |
+| SUB-03 | Phase 2 | Completed |
+| SUB-04 | Phase 2 | Completed |
+| REC-01 | Phase 2 | Completed |
+| REC-02 | Phase 2 | Completed |
+| REC-03 | Phase 2 | Completed |
+| REC-04 | Phase 2 | Completed |
+| DEBT-01 | Phase 2 | Completed |
+| DEBT-02 | Phase 2 | Completed |
+| DEBT-03 | Phase 2 | Completed |
+| DEBT-04 | Phase 2 | Completed |
+| DEBT-05 | Phase 2 | Completed |
+| DEBT-06 | Phase 2 | Completed |
+| ASSET-01 | Phase 2 | Completed |
+| ASSET-02 | Phase 2 | Completed |
+| ASSET-03 | Phase 2 | Completed |
+| DATA-01 | Phase 2 | Completed |
+| DATA-02 | Phase 2 | Completed |
+| DATA-03 | Phase 2 | Completed |
+| DATA-04 | Phase 2 | Completed |
+| DATA-05 | Phase 2 | Completed |
 | PAY-01 | Phase 3 | Pending |
 | PAY-02 | Phase 3 | Pending |
 | PAY-03 | Phase 3 | Pending |
