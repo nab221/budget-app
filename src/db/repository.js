@@ -211,6 +211,31 @@ export const incomeRepository = {
   ...createBaseRepository(db.income),
   async getByMonth(monthStr) {
     return await db.income.where('date').startsWith(monthStr).toArray();
+  },
+  /**
+   * Get income records for a 3-month sliding window ending at targetMonthStr.
+   * Returns records from the start of (targetMonth - 2) through the end of targetMonth.
+   * @param {string} targetMonthStr - YYYY-MM of the current/reference month
+   * @returns {Promise<Array>}
+   */
+  async getThreeMonthHistory(targetMonthStr) {
+    const targetDate = new Date(`${targetMonthStr}-01`);
+
+    // Start: first day of 2 months prior
+    const startDate = new Date(targetDate);
+    startDate.setMonth(startDate.getMonth() - 2);
+    const startStr = startDate.toISOString().slice(0, 7) + '-01';
+
+    // End: last day of target month (set day=0 after incrementing month by 1)
+    const endDate = new Date(targetDate);
+    endDate.setMonth(endDate.getMonth() + 1);
+    endDate.setDate(0);
+    const endStr = endDate.toISOString().slice(0, 10);
+
+    return await db.income
+      .where('date')
+      .between(startStr, endStr, true, true)
+      .toArray();
   }
 };
 
