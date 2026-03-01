@@ -43,10 +43,9 @@ export async function renderDashboard(containerId, periodType, targetMonth) {
 
   const cards = [
     { label: 'Income', value: data.income, color: 'var(--accent)' },
-    { label: 'Fixed Expenses', value: data.fixed, color: 'var(--danger)' },
-    { label: 'Variable Expenses', value: data.variable, color: 'var(--danger)' },
+    { label: 'Recurrent Expenses', value: data.fixed, color: 'var(--danger)' },
+    { label: 'One-off Expenses', value: data.variable, color: 'var(--danger)' },
     { label: 'Net Position', value: data.netPosition, color: data.netPosition >= 0 ? 'var(--accent)' : 'var(--danger)' },
-    { label: 'Subscriptions', value: data.totalSubscriptions, color: 'var(--text-soft)' },
     { label: 'Total Debt', value: data.totalDebt, color: 'var(--danger)' },
     { label: 'Total Assets', value: data.totalAssets, color: 'var(--accent)' },
     {
@@ -55,7 +54,7 @@ export async function renderDashboard(containerId, periodType, targetMonth) {
       value: data.netWorth,
       color: data.netWorth >= 0 ? 'var(--accent)' : 'var(--danger)'
     },
-    { label: 'Fixed-to-Income', value: `${data.fixedToIncomeRatio}%`, color: data.fixedToIncomeRatio > 50 ? 'var(--warn)' : 'var(--text-soft)', isRaw: true },
+    { label: 'Recurrent-to-Income', value: `${data.fixedToIncomeRatio}%`, color: data.fixedToIncomeRatio > 50 ? 'var(--warn)' : 'var(--text-soft)', isRaw: true },
     { label: 'Debt-Free In', value: debtFreeText, color: debtFreeColor, isRaw: true }
   ];
 
