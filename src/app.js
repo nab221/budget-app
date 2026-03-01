@@ -49,7 +49,17 @@ async function init() {
     }
   };
 
-  window.app = { renderAll: refreshDashboard };
+  window.app = { 
+    renderAll: () => {
+      refreshDashboard();
+      window.app.refreshApp();
+    },
+    refreshApp: () => window.dispatchEvent(new CustomEvent('app:refresh'))
+  };
+
+  window.addEventListener('app:refresh', () => {
+    refreshDashboard();
+  });
 
   if (monthPicker) {
     if (!monthPicker.value) {

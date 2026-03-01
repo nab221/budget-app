@@ -20,6 +20,7 @@ export const transactionUI = {
    */
   async init() {
     this.setupEventListeners();
+    window.addEventListener('app:refresh', () => this.render());
     await this.render();
   },
 
