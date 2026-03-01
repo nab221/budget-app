@@ -692,6 +692,11 @@ export const childcareRepository = {
       ? amount // already in pence (heuristic: > £100.00 raw)
       : toPence(amount);
 
+    // Calculate remaining cap before opening the transaction — getRemainingCap
+    // reads childcareAccounts which is not in the rw transaction scope below.
+    const remainingCap = await childcareRepository.getRemainingCap(accountId, date);
+    const topUpAmount = calculateTopUp(amountPence, remainingCap);
+
     let depositId, topUpId = null, expenseId;
 
     await db.transaction('rw', db.childcareLedger, db.oneOffExpenses, async () => {
@@ -704,9 +709,7 @@ export const childcareRepository = {
         runningBalance: 0 // placeholder; recalculated below
       });
 
-      // 2. Calculate and apply top-up
-      const remainingCap = await childcareRepository.getRemainingCap(accountId, date);
-      const topUpAmount = calculateTopUp(amountPence, remainingCap);
+      // 2. Apply top-up (already calculated above)
 
       if (topUpAmount > 0) {
         topUpId = await db.childcareLedger.add({
