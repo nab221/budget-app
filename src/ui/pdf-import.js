@@ -307,11 +307,35 @@ export const pdfImportUI = {
     // Update Learning Rule
     await updateCategorizationLearningRule(learningData);
 
-    window.templateUI.closeModal();
-    alert(`Successfully imported ${count} transactions.`);
-    
     // Refresh main view
-    if (window.app) window.app.renderAll();
+    if (window.app && window.app.refreshApp) {
+      window.app.refreshApp();
+    } else if (window.app) {
+      window.app.renderAll();
+    }
+
+    const skippedCount = (this.state.transactions.length + this.state.conflicts.length) - count;
+    this.renderImportSummary(count, skippedCount);
+  },
+
+  renderImportSummary(count, skippedCount) {
+    const content = `
+      <div style="text-align:center; padding:20px">
+        <div style="font-size:3rem; margin-bottom:10px">✅</div>
+        <h3 style="margin-bottom:10px">Import Complete</h3>
+        <p>Successfully imported <strong>${count}</strong> transactions.</p>
+        ${skippedCount > 0 ? `<p class="hint">Skipped ${skippedCount} duplicate or unselected transactions.</p>` : ''}
+      </div>
+    `;
+
+    const footer = `
+      <div style="display:flex; justify-content:center; gap:10px; width:100%">
+        <button class="ghost" onclick="document.getElementById('pdfImportFile').click()">Upload Another</button>
+        <button class="primary" onclick="window.templateUI.closeModal()">Finish</button>
+      </div>
+    `;
+
+    window.templateUI.showModal('Import Summary', safeHTML`${content}`, safeHTML`${footer}`);
   },
 
   renderManualMappingUI() {
