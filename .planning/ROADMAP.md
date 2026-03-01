@@ -126,4 +126,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 3. Dashboard, Payoff Planner, and Budget Targets | 5/5 | Complete | 2026-02-28 |
 | 4. PWA and Charts | 3/3 | Complete   | 2026-02-28 |
 | 5. PDF Bank Statement Import | 0/TBD | Not started | - |
-| 6. Cloud Backup | 0/TBD | Not started | - |
+| 6. Cloud Backup | 1/3 | In Progress|  |

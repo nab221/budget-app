@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-02-28T23:08:47.658Z"
+last_updated: "2026-03-01T06:32:14.935Z"
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 15
-  completed_plans: 15
+  total_phases: 6
+  completed_phases: 5
+  total_plans: 21
+  completed_plans: 19
 ---
 
 # Project State
@@ -18,14 +18,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-28)
 
 **Core value:** A clear, reliable view of where the money goes each month — income vs fixed vs variable spending, debt progress, and net worth — all in one place, accessible on any device
-**Current focus:** Phase 4 — PWA & Charts
+**Current focus:** Phase 6 — Cloud Backup
 
 ## Current Position
 
-Phase: 4 of 6 (PWA and Charts)
-Plan: 3 of N (Debt Payoff Chart + PWA Data Safety - COMPLETE)
+Phase: 6 of 6 (Cloud Backup)
+Plan: 1 of 3 (Cloud Provider Utility Modules - COMPLETE)
 Status: In progress
-Last activity: 2026-02-28 — Plan 04-03 complete: Debt payoff timeline chart and PWA data safety reminders (export reminder, storage risk badge, offline-ready status).
+Last activity: 2026-03-01 — Plan 06-01 complete: Google Drive and OneDrive utility modules (GIS token model + MSAL.js singleton, Drive appDataFolder + Graph API file operations).
 
 Progress: [▓▓▓▓▓▓░░░░] 60%
 
@@ -51,6 +51,7 @@ Progress: [▓▓▓▓▓▓░░░░] 60%
 
 | Phase 04-pwa-and-charts P01 | 8 min | 2 tasks | 7 files |
 | Phase 04-pwa-and-charts P03 | 3 | 2 tasks | 7 files |
+| Phase 06-cloud-backup P01 | 4 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -70,6 +71,9 @@ Recent decisions affecting current work:
 - [Phase 04-pwa-and-charts]: Install button hidden by default, only shown when beforeinstallprompt fires — gracefully handles iOS Safari and already-installed contexts
 - [Phase 04-pwa-and-charts]: Chart X-axis capped at 24 months by default per plan requirement; full 10-year series computed internally
 - [Phase 04-pwa-and-charts]: Export reminder shows grace period for new users — if LAST_EXPORT_KEY absent, reminder is hidden rather than shown
+- [Phase 06-cloud-backup]: GIS token held in module-scope _tokenData only (not localStorage) — access tokens are short-lived and not safe to persist
+- [Phase 06-cloud-backup]: drive.appdata scope chosen — non-sensitive, no OAuth verification required, app-specific hidden folder
+- [Phase 06-cloud-backup]: Error strings standardised (NO_BACKUP_FOUND, NOT_CONNECTED) across both modules for cloud-backup.js matching
 
 ### Pending Todos
 
@@ -83,6 +87,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-28
-Stopped at: Completed 04-03-PLAN.md — debt payoff chart and PWA data safety reminders
+Last session: 2026-03-01
+Stopped at: Completed 06-01-PLAN.md — Google Drive and OneDrive utility modules
 Resume file: None
