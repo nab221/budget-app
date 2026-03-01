@@ -167,6 +167,15 @@
                 <div class="hint" style="margin-bottom:8px">Funds available each month <strong>on top of</strong> all minimum payments.</div>
                 <input id="payoffExtra" type="number" step="1" value="0" style="font-size:1.1rem; padding:8px; width:100%"/>
               </div>
+              <div style="flex:1">
+                <label style="font-weight:600; margin-bottom:4px; display:block">Payoff Strategy</label>
+                <div class="hint" style="margin-bottom:8px">Choose how extra funds are allocated.</div>
+                <select id="payoffStrategy" style="font-size:1.1rem; padding:8px; width:100%">
+                  <option value="avalanche">Debt Avalanche (Highest APR)</option>
+                  <option value="snowball">Debt Snowball (Lowest Balance)</option>
+                  <option value="min">Minimum Only</option>
+                </select>
+              </div>
             </div>
 
             <div id="payoffComparison" class="grid3" style="gap:15px; margin-bottom:20px">
@@ -175,7 +184,7 @@
 
             <!-- Debt Payoff Timeline Chart -->
             <div class="chart-container" style="margin-bottom:20px">
-              <h3 class="chart-title">Debt Payoff Timeline (Avalanche — next 24 months)</h3>
+              <h3 class="chart-title" id="payoffChartTitle">Debt Payoff Timeline</h3>
               <canvas id="payoffChart"></canvas>
             </div>
 

@@ -29,8 +29,10 @@ export async function renderDashboard(containerId, periodType, targetMonth) {
   let debtFreeColor = 'var(--accent)';
 
   if (debts && debts.length > 0) {
-    // We use Avalanche as the baseline for the dashboard countdown
-    const simulation = simulatePayoff(debts, 'avalanche', 0);
+    const savedStrategy = localStorage.getItem('budget_payoff_preference') || 'avalanche';
+    const savedExtra = parseFloat(localStorage.getItem('payoffExtra')) || 0;
+    const simulation = simulatePayoff(debts, savedStrategy, savedExtra * 100);
+
     if (simulation.monthsToClear >= 600) {
       debtFreeText = 'Never (at min)';
       debtFreeColor = 'var(--danger)';
