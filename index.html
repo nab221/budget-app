@@ -358,6 +358,22 @@
               </table>
             </div>
 
+            <!-- Balance Start Date -->
+            <div style="margin-top:20px; padding-top:20px; border-top:1px solid var(--border)">
+              <h3 style="font-size:.9rem;margin-bottom:8px">Balance Start Date</h3>
+              <div class="hint" style="margin-bottom:10px">Set the month from which your running account balance is calculated. This seeds your opening balance chain.</div>
+              <div class="form-row">
+                <div>
+                  <label for="balanceStartDate">Start Month</label>
+                  <input type="month" id="balanceStartDate" style="font-size:.85rem"/>
+                </div>
+                <div style="display:flex;align-items:flex-end">
+                  <button id="saveBalanceStartBtn" class="primary">Save</button>
+                </div>
+              </div>
+              <div id="balanceStartStatus" class="hint" style="margin-top:6px;font-size:.75rem"></div>
+            </div>
+
             <!-- Install App -->
             <div style="margin-top:20px; padding-top:20px; border-top:1px solid var(--border)">
               <h3 style="font-size:.9rem;margin-bottom:8px">Install App</h3>
