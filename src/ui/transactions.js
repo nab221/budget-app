@@ -87,32 +87,59 @@ export const transactionUI = {
   },
 
   async renderIncome(month) {
-    const items = await incomeRepository.getByMonth(month);
+    const items = await incomeRepository.getThreeMonthHistory(month);
     const body = document.getElementById('incBody');
     if (!body) return;
 
     if (items.length === 0) {
-      body.innerHTML = '<tr><td colspan="4" class="hint" style="text-align:center">No income for this month.</td></tr>';
+      body.innerHTML = '<tr><td colspan="4" class="hint" style="text-align:center">No income in the last 3 months.</td></tr>';
       this.updateTotal('income', 0);
       return;
     }
 
-    // Sort by date descending
-    items.sort((a, b) => b.date.localeCompare(a.date));
+    // Group items by YYYY-MM, sorted month descending
+    const grouped = {};
+    for (const item of items) {
+      const monthKey = item.date.slice(0, 7); // YYYY-MM
+      if (!grouped[monthKey]) grouped[monthKey] = [];
+      grouped[monthKey].push(item);
+    }
 
-    body.innerHTML = items.map(item => safeHTML`
-      <tr>
-        <td>${item.date}</td>
-        <td>${item.source}</td>
-        <td class="r">${formatGBP(item.amount)}</td>
-        <td class="r">
-          <button class="sm danger" onclick="deleteTransaction('income', ${item.id})">✕</button>
-        </td>
-      </tr>
-    `).join('');
+    const sortedMonths = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
 
-    const total = items.reduce((sum, item) => sum + item.amount, 0);
-    this.updateTotal('income', total);
+    let grandTotal = 0;
+    const rows = [];
+
+    for (const monthKey of sortedMonths) {
+      const monthItems = grouped[monthKey].sort((a, b) => b.date.localeCompare(a.date));
+      const monthTotal = monthItems.reduce((sum, i) => sum + i.amount, 0);
+      grandTotal += monthTotal;
+
+      // Month header row
+      const monthLabel = new Date(`${monthKey}-01`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+      rows.push(`
+        <tr>
+          <td colspan="4" style="padding:8px 6px 4px;font-weight:600;font-size:.8rem;color:var(--text-soft);background:var(--bg-alt)">
+            ${monthLabel} — ${formatGBP(monthTotal)}
+          </td>
+        </tr>
+      `);
+
+      // Data rows for this month
+      rows.push(...monthItems.map(item => safeHTML`
+        <tr>
+          <td>${item.date}</td>
+          <td>${item.source}</td>
+          <td class="r">${formatGBP(item.amount)}</td>
+          <td class="r">
+            <button class="sm danger" onclick="deleteTransaction('income', ${item.id})">✕</button>
+          </td>
+        </tr>
+      `));
+    }
+
+    body.innerHTML = rows.join('');
+    this.updateTotal('income', grandTotal);
   },
 
   updateTotal(type, totalPence) {
