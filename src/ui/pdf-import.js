@@ -204,11 +204,12 @@ export const pdfImportUI = {
 
   toggleAll(event, isConflict) {
     const checked = event.target.checked;
-    const prefix = isConflict ? 'c_' : 't_';
-    document.querySelectorAll('.tx-cb').forEach(cb => {
-      if (cb.dataset.id.startsWith(prefix)) {
-        cb.checked = checked;
-      }
+    // Ensure we handle both boolean and string "true"/"false" from inline HTML
+    const conflictFlag = String(isConflict) === 'true';
+    const prefix = conflictFlag ? 'c_' : 't_';
+    
+    document.querySelectorAll(`.tx-cb[data-id^="${prefix}"]`).forEach(cb => {
+      cb.checked = checked;
     });
   },
 
@@ -314,27 +315,35 @@ export const pdfImportUI = {
   },
 
   renderManualMappingUI() {
-    const rows = this.state.rawPdfRows.slice(0, 10); // Show max 10 rows for preview
+    const rows = this.state.rawPdfRows.slice(0, 300); // Show up to 300 rows for preview
     
     if (rows.length === 0) {
       window.templateUI.showModal('Manual Mapping', '<p>No readable text rows found in PDF.</p>', '<button class="ghost" onclick="window.templateUI.closeModal()">Close</button>');
       return;
     }
 
-    // We assume columns can be determined by the first row's item count roughly
-    const maxCols = Math.max(...rows.map(r => r.length));
+    // Calculate max columns from ALL rows, not just the preview slice
+    const maxCols = Math.max(...this.state.rawPdfRows.map(r => r.length));
     
     let content = `
       <p style="margin-bottom:10px">Auto-parse failed or skipped. Please map the columns below to extract transactions.</p>
-      <div style="overflow-x: auto">
+      <div style="margin-bottom:15px; display:flex; gap:15px; align-items:center; background:var(--bg-alt); padding:10px; border-radius:4px">
+        <div>
+          <label style="font-size:0.8rem; display:block; margin-bottom:4px">Skip Header Rows</label>
+          <input type="number" id="skipRows" value="0" min="0" style="width:80px; padding:4px"/>
+        </div>
+        <div class="hint">Identify the row where your transactions start and skip the ones above it.</div>
+      </div>
+      <div style="overflow-x: auto; max-height: 40vh; border: 1px solid var(--border)">
         <table class="tbl" style="min-width: 600px; white-space: nowrap;">
-          <thead>
+          <thead style="position: sticky; top: 0; background: var(--bg); z-index: 10">
             <tr>
+              <th style="width:40px; background:var(--bg-alt); color:var(--text-soft)">#</th>
               ${Array.from({length: maxCols}).map((_, i) => `
                 <th>
-                  <select id="map_col_${i}" style="padding:4px">
+                  <select id="map_col_${i}" style="padding:4px; font-size:0.75rem">
                     <option value="">-- Ignore --</option>
-                    <option value="date">Date (DD MMM / YYYY-MM-DD)</option>
+                    <option value="date">Date</option>
                     <option value="description">Description</option>
                     <option value="amountOut">Amount Out</option>
                     <option value="amountIn">Amount In</option>
@@ -344,8 +353,9 @@ export const pdfImportUI = {
             </tr>
           </thead>
           <tbody>
-            ${rows.map(row => `
+            ${rows.map((row, idx) => `
               <tr>
+                <td style="background:var(--bg-alt); color:var(--text-soft); font-size:0.7rem; text-align:center">${idx}</td>
                 ${Array.from({length: maxCols}).map((_, i) => `
                   <td>${row[i] ? sanitize(row[i].text) : ''}</td>
                 `).join('')}
@@ -357,15 +367,29 @@ export const pdfImportUI = {
     `;
 
     const footer = `
-      <button class="ghost" onclick="window.templateUI.closeModal()">Cancel</button>
-      <button class="primary" onclick="window.pdfImportUI.executeManualMapping()">Extract Data</button>
+      <div style="display:flex; justify-content:space-between; width:100%">
+        <button class="ghost" onclick="console.log(window.pdfImportUI.state.rawPdfRows); alert('Check browser console (F12) for raw row data. You can also click the Debug button to see it here.')">Log to Console</button>
+        <div>
+          <button class="ghost" onclick="window.pdfImportUI.showDebugRaw()">Debug: Show Raw Text</button>
+          <button class="ghost" onclick="window.templateUI.closeModal()">Cancel</button>
+          <button class="primary" onclick="window.pdfImportUI.executeManualMapping()">Extract Data</button>
+        </div>
+      </div>
     `;
 
     window.templateUI.showModal('Manual Column Mapping', safeHTML`${content}`, safeHTML`${footer}`);
   },
 
+  showDebugRaw() {
+    const raw = this.state.rawPdfRows.map((row, i) => `[Row ${i}] ${row.map(item => item.text).join(' | ')}`).join('\n');
+    const content = `<textarea readonly style="width:100%; height:60vh; font-family:monospace; font-size:0.7rem; background:#000; color:#0f0; padding:10px">${sanitize(raw)}</textarea>`;
+    window.templateUI.showModal('Debug: Raw PDF Text', safeHTML`${content}`, `<button class="primary" onclick="window.pdfImportUI.renderManualMappingUI()">Back to Mapping</button>`);
+  },
+
   async executeManualMapping() {
     const maxCols = Math.max(...this.state.rawPdfRows.map(r => r.length));
+    const skipCount = parseInt(document.getElementById('skipRows').value) || 0;
+    
     const mapping = {};
     for (let i = 0; i < maxCols; i++) {
       const select = document.getElementById(`map_col_${i}`);
@@ -382,8 +406,11 @@ export const pdfImportUI = {
     const transactions = [];
     const currentYear = new Date().getFullYear();
 
-    for (const row of this.state.rawPdfRows) {
-      if (row.length < 3) continue;
+    // Only process rows after the skip count
+    const rowsToProcess = this.state.rawPdfRows.slice(skipCount);
+
+    for (const row of rowsToProcess) {
+      if (row.length === 0) continue;
 
       let dateStr = row[mapping.date] ? row[mapping.date].text.trim() : '';
       let desc = row[mapping.description] ? row[mapping.description].text.trim() : '';
@@ -393,14 +420,14 @@ export const pdfImportUI = {
 
       if (!dateStr || !desc) continue;
 
-      let amount = 0;
+      let amountPence = 0;
       if (amountOutStr) {
-        amount = parseFloat(amountOutStr.replace(/,/g, '').replace('£','')) * -1;
+        amountPence = toPence(amountOutStr) * -1;
       } else if (amountInStr) {
-        amount = parseFloat(amountInStr.replace(/,/g, '').replace('£',''));
+        amountPence = toPence(amountInStr);
       }
 
-      if (isNaN(amount) || amount === 0) continue;
+      if (isNaN(amountPence) || amountPence === 0) continue;
 
       // Basic Date attempt
       let dateObj = new Date(dateStr);
@@ -412,7 +439,7 @@ export const pdfImportUI = {
         transactions.push({
           date: dateObj.toISOString().split('T')[0],
           description: desc,
-          amount
+          amount: amountPence
         });
       }
     }
