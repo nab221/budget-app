@@ -91,6 +91,9 @@
         <div id="tab-content">
           <!-- INCOME -->
           <div class="tab-panel active" data-panel="income">
+            <div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
+              <button class="ghost sm" onclick="document.getElementById('pdfImportFile').click()">📄 Import Bank Statement</button>
+            </div>
             <div class="form-row">
               <div><label>Date</label><input id="incDate" type="date"/></div>
               <div><label>Source</label><input id="incSource" type="text" placeholder="e.g. Salary"/></div>
@@ -135,6 +138,9 @@
 
           <!-- FIXED SPENDS -->
           <div class="tab-panel" data-panel="fixed">
+            <div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
+              <button class="ghost sm" onclick="document.getElementById('pdfImportFile').click()">📄 Import Bank Statement</button>
+            </div>
             <div class="form-row">
               <div><label>Date</label><input id="fixDate" type="date"/></div>
               <div><label>Category</label><select id="fixCat"></select></div>
@@ -147,6 +153,9 @@
 
           <!-- VARIABLE -->
           <div class="tab-panel" data-panel="variable">
+            <div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
+              <button class="ghost sm" onclick="document.getElementById('pdfImportFile').click()">📄 Import Bank Statement</button>
+            </div>
             <div class="form-row">
               <div><label>Date</label><input id="varDate" type="date"/></div>
               <div><label>Category</label><select id="varCat"></select></div>

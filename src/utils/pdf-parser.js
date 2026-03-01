@@ -176,5 +176,144 @@ export const parsers = {
       }
     }
     return transactions;
+  },
+
+  /**
+   * Nationwide Parser
+   * Date format DD MMM, description, amount
+   */
+  nationwide: (rows) => {
+    const transactions = [];
+    for (const row of rows) {
+      if (row.length < 3) continue;
+      const rowText = row.map(item => item.text.trim()).filter(Boolean).join(' ');
+      const match = rowText.match(/^(\d{2}\s[A-Za-z]{3})\s+(.+?)\s+£?([\d,]+\.\d{2})/);
+      
+      if (match) {
+        let dateObj = new Date(`${match[1]} ${new Date().getFullYear()}`);
+        if (!isNaN(dateObj.getTime())) {
+          transactions.push({
+            date: dateObj.toISOString().split('T')[0],
+            description: match[2].trim(),
+            amount: parseFloat(match[3].replace(/,/g, '')) * -1 // Assume CC defaults to negative
+          });
+        }
+      }
+    }
+    return transactions;
+  },
+
+  /**
+   * Amex Parser
+   * Date format DD/MM/YYYY or DD MMM, description, amount
+   */
+  amex: (rows) => {
+    const transactions = [];
+    for (const row of rows) {
+      if (row.length < 3) continue;
+      const rowText = row.map(item => item.text.trim()).filter(Boolean).join(' ');
+      const match = rowText.match(/^(\d{2}\/\d{2}\/\d{4}|\d{2}\s[A-Za-z]{3})\s+(.+?)\s+([\d,]+\.\d{2})/);
+      
+      if (match) {
+        let dateStr = match[1];
+        let dateObj = new Date(dateStr.includes('/') ? dateStr.split('/').reverse().join('-') : `${dateStr} ${new Date().getFullYear()}`);
+        
+        if (!isNaN(dateObj.getTime())) {
+          transactions.push({
+            date: dateObj.toISOString().split('T')[0],
+            description: match[2].trim(),
+            amount: parseFloat(match[3].replace(/,/g, '')) * -1
+          });
+        }
+      }
+    }
+    return transactions;
+  },
+
+  /**
+   * MBNA Parser
+   */
+  mbna: (rows) => {
+    // Similar to Lloyds/TSB CC format
+    return parsers.lloydsTsbCredit(rows);
+  },
+
+  /**
+   * TSB Mortgage Parser
+   * Identifies "Interest Charged" and extracts capital from "Payment Received"
+   */
+  tsbMortgage: (rows) => {
+    const transactions = [];
+    let lastPayment = null;
+    let lastInterest = null;
+
+    for (const row of rows) {
+      if (row.length < 3) continue;
+      const rowText = row.map(item => item.text.trim()).filter(Boolean).join(' ');
+      
+      // Look for DD MMM followed by description and amount
+      const match = rowText.match(/^(\d{2}\s[A-Za-z]{3}(?:\s\d{2})?)\s+(.+?)\s+£?([\d,]+\.\d{2})/);
+      
+      if (match) {
+        let rawDate = match[1];
+        let desc = match[2].trim();
+        let amount = parseFloat(match[3].replace(/,/g, ''));
+        
+        let dateObj = new Date(rawDate);
+        if (isNaN(dateObj.getTime())) {
+            dateObj = new Date(`${rawDate} ${new Date().getFullYear()}`);
+        }
+        
+        if (isNaN(dateObj.getTime())) continue;
+        const isoDate = dateObj.toISOString().split('T')[0];
+
+        if (desc.toLowerCase().includes("interest charged")) {
+            lastInterest = amount;
+            transactions.push({
+                date: isoDate,
+                description: "Mortgage Interest Charged",
+                amount: amount * -1 // Interest increases debt
+            });
+        } else if (desc.toLowerCase().includes("payment received") || desc.toLowerCase().includes("direct debit")) {
+            lastPayment = amount;
+            transactions.push({
+                date: isoDate,
+                description: "Mortgage Payment",
+                amount: amount,
+                _isPayment: true
+            });
+        } else {
+            transactions.push({
+                date: isoDate,
+                description: desc,
+                amount: amount
+            });
+        }
+      }
+    }
+
+    // Post-process to calculate Capital Repaid if we have both
+    const processed = [];
+    for (let tx of transactions) {
+        if (tx._isPayment) {
+            delete tx._isPayment;
+            if (lastInterest !== null && tx.amount > Math.abs(lastInterest)) {
+                // Split the payment into the raw payment minus interest to show capital
+                const capital = tx.amount - Math.abs(lastInterest);
+                processed.push({
+                    date: tx.date,
+                    description: "Mortgage Capital Repaid",
+                    amount: capital
+                });
+                // We keep the interest tx that was already added
+            } else {
+                processed.push(tx);
+            }
+        } else {
+            processed.push(tx);
+        }
+    }
+
+    return processed;
   }
 };
