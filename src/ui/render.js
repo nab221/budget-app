@@ -36,3 +36,58 @@ export function safeHTML(strings, ...values) {
 export function sanitize(str) {
   return DOMPurify.sanitize(str);
 }
+
+/**
+ * Modal management utility.
+ */
+export const modalUI = {
+  elements: {
+    overlay: document.getElementById('modalOverlay'),
+    title: document.getElementById('modalTitle'),
+    body: document.getElementById('modalBody'),
+    footer: document.getElementById('modalFooter'),
+    close: document.getElementById('modalClose')
+  },
+
+  init() {
+    if (!this.elements.overlay) {
+      // Re-query in case DOM wasn't ready
+      this.elements = {
+        overlay: document.getElementById('modalOverlay'),
+        title: document.getElementById('modalTitle'),
+        body: document.getElementById('modalBody'),
+        footer: document.getElementById('modalFooter'),
+        close: document.getElementById('modalClose')
+      };
+    }
+    if (this.elements.close) {
+      this.elements.close.onclick = () => this.close();
+    }
+    // Escape key closes modal
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') this.close();
+    });
+  },
+
+  /**
+   * Shows a modal.
+   * @param {string} title - The title of the modal.
+   * @param {string} content - The HTML content of the body.
+   * @param {string} footer - The HTML content of the footer.
+   */
+  show(title, content, footer = '') {
+    this.elements.title.textContent = title;
+    this.elements.body.innerHTML = content;
+    this.elements.footer.innerHTML = footer;
+    this.elements.overlay.classList.remove('hidden');
+    document.body.style.overflow = 'hidden'; // Prevent background scrolling
+  },
+
+  /**
+   * Closes the modal.
+   */
+  close() {
+    this.elements.overlay.classList.add('hidden');
+    document.body.style.overflow = ''; // Restore scrolling
+  }
+};

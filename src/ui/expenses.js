@@ -5,6 +5,8 @@ import {
 } from '../db/repository.js';
 import { formatGBP, toPence } from '../utils/currency.js';
 import { safeHTML } from './render.js';
+import { filterTransactions } from '../utils/filtering.js';
+import { templateUI } from './templates.js';
 
 /**
  * Expenses UI Module
@@ -13,6 +15,10 @@ import { safeHTML } from './render.js';
 export const expensesUI = {
   currentMonth: new Date().toISOString().slice(0, 7), // YYYY-MM
   activeSubTab: 'recurrent',
+  lastSubTab: 'recurrent',
+  editingId: null,
+  searchQuery: '',
+  selectedCategories: [],
 
   /**
    * Initialize the Expenses UI — bind events and do first render.
@@ -33,6 +39,8 @@ export const expensesUI = {
       this.currentMonth = monthPicker.value || this.currentMonth;
       monthPicker.addEventListener('change', async (e) => {
         this.currentMonth = e.target.value;
+        this.resetFilters();
+        this.toggleForm(false);
         await this.render(this.currentMonth);
       });
     }
@@ -47,21 +55,30 @@ export const expensesUI = {
         subTabs.querySelectorAll('[data-subtab]').forEach(b =>
           b.classList.toggle('active', b === btn)
         );
-        this._syncFormPanels();
+        this.resetFilters();
         await this.render(this.currentMonth);
       });
     }
 
-    // Add Recurrent Expense
-    const addRecBtn = document.getElementById('addRecBtn');
-    if (addRecBtn) {
-      addRecBtn.addEventListener('click', () => this.handleAddRecurrent());
+    // Toggle Expense Form
+    const addExpenseBtn = document.getElementById('addExpenseBtn');
+    if (addExpenseBtn) {
+      addExpenseBtn.onclick = () => this.toggleForm();
     }
 
-    // Add One-off Expense
-    const addOneOffBtn = document.getElementById('addOneOffBtn');
-    if (addOneOffBtn) {
-      addOneOffBtn.addEventListener('click', () => this.handleAddOneOff());
+    // Call Templates Manual Trigger
+    const callTemplatesBtn = document.getElementById('callTemplatesBtn');
+    if (callTemplatesBtn) {
+      callTemplatesBtn.onclick = () => templateUI.manualTrigger(this.currentMonth);
+    }
+
+    // Search Input
+    const searchInput = document.getElementById('expSearch');
+    if (searchInput) {
+      searchInput.oninput = (e) => {
+        this.searchQuery = e.target.value;
+        this.render(this.currentMonth);
+      };
     }
 
     // Mark all as paid
@@ -70,7 +87,7 @@ export const expensesUI = {
       markAllBtn.addEventListener('click', () => this.handleMarkAllPaid());
     }
 
-    // Global delete handlers (called via onclick in table rows)
+    // Global delete handlers
     window.deleteRecurrentExpense = async (id) => {
       if (!confirm('Delete this recurrent expense?')) return;
       try {
@@ -99,7 +116,6 @@ export const expensesUI = {
         if (!item) return;
         const newStatus = currentStatus === 'paid' ? 'pending' : 'paid';
         const updates = { status: newStatus };
-        // If marking paid and item has cycles, increment cycleCurrent
         if (newStatus === 'paid' && item.cycleTotal > 0) {
           updates.cycleCurrent = Math.min((item.cycleCurrent || 0) + 1, item.cycleTotal);
         }
@@ -111,78 +127,269 @@ export const expensesUI = {
     };
   },
 
-  async handleAddRecurrent() {
-    const date = document.getElementById('recDate').value;
-    const categoryId = document.getElementById('recCat').value;
-    const label = document.getElementById('recLabel').value.trim();
-    const amount = parseFloat(document.getElementById('recAmt').value);
-    const frequency = document.getElementById('recFreq').value;
-    const nextDate = document.getElementById('recNextDate').value;
-    const isEssential = document.getElementById('recIsEssential').checked;
-    const cycleTotal = parseInt(document.getElementById('recCycleTotal').value) || 0;
-    const endDate = document.getElementById('recEndDate').value || null;
+  resetFilters() {
+    this.searchQuery = '';
+    this.selectedCategories = [];
+    const searchInput = document.getElementById('expSearch');
+    if (searchInput) searchInput.value = '';
+  },
 
-    if (!label || isNaN(amount) || amount <= 0) {
-      alert('Please provide at least a description and a valid amount.');
-      return;
-    }
-
-    try {
-      await recurrentExpenseRepository.add({
-        date: date || new Date().toISOString().slice(0, 10),
-        categoryId: categoryId && categoryId !== '__other' ? parseInt(categoryId) : null,
-        label,
-        amount,
-        status: 'pending',
-        frequency,
-        nextDate: nextDate || date || new Date().toISOString().slice(0, 10),
-        isEssential,
-        cycleTotal,
-        cycleCurrent: 0,
-        endDate
-      });
-
-      // Clear form fields (keep date/category for convenience)
-      document.getElementById('recLabel').value = '';
-      document.getElementById('recAmt').value = '';
-      document.getElementById('recNextDate').value = '';
-      document.getElementById('recCycleTotal').value = '';
-      document.getElementById('recEndDate').value = '';
-
-      await this.render(this.currentMonth);
-    } catch (err) {
-      console.error('Failed to add recurrent expense:', err);
-      alert('Failed to add: ' + err.message);
+  toggleForm(show = true) {
+    const container = document.getElementById('expenseFormContainer');
+    if (!container) return;
+    
+    if (show) {
+      container.classList.remove('hidden');
+      this.renderForm();
+    } else {
+      container.classList.add('hidden');
+      this.editingId = null;
     }
   },
 
-  async handleAddOneOff() {
-    const date = document.getElementById('oneOffDate').value;
-    const categoryId = document.getElementById('oneOffCat').value;
-    const note = document.getElementById('oneOffNote').value.trim();
-    const amount = parseFloat(document.getElementById('oneOffAmt').value);
+  async renderForm() {
+    const container = document.getElementById('expenseFormContainer');
+    if (!container) return;
 
-    if (!date || isNaN(amount) || amount <= 0) {
-      alert('Please fill in the date and a valid amount.');
+    const categories = await categoryRepository.getCategories();
+    const isRecurrent = this.activeSubTab === 'recurrent';
+    const isUpdate = !!this.editingId;
+
+    let data = {};
+    if (isRecurrent) {
+      data = {
+        date: new Date().toISOString().slice(0, 10),
+        categoryId: '',
+        label: '',
+        amount: '',
+        frequency: 'monthly',
+        nextDate: new Date().toISOString().slice(0, 10),
+        isEssential: true,
+        cycleTotal: '',
+        endDate: ''
+      };
+      if (isUpdate) {
+        const item = await recurrentExpenseRepository.get(this.editingId);
+        if (item) data = { ...item, amount: (item.amount / 100).toFixed(2) };
+      }
+    } else {
+      data = {
+        date: new Date().toISOString().slice(0, 10),
+        categoryId: '',
+        note: '',
+        amount: ''
+      };
+      if (isUpdate) {
+        const item = await oneOffExpenseRepository.get(this.editingId);
+        if (item) data = { ...item, amount: (item.amount / 100).toFixed(2) };
+      }
+    }
+
+    container.className = `card ${isUpdate ? 'update-mode' : ''}`;
+    
+    const categoryOptions = categories
+      .filter(c => c.group === (isRecurrent ? 'fixed' : 'variable'))
+      .map(c => `<option value="${c.id}" ${Number(data.categoryId) === c.id ? 'selected' : ''}>${c.name}</option>`)
+      .join('');
+
+    if (isRecurrent) {
+      container.innerHTML = safeHTML`
+        <div class="card-hd">
+          <h2 style="font-size: 0.85rem; color: ${isUpdate ? 'var(--accent)' : 'var(--text-soft)'}">
+            ${isUpdate ? '📝 Update Recurrent Expense' : '➕ Add Recurrent Expense'}
+          </h2>
+        </div>
+        <div class="form-row">
+          <div><label>Date</label><input id="expDate" type="date" value="${data.date}"/></div>
+          <div><label>Category</label><select id="expCat"><option value="">— Category —</option>${categoryOptions}</select></div>
+        </div>
+        <div class="form-row">
+          <div><label>Description</label><input id="expLabel" type="text" value="${data.label}" placeholder="e.g. Rent"/></div>
+        </div>
+        <div class="form-row">
+          <div><label>Amount (£)</label><input id="expAmt" type="number" step="0.01" value="${data.amount}" placeholder="0.00"/></div>
+          <div><label>Frequency</label>
+            <select id="expFreq">
+              <option value="monthly" ${data.frequency === 'monthly' ? 'selected' : ''}>Monthly</option>
+              <option value="weekly" ${data.frequency === 'weekly' ? 'selected' : ''}>Weekly</option>
+              <option value="quarterly" ${data.frequency === 'quarterly' ? 'selected' : ''}>Quarterly</option>
+              <option value="annual" ${data.frequency === 'annual' ? 'selected' : ''}>Annual</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div><label>Next Due Date</label><input id="expNextDate" type="date" value="${data.nextDate}"/></div>
+          <div><label>Total Payments</label><input id="expCycleTotal" type="number" min="0" value="${data.cycleTotal}" placeholder="0 = ongoing"/></div>
+        </div>
+        <div class="form-row">
+          <div><label>End Date</label><input id="expEndDate" type="date" value="${data.endDate || ''}"/></div>
+          <div style="display:flex;align-items:center;gap:6px;padding-top:18px">
+            <input id="expIsEssential" type="checkbox" ${data.isEssential ? 'checked' : ''}/>
+            <label for="expIsEssential" style="margin:0">Essential</label>
+          </div>
+          <div style="display:flex;align-items:flex-end;gap:8px;flex:2">
+            <button class="primary" onclick="expensesUI.handleSaveExpense()">${isUpdate ? 'Save Changes' : 'Add Expense'}</button>
+            <button class="ghost" onclick="expensesUI.cancelEdit()">${isUpdate ? 'Cancel' : 'Hide'}</button>
+          </div>
+        </div>
+      `;
+    } else {
+      container.innerHTML = safeHTML`
+        <div class="card-hd">
+          <h2 style="font-size: 0.85rem; color: ${isUpdate ? 'var(--accent)' : 'var(--text-soft)'}">
+            ${isUpdate ? '📝 Update One-off Expense' : '➕ Add One-off Expense'}
+          </h2>
+        </div>
+        <div class="form-row">
+          <div><label>Date</label><input id="expDate" type="date" value="${data.date}"/></div>
+          <div><label>Category</label><select id="expCat"><option value="">— Category —</option>${categoryOptions}</select></div>
+          <div><label>Note</label><input id="expNote" type="text" value="${data.note}" placeholder="Optional"/></div>
+          <div><label>Amount (£)</label><input id="expAmt" type="number" step="0.01" value="${data.amount}" placeholder="0.00"/></div>
+          <div style="display:flex;align-items:flex-end;gap:8px">
+            <button class="primary" onclick="expensesUI.handleSaveExpense()">${isUpdate ? 'Save Changes' : 'Add Expense'}</button>
+            <button class="ghost" onclick="expensesUI.cancelEdit()">${isUpdate ? 'Cancel' : 'Hide'}</button>
+          </div>
+        </div>
+      `;
+    }
+
+    if (isUpdate) {
+      container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  },
+
+  async handleSaveExpense() {
+    const isRecurrent = this.activeSubTab === 'recurrent';
+    const date = document.getElementById('expDate').value;
+    const categoryId = document.getElementById('expCat').value;
+    const amount = parseFloat(document.getElementById('expAmt').value);
+
+    if (isNaN(amount) || amount <= 0) {
+      alert('Please provide a valid amount.');
       return;
     }
 
     try {
-      await oneOffExpenseRepository.add({
-        date,
-        categoryId: categoryId && categoryId !== '__other' ? parseInt(categoryId) : null,
-        note,
-        amount
-      });
+      if (isRecurrent) {
+        const label = document.getElementById('expLabel').value.trim();
+        if (!label) { alert('Description is required.'); return; }
+        
+        const payload = {
+          date: date || new Date().toISOString().slice(0, 10),
+          categoryId: categoryId ? parseInt(categoryId) : null,
+          label,
+          amount,
+          frequency: document.getElementById('expFreq').value,
+          nextDate: document.getElementById('expNextDate').value || date,
+          isEssential: document.getElementById('expIsEssential').checked,
+          cycleTotal: parseInt(document.getElementById('expCycleTotal').value) || 0,
+          endDate: document.getElementById('expEndDate').value || null
+        };
 
-      document.getElementById('oneOffNote').value = '';
-      document.getElementById('oneOffAmt').value = '';
+        if (this.editingId) {
+          await recurrentExpenseRepository.update(this.editingId, payload);
+        } else {
+          await recurrentExpenseRepository.add({ ...payload, status: 'pending', cycleCurrent: 0 });
+        }
+      } else {
+        const note = document.getElementById('expNote').value.trim();
+        const payload = {
+          date,
+          categoryId: categoryId ? parseInt(categoryId) : null,
+          note,
+          amount
+        };
 
+        if (this.editingId) {
+          await oneOffExpenseRepository.update(this.editingId, payload);
+        } else {
+          await oneOffExpenseRepository.add(payload);
+        }
+      }
+
+      const savedId = this.editingId;
+      this.toggleForm(false);
       await this.render(this.currentMonth);
+
+      if (savedId) {
+        const row = document.querySelector(`tr[data-id="${savedId}"]`);
+        if (row) {
+          row.classList.add('row-flash');
+          setTimeout(() => row.classList.remove('row-flash'), 1500);
+        }
+      }
     } catch (err) {
-      console.error('Failed to add one-off expense:', err);
-      alert('Failed to add: ' + err.message);
+      console.error('Failed to save expense:', err);
+      alert('Failed to save: ' + err.message);
     }
+  },
+
+  cancelEdit() {
+    if (this.editingId && !confirm('Discard changes?')) return;
+    this.toggleForm(false);
+  },
+
+  async editExpense(id) {
+    if (this.editingId && this.editingId !== id) {
+      if (!confirm('Discard changes to the current item?')) return;
+    }
+    this.editingId = id;
+    this.toggleForm(true);
+  },
+
+  async renderCategoryFilter() {
+    const container = document.getElementById('expCategoryFilterContainer');
+    if (!container) return;
+
+    const categories = await categoryRepository.getCategories();
+    const isRecurrent = this.activeSubTab === 'recurrent';
+    const expenseCats = categories.filter(c => c.group === (isRecurrent ? 'fixed' : 'variable'));
+
+    container.innerHTML = safeHTML`
+      <div class="custom-select" style="position:relative">
+        <button class="sm ghost" onclick="expensesUI.toggleCategoryDropdown()">
+          Categories (${this.selectedCategories.length || 'All'})
+        </button>
+        <div id="catDropdown" class="card hidden" style="position:absolute; top:100%; right:0; z-index:100; min-width:200px; padding:12px; margin-top:5px; box-shadow: var(--shadow); border: 1px solid var(--border)">
+          <div style="max-height: 200px; overflow-y: auto; margin-bottom: 10px">
+            ${expenseCats.map(c => `
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px">
+                <input type="checkbox" id="filter-cat-${c.id}" value="${c.id}" 
+                  ${this.selectedCategories.includes(c.id) ? 'checked' : ''}
+                  onchange="expensesUI.handleCategoryChange(this)"/>
+                <label for="filter-cat-${c.id}" style="font-size:.75rem; margin:0; cursor:pointer; color:var(--text)">${c.name}</label>
+              </div>
+            `).join('')}
+          </div>
+          <div style="border-top:1px solid var(--border); padding-top:8px; display:flex; justify-content:space-between">
+            <button class="sm ghost" onclick="expensesUI.clearCategoryFilter()">Clear</button>
+            <button class="sm primary" onclick="expensesUI.toggleCategoryDropdown(false)">Done</button>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  toggleCategoryDropdown(show) {
+    const dropdown = document.getElementById('catDropdown');
+    if (!dropdown) return;
+    if (show === undefined) show = dropdown.classList.contains('hidden');
+    dropdown.classList.toggle('hidden', !show);
+  },
+
+  handleCategoryChange(checkbox) {
+    const id = parseInt(checkbox.value);
+    if (checkbox.checked) {
+      if (!this.selectedCategories.includes(id)) this.selectedCategories.push(id);
+    } else {
+      this.selectedCategories = this.selectedCategories.filter(cid => cid !== id);
+    }
+    this.render(this.currentMonth);
+  },
+
+  clearCategoryFilter() {
+    this.selectedCategories = [];
+    this.render(this.currentMonth);
   },
 
   async handleMarkAllPaid() {
@@ -196,37 +403,28 @@ export const expensesUI = {
     }
   },
 
-  /**
-   * Sync form panels and list container visibility to the active sub-tab.
-   */
   _syncFormPanels() {
-    const recurrentForm = document.getElementById('recurrentFormPanel');
-    const oneOffForm = document.getElementById('oneOffFormPanel');
     const markAllRow = document.getElementById('markAllPaidRow');
     const recurrentList = document.getElementById('recurrentList');
     const oneOffList = document.getElementById('oneOffList');
+    const container = document.getElementById('expenseFormContainer');
+
+    if (this.lastSubTab !== this.activeSubTab) {
+      this.editingId = null;
+      if (container) container.classList.add('hidden');
+      this.lastSubTab = this.activeSubTab;
+    }
 
     const isRecurrent = this.activeSubTab === 'recurrent';
-
-    if (recurrentForm) recurrentForm.style.display = isRecurrent ? '' : 'none';
-    if (oneOffForm) oneOffForm.style.display = isRecurrent ? 'none' : '';
     if (markAllRow) markAllRow.style.display = isRecurrent ? '' : 'none';
     if (recurrentList) recurrentList.style.display = isRecurrent ? '' : 'none';
     if (oneOffList) oneOffList.style.display = isRecurrent ? 'none' : '';
   },
 
-  /**
-   * Main render entry point — delegates to the active sub-tab.
-   * @param {string} month - YYYY-MM
-   */
   async render(month) {
     if (month) this.currentMonth = month;
-
-    // Sync form/list visibility
     this._syncFormPanels();
-
-    // Populate category dropdowns if they exist
-    await this.populateCategoryDropdowns();
+    await this.renderCategoryFilter();
 
     if (this.activeSubTab === 'recurrent') {
       await this.renderRecurrent();
@@ -235,40 +433,23 @@ export const expensesUI = {
     }
   },
 
-  /**
-   * Populate the category <select> elements inside the Expenses panel.
-   * Preserves the user's current selection while refreshing the option list.
-   */
-  async populateCategoryDropdowns() {
-    const categories = await categoryRepository.getCategories();
-
-    const fillSelect = (id) => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      // Remember the current selection before repopulating
-      const currentVal = el.value;
-      el.innerHTML = '<option value="">— Category —</option>' +
-        categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
-      // Restore selection if it still exists
-      if (currentVal) el.value = currentVal;
-    };
-
-    fillSelect('recCat');
-    fillSelect('oneOffCat');
-  },
-
-  /**
-   * Render the Recurrent sub-view: Essential and Non-essential groups.
-   */
   async renderRecurrent() {
     const container = document.getElementById('recurrentList');
     if (!container) return;
 
-    const items = await recurrentExpenseRepository.getByMonth(this.currentMonth);
+    const allItems = await recurrentExpenseRepository.getByMonth(this.currentMonth);
     const categories = await categoryRepository.getCategories();
     const catMap = Object.fromEntries(categories.map(c => [c.id, c.name]));
 
-    // Sort by nextDate ascending (due-date ordering per context spec)
+    // Apply Filter using utility
+    const items = filterTransactions(allItems, this.searchQuery, this.selectedCategories, ['label'], catMap);
+
+    if (items.length === 0) {
+      container.innerHTML = '<p class="hint" style="text-align:center;padding:20px">No matching recurrent items found.</p>';
+      this.updateTotal('recurrent', 0);
+      return;
+    }
+
     items.sort((a, b) => (a.nextDate || '').localeCompare(b.nextDate || ''));
 
     const essential = items.filter(i => i.isEssential);
@@ -276,20 +457,13 @@ export const expensesUI = {
 
     const essentialTotal = essential.reduce((s, i) => s + (i.amount || 0), 0);
     const nonEssentialTotal = nonEssential.reduce((s, i) => s + (i.amount || 0), 0);
-    const grandTotal = essentialTotal + nonEssentialTotal;
-
-    if (items.length === 0) {
-      container.innerHTML = '<p class="hint" style="text-align:center;padding:20px">No recurrent items. Add one above.</p>';
-      this.updateTotal('recurrent', 0);
-      return;
-    }
+    const filteredTotal = essentialTotal + nonEssentialTotal;
 
     const renderRow = (item) => {
       const catName = catMap[item.categoryId] || 'None';
       const isPaid = item.status === 'paid';
       const isFinished = item.cycleTotal > 0 && (item.cycleCurrent || 0) >= item.cycleTotal;
 
-      // Payment progress badge
       let progressBadge = '';
       if (item.cycleTotal > 0) {
         const current = item.cycleCurrent || 0;
@@ -300,14 +474,13 @@ export const expensesUI = {
         }
       }
 
-      // Cancel badge for non-essential items with endDate
       let cancelBadge = '';
       if (!item.isEssential && item.endDate) {
         cancelBadge = `<span class="pill" style="background:var(--warn);color:#000;font-size:.65rem" title="Ends ${item.endDate}">Cancelable</span>`;
       }
 
       return safeHTML`
-        <tr class="${isPaid ? 'paid-row' : ''} ${isFinished ? 'finished-row' : ''}">
+        <tr class="${isPaid ? 'paid-row' : ''} ${isFinished ? 'finished-row' : ''}" data-id="${item.id}">
           <td>${item.nextDate || item.date}</td>
           <td>${catName}</td>
           <td>
@@ -317,10 +490,11 @@ export const expensesUI = {
           </td>
           <td>${item.frequency || 'monthly'}</td>
           <td class="r">${formatGBP(item.amount)}</td>
-          <td class="r">
+          <td class="r nw">
             <button class="sm ${isPaid ? 'success' : 'ghost'}" onclick="toggleRecurrentStatus(${item.id}, '${item.status}')">
               ${isPaid ? 'Paid' : 'Mark Paid'}
             </button>
+            <button class="sm ghost" onclick="expensesUI.editExpense(${item.id})">Edit</button>
             <button class="sm danger" onclick="deleteRecurrentExpense(${item.id})">✕</button>
           </td>
         </tr>
@@ -364,28 +538,27 @@ export const expensesUI = {
       </table>
     `;
 
-    this.updateTotal('recurrent', grandTotal);
+    this.updateTotal('recurrent', filteredTotal);
   },
 
-  /**
-   * Render the One-off sub-view: simple date-sorted list.
-   */
   async renderOneOff() {
     const container = document.getElementById('oneOffList');
     if (!container) return;
 
-    const items = await oneOffExpenseRepository.getByMonth(this.currentMonth);
+    const allItems = await oneOffExpenseRepository.getByMonth(this.currentMonth);
     const categories = await categoryRepository.getCategories();
     const catMap = Object.fromEntries(categories.map(c => [c.id, c.name]));
 
-    // Sort by date descending
-    items.sort((a, b) => b.date.localeCompare(a.date));
+    // Apply Filter using utility
+    const items = filterTransactions(allItems, this.searchQuery, this.selectedCategories, ['note'], catMap);
 
     if (items.length === 0) {
-      container.innerHTML = '<p class="hint" style="text-align:center;padding:20px">No one-off expenses for this month.</p>';
+      container.innerHTML = '<p class="hint" style="text-align:center;padding:20px">No matching one-off expenses found.</p>';
       this.updateTotal('oneoff', 0);
       return;
     }
+
+    items.sort((a, b) => b.date.localeCompare(a.date));
 
     const total = items.reduce((s, i) => s + (i.amount || 0), 0);
 
@@ -411,12 +584,13 @@ export const expensesUI = {
         </thead>
         <tbody>
           ${items.map(item => safeHTML`
-            <tr>
+            <tr data-id="${item.id}">
               <td>${item.date}</td>
               <td>${catMap[item.categoryId] || 'None'}</td>
               <td>${renderNoteCell(item)}</td>
               <td class="r">${formatGBP(item.amount)}</td>
-              <td class="r">
+              <td class="r nw">
+                <button class="sm ghost" onclick="expensesUI.editExpense(${item.id})">Edit</button>
                 <button class="sm danger" onclick="deleteOneOffExpense(${item.id})">✕</button>
               </td>
             </tr>
@@ -428,11 +602,6 @@ export const expensesUI = {
     this.updateTotal('oneoff', total);
   },
 
-  /**
-   * Update the total display element at the bottom of the active sub-panel.
-   * @param {'recurrent'|'oneoff'} type
-   * @param {number} totalPence
-   */
   updateTotal(type, totalPence) {
     const panel = document.querySelector('[data-panel="expenses"]');
     if (!panel) return;
@@ -446,7 +615,9 @@ export const expensesUI = {
       panel.appendChild(totalEl);
     }
 
-    const label = type === 'recurrent' ? 'Total Recurrent' : 'Total One-off';
+    const label = type === 'recurrent' ? 'Filtered Recurrent' : 'Filtered One-off';
     totalEl.textContent = `${label}: ${formatGBP(totalPence)}`;
   }
 };
+
+window.expensesUI = expensesUI;

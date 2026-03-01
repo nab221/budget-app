@@ -205,6 +205,38 @@ export function simulatePayoff(debts, strategy, extraPaymentPence = 0, startDate
 }
 
 /**
+ * Returns true if the recurrent item has an occurrence falling within targetMonthStr.
+ * Advances from item.nextDate by frequency steps to check if any cycle lands in the target month.
+ *
+ * Guards:
+ * - Finished cycles (cycleCurrent >= cycleTotal) return false
+ * - Items with no date return false
+ * - Unknown frequencies default to monthly (1-step advance)
+ *
+ * @param {Object} item - Recurrent expense with nextDate (YYYY-MM-DD) and frequency
+ * @param {string} targetMonthStr - YYYY-MM
+ * @returns {boolean}
+ */
+function recurrentFallsInMonth(item, targetMonthStr) {
+  if (item.cycleTotal > 0 && (item.cycleCurrent || 0) >= item.cycleTotal) return false;
+  const nextDate = item.nextDate || item.date;
+  if (!nextDate) return false;
+  const itemMonthStr = nextDate.slice(0, 7); // YYYY-MM
+  if (itemMonthStr === targetMonthStr) return true;
+  if (itemMonthStr > targetMonthStr) return false;
+
+  const freq = item.frequency || 'monthly';
+  const stepMonths = freq === 'quarterly' ? 3 : freq === 'annual' ? 12 : 1;
+  let cursor = parseISO(`${itemMonthStr}-01`);
+  const target = parseISO(`${targetMonthStr}-01`);
+
+  while (isBefore(cursor, target)) {
+    cursor = addMonths(cursor, stepMonths);
+  }
+  return format(cursor, 'yyyy-MM') === targetMonthStr;
+}
+
+/**
  * Calculates the rolling monthly balance chain from a start date.
  *
  * Algorithm per month:
@@ -227,6 +259,7 @@ export function simulatePayoff(debts, strategy, extraPaymentPence = 0, startDate
  *   @param {Function} deps.getRecurrent       - (monthStr) => Promise<Array<{amount}>>
  *   @param {Function} deps.getOneOff          - (monthStr) => Promise<Array<{amount}>>
  *   @param {Function} deps.getOpeningBalCatId - () => Promise<number|null>
+ *   @param {Function} deps.getInitialOpeningBalance - () => Promise<number>
  *   @param {Function} deps.saveSnapshot       - (snapshot) => Promise<number>
  * @returns {Promise<Array<{month, openingBalance, incomeTotal, expenseTotal, closingBalance}>>}
  */
@@ -252,20 +285,23 @@ export async function calculateBalanceChain(startDate, horizonMonths = 3, deps =
   // -----------------------------------------------------------------
   // Resolve data accessors — either injected deps or live DB imports
   // -----------------------------------------------------------------
-  let getIncome, getRecurrent, getOneOff, getOpeningBalCatId, saveSnapshot;
+  let getIncome, getRecurrent, getOneOff, getOpeningBalCatId, getInitialOpeningBalance, saveSnapshot;
 
   if (deps) {
-    ({ getIncome, getRecurrent, getOneOff, getOpeningBalCatId, saveSnapshot } = deps);
+    ({ getIncome, getRecurrent, getOneOff, getOpeningBalCatId, getInitialOpeningBalance, saveSnapshot } = deps);
   } else {
     // Lazy-import to avoid circular dependency issues in tests
     const { db } = await import('../db/schema.js');
     const { balanceSnapshotRepository } = await import('../db/repository.js');
+    const { BALANCE_OPENING_AMOUNT_KEY } = await import('./storage.js');
 
     getIncome = async (monthStr) =>
       db.income.where('date').startsWith(monthStr).toArray();
 
-    getRecurrent = async (_monthStr) =>
-      db.recurrentExpenses.toArray();
+    getRecurrent = async (monthStr) => {
+      const all = await db.recurrentExpenses.toArray();
+      return all.filter(item => recurrentFallsInMonth(item, monthStr));
+    };
 
     getOneOff = async (monthStr) =>
       db.oneOffExpenses.where('date').startsWith(monthStr).toArray();
@@ -275,14 +311,21 @@ export async function calculateBalanceChain(startDate, horizonMonths = 3, deps =
       return cat ? cat.id : null;
     };
 
+    getInitialOpeningBalance = async () => {
+      return parseInt(localStorage.getItem(BALANCE_OPENING_AMOUNT_KEY) || '0', 10);
+    };
+
     saveSnapshot = (snapshot) => balanceSnapshotRepository.save(snapshot);
   }
 
-  // Fetch the "Opening Balance" category id once
-  const openingBalCatId = await getOpeningBalCatId();
+  // Fetch the "Opening Balance" category id and initial injection once
+  const [openingBalCatId, initialInjection] = await Promise.all([
+    getOpeningBalCatId(),
+    getInitialOpeningBalance ? getInitialOpeningBalance() : Promise.resolve(0)
+  ]);
 
   const snapshots = [];
-  let runningOpeningBalance = 0;
+  let runningOpeningBalance = initialInjection;
 
   for (const monthStr of months) {
     const incomeRecords = await getIncome(monthStr);

@@ -90,14 +90,21 @@
         <div id="tab-content">
           <!-- INCOME -->
           <div class="tab-panel active" data-panel="income">
-            <div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
-              <button class="ghost sm" onclick="document.getElementById('pdfImportFile').click()">📄 Import Bank Statement</button>
+            <!-- Inline Form for Add/Update -->
+            <div id="incomeFormContainer" class="card hidden" style="margin-bottom:16px; background:var(--bg-alt);">
+              <!-- Form injected by transactions.js -->
             </div>
-            <div class="form-row">
-              <div><label>Date</label><input id="incDate" type="date"/></div>
-              <div><label>Source</label><input id="incSource" type="text" placeholder="e.g. Salary"/></div>
-              <div><label>Amount (£)</label><input id="incAmount" type="number" step="0.01"/></div>
-              <div style="display:flex;align-items:flex-end"><button id="addIncBtn" class="primary">+ Add</button></div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:10px">
+              <div style="display:flex; gap:8px">
+                <button id="addIncBtn" class="primary">+ Add Income</button>
+                <button class="ghost sm" onclick="document.getElementById('pdfImportFile').click()">📄 Import Bank Statement</button>
+              </div>
+              
+              <!-- Search Bar -->
+              <div style="display:flex; gap:8px; align-items:center">
+                <input type="text" id="incSearch" placeholder="Search income..." style="font-size:.8rem; width:180px"/>
+              </div>
             </div>
             <table class="tbl"><thead><tr><th>Date</th><th>Source</th><th class="r">Amount</th><th></th></tr></thead><tbody id="incBody"></tbody></table>
           </div>
@@ -110,48 +117,27 @@
               <button class="tab" data-subtab="oneoff">One-off</button>
             </div>
 
-            <!-- Recurrent Form -->
-            <div id="recurrentFormPanel">
-              <div class="form-row" style="flex-wrap:wrap">
-                <div><label>Date</label><input id="recDate" type="date"/></div>
-                <div><label>Category</label><select id="recCat"><option value="">— Category —</option></select></div>
-                <div><label>Description</label><input id="recLabel" type="text" placeholder="e.g. Rent"/></div>
-                <div><label>Amount (£)</label><input id="recAmt" type="number" step="0.01"/></div>
-                <div><label>Freq</label>
-                  <select id="recFreq">
-                    <option value="monthly">Monthly</option>
-                    <option value="weekly">Weekly</option>
-                    <option value="quarterly">Quarterly</option>
-                    <option value="annual">Annual</option>
-                  </select>
-                </div>
-                <div><label>Next Due</label><input id="recNextDate" type="date"/></div>
-                <div><label>Total Payments</label><input id="recCycleTotal" type="number" min="0" placeholder="0 = ongoing"/></div>
-                <div><label>End Date</label><input id="recEndDate" type="date"/></div>
-                <div style="display:flex;align-items:center;gap:6px;padding-top:18px">
-                  <input id="recIsEssential" type="checkbox" checked/>
-                  <label for="recIsEssential" style="margin:0">Essential</label>
-                </div>
-                <div style="display:flex;align-items:flex-end">
-                  <button id="addRecBtn" class="primary">+ Add</button>
-                </div>
-              </div>
+            <!-- Inline Form for Add/Update -->
+            <div id="expenseFormContainer" class="card hidden" style="margin-bottom:16px; background:var(--bg-alt);">
+              <!-- Form injected by expenses.js -->
             </div>
 
-            <!-- One-off Form -->
-            <div id="oneOffFormPanel" style="display:none">
-              <div class="form-row">
-                <div><label>Date</label><input id="oneOffDate" type="date"/></div>
-                <div><label>Category</label><select id="oneOffCat"><option value="">— Category —</option></select></div>
-                <div><label>Note</label><input id="oneOffNote" type="text" placeholder="Optional"/></div>
-                <div><label>Amount (£)</label><input id="oneOffAmt" type="number" step="0.01"/></div>
-                <div style="display:flex;align-items:flex-end"><button id="addOneOffBtn" class="primary">+ Add</button></div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:10px">
+              <div style="display:flex; gap:8px">
+                <button id="addExpenseBtn" class="primary">+ Add Expense</button>
+                <button id="callTemplatesBtn" class="ghost sm">🪄 Call Templates</button>
+                <div id="markAllPaidRow">
+                  <button id="markAllPaidBtn" class="ghost sm">✓ Mark all as paid</button>
+                </div>
               </div>
-            </div>
 
-            <!-- Mark all paid button (recurrent only) -->
-            <div id="markAllPaidRow" style="display:flex;justify-content:flex-end;margin-bottom:8px">
-              <button id="markAllPaidBtn" class="ghost sm">✓ Mark all as paid</button>
+              <!-- Search/Filter Bar -->
+              <div style="display:flex; gap:8px; align-items:center">
+                <input type="text" id="expSearch" placeholder="Search expenses..." style="font-size:.8rem; width:180px"/>
+                <div id="expCategoryFilterContainer">
+                  <!-- Multi-select injected by expenses.js -->
+                </div>
+              </div>
             </div>
 
             <!-- List containers -->
@@ -203,43 +189,35 @@
 
           <!-- DEBTS -->
           <div class="tab-panel" data-panel="debts">
-            <div class="form-row">
-              <div><label>Name</label><input id="debtName" type="text" placeholder="e.g. Barclaycard"/></div>
-              <div><label>Type</label>
-                <select id="debtType">
-                  <option value="credit_card">Credit Card</option>
-                  <option value="loan">Loan</option>
-                  <option value="overdraft">Overdraft</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-              <div><label>APR (%)</label><input id="debtApr" type="number" step="0.1" placeholder="e.g. 19.9"/></div>
-              <div><label>Limit (£)</label><input id="debtLimit" type="number" step="0.01"/></div>
-              <div><label>Balance (£)</label><input id="debtBalance" type="number" step="0.01"/></div>
-              <div><label>Promo End</label><input id="debtPromoEnd" type="date"/></div>
-              <div><label>Post-Promo APR (%)</label><input id="debtPostApr" type="number" step="0.1" placeholder="e.g. 19.9"/></div>
-              <div style="display:flex;align-items:flex-end"><button id="addDebtBtn" class="primary">+ Add</button></div>
+            <!-- Inline Form for Add/Update Debt Account -->
+            <div id="debtFormContainer" class="card hidden" style="margin-bottom:16px; background:var(--bg-alt);">
+              <!-- Form injected by debts.js -->
             </div>
-            
+
+            <div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
+              <button id="addDebtBtn" class="primary">+ Add Debt Account</button>
+            </div>
+
             <div id="debtList">
               <!-- Debt cards will be rendered here -->
             </div>
 
             <!-- Statement Modal/Section (Hidden by default) -->
             <div id="statementSection" class="hidden card" style="margin-top:20px; border:1px solid var(--border); padding:15px">
+              <!-- Inline Form for Add/Update Statement -->
+              <div id="stmtFormContainer" class="card hidden" style="margin-bottom:16px; background:var(--bg-alt); border: 1px solid var(--border-light);">
+                <!-- Form injected by debts.js -->
+              </div>
+
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px">
                 <h3 id="statementTitle">Statements: </h3>
-                <button class="ghost" onclick="document.getElementById('statementSection').classList.add('hidden')">Close</button>
+                <div style="display:flex; gap:8px;">
+                  <button id="addStmtBtn" class="primary sm">Log Statement</button>
+                  <button class="ghost sm" onclick="document.getElementById('statementSection').classList.add('hidden')">Close</button>
+                </div>
               </div>
               
-              <div class="form-row" style="margin-bottom:15px; background:var(--bg-alt); padding:10px; border-radius:4px">
-                <input type="hidden" id="stmtDebtId"/>
-                <div><label>Date</label><input id="stmtDate" type="date"/></div>
-                <div><label>New Balance (£)</label><input id="stmtBalance" type="number" step="0.01"/></div>
-                <div><label>Interest (£)</label><input id="stmtInterest" type="number" step="0.01" value="0"/></div>
-                <div><label>Fees (£)</label><input id="stmtFees" type="number" step="0.01" value="0"/></div>
-                <div style="display:flex;align-items:flex-end"><button id="addStmtBtn" class="primary">Log Statement</button></div>
-              </div>
+              <input type="hidden" id="stmtDebtId"/>
 
               <table class="tbl">
                 <thead>
@@ -258,20 +236,13 @@
 
           <!-- ASSETS -->
           <div class="tab-panel" data-panel="assets">
-            <div class="form-row">
-              <div><label>Name</label><input id="astName" type="text" placeholder="e.g. Savings Account"/></div>
-              <div><label>Type</label>
-                <select id="astType">
-                  <option value="cash">Cash / Savings</option>
-                  <option value="investment">Investment</option>
-                  <option value="property">Property</option>
-                  <option value="pension">Pension</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-              <div><label>Date</label><input id="astDate" type="date"/></div>
-              <div><label>Value (£)</label><input id="astValue" type="number" step="0.01"/></div>
-              <div style="display:flex;align-items:flex-end"><button id="addAstBtn" class="primary">+ Add</button></div>
+            <!-- Inline Form for Add/Update Asset Account -->
+            <div id="assetFormContainer" class="card hidden" style="margin-bottom:16px; background:var(--bg-alt);">
+              <!-- Form injected by assets.js -->
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
+              <button id="addAstBtn" class="primary">+ Add Asset Account</button>
             </div>
             <table class="tbl">
               <thead>
@@ -358,14 +329,17 @@
               </table>
             </div>
 
-            <!-- Balance Start Date -->
             <div style="margin-top:20px; padding-top:20px; border-top:1px solid var(--border)">
-              <h3 style="font-size:.9rem;margin-bottom:8px">Balance Start Date</h3>
-              <div class="hint" style="margin-bottom:10px">Set the month from which your running account balance is calculated. This seeds your opening balance chain.</div>
+              <h3 style="font-size:.9rem;margin-bottom:8px">Balance Start Configuration</h3>
+              <div class="hint" style="margin-bottom:10px">Set the month and opening balance from which your running account balance is calculated.</div>
               <div class="form-row">
                 <div>
                   <label for="balanceStartDate">Start Month</label>
                   <input type="month" id="balanceStartDate" style="font-size:.85rem"/>
+                </div>
+                <div>
+                  <label for="balanceOpeningAmount">Opening Balance (£)</label>
+                  <input type="number" id="balanceOpeningAmount" step="0.01" placeholder="0.00" style="font-size:.85rem"/>
                 </div>
                 <div style="display:flex;align-items:flex-end">
                   <button id="saveBalanceStartBtn" class="primary">Save</button>

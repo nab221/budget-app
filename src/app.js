@@ -1,4 +1,5 @@
 import { initTheme, toggleTheme } from './ui/theme';
+import { modalUI } from './ui/render';
 import { ensurePersistence } from './utils/storage';
 import { categoryUI } from './ui/categories';
 import { categoryRepository, netWorthRepository } from './db/repository';
@@ -17,9 +18,9 @@ import { cloudBackupUI } from './ui/cloud-backup.js';
 import { childcareUI } from './ui/childcare.js';
 import { calculateBalanceChain } from './utils/finance.js';
 import { balanceSnapshotRepository } from './db/repository.js';
+import { BALANCE_START_DATE_KEY, BALANCE_OPENING_AMOUNT_KEY } from './utils/storage.js';
 
-/** localStorage key for the user-configured balance start date (YYYY-MM). */
-export const BALANCE_START_DATE_KEY = 'budget_balance_start_date';
+export { BALANCE_START_DATE_KEY };
 
 /**
  * Main application entry point.
@@ -112,10 +113,15 @@ async function init() {
         await templateUI.renderTemplates();
         await targetsUI.renderTargetSettings();
         cloudBackupUI.render();
-        // Populate balance start date input from localStorage
+        // Populate balance configuration from localStorage
         const balanceStartInput = document.getElementById('balanceStartDate');
         if (balanceStartInput) {
           balanceStartInput.value = localStorage.getItem(BALANCE_START_DATE_KEY) || '';
+        }
+        const balanceOpeningInput = document.getElementById('balanceOpeningAmount');
+        if (balanceOpeningInput) {
+          const savedAmountPence = parseInt(localStorage.getItem(BALANCE_OPENING_AMOUNT_KEY) || '0', 10);
+          balanceOpeningInput.value = (savedAmountPence / 100).toFixed(2);
         }
       }
       
@@ -149,6 +155,7 @@ async function init() {
   }
 
   // Then init all modules
+  modalUI.init();
   await categoryUI.init();
   await transactionUI.init();
   await expensesUI.init();
@@ -178,6 +185,12 @@ async function init() {
 
       // Persist to localStorage
       localStorage.setItem(BALANCE_START_DATE_KEY, monthValue);
+
+      const openingInput = document.getElementById('balanceOpeningAmount');
+      if (openingInput) {
+        const amount = parseFloat(openingInput.value) || 0;
+        localStorage.setItem(BALANCE_OPENING_AMOUNT_KEY, Math.round(amount * 100).toString());
+      }
 
       // Invalidate all snapshots and recalculate from new start date
       try {

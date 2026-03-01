@@ -1,7 +1,7 @@
 import { childcareRepository, categoryRepository } from '../db/repository.js';
 import { formatGBP } from '../utils/currency.js';
 import { calculateFundingGap, getEntitlementPeriod } from '../utils/childcare.js';
-import { safeHTML } from './render.js';
+import { safeHTML, modalUI } from './render.js';
 
 /**
  * Childcare UI Module
@@ -27,31 +27,10 @@ export const childcareUI = {
    * Dynamic row-level handlers are attached as window-scoped functions.
    */
   _bindEvents() {
-    // Add Account form
+    // Add Account button
     const addAccountBtn = document.getElementById('childcareAddAccountBtn');
     if (addAccountBtn) {
-      addAccountBtn.addEventListener('click', () => this._handleAddAccount());
-    }
-
-    // Log Deposit button
-    const logDepositBtn = document.getElementById('childcareLogDepositBtn');
-    if (logDepositBtn) {
-      logDepositBtn.addEventListener('click', () => this._handleLogDeposit());
-    }
-
-    // Log Spending button
-    const logSpendBtn = document.getElementById('childcareLogSpendBtn');
-    if (logSpendBtn) {
-      logSpendBtn.addEventListener('click', () => this._handleLogSpend());
-    }
-
-    // Back to accounts list
-    const backBtn = document.getElementById('childcareBackBtn');
-    if (backBtn) {
-      backBtn.addEventListener('click', () => {
-        this._activeAccountId = null;
-        this.render();
-      });
+      addAccountBtn.addEventListener('click', () => this._showAddAccountModal());
     }
 
     // Window-scoped handlers for dynamically-rendered rows
@@ -80,6 +59,105 @@ export const childcareUI = {
   },
 
   /**
+   * Shows the modal to add a new childcare account.
+   */
+  _showAddAccountModal() {
+    const content = `
+      <div class="form-row">
+        <div><label>Child's Name</label><input id="modalChildcareChildName" type="text" placeholder="e.g. Alice"/></div>
+      </div>
+      <div class="form-row">
+        <div><label>Target Monthly Spend (£)</label><input id="modalChildcareTargetSpend" type="number" step="0.01" placeholder="e.g. 500"/></div>
+      </div>
+      <div class="form-row">
+        <div><label>Entitlement Start Date</label><input id="modalChildcareEntitlementStart" type="date"/></div>
+      </div>
+      <div class="form-row">
+        <div style="display:flex;align-items:center;gap:6px;padding-top:10px">
+          <input id="modalChildcareIsDisabled" type="checkbox"/>
+          <label for="modalChildcareIsDisabled" style="margin:0">Disabled child (£1k cap)</label>
+        </div>
+      </div>
+    `;
+    const footer = `
+      <button class="ghost" onclick="modalUI.close()">Cancel</button>
+      <button class="primary" id="modalChildcareAddAccountSaveBtn">Save Account</button>
+    `;
+
+    modalUI.show('Add Childcare Account', content, footer);
+
+    const saveBtn = document.getElementById('modalChildcareAddAccountSaveBtn');
+    if (saveBtn) {
+      saveBtn.onclick = () => this._handleAddAccount();
+    }
+  },
+
+  /**
+   * Shows the modal to log a deposit to a childcare account.
+   */
+  async _showLogDepositModal(accountId) {
+    const categories = await categoryRepository.getCategories();
+    const today = new Date().toISOString().slice(0, 10);
+    const childcareCat = categories.find(c => c.name.toLowerCase().includes('childcare'));
+
+    const content = `
+      <div class="form-row">
+        <div><label>Date</label><input id="modalChildcareDepositDate" type="date" value="${today}"/></div>
+      </div>
+      <div class="form-row">
+        <div><label>Amount (£)</label><input id="modalChildcareDepositAmount" type="number" step="0.01" placeholder="0.00"/></div>
+      </div>
+      <div class="form-row">
+        <div><label>Budget Category</label><select id="modalChildcareDepositCategory">
+          <option value="">— Category (optional) —</option>
+          ${categories.map(c => `<option value="${c.id}" ${childcareCat?.id === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
+        </select></div>
+      </div>
+      <p class="hint" style="font-size:.75rem;margin-top:10px">A deposit will also create a "Tax-free Childcare" one-off expense in your budget and apply the 20% government top-up.</p>
+    `;
+    const footer = `
+      <button class="ghost" onclick="modalUI.close()">Cancel</button>
+      <button class="primary" id="modalChildcareLogDepositSaveBtn">Log Deposit</button>
+    `;
+
+    modalUI.show('Log Childcare Deposit', content, footer);
+
+    const saveBtn = document.getElementById('modalChildcareLogDepositSaveBtn');
+    if (saveBtn) {
+      saveBtn.onclick = () => this._handleLogDeposit(accountId);
+    }
+  },
+
+  /**
+   * Shows the modal to log spending from a childcare account.
+   */
+  _showLogSpendModal(accountId) {
+    const today = new Date().toISOString().slice(0, 10);
+    const content = `
+      <div class="form-row">
+        <div><label>Date</label><input id="modalChildcareSpendDate" type="date" value="${today}"/></div>
+      </div>
+      <div class="form-row">
+        <div><label>Amount (£)</label><input id="modalChildcareSpendAmount" type="number" step="0.01" placeholder="0.00"/></div>
+      </div>
+      <div class="form-row">
+        <div><label>Provider / Description</label><input id="modalChildcareSpendDescription" type="text" placeholder="e.g. Sunshine Nursery"/></div>
+      </div>
+    `;
+    const footer = `
+      <button class="ghost" onclick="modalUI.close()">Cancel</button>
+      <button class="primary" id="modalChildcareLogSpendSaveBtn">Log Spend</button>
+    `;
+
+    modalUI.show('Log Childcare Spend', content, footer);
+
+    const saveBtn = document.getElementById('modalChildcareLogSpendSaveBtn');
+    if (saveBtn) {
+      saveBtn.onclick = () => this._handleLogSpend(accountId);
+    }
+  },
+
+  /**
    * Main render entry point. Shows account list or ledger view depending on state.
    */
   async render() {
@@ -96,8 +174,6 @@ export const childcareUI = {
       ledgerSection.style.display = 'none';
       await this._renderAccounts();
     }
-
-    await this._populateCategoryDropdown();
   },
 
   /**
@@ -109,36 +185,16 @@ export const childcareUI = {
 
     const accounts = await childcareRepository.getAccounts();
 
-    // Header + Add Account form always visible
-    let formHTML = `
-      <div style="margin-bottom:20px">
-        <h3 style="font-size:.9rem;margin-bottom:10px;font-weight:600">Add Childcare Account</h3>
-        <div class="form-row" style="flex-wrap:wrap">
-          <div>
-            <label>Child's Name</label>
-            <input id="childcareChildName" type="text" placeholder="e.g. Alice"/>
-          </div>
-          <div>
-            <label>Target Monthly Spend (£)</label>
-            <input id="childcareTargetSpend" type="number" step="0.01" placeholder="e.g. 500"/>
-          </div>
-          <div>
-            <label>Entitlement Start Date</label>
-            <input id="childcareEntitlementStart" type="date"/>
-          </div>
-          <div style="display:flex;align-items:center;gap:6px;padding-top:18px">
-            <input id="childcareIsDisabled" type="checkbox"/>
-            <label for="childcareIsDisabled" style="margin:0" title="Disabled children have a £1,000/quarter cap (vs £500)">Disabled child (£1k cap)</label>
-          </div>
-          <div style="display:flex;align-items:flex-end">
-            <button id="childcareAddAccountBtn" class="primary">+ Add Account</button>
-          </div>
-        </div>
+    // Header always visible
+    let headerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <h3 style="font-size:.9rem;font-weight:600">Childcare Accounts</h3>
+        <button id="childcareAddAccountBtn" class="primary">+ Add Account</button>
       </div>
     `;
 
     if (accounts.length === 0) {
-      container.innerHTML = formHTML + '<p class="hint" style="text-align:center;padding:20px">No childcare accounts yet. Add one above.</p>';
+      container.innerHTML = headerHTML + '<p class="hint" style="text-align:center;padding:20px">No childcare accounts yet. Add one above.</p>';
       this._rebindStaticButtons();
       return;
     }
@@ -206,7 +262,7 @@ export const childcareUI = {
 
     const cards = await Promise.all(cardPromises);
 
-    container.innerHTML = formHTML + cards.join('');
+    container.innerHTML = headerHTML + cards.join('');
     this._rebindStaticButtons();
   },
 
@@ -228,7 +284,6 @@ export const childcareUI = {
 
     const ledger = await childcareRepository.getLedger(accountId);
     const balance = await childcareRepository.getBalance(accountId);
-    const today = new Date().toISOString().slice(0, 10);
 
     const typeLabel = { deposit: 'Deposit', 'top-up': 'Gov Top-up', spend: 'Spend' };
     const typeColor = {
@@ -255,54 +310,14 @@ export const childcareUI = {
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
         <button id="childcareBackBtn" class="ghost sm">← Back to Accounts</button>
         <h3 style="font-size:1rem;font-weight:700">${account.childName} — Childcare Ledger</h3>
-        <div style="margin-left:auto;font-size:1.2rem;font-weight:700;color:var(--accent)">${formatGBP(balance)}</div>
       </div>
 
-      <!-- Log Deposit form -->
-      <div style="background:var(--bg-alt);border-radius:8px;padding:14px;margin-bottom:16px">
-        <h4 style="font-size:.85rem;font-weight:600;margin-bottom:10px">Log Deposit</h4>
-        <div class="form-row" style="flex-wrap:wrap">
-          <div>
-            <label>Date</label>
-            <input id="childcareDepositDate" type="date" value="${today}"/>
-          </div>
-          <div>
-            <label>Amount (£)</label>
-            <input id="childcareDepositAmount" type="number" step="0.01" placeholder="e.g. 400"/>
-          </div>
-          <div>
-            <label>Budget Category</label>
-            <select id="childcareDepositCategory">
-              <option value="">— Category (optional) —</option>
-            </select>
-          </div>
-          <div style="display:flex;align-items:flex-end">
-            <button id="childcareLogDepositBtn" class="primary" data-account-id="${accountId}">Log Deposit</button>
-          </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <div style="display:flex; gap:8px;">
+          <button id="childcareLogDepositBtn" class="primary sm">Log Deposit</button>
+          <button id="childcareLogSpendBtn" class="ghost sm">Log Spend</button>
         </div>
-        <div class="hint" style="font-size:.75rem;margin-top:6px">A deposit will also create a "Tax-free Childcare" one-off expense in your budget and apply the 20% government top-up.</div>
-      </div>
-
-      <!-- Log Spending form -->
-      <div style="background:var(--bg-alt);border-radius:8px;padding:14px;margin-bottom:16px">
-        <h4 style="font-size:.85rem;font-weight:600;margin-bottom:10px">Log Spending</h4>
-        <div class="form-row" style="flex-wrap:wrap">
-          <div>
-            <label>Date</label>
-            <input id="childcareSpendDate" type="date" value="${today}"/>
-          </div>
-          <div>
-            <label>Amount (£)</label>
-            <input id="childcareSpendAmount" type="number" step="0.01" placeholder="e.g. 250"/>
-          </div>
-          <div>
-            <label>Provider / Description</label>
-            <input id="childcareSpendDescription" type="text" placeholder="e.g. Sunshine Nursery"/>
-          </div>
-          <div style="display:flex;align-items:flex-end">
-            <button id="childcareLogSpendBtn" class="ghost" data-account-id="${accountId}">Log Spend</button>
-          </div>
-        </div>
+        <div style="font-size:1.2rem;font-weight:700;color:var(--accent)">${formatGBP(balance)}</div>
       </div>
 
       <!-- Ledger table -->
@@ -322,12 +337,6 @@ export const childcareUI = {
 
     // Re-bind dynamic buttons rendered inside innerHTML
     this._rebindLedgerButtons(accountId);
-
-    // Populate category dropdown in ledger view
-    await this._populateCategoryDropdown();
-
-    // Default "Childcare" category selection for deposit form
-    await this._preselectChildcareCategory();
   },
 
   /**
@@ -336,7 +345,7 @@ export const childcareUI = {
   _rebindStaticButtons() {
     const addAccountBtn = document.getElementById('childcareAddAccountBtn');
     if (addAccountBtn) {
-      addAccountBtn.onclick = () => this._handleAddAccount();
+      addAccountBtn.onclick = () => this._showAddAccountModal();
     }
   },
 
@@ -355,44 +364,12 @@ export const childcareUI = {
 
     const logDepositBtn = document.getElementById('childcareLogDepositBtn');
     if (logDepositBtn) {
-      logDepositBtn.onclick = () => this._handleLogDeposit();
+      logDepositBtn.onclick = () => this._showLogDepositModal(accountId);
     }
 
     const logSpendBtn = document.getElementById('childcareLogSpendBtn');
     if (logSpendBtn) {
-      logSpendBtn.onclick = () => this._handleLogSpend();
-    }
-  },
-
-  /**
-   * Populate all childcare category <select> elements with the current categories.
-   * Pre-selects any category matching "Childcare" by name.
-   */
-  async _populateCategoryDropdown() {
-    const categories = await categoryRepository.getCategories();
-    const selects = [
-      document.getElementById('childcareDepositCategory')
-    ].filter(Boolean);
-
-    for (const sel of selects) {
-      const current = sel.value;
-      sel.innerHTML = '<option value="">— Category (optional) —</option>' +
-        categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
-      if (current) sel.value = current;
-    }
-  },
-
-  /**
-   * Pre-select the "Childcare" category in the deposit form if it exists.
-   */
-  async _preselectChildcareCategory() {
-    const sel = document.getElementById('childcareDepositCategory');
-    if (!sel || sel.value) return; // already has a selection
-
-    const categories = await categoryRepository.getCategories();
-    const childcareCat = categories.find(c => c.name.toLowerCase().includes('childcare'));
-    if (childcareCat) {
-      sel.value = String(childcareCat.id);
+      logSpendBtn.onclick = () => this._showLogSpendModal(accountId);
     }
   },
 
@@ -400,10 +377,10 @@ export const childcareUI = {
    * Handle "Add Account" form submission.
    */
   async _handleAddAccount() {
-    const childName = (document.getElementById('childcareChildName')?.value || '').trim();
-    const targetSpend = parseFloat(document.getElementById('childcareTargetSpend')?.value || '0');
-    const entitlementStart = document.getElementById('childcareEntitlementStart')?.value || '';
-    const isDisabled = document.getElementById('childcareIsDisabled')?.checked || false;
+    const childName = (document.getElementById('modalChildcareChildName')?.value || '').trim();
+    const targetSpend = parseFloat(document.getElementById('modalChildcareTargetSpend')?.value || '0');
+    const entitlementStart = document.getElementById('modalChildcareEntitlementStart')?.value || '';
+    const isDisabled = document.getElementById('modalChildcareIsDisabled')?.checked || false;
 
     if (!childName) {
       alert("Please enter the child's name.");
@@ -422,16 +399,7 @@ export const childcareUI = {
         isDisabled
       });
 
-      // Clear form
-      const nameInput = document.getElementById('childcareChildName');
-      const spendInput = document.getElementById('childcareTargetSpend');
-      const startInput = document.getElementById('childcareEntitlementStart');
-      const disabledInput = document.getElementById('childcareIsDisabled');
-      if (nameInput) nameInput.value = '';
-      if (spendInput) spendInput.value = '';
-      if (startInput) startInput.value = '';
-      if (disabledInput) disabledInput.checked = false;
-
+      modalUI.close();
       await this.render();
       if (window.app) window.app.renderAll();
     } catch (err) {
@@ -443,13 +411,12 @@ export const childcareUI = {
   /**
    * Handle "Log Deposit" form submission.
    */
-  async _handleLogDeposit() {
-    const accountId = this._activeAccountId;
+  async _handleLogDeposit(accountId) {
     if (!accountId) return;
 
-    const date = document.getElementById('childcareDepositDate')?.value;
-    const amount = parseFloat(document.getElementById('childcareDepositAmount')?.value || '0');
-    const categoryIdRaw = document.getElementById('childcareDepositCategory')?.value;
+    const date = document.getElementById('modalChildcareDepositDate')?.value;
+    const amount = parseFloat(document.getElementById('modalChildcareDepositAmount')?.value || '0');
+    const categoryIdRaw = document.getElementById('modalChildcareDepositCategory')?.value;
     const categoryId = categoryIdRaw ? parseInt(categoryIdRaw) : null;
 
     if (!date) {
@@ -468,10 +435,7 @@ export const childcareUI = {
         ? ` Government top-up of ${formatGBP(result.topUpAmount)} applied.`
         : ' No top-up available (quarterly cap reached).';
 
-      // Clear deposit amount
-      const amtInput = document.getElementById('childcareDepositAmount');
-      if (amtInput) amtInput.value = '';
-
+      modalUI.close();
       await this.render();
       // Refresh dashboard so Net Worth and expenses update
       if (window.app) window.app.renderAll();
@@ -486,13 +450,12 @@ export const childcareUI = {
   /**
    * Handle "Log Spend" form submission.
    */
-  async _handleLogSpend() {
-    const accountId = this._activeAccountId;
+  async _handleLogSpend(accountId) {
     if (!accountId) return;
 
-    const date = document.getElementById('childcareSpendDate')?.value;
-    const amount = parseFloat(document.getElementById('childcareSpendAmount')?.value || '0');
-    const description = (document.getElementById('childcareSpendDescription')?.value || '').trim();
+    const date = document.getElementById('modalChildcareSpendDate')?.value;
+    const amount = parseFloat(document.getElementById('modalChildcareSpendAmount')?.value || '0');
+    const description = (document.getElementById('modalChildcareSpendDescription')?.value || '').trim();
 
     if (!date) {
       alert('Please select a date.');
@@ -506,12 +469,7 @@ export const childcareUI = {
     try {
       await childcareRepository.addSpend(accountId, date, amount, description);
 
-      // Clear form
-      const amtInput = document.getElementById('childcareSpendAmount');
-      const descInput = document.getElementById('childcareSpendDescription');
-      if (amtInput) amtInput.value = '';
-      if (descInput) descInput.value = '';
-
+      modalUI.close();
       await this.render();
       // Refresh dashboard so Net Worth updates
       if (window.app) window.app.renderAll();
@@ -521,3 +479,4 @@ export const childcareUI = {
     }
   }
 };
+

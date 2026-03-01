@@ -1,5 +1,5 @@
 import { getDashboardData, getSpendingTrends, debtRepository, targetRepository, netWorthRepository, balanceSnapshotRepository } from '../db/repository.js';
-import { formatGBP } from '../utils/currency.js';
+import { formatGBP, formatGBPShort } from '../utils/currency.js';
 import { simulatePayoff, calcMinPayment, calculateBalanceChain } from '../utils/finance.js';
 import { renderTrendsChart, renderBalanceChart } from './charts.js';
 import { checkStoragePersistence } from './pwa-ux.js';
@@ -88,7 +88,11 @@ export async function renderDashboard(containerId, periodType, targetMonth) {
     const valEl = document.createElement('div');
     valEl.className = 'sum-val';
     valEl.style.color = card.color;
-    valEl.textContent = card.isRaw ? card.value : formatGBP(card.value);
+    if (card.isRaw) {
+      valEl.textContent = card.value;
+    } else {
+      adjustFontSize(valEl, card.value);
+    }
 
     item.append(labelEl, valEl);
     container.append(item);
@@ -310,7 +314,6 @@ function renderChildcareFunding(childcareSummary) {
 async function renderBalancePanel() {
   let section = document.getElementById('dashboardBalanceSection');
   if (!section) {
-    // Insert before the grid2 section (Budget Progress / Net Worth History)
     const grid2 = document.querySelector('.card .grid2');
     if (grid2) {
       section = document.createElement('div');
@@ -324,22 +327,17 @@ async function renderBalancePanel() {
   // Load all snapshots
   let snapshots = [];
   try {
-    // Fetch all stored balance snapshots
     const allSnaps = await balanceSnapshotRepository.getLatestSnapshot();
-    // If no snapshots exist yet, trigger recalculation
     if (!allSnaps) {
       const earliest = await (async () => {
         try {
           const { db } = await import('../db/schema.js');
           return db.income.orderBy('date').first();
-        } catch (e) {
-          return null;
-        }
+        } catch (e) { return null; }
       })();
       const startDate = earliest ? String(earliest.date).slice(0, 7) : new Date().toISOString().slice(0, 7);
       snapshots = await calculateBalanceChain(startDate, 3);
     } else {
-      // Read all snapshots from DB (sorted by month)
       const { db } = await import('../db/schema.js');
       const raw = await db.balanceSnapshots.toArray();
       snapshots = raw.sort((a, b) => a.month.localeCompare(b.month));
@@ -355,52 +353,84 @@ async function renderBalancePanel() {
     return;
   }
 
-  // Determine today's balance (last non-projection snapshot, or first if all projections)
-  const today = new Date().toISOString().slice(0, 7);
   const actualSnaps = snapshots.filter(s => !s.isProjection);
-  const currentSnap = actualSnaps.length > 0
-    ? actualSnaps[actualSnaps.length - 1]
-    : snapshots[0];
-
-  // Check if any projection in the next 3 months is negative
+  const currentSnap = actualSnaps.length > 0 ? actualSnaps[actualSnaps.length - 1] : snapshots[0];
   const projectionSnaps = snapshots.filter(s => s.isProjection);
-  const hasNegativeProjection = projectionSnaps.some(s => s.closingBalance < 0);
-  const currentBalanceNegative = currentSnap.closingBalance < 0;
-  const isAlertState = hasNegativeProjection || currentBalanceNegative;
+  const nextMonthSnap = projectionSnaps[0] ?? null;
+  const forecastSnap = projectionSnaps.length > 0 ? projectionSnaps[projectionSnaps.length - 1] : null;
 
-  // Get forecast — the last projection snapshot
-  const forecastSnap = projectionSnaps.length > 0
-    ? projectionSnaps[projectionSnaps.length - 1]
-    : currentSnap;
+  const hasNegativeProjection = snapshots.some(s => s.closingBalance < 0);
 
-  // Build the balance card HTML
-  const cardBg = isAlertState
-    ? 'background:rgba(220,38,38,0.08); border:1px solid var(--danger);'
-    : 'background:var(--bg-alt); border:1px solid var(--border);';
-  const balanceColor = currentBalanceNegative ? 'var(--danger)' : 'var(--success)';
-  const forecastColor = forecastSnap.closingBalance < 0 ? 'var(--danger)' : 'var(--success)';
+  section.textContent = '';
+  const title = document.createElement('h3');
+  title.style.cssText = 'font-size:.9rem;margin-bottom:12px;font-weight:600';
+  title.textContent = 'Account Balance';
+  section.append(title);
 
-  section.innerHTML = `
-    <h3 style="font-size:.9rem;margin-bottom:12px;font-weight:600">Account Balance</h3>
-    <div id="balanceCard" style="display:flex;justify-content:space-between;align-items:stretch;gap:16px;padding:16px;border-radius:8px;${cardBg}">
-      <div style="flex:1">
-        <div class="hint" style="font-size:.75rem;margin-bottom:4px">Running Balance (${currentSnap.month})</div>
-        <div style="font-size:1.6rem;font-weight:800;color:${balanceColor}">${formatGBP(currentSnap.closingBalance)}</div>
-        ${isAlertState ? '<div style="font-size:.75rem;color:var(--danger);margin-top:4px;font-weight:600">Projected negative balance ahead</div>' : ''}
-      </div>
-      <div style="flex:1;border-left:1px solid var(--border);padding-left:16px">
-        <div class="hint" style="font-size:.75rem;margin-bottom:4px">3-Month Forecast (${forecastSnap.month})</div>
-        <div style="font-size:1.6rem;font-weight:800;color:${forecastColor}">${formatGBP(forecastSnap.closingBalance)}</div>
-        <div class="hint" style="font-size:.7rem;margin-top:4px">Based on known income &amp; expenses</div>
-      </div>
-    </div>
-    <div class="chart-container" style="margin-top:16px">
-      <canvas id="balanceChart"></canvas>
-    </div>
-  `;
+  const cardGrid = document.createElement('div');
+  cardGrid.className = 'sum-grid';
+  cardGrid.style.marginBottom = '20px';
+  section.append(cardGrid);
 
-  // Render the 90-day trend chart
+  const cardData = [
+    { label: `Running (${currentSnap.month})`, value: currentSnap.closingBalance },
+    { label: nextMonthSnap ? `Next Month (${nextMonthSnap.month})` : null, value: nextMonthSnap?.closingBalance },
+    { label: forecastSnap ? `3-Month Forecast (${forecastSnap.month})` : null, value: forecastSnap?.closingBalance }
+  ].filter(c => c.label !== null);
+
+  for (const card of cardData) {
+    const el = document.createElement('div');
+    el.className = 'balance-card';
+    if (card.value < 0 || (card === cardData[0] && hasNegativeProjection)) {
+      el.style.borderColor = 'var(--danger)';
+      el.style.borderLeftColor = 'var(--danger)';
+      el.style.background = 'rgba(220,38,38,0.05)';
+    }
+
+    const label = document.createElement('div');
+    label.className = 'sum-label';
+    label.textContent = card.label;
+
+    const val = document.createElement('div');
+    val.className = 'sum-val';
+    val.style.color = card.value < 0 ? 'var(--danger)' : 'var(--accent)';
+    adjustFontSize(val, card.value);
+
+    el.append(label, val);
+    cardGrid.append(el);
+  }
+
+  const chartCont = document.createElement('div');
+  chartCont.className = 'chart-container';
+  const canvas = document.createElement('canvas');
+  canvas.id = 'balanceChart';
+  chartCont.append(canvas);
+  section.append(chartCont);
+
   renderBalanceChart('balanceChart', snapshots);
+}
+
+/**
+ * Adjusts the font size of an element based on the length of the currency string.
+ * Uses formatGBPShort for extremely large values.
+ * @param {HTMLElement} el - The element containing the value.
+ * @param {number} pence - The amount in pence.
+ */
+function adjustFontSize(el, pence) {
+  const amount = Math.abs(pence / 100);
+  let fontSize = '1.35rem';
+  let displayValue = formatGBP(pence);
+
+  if (amount >= 100000) {
+    displayValue = formatGBPShort(pence);
+  } else if (amount >= 10000) {
+    fontSize = '1.15rem';
+  } else if (amount >= 1000) {
+    fontSize = '1.25rem';
+  }
+
+  el.style.fontSize = fontSize;
+  el.textContent = displayValue;
 }
 
 /**
