@@ -13,6 +13,7 @@ import { renderDashboard } from './ui/dashboard';
 import { renderPayoffPlanner } from './ui/payoff';
 import { initPWA, installApp, checkExportReminder } from './ui/pwa-ux';
 import { pdfImportUI } from './ui/pdf-import';
+import { cloudBackupUI } from './ui/cloud-backup.js';
 
 /**
  * Main application entry point.
@@ -92,6 +93,7 @@ async function init() {
         await categoryUI.render();
         await templateUI.renderTemplates();
         await targetsUI.renderTargetSettings();
+        cloudBackupUI.render();
       }
       
       // Always refresh dashboard in case totals changed
@@ -124,6 +126,7 @@ async function init() {
   await templateUI.init();
   await backupUI.init();
   await pdfImportUI.init();
+  await cloudBackupUI.init();
 
   // Initial dashboard render
   refreshDashboard();
