@@ -2,6 +2,7 @@ import { db } from '../db/schema.js';
 import { encryptData, decryptData } from '../utils/security.js';
 import { templateUI } from './templates.js'; // Reuse modal logic
 import { LAST_EXPORT_KEY } from './pwa-ux.js';
+import { importBackupData } from '../db/backup.js';
 
 export const backupUI = {
   elements: {
@@ -149,16 +150,7 @@ export const backupUI = {
     }
 
     try {
-      // Use a transaction for the entire import process
-      await db.transaction('rw', db.tables, async () => {
-        for (const table of db.tables) {
-          if (data[table.name]) {
-            await table.clear();
-            await table.bulkAdd(data[table.name]);
-          }
-        }
-      });
-
+      await importBackupData(data);
       alert('Import successful! The app will now reload.');
       window.location.reload();
     } catch (err) {
