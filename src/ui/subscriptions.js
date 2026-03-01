@@ -12,6 +12,7 @@ export const subscriptionUI = {
    */
   async init() {
     this.setupEventListeners();
+    window.addEventListener('app:refresh', () => this.render());
     await this.render();
   },
 
