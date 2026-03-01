@@ -7,6 +7,7 @@
   --accent: #16a34a;
   --accent-soft: rgba(22, 163, 74, 0.1);
   --accent-border: rgba(22, 163, 74, 0.2);
+  --success: #16a34a;
   --danger: #dc2626;
   --warn: #d97706;
   --info: #2563eb;
@@ -29,6 +30,7 @@
   --accent: #22c55e;
   --accent-soft: rgba(34, 197, 94, 0.18);
   --accent-border: rgba(34, 197, 94, 0.5);
+  --success: #22c55e;
   --danger: #ef4444;
   --warn: #f59e0b;
   --info: #3b82f6;
@@ -80,6 +82,8 @@ button.ghost { background: var(--card); }
 button.ghost:hover { border-color: var(--text-soft); }
 button.danger { border-color: var(--danger); color: var(--danger); }
 button.danger:hover { background: var(--danger); color: #fff; }
+button.success { border-color: var(--success); color: #fff; background: var(--success); }
+button.success:hover { filter: brightness(1.1); }
 button.info { border-color: var(--info); color: var(--info); }
 button.info:hover { background: var(--info); color: #fff; }
 button.sm { padding: 3px 7px; font-size: .75rem; }
@@ -131,6 +135,14 @@ input[type="number"] { text-align: right; }
 .tbl tbody tr:nth-child(even) { background: var(--bg); }
 .r { text-align: right; }
 .nw { white-space: nowrap; }
+
+/* ── EXPENSE ROWS ── */
+.paid-row td { opacity: 0.6; }
+.finished-row td { opacity: 0.5; text-decoration: line-through; }
+.badge-essential { background: rgba(22,163,74,0.12); color: #166534; border: 1px solid rgba(22,163,74,0.35); border-radius: 999px; font-size: .65rem; padding: 2px 7px; }
+[data-theme='dark'] .badge-essential { color: #bbf7d0; }
+.badge-non-essential { background: rgba(217,119,6,0.12); color: #92400e; border: 1px solid rgba(217,119,6,0.35); border-radius: 999px; font-size: .65rem; padding: 2px 7px; }
+[data-theme='dark'] .badge-non-essential { color: #fde68a; }
 
 /* ── CHIPS / TAGS ── */
 .chip { display: inline-flex; align-items: center; gap: 3px; border-radius: 999px; padding: 2px 6px; font-size: .67rem; border: 1px solid var(--border); }
