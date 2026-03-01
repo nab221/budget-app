@@ -22,7 +22,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 7: Milestone v1.0 Polish & Tech Debt** - Address accumulated debt and perform final human verification (completed 2026-03-01)
 - [x] **Phase 8: Income & Expenses Refinement** - 3-month income history and consolidated expense tabs (Recurrent vs One-off) (completed 2026-03-01)
 - [x] **Phase 9: Tax-free Childcare Tracker** - Monitor 2 accounts with gov top-up and predicted spending (completed 2026-03-01)
-- [ ] **Phase 10: Advanced Debt & Payoff** - Debt editing, 0% promo tracking, and interactive payoff strategy details
+- [x] **Phase 10: Advanced Debt & Payoff** - Debt editing, 0% promo tracking, and interactive payoff strategy details (completed 2026-03-01)
 - [ ] **Phase 11: Account Balance Carry-Forward** - Running account balance panel that carries forward through months so users can see if they have enough money for future expenses
 
 ## Phase Details
@@ -178,15 +178,16 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. 0% promotional periods are tracked and correctly handled in payoff simulations.
   3. Payoff Planner details show a month-by-month breakdown of payments per debt for the selected strategy.
 **Plans**:
-- [x] 10-01-PLAN.md — Debt Editing & Promo Tracking (2026-03-01)
-- [x] 10-02-PLAN.md — Interactive Payoff Planner & Details (2026-03-01)
+- [x] 10-01-PLAN.md — Advanced Debt Data & Simulation Engine (2026-03-01)
+- [x] 10-02-PLAN.md — Debt Editing & Dashboard Repayment Panel (2026-03-01)
+- [x] 10-03-PLAN.md — Interactive Payoff Planner & Detailed Breakdown (2026-03-01)
 
 ### Phase 11: Account Balance Carry-Forward
 **Goal**: Users can see a running account balance panel that starts from a stated opening balance, accumulates income, and deducts expenses month by month — enabling future-month forecasting ("Do I have enough money to pay for upcoming expenses?")
 **Depends on**: Phase 2, Phase 8
 **Requirements**: BAL-01, BAL-02, BAL-03, BAL-04
 **Success Criteria**:
-  1. User can set an opening account balance for a given month.
+  1. User can set an opening balance for a given month.
   2. The balance panel shows: opening balance + income - expenses = closing balance for each month.
   3. Closing balance carries forward automatically as the opening balance for the next month.
   4. User can see a forecast view showing projected balance over future months based on recurrent income and expenses.
@@ -211,5 +212,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 5.1 → 6 → 7 �
 | 7. Milestone v1.0 Polish & Tech Debt | 2/2 | Complete | 2026-03-01 |
 | 8. Income & Expenses Refinement | 2/2 | Complete | 2026-03-01 |
 | 9. Tax-free Childcare Tracker | 2/2 | Complete | 2026-03-01 |
-| 10. Advanced Debt & Payoff | 0/2 | Not started | - |
-| 11. Account Balance Carry-Forward | 0/2 | Not started | - |
+| 10. Advanced Debt & Payoff | 3/3 | Complete   | 2026-03-01 |
+| 11. Account Balance Carry-Forward | 1/2 | In Progress|  |

@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: Polish & Tech Debt
 status: unknown
-last_updated: "2026-03-01T13:21:00Z"
+last_updated: "2026-03-01T16:27:50.994Z"
 progress:
   total_phases: 11
-  completed_phases: 9
-  total_plans: 33
-  completed_plans: 30
+  completed_phases: 10
+  total_plans: 34
+  completed_plans: 33
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-28)
 
 **Core value:** A clear, reliable view of where the money goes each month — income vs fixed vs variable spending, debt progress, and net worth — all in one place, accessible on any device
-**Current focus:** Phase 9 — Tax-free Childcare Tracker
+**Current focus:** Phase 11 — Account Balance Carry-Forward
 
 ## Current Position
 
-Phase: 9 of 10 (Tax-free Childcare Tracker — COMPLETE)
-Plan: 2 of 2
-Status: Complete
-Last activity: 2026-03-01 — 09-02 complete: Childcare UI tab, dashboard TFC funding card, expense badge integration.
+Phase: 11 of 11 (Account Balance Carry-Forward — In Progress)
+Plan: 1 of 2 (Plan 01 complete)
+Status: In Progress
+Last activity: 2026-03-01 — Phase 11 Plan 01 complete: Schema v9 balanceSnapshots, Opening Balance seed, snapshot repository, calculateBalanceChain engine, and recalculation triggers.
 
-Progress: [▓▓▓▓▓▓▓▓▓▓] 100%
+Progress: [▓▓▓▓▓░░░░░] 50% (of current phase)
 
 ## Performance Metrics
 
@@ -60,6 +60,10 @@ Progress: [▓▓▓▓▓▓▓▓▓▓] 100%
 | Phase 08-income-expenses-refinement P02 | 344s | 3 tasks | 6 files |
 | Phase 09-tax-free-childcare-tracker P01 | 246s | 3 tasks | 4 files |
 | Phase 09-tax-free-childcare-tracker P02 | 475s | 3 tasks | 6 files |
+| Phase 10-01 P10-01 | 15 min | 3 tasks | 3 files |
+| Phase 10 P02 | 20 | 2 tasks | 3 files |
+| Phase 10 P03 | 15m | 2 tasks | 4 files |
+| Phase 11 P01 | 6min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -100,6 +104,16 @@ Recent decisions affecting current work:
 - [Phase Phase 08-02]: getThreeMonthHistory uses Dexie .between() on YYYY-MM-DD strings; schema v6 clears category targets on upgrade; getDashboardData returns both categorySpending and bucketSpending; --success CSS variable added to both themes
 - [Phase 09-01]: Running balances recalculated by full ledger re-scan after each mutation — correctness over efficiency; getRemainingCap uses getEntitlementPeriod as single source of truth for 3-month window; addDeposit calls getRemainingCap outside Dexie transaction block to avoid re-entrancy
 - [Phase 09-02]: childcareSummary returned from getDashboardData so dashboard.js receives pre-computed gap/suggestedDeposit without a second DB round-trip; Childcare Assets card only shown when accounts exist
+- [Phase 10-01]: Smallest balance tie-breaker implemented for equal APR strategy
+- [Phase 10-01]: Rate jump detected when promo period expires between simulation months
+- [Phase 10]: Edit debt functionality integrated directly into debt cards via click instead of a separate button.
+- [Phase 10]: Dashboard panel calculates total repayment as a percentage of income.
+- [Phase 10]: Use 'budget_payoff_preference' as the localStorage key for strategy persistence
+- [Phase 10]: Show exactly 12 months in the detailed breakdown table for readability
+- [Phase 10]: Highlight rate jumps with a visual lightning bolt (⚡) and background tint
+- [Phase 11]: balanceSnapshots indexed by YYYY-MM string for simple deleteFrom range and timezone-safe comparison
+- [Phase 11]: calculateBalanceChain uses dep injection for testing and lazy dynamic import for live DB path to avoid circular module dependency
+- [Phase 11]: Opening Balance category uses group=system to distinguish from user categories; idempotent ensureOpeningBalanceCategory seeds it on DB upgrade
 
 ### Roadmap Evolution
 
@@ -120,5 +134,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 09-02-PLAN.md — Childcare UI tab, dashboard TFC funding card with reconfirmation alerts, expense badge.
+Stopped at: Completed 11-01-PLAN.md — schema v9 balanceSnapshots, Opening Balance category seed, balanceSnapshotRepository, calculateBalanceChain engine, and recalculation triggers on income/oneOff repos.
 Resume file: None
