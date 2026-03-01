@@ -464,10 +464,8 @@ export const childcareUI = {
     try {
       const result = await childcareRepository.addDeposit(accountId, date, amount, categoryId);
 
-      // amount is in pounds; top-up = 25% of deposit in pence
-      const depositPence = Math.round(amount * 100);
       const topUpMsg = result.topUpId
-        ? ` Government top-up of ${formatGBP(Math.round(depositPence * 0.25))} applied.`
+        ? ` Government top-up of ${formatGBP(result.topUpAmount)} applied.`
         : ' No top-up available (quarterly cap reached).';
 
       // Clear deposit amount
