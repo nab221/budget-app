@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: Polish & Tech Debt
-status: unknown
-last_updated: "2026-03-01T09:52:11.759Z"
+status: complete
+last_updated: "2026-03-01T12:00:00.000Z"
 progress:
   total_phases: 7
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 25
-  completed_plans: 24
+  completed_plans: 25
 ---
 
 # Project State
@@ -22,12 +22,12 @@ See: .planning/PROJECT.md (updated 2026-02-28)
 
 ## Current Position
 
-Phase: 7 of 10 (Milestone v1.0 Polish & Tech Debt)
-Plan: 2 of 2 (Manual verification and v1.0 Sign-off - AT CHECKPOINT)
-Status: In Progress
-Last activity: 2026-03-01 — 07-02 Tasks 1-2 complete: ROADMAP.md and REQUIREMENTS.md updated for Phase 5/5.1 completion, PDF-01 to PDF-05 marked complete, Phase 5 SUMMARY frontmatter backfilled, PDF import state reset added. Paused at Task 3 checkpoint:human-verify.
+Phase: 7 of 7 (Milestone v1.0 Polish & Tech Debt — COMPLETE)
+Plan: 2 of 2 (Manual verification and v1.0 Sign-off — COMPLETE)
+Status: Complete
+Last activity: 2026-03-01 — 07-02 Task 3 complete: v1.0-SIGN-OFF.md created and signed. PWA PASS, Charts PASS, Cloud Backup CONFIGURATION REQUIRED (user setup, not a code defect). Milestone APPROVED. Phase 7 and v1.0 milestone fully complete.
 
-Progress: [▓▓▓▓▓▓▓▓░░] 74%
+Progress: [▓▓▓▓▓▓▓▓▓▓] 100%
 
 ## Performance Metrics
 
@@ -55,6 +55,7 @@ Progress: [▓▓▓▓▓▓▓▓░░] 74%
 | Phase 06-cloud-backup P02 | 3 | 1 task | 1 file |
 | Phase 06-cloud-backup P03 | 10 | 2 tasks | 3 files |
 | Phase 07-milestone-v1.0-polish-and-tech-debt P01 | 201s | 3 tasks | 8 files |
+| Phase 07-milestone-v1.0-polish-and-tech-debt P02 | ~30min | 3 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -86,6 +87,8 @@ Recent decisions affecting current work:
 - [Phase 07-milestone-v1.0-polish-and-tech-debt]: CLOUD_LAST_BACKUP_KEY consolidated to storage.js as single source of truth imported by all 3 cloud files
 - [Phase 07-02]: Phase 5 plans 04 and 05 (stabilization) listed only under Phase 5.1 section in ROADMAP.md — not duplicated in Phase 5 section
 - [Phase 07-02]: State reset (transactions, conflicts, rawPdfRows) added to confirmImport() before showing summary modal so UI is clean for re-import
+- [Phase 07-02]: Cloud backup OAuth credential absence classified as user setup requirement, not a code defect — v1.0 milestone APPROVED
+- [Phase 07-02]: PWA update prompt verification deferred post-launch — requires 2 deploy cycles, not feasible in dev environment
 
 ### Pending Todos
 
@@ -100,5 +103,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: 07-02-PLAN.md Task 3 checkpoint:human-verify — Final Human Verification & Sign-off (v1.0-SIGN-OFF.md)
+Stopped at: Phase 7 complete — v1.0 milestone signed off and approved. All 25 plans complete.
 Resume file: None

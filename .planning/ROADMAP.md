@@ -19,7 +19,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 5: PDF Bank Statement Import** - Auto-parse UK bank PDFs with manual fallback for bulk transaction import (completed 2026-03-01)
 - [x] **Phase 5.1: PDF Import Stabilization** - Fix critical bugs and verify Phase 5 (INSERTED, completed 2026-03-01)
 - [x] **Phase 6: Cloud Backup** - Google Drive and OneDrive backup integration for cross-device data access (completed 2026-03-01)
-- [ ] **Phase 7: Milestone v1.0 Polish & Tech Debt** - Address accumulated debt and perform final human verification
+- [x] **Phase 7: Milestone v1.0 Polish & Tech Debt** - Address accumulated debt and perform final human verification (completed 2026-03-01)
 - [ ] **Phase 8: Income & Expenses Refinement** - 3-month income history and consolidated expense tabs (Recurrent vs One-off)
 - [ ] **Phase 9: Tax-free Childcare Tracker** - Monitor 2 accounts with gov top-up and predicted spending
 - [ ] **Phase 10: Advanced Debt & Payoff** - Debt editing, 0% promo tracking, and interactive payoff strategy details
@@ -142,7 +142,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   5. All human verification items from the audit are documented as performed.
 **Plans**:
 - [x] 07-01-PLAN.md — Tech debt cleanup (2026-03-01)
-- [ ] 07-02-PLAN.md — Manual verification and v1.0 Sign-off (pending)
+- [x] 07-02-PLAN.md — Manual verification and v1.0 Sign-off (2026-03-01)
 
 ### Phase 8: Income & Expenses Refinement
 **Goal**: Improve financial trend visibility and simplify expense tracking by merging redundant tabs.
@@ -194,7 +194,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 5.1 → 6 → 7 �
 | 5. PDF Bank Statement Import | 3/3 | Complete | 2026-03-01 |
 | 5.1 PDF Import Stabilization | 2/2 | Complete | 2026-03-01 |
 | 6. Cloud Backup | 3/3 | Complete   | 2026-03-01 |
-| 7. Milestone v1.0 Polish & Tech Debt | 1/2 | In Progress|  |
+| 7. Milestone v1.0 Polish & Tech Debt | 2/2 | Complete | 2026-03-01 |
 | 8. Income & Expenses Refinement | 0/2 | Not started | - |
 | 9. Tax-free Childcare Tracker | 0/2 | Not started | - |
 | 10. Advanced Debt & Payoff | 0/2 | Not started | - |
