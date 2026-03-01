@@ -171,6 +171,26 @@ db.version(8).stores({
   });
 });
 
+// Define version 9 schema: Account Balance Carry-Forward
+// Adds balanceSnapshots table for tracking monthly opening/closing balances.
+// Snapshots are indexed by month (YYYY-MM) for fast lookup.
+db.version(9).stores({
+  income: '++id, date, source, amount, categoryId',
+  recurrentExpenses: '++id, date, categoryId, label, amount, status, frequency, nextDate, isEssential, cycleTotal, cycleCurrent, endDate',
+  oneOffExpenses: '++id, date, categoryId, note, amount',
+  recurringTemplates: '++id, name, amount, categoryId, frequency, type',
+  debts: '++id, name, type, apr, creditLimit, currentBalance, promoEndDate, postPromoApr',
+  statements: '++id, debtId, date, amount, interest, fees',
+  assets: '++id, name, type, asOfDate, currentBalance',
+  categories: '++id, name, group',
+  targets: '++id, bucket, amount',
+  netWorthSnapshots: '++id, month, totalAssets, totalDebt, netWorth',
+  categoryMappings: '++id, description, categoryId',
+  childcareAccounts: '++id, childName, targetMonthlySpend, entitlementStart, isDisabled',
+  childcareLedger: '++id, accountId, date, type, amount, runningBalance',
+  balanceSnapshots: '++id, month, openingBalance, closingBalance, incomeTotal, expenseTotal'
+});
+
 // Handle schema updates in other tabs
 db.on('versionchange', function() {
   db.close();

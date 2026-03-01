@@ -130,15 +130,19 @@ export const categoryRepository = {
    */
   async seedDefaultCategories() {
     const count = await db.categories.count();
-    if (count > 0) return false;
+    if (count > 0) {
+      // Still ensure "Opening Balance" special category exists (added in v9).
+      await categoryRepository.ensureOpeningBalanceCategory();
+      return false;
+    }
 
     const DEFAULT_CATS = {
       fixed: [
-        'Housing', 'Utilities', 'Credit Cards & Loans', 'Insurance', 
+        'Housing', 'Utilities', 'Credit Cards & Loans', 'Insurance',
         'Health', 'Childcare', 'Professional Subscriptions', 'Savings', 'Other Fixed'
       ],
       variable: [
-        'Groceries', 'Eating Out / Takeaway', 'Clothing', 'Fuel / Transport', 
+        'Groceries', 'Eating Out / Takeaway', 'Clothing', 'Fuel / Transport',
         'Miscellaneous', 'Entertainment', 'Gifts', 'Home / Garden'
       ]
     };
@@ -149,9 +153,25 @@ export const categoryRepository = {
         toAdd.push({ group, name });
       }
     }
+    // Always include the special "Opening Balance" system category
+    toAdd.push({ group: 'system', name: 'Opening Balance' });
 
     await db.categories.bulkAdd(toAdd);
     return true;
+  },
+
+  /**
+   * Ensure the "Opening Balance" system category exists.
+   * Safe to call multiple times — idempotent.
+   * @returns {Promise<number>} The category id.
+   */
+  async ensureOpeningBalanceCategory() {
+    const existing = await db.categories
+      .where('name')
+      .equals('Opening Balance')
+      .first();
+    if (existing) return existing.id;
+    return await db.categories.add({ group: 'system', name: 'Opening Balance' });
   },
 
   /**
@@ -522,6 +542,68 @@ export async function getDashboardData(periodType, targetMonth) {
     childcareSummary
   };
 }
+
+/**
+ * Balance Snapshot Repository
+ *
+ * Stores monthly opening/closing balance snapshots for the carry-forward system.
+ * Each snapshot captures the income, expense, opening, and closing balance for
+ * a calendar month (keyed by YYYY-MM string).
+ *
+ * All monetary values are stored as integer pence.
+ */
+export const balanceSnapshotRepository = {
+  /**
+   * Get the snapshot for a specific month.
+   * @param {string} monthStr - YYYY-MM string (e.g. "2026-01")
+   * @returns {Promise<Object|undefined>}
+   */
+  async getByMonth(monthStr) {
+    return await db.balanceSnapshots.where('month').equals(monthStr).first();
+  },
+
+  /**
+   * Save (upsert) a balance snapshot for a month.
+   * If a snapshot already exists for the month it is overwritten.
+   * @param {Object} snapshot - { month, openingBalance, closingBalance, incomeTotal, expenseTotal }
+   * @returns {Promise<number>} The record id.
+   */
+  async save(snapshot) {
+    const existing = await db.balanceSnapshots.where('month').equals(snapshot.month).first();
+    if (existing) {
+      await db.balanceSnapshots.update(existing.id, snapshot);
+      return existing.id;
+    }
+    return await db.balanceSnapshots.add(snapshot);
+  },
+
+  /**
+   * Delete all snapshots from a given month onwards (inclusive).
+   * Used to invalidate stale snapshots when historical data changes.
+   * @param {string} fromMonthStr - YYYY-MM string.
+   * @returns {Promise<void>}
+   */
+  async deleteFrom(fromMonthStr) {
+    const all = await db.balanceSnapshots.toArray();
+    const toDelete = all
+      .filter(s => s.month >= fromMonthStr)
+      .map(s => s.id);
+    if (toDelete.length > 0) {
+      await db.balanceSnapshots.bulkDelete(toDelete);
+    }
+  },
+
+  /**
+   * Get the most recent snapshot (highest month value).
+   * Returns undefined if no snapshots exist.
+   * @returns {Promise<Object|undefined>}
+   */
+  async getLatestSnapshot() {
+    const all = await db.balanceSnapshots.toArray();
+    if (all.length === 0) return undefined;
+    return all.reduce((latest, s) => (s.month > latest.month ? s : latest), all[0]);
+  }
+};
 
 /**
  * Childcare Repository
