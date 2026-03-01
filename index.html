@@ -83,6 +83,7 @@
           <button class="tab" data-tab="debts">Debts</button>
           <button class="tab" data-tab="payoff">Payoff Planner</button>
           <button class="tab" data-tab="assets">Assets</button>
+          <button class="tab" data-tab="childcare">Childcare</button>
           <button class="tab" data-tab="settings">⚙ Settings</button>
         </div>
 
@@ -273,6 +274,14 @@
               </thead>
               <tbody id="astBody"></tbody>
             </table>
+          </div>
+
+          <!-- CHILDCARE -->
+          <div class="tab-panel" data-panel="childcare">
+            <!-- Account list (shown when no ledger is active) -->
+            <div id="childcareAccountList"></div>
+            <!-- Ledger view (shown when an account is selected) -->
+            <div id="childcareLedgerSection" style="display:none"></div>
           </div>
 
           <!-- SETTINGS -->

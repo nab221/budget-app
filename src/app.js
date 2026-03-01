@@ -14,6 +14,7 @@ import { renderPayoffPlanner } from './ui/payoff';
 import { initPWA, installApp, checkExportReminder } from './ui/pwa-ux';
 import { pdfImportUI } from './ui/pdf-import';
 import { cloudBackupUI } from './ui/cloud-backup.js';
+import { childcareUI } from './ui/childcare.js';
 
 /**
  * Main application entry point.
@@ -100,6 +101,7 @@ async function init() {
       if (panelId === 'debts') await debtUI.render();
       if (panelId === 'assets') await assetUI.render();
       if (panelId === 'payoff') await renderPayoffPlanner();
+      if (panelId === 'childcare') await childcareUI.render();
       if (panelId === 'settings') {
         await categoryUI.render();
         await templateUI.renderTemplates();
@@ -138,6 +140,7 @@ async function init() {
   await backupUI.init();
   await pdfImportUI.init();
   await cloudBackupUI.init();
+  await childcareUI.init();
 
   // Initial dashboard render
   refreshDashboard();
