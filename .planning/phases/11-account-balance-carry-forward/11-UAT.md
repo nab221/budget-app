@@ -1,5 +1,5 @@
 ---
-status: complete
+status: diagnosed
 phase: 11-account-balance-carry-forward
 source: [11-01-SUMMARY.md, 11-02-SUMMARY.md]
 started: 2026-03-01T17:00:00Z
@@ -58,21 +58,38 @@ skipped: 0
   reason: "User reported: Just select month, not day (so not full date)"
   severity: minor
   test: 3
-  artifacts: []
-  missing: []
+  root_cause: "index.html line 368 uses <input type='month'> which renders a month-only picker (YYYY-MM). Since balance snapshots are keyed by YYYY-MM this is technically consistent, but may surprise users expecting a day-level date picker."
+  artifacts:
+    - path: "index.html"
+      issue: "input#balanceStartDate uses type='month' instead of type='date'"
+  missing:
+    - "Decide: keep type='month' (consistent with YYYY-MM schema) or switch to type='date' and truncate to first of month on save"
 
 - truth: "Projected months include recurrent expense deductions (fixed monthly frequency)"
   status: failed
   reason: "User reported: The projection is not considering the recurrent payments out for the following months, even if it is a fixed expense with monthly frequency."
   severity: major
   test: 5
-  artifacts: []
-  missing: []
+  root_cause: "calculateBalanceChain live DB closure (finance.js ~line 267) queries recurrentExpenses by nextDate.startsWith(monthStr) — returns empty for every future projected month since nextDate only holds the single next occurrence. recurrentExpenseRepository.getByMonth already returns all records correctly but is never called by calculateBalanceChain."
+  artifacts:
+    - path: "src/utils/finance.js"
+      issue: "getRecurrent live closure filters by nextDate.startsWith(monthStr) — returns [] for all projected months"
+    - path: "src/db/repository.js"
+      issue: "recurrentExpenseRepository.getByMonth correctly returns all records but is bypassed by calculateBalanceChain"
+    - path: "src/utils/finance.test.js"
+      issue: "No test covers projection with a recurrent expense whose nextDate is in current month but not future months"
+  missing:
+    - "For projected months, fetch all monthly-frequency recurrent expenses instead of filtering by nextDate"
+    - "Add test: recurrent expense with nextDate in month M still deducts in projected month M+1"
 
 - truth: "Balance card and chart update immediately after adding/editing income without tab switch"
   status: failed
   reason: "User reported: It does not automatically update it, only when change tabs."
   severity: major
   test: 6
-  artifacts: []
-  missing: []
+  root_cause: "triggerBalanceRecalc (repository.js lines 20-43) recalculates snapshots in IndexedDB but never dispatches app:refresh, so the DOM is only updated when the tab-switch handler calls refreshDashboard(). The window app:refresh listener already exists in app.js and would re-render if dispatched."
+  artifacts:
+    - path: "src/db/repository.js"
+      issue: "triggerBalanceRecalc never dispatches CustomEvent('app:refresh') after calculateBalanceChain resolves"
+  missing:
+    - "After calculateBalanceChain call in triggerBalanceRecalc, dispatch window.dispatchEvent(new CustomEvent('app:refresh'))"
