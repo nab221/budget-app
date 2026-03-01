@@ -9,8 +9,10 @@ import { renderDebtPayoffChart } from './charts.js';
 export async function renderPayoffPlanner() {
   const debts = await debtRepository.getAll();
   const extraPaymentInput = document.getElementById('payoffExtra');
+  const strategyInput = document.getElementById('payoffStrategy');
   const comparisonContainer = document.getElementById('payoffComparison');
   const tableContainer = document.getElementById('payoffTableContainer');
+  const chartTitle = document.getElementById('payoffChartTitle');
 
   if (!debts || debts.length === 0) {
     comparisonContainer.innerHTML = '<div class="hint">Add some debts in the "Debts" tab to see payoff simulations.</div>';
@@ -19,90 +21,46 @@ export async function renderPayoffPlanner() {
     return;
   }
 
-  /**
-   * Compute per-debt balance-over-time series for the Avalanche strategy.
-   * Returns data in the format expected by renderDebtPayoffChart.
-   *
-   * @param {Array} debtsArr - Debt objects with currentBalance and apr
-   * @param {number} extraPence - Extra monthly payment in pence
-   * @returns {Array<{name: string, balances: number[]}>}
-   */
-  const computeBalanceSeries = (debtsArr, extraPence) => {
-    const MAX_MONTHS = 600;
-    const CHART_MONTHS = 120; // cap series at 10 years for chart data volume
+  // Load persistence
+  const savedExtra = localStorage.getItem('payoffExtra');
+  if (savedExtra !== null) extraPaymentInput.value = savedExtra;
 
-    // Clone debts
-    const currentDebts = debtsArr.map(d => ({
-      ...d,
-      balance: d.currentBalance,
-      isCleared: d.currentBalance <= 0
+  const savedStrategy = localStorage.getItem('budget_payoff_preference');
+  if (savedStrategy !== null) strategyInput.value = savedStrategy;
+
+  /**
+   * Transforms simulation history into the series format expected by charts.js
+   */
+  const getChartDataFromHistory = (history, debtsArr) => {
+    const CHART_MONTHS = 120;
+    const limitedHistory = history.slice(0, CHART_MONTHS);
+    
+    // Initialize series with starting balances (Month 0)
+    const series = debtsArr.map(d => ({
+      name: d.name,
+      balances: [d.currentBalance]
     }));
 
-    // Series arrays per debt (month 0 = initial balance)
-    const series = currentDebts.map(d => ({ name: d.name, balances: [d.balance] }));
+    // Fill in monthly balances
+    limitedHistory.forEach(snapshot => {
+      series.forEach(s => {
+        const debtPayment = snapshot.payments.find(p => p.debtName === s.name);
+        s.balances.push(debtPayment ? debtPayment.remainingBalance : 0);
+      });
+    });
 
-    const initialMinimums = currentDebts.map(d => calcMinPayment(d.balance, d.apr));
-    const totalMonthlyBudget = initialMinimums.reduce((a, b) => a + b, 0) + extraPence;
-
-    let month = 0;
-    while (currentDebts.some(d => d.balance > 0) && month < MAX_MONTHS) {
-      month++;
-
-      // Avalanche: sort by highest APR
-      const sortedByApr = [...currentDebts].sort((a, b) => b.apr - a.apr || b.balance - a.balance);
-
-      let available = totalMonthlyBudget;
-      const payments = new Map();
-
-      // Pay minimums first
-      for (const debt of currentDebts) {
-        if (debt.balance <= 0) { payments.set(debt.id, 0); continue; }
-        const min = calcMinPayment(debt.balance, debt.apr);
-        const payment = Math.min(debt.balance, min);
-        payments.set(debt.id, payment);
-        available -= payment;
-      }
-
-      // Apply extra to priority debt
-      if (available > 0) {
-        for (const debt of sortedByApr) {
-          if (debt.balance > (payments.get(debt.id) || 0)) {
-            const extra = Math.min(debt.balance - (payments.get(debt.id) || 0), available);
-            payments.set(debt.id, (payments.get(debt.id) || 0) + extra);
-            available -= extra;
-            if (available <= 0) break;
-          }
-        }
-      }
-
-      // Update balances
-      for (const debt of currentDebts) {
-        if (debt.balance <= 0) continue;
-        const payment = payments.get(debt.id) || 0;
-        debt.balance -= payment;
-        if (debt.balance > 0) {
-          const monthlyInterest = Math.round((debt.balance * (debt.apr / 100)) / 12);
-          debt.balance += monthlyInterest;
-        }
-        if (debt.balance < 0) debt.balance = 0;
-      }
-
-      // Record balances if within chart cap
-      if (month <= CHART_MONTHS) {
-        currentDebts.forEach((debt, idx) => {
-          series[idx].balances.push(Math.max(0, debt.balance));
-        });
-      }
-    }
-
-    // If we hit MAX_MONTHS but debts aren't cleared, pad to end
     return series;
   };
 
-  // Handle extra payment change
+  // Handle changes
   const updateSimulations = () => {
     const extraPounds = parseFloat(extraPaymentInput.value) || 0;
     const extraPence = toPence(extraPounds);
+    const selectedStrategyId = strategyInput.value;
+
+    // Persist
+    localStorage.setItem('payoffExtra', extraPounds);
+    localStorage.setItem('budget_payoff_preference', selectedStrategyId);
 
     const strategies = [
       { id: 'avalanche', name: 'Debt Avalanche', description: 'Highest interest first' },
@@ -124,7 +82,10 @@ export async function renderPayoffPlanner() {
 
     // Render comparison cards
     comparisonContainer.innerHTML = results.map(res => `
-      <div class="card ${res.monthsToClear === minMonths && res.id !== 'min' ? 'border-primary' : ''}" style="padding:15px; flex:1">
+      <div class="card ${res.id === selectedStrategyId ? 'border-primary' : ''}" 
+           style="padding:15px; flex:1; cursor:pointer; position:relative"
+           onclick="document.getElementById('payoffStrategy').value='${res.id}'; document.getElementById('payoffStrategy').dispatchEvent(new Event('change'))">
+        ${res.id === selectedStrategyId ? '<div style="position:absolute; top:8px; right:8px; color:var(--primary); font-size:1.2rem">✓</div>' : ''}
         <h3 style="font-size:.9rem; margin-bottom:4px">${res.name}</h3>
         <div class="hint" style="margin-bottom:12px">${res.description}</div>
         
@@ -145,31 +106,52 @@ export async function renderPayoffPlanner() {
       </div>
     `).join('');
 
-    // Render detailed table for the selected/fastest strategy (Avalanche)
-    const activeStrategy = results.find(r => r.id === 'avalanche');
+    // Detailed 12-Month Breakdown Table
+    const activeResult = results.find(r => r.id === selectedStrategyId);
+    const snapshot12 = activeResult.history.slice(0, 12);
+    
+    // Sort debts by name for consistent column ordering
+    const sortedDebts = [...debts].sort((a, b) => a.name.localeCompare(b.name));
+
     tableContainer.innerHTML = `
-      <table class="tbl">
-        <thead>
-          <tr>
-            <th>Debt Name</th>
-            <th class="r">Interest Paid</th>
-            <th class="r">Months to Clear</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${activeStrategy.resultsByDebt.map(d => `
+      <div style="overflow-x:auto">
+        <table class="tbl" style="font-size:0.85rem; min-width:600px">
+          <thead>
             <tr>
-              <td>${d.name}</td>
-              <td class="r">${formatGBP(d.totalInterest)}</td>
-              <td class="r">${d.monthsToClear === Infinity ? 'Never' : d.monthsToClear + ' mo'}</td>
+              <th>Month</th>
+              <th class="r">Total Paid</th>
+              ${sortedDebts.map(d => `<th class="r" style="border-left:1px solid var(--border-light)">${d.name}<br/><span style="font-size:0.7rem;font-weight:400">P | I</span></th>`).join('')}
             </tr>
-          `).join('')}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            ${snapshot12.map(s => {
+              const hasRateJump = s.payments.some(p => p.isRateJump);
+              const totalPaid = s.payments.reduce((sum, p) => sum + p.amount, 0);
+              return `
+                <tr ${hasRateJump ? 'style="background:rgba(213, 94, 0, 0.05)" title="Interest rate jump occurred this month"' : ''}>
+                  <td>${s.date}${hasRateJump ? ' ⚡' : ''}</td>
+                  <td class="r" style="font-weight:600">${formatGBP(totalPaid)}</td>
+                  ${sortedDebts.map(d => {
+                    const p = s.payments.find(pay => pay.debtId === d.id) || { principalPaid: 0, interestCharged: 0 };
+                    return `
+                      <td class="r" style="border-left:1px solid var(--border-light); white-space:nowrap">
+                        <span style="color:var(--text)">${formatGBP(p.principalPaid)}</span> | 
+                        <span style="color:var(--danger); font-size:0.75rem">${formatGBP(p.interestCharged)}</span>
+                      </td>
+                    `;
+                  }).join('')}
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div class="hint" style="margin-top:10px">P | I = Principal Paid | Interest Charged. Highlighted rows ⚡ indicate a promo interest rate expired.</div>
     `;
 
-    // Render the debt payoff timeline chart
-    const projectionData = computeBalanceSeries(debts, extraPence);
+    // Update chart
+    if (chartTitle) chartTitle.textContent = `Debt Payoff Timeline (${activeResult.name})`;
+    const projectionData = getChartDataFromHistory(activeResult.history, debts);
     renderDebtPayoffChart('payoffChart', projectionData);
   };
 
@@ -177,8 +159,9 @@ export async function renderPayoffPlanner() {
   updateSimulations();
   renderBTModeler(debts);
 
-  // Attach listener (ensure only one listener exists if render is called multiple times)
+  // Attach listeners
   extraPaymentInput.oninput = updateSimulations;
+  strategyInput.onchange = updateSimulations;
 }
 
 /**
