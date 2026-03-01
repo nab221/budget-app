@@ -1,68 +1,65 @@
-import { categoryRepository, targetRepository } from '../db/repository.js';
-import { safeHTML } from './render.js';
+import { targetRepository } from '../db/repository.js';
 import { toPence, fromPence } from '../utils/currency.js';
 
 /**
  * Targets UI Module
- * Handles rendering and event handling for budget targets.
+ * Handles rendering and event handling for bucket-based budget targets.
+ * Targets are set at the bucket level: 'recurrent' and 'one-off'.
  */
 export const targetsUI = {
   /**
    * Initialize Targets UI.
    */
   async init() {
-    // This will be called from app.js or settings UI
+    // Called from app.js or settings tab handler
   },
 
   /**
    * Render target settings in the settings view.
-   * This should be called by the settings tab renderer.
+   * Shows two inputs: Recurrent Monthly Target and One-off Monthly Target.
    */
   async renderTargetSettings() {
     const container = document.getElementById('targetSettingsContainer');
     if (!container) return;
 
-    const [categories, targets] = await Promise.all([
-      categoryRepository.getCategories(),
-      targetRepository.getAll()
+    const [recurrentTarget, oneOffTarget] = await Promise.all([
+      targetRepository.getByBucket('recurrent'),
+      targetRepository.getByBucket('one-off')
     ]);
 
-    const targetMap = new Map(targets.map(t => [t.categoryId, t]));
+    const recurrentAmount = recurrentTarget ? fromPence(recurrentTarget.amount) : '';
+    const oneOffAmount = oneOffTarget ? fromPence(oneOffTarget.amount) : '';
 
     container.innerHTML = `
       <div style="margin-top:20px; padding-top:20px; border-top:1px solid var(--border)">
-        <h3 style="font-size:.9rem;margin-bottom:8px">Monthly Budget Targets</h3>
-        <div class="hint">Set monthly spending targets for your categories. These will show as progress bars on the dashboard.</div>
-        <table class="tbl">
-          <thead>
-            <tr>
-              <th>Category</th>
-              <th>Group</th>
-              <th class="r">Monthly Target (£)</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="targetsBody">
-            ${categories.map(cat => {
-              const target = targetMap.get(cat.id);
-              const amount = target ? fromPence(target.amount) : '';
-              return safeHTML`
-                <tr>
-                  <td>${cat.name}</td>
-                  <td><span class="pill" style="font-size:0.6rem">${cat.group}</span></td>
-                  <td class="r">
-                    <input type="number" step="0.01" value="${amount}" 
-                      class="target-input" data-category-id="${cat.id}" 
-                      style="width:100px; text-align:right" />
-                  </td>
-                  <td class="r">
-                    <button class="primary sm save-target-btn" data-category-id="${cat.id}">Save</button>
-                  </td>
-                </tr>
-              `;
-            }).join('')}
-          </tbody>
-        </table>
+        <h3 style="font-size:.9rem;margin-bottom:4px">Monthly Budget Targets</h3>
+        <div class="hint" style="margin-bottom:16px">
+          Set monthly spending targets by bucket. These appear as progress bars on the dashboard.
+          <br><strong>Recurrent</strong> covers standing commitments (rent, bills, loans).
+          <strong>One-off</strong> covers irregular purchases (groceries, clothing, etc).
+        </div>
+        <div class="form-row" style="flex-wrap:wrap;gap:16px">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <label style="font-weight:600">Recurrent Monthly Target (£)</label>
+            <div class="hint" style="margin-bottom:4px">All recurring / standing expenses</div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input type="number" step="0.01" min="0" id="recurrentTargetInput"
+                value="${recurrentAmount}" placeholder="e.g. 1500"
+                style="width:150px;text-align:right" />
+              <button class="primary sm" id="saveRecurrentTargetBtn">Save</button>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <label style="font-weight:600">One-off Monthly Target (£)</label>
+            <div class="hint" style="margin-bottom:4px">Irregular / discretionary spending</div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input type="number" step="0.01" min="0" id="oneOffTargetInput"
+                value="${oneOffAmount}" placeholder="e.g. 500"
+                style="width:150px;text-align:right" />
+              <button class="primary sm" id="saveOneOffTargetBtn">Save</button>
+            </div>
+          </div>
+        </div>
       </div>
     `;
 
@@ -71,35 +68,36 @@ export const targetsUI = {
 
   /**
    * Set up event listeners for the target settings UI.
-   * @param {HTMLElement} container 
+   * @param {HTMLElement} container
    */
   setupEventListeners(container) {
-    container.querySelectorAll('.save-target-btn').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        const categoryId = Number(e.target.dataset.categoryId);
-        const input = container.querySelector(`.target-input[data-category-id="${categoryId}"]`);
-        const amount = parseFloat(input.value);
+    const saveBtn = (bucketName, inputId, btnId) => {
+      const btn = container.querySelector(`#${btnId}`);
+      const input = container.querySelector(`#${inputId}`);
+      if (!btn || !input) return;
 
+      const save = async () => {
+        const amount = parseFloat(input.value);
         try {
-          const existing = await targetRepository.getByCategory(categoryId);
-          
+          const existing = await targetRepository.getByBucket(bucketName);
+
           if (isNaN(amount) || amount <= 0) {
             if (existing) {
               await targetRepository.delete(existing.id);
               input.value = '';
-              console.log(`Deleted target for category ${categoryId}`);
+              console.log(`Deleted target for bucket '${bucketName}'`);
             }
           } else {
             const amountPence = toPence(amount);
             if (existing) {
               await targetRepository.update(existing.id, { amount: amountPence });
-              console.log(`Updated target for category ${categoryId} to ${amount}`);
+              console.log(`Updated target for bucket '${bucketName}' to ${amount}`);
             } else {
-              await targetRepository.add({ categoryId, amount: amountPence });
-              console.log(`Added target for category ${categoryId} to ${amount}`);
+              await targetRepository.add({ bucket: bucketName, amount: amountPence });
+              console.log(`Added target for bucket '${bucketName}': ${amount}`);
             }
           }
-          
+
           // Visual feedback
           btn.textContent = 'Saved!';
           btn.classList.replace('primary', 'ghost');
@@ -109,20 +107,18 @@ export const targetsUI = {
           }, 2000);
 
         } catch (error) {
-          console.error('Failed to save target:', error);
+          console.error(`Failed to save target for bucket '${bucketName}':`, error);
           alert('Failed to save target: ' + error.message);
         }
-      });
-    });
+      };
 
-    // Also save on Enter key
-    container.querySelectorAll('.target-input').forEach(input => {
+      btn.addEventListener('click', save);
       input.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-          const categoryId = e.target.dataset.categoryId;
-          container.querySelector(`.save-target-btn[data-category-id="${categoryId}"]`).click();
-        }
+        if (e.key === 'Enter') save();
       });
-    });
+    };
+
+    saveBtn('recurrent', 'recurrentTargetInput', 'saveRecurrentTargetBtn');
+    saveBtn('one-off', 'oneOffTargetInput', 'saveOneOffTargetBtn');
   }
 };
