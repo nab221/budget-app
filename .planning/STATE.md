@@ -23,9 +23,9 @@ See: .planning/PROJECT.md (updated 2026-02-28)
 ## Current Position
 
 Phase: 7 of 10 (Milestone v1.0 Polish & Tech Debt)
-Plan: 1 of 2 (Tech debt cleanup - PLANNED)
+Plan: 2 of 2 (Manual verification and v1.0 Sign-off - AT CHECKPOINT)
 Status: In Progress
-Last activity: 2026-03-01 — Phase 6 (Cloud Backup) and Phase 5.1 (PDF Import Stabilization) completed and verified. Phase 7 planning initiated; 07-01-PLAN.md created to address tech debt items (innerHTML, dead code, logic unification).
+Last activity: 2026-03-01 — 07-02 Tasks 1-2 complete: ROADMAP.md and REQUIREMENTS.md updated for Phase 5/5.1 completion, PDF-01 to PDF-05 marked complete, Phase 5 SUMMARY frontmatter backfilled, PDF import state reset added. Paused at Task 3 checkpoint:human-verify.
 
 Progress: [▓▓▓▓▓▓▓▓░░] 74%
 
@@ -84,6 +84,8 @@ Recent decisions affecting current work:
 - [Phase 06-cloud-backup]: cloudBackupUI.render() called in settings tab handler alongside other render calls — card always reflects localStorage truth on tab open
 - [Phase 07-milestone-v1.0-polish-and-tech-debt]: importBackupData placed in src/db/backup.js (db layer) consumed by both UI restore paths
 - [Phase 07-milestone-v1.0-polish-and-tech-debt]: CLOUD_LAST_BACKUP_KEY consolidated to storage.js as single source of truth imported by all 3 cloud files
+- [Phase 07-02]: Phase 5 plans 04 and 05 (stabilization) listed only under Phase 5.1 section in ROADMAP.md — not duplicated in Phase 5 section
+- [Phase 07-02]: State reset (transactions, conflicts, rawPdfRows) added to confirmImport() before showing summary modal so UI is clean for re-import
 
 ### Pending Todos
 
@@ -98,5 +100,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 06-03-PLAN.md — Wire cloud backup module into app (index.html, app.js, vite.config.js)
+Stopped at: 07-02-PLAN.md Task 3 checkpoint:human-verify — Final Human Verification & Sign-off (v1.0-SIGN-OFF.md)
 Resume file: None
