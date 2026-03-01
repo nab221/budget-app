@@ -153,8 +153,8 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. "Fixed", "Variable", and "Subscriptions" tabs are merged into "Recurrent Expenses" and "One-off Expenses".
   3. Recurrent items support "cancelable" labels and varying cycles (e.g., 10-month Council Tax).
 **Plans**:
-- [ ] 08-01-PLAN.md — Expense Tab Refactoring & Migration (pending)
-- [ ] 08-02-PLAN.md — Income History & UI Polish (pending)
+- [x] 08-01-PLAN.md — Expense Tab Refactoring & Migration (2026-03-01)
+- [ ] 08-02-PLAN.md — Income History & UI Polish
 
 ### Phase 9: Tax-free Childcare Tracker
 **Goal**: Monitor government-topped-up childcare accounts and predict future funding needs.

@@ -1,14 +1,14 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: Polish & Tech Debt
-status: unknown
-last_updated: "2026-03-01T11:07:11.452Z"
+milestone: v1.1
+milestone_name: Income & Expenses Refinement
+status: in-progress
+last_updated: "2026-03-01T12:00:00.000Z"
 progress:
-  total_phases: 7
+  total_phases: 8
   completed_phases: 7
-  total_plans: 25
-  completed_plans: 25
+  total_plans: 26
+  completed_plans: 26
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-28)
 
 **Core value:** A clear, reliable view of where the money goes each month — income vs fixed vs variable spending, debt progress, and net worth — all in one place, accessible on any device
-**Current focus:** Phase 7 — Milestone v1.0 Polish & Tech Debt
+**Current focus:** Phase 8 — Income & Expenses Refinement
 
 ## Current Position
 
-Phase: 7 of 7 (Milestone v1.0 Polish & Tech Debt — COMPLETE)
-Plan: 2 of 2 (Manual verification and v1.0 Sign-off — COMPLETE)
-Status: Complete
-Last activity: 2026-03-01 — 07-02 Task 3 complete: v1.0-SIGN-OFF.md created and signed. PWA PASS, Charts PASS, Cloud Backup CONFIGURATION REQUIRED (user setup, not a code defect). Milestone APPROVED. Phase 7 and v1.0 milestone fully complete.
+Phase: 8 of 8 (Income & Expenses Refinement — In Progress)
+Plan: 1 of ? (Consolidated Expenses UI — COMPLETE)
+Status: In Progress
+Last activity: 2026-03-01 — 08-01 complete: Dexie v5 schema with recurrentExpenses/oneOffExpenses, unified Expenses tab with Essential/Non-essential grouping, cycle tracking and bulk mark-paid.
 
-Progress: [▓▓▓▓▓▓▓▓▓▓] 100%
+Progress: [▓▓▓▓▓▓▓▓▓░] 90%
 
 ## Performance Metrics
 
@@ -56,6 +56,7 @@ Progress: [▓▓▓▓▓▓▓▓▓▓] 100%
 | Phase 06-cloud-backup P03 | 10 | 2 tasks | 3 files |
 | Phase 07-milestone-v1.0-polish-and-tech-debt P01 | 201s | 3 tasks | 8 files |
 | Phase 07-milestone-v1.0-polish-and-tech-debt P02 | ~30min | 3 tasks | 10 files |
+| Phase 08-income-expenses-refinement P01 | 466s | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -89,6 +90,10 @@ Recent decisions affecting current work:
 - [Phase 07-02]: State reset (transactions, conflicts, rawPdfRows) added to confirmImport() before showing summary modal so UI is clean for re-import
 - [Phase 07-02]: Cloud backup OAuth credential absence classified as user setup requirement, not a code defect — v1.0 milestone APPROVED
 - [Phase 07-02]: PWA update prompt verification deferred post-launch — requires 2 deploy cycles, not feasible in dev environment
+- [Phase 08-01]: recurrentExpenses.getByMonth returns all items (standing commitments); oneOffExpenses.getByMonth filters by date prefix
+- [Phase 08-01]: fixedSpendRepository/variableSpendRepository stubbed as no-ops post v5 migration — not deleted to avoid import errors
+- [Phase 08-01]: PDF import maps 'fixed' category group to recurrentExpenses (essential=true, monthly) and 'variable' to oneOffExpenses
+- [Phase 08-01]: Dashboard Subscriptions card removed; Fixed/Variable renamed to Recurrent/One-off in dashboard summary cards
 
 ### Pending Todos
 
@@ -103,5 +108,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Phase 7 complete — v1.0 milestone signed off and approved. All 25 plans complete.
+Stopped at: Completed 08-01-PLAN.md — Consolidated Expenses UI and schema migration complete.
 Resume file: None
