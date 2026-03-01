@@ -17,7 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Dashboard, Payoff Planner, and Budget Targets** - Computation-heavy display features that depend on Phase 2 data
 - [x] **Phase 4: PWA and Charts** - Make the app installable and offline; add spending trend and debt payoff timeline charts (completed 2026-02-28)
 - [ ] **Phase 5: PDF Bank Statement Import** - Auto-parse UK bank PDFs with manual fallback for bulk transaction import
-- [ ] **Phase 6: Cloud Backup** - Dropbox and Google Drive backup integration for cross-device data access
+- [x] **Phase 6: Cloud Backup** - Dropbox and Google Drive backup integration for cross-device data access (completed 2026-03-01)
 
 ## Phase Details
 
@@ -126,4 +126,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 3. Dashboard, Payoff Planner, and Budget Targets | 5/5 | Complete | 2026-02-28 |
 | 4. PWA and Charts | 3/3 | Complete   | 2026-02-28 |
 | 5. PDF Bank Statement Import | 0/TBD | Not started | - |
-| 6. Cloud Backup | 2/3 | In Progress|  |
+| 6. Cloud Backup | 3/3 | Complete   | 2026-03-01 |

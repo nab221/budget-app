@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-01T06:37:10Z"
+last_updated: "2026-03-01T07:50:24.992Z"
 progress:
   total_phases: 6
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 21
-  completed_plans: 20
+  completed_plans: 21
 ---
 
 # Project State
@@ -23,11 +23,11 @@ See: .planning/PROJECT.md (updated 2026-02-28)
 ## Current Position
 
 Phase: 6 of 6 (Cloud Backup)
-Plan: 2 of 3 (Cloud Backup UI Module - COMPLETE)
-Status: In progress
-Last activity: 2026-03-01 — Plan 06-02 complete: cloud-backup.js UI module with two provider cards, connect/backup/restore/disconnect flows, popup-safe Google token calls, confirmation modals.
+Plan: 3 of 3 (Wire Cloud Backup into App - COMPLETE)
+Status: Complete
+Last activity: 2026-03-01 — Plan 06-03 complete: wired cloud-backup.js into app via index.html (GIS script + cloudBackupContainer), app.js (import + init + render on tab), vite.config.js (Workbox comment). UI verified by user — both provider cards visible in Settings.
 
-Progress: [▓▓▓▓▓▓▓░░░] 67%
+Progress: [▓▓▓▓▓▓▓▓▓▓] 100%
 
 ## Performance Metrics
 
@@ -53,6 +53,7 @@ Progress: [▓▓▓▓▓▓▓░░░] 67%
 | Phase 04-pwa-and-charts P03 | 3 | 2 tasks | 7 files |
 | Phase 06-cloud-backup P01 | 4 | 2 tasks | 4 files |
 | Phase 06-cloud-backup P02 | 3 | 1 task | 1 file |
+| Phase 06-cloud-backup P03 | 10 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -77,6 +78,9 @@ Recent decisions affecting current work:
 - [Phase 06-cloud-backup]: Error strings standardised (NO_BACKUP_FOUND, NOT_CONNECTED) across both modules for cloud-backup.js matching
 - [Phase 06-cloud-backup]: renderCard() re-reads localStorage on each call rather than caching state — ensures UI always reflects truth after connect/disconnect
 - [Phase 06-cloud-backup]: withGoogleToken() called directly from connect/backup onclick handlers — never deferred into a Promise chain to avoid popup blocker
+- [Phase 06-cloud-backup]: GIS script loaded as CDN async/defer in index.html — not bundled — required for popup-safe OAuth flow timing
+- [Phase 06-cloud-backup]: Workbox globPatterns covers local assets only — GIS CDN excluded automatically, cloud features gracefully disabled offline via navigator.onLine checks
+- [Phase 06-cloud-backup]: cloudBackupUI.render() called in settings tab handler alongside other render calls — card always reflects localStorage truth on tab open
 
 ### Pending Todos
 
@@ -91,5 +95,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 06-02-PLAN.md — Cloud Backup UI module (cloud-backup.js)
+Stopped at: Completed 06-03-PLAN.md — Wire cloud backup module into app (index.html, app.js, vite.config.js)
 Resume file: None
