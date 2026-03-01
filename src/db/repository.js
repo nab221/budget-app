@@ -1,6 +1,7 @@
 import { db } from './schema.js';
 import { toPence } from '../utils/currency.js';
 import { findBestMatch } from '../utils/string-similarity.js';
+import { calculateTopUp, getEntitlementPeriod } from '../utils/childcare.js';
 
 /**
  * PDF Import Repository Functions
@@ -506,3 +507,273 @@ export async function getDashboardData(periodType, targetMonth) {
     }
   };
 }
+
+/**
+ * Childcare Repository
+ *
+ * Manages Tax-Free Childcare accounts and their associated ledger entries.
+ * Handles the "£8 for £2" government top-up, quarterly cap enforcement,
+ * running balance recalculation, and budget expense integration.
+ *
+ * All monetary amounts are stored in integer pence.
+ */
+export const childcareRepository = {
+
+  // ---------------------------------------------------------------------------
+  // Account management
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Get all childcare accounts.
+   * @returns {Promise<Array>}
+   */
+  async getAccounts() {
+    return await db.childcareAccounts.toArray();
+  },
+
+  /**
+   * Save (add or update) a childcare account.
+   * Converts monetary fields to pence before saving.
+   * @param {Object} account - Account data. If id is present, performs an update.
+   * @returns {Promise<number>} The account id.
+   */
+  async saveAccount(account) {
+    const toSave = { ...account };
+    if (toSave.targetMonthlySpend !== undefined) {
+      toSave.targetMonthlySpend = toPence(toSave.targetMonthlySpend);
+    }
+    if (toSave.id) {
+      const { id, ...fields } = toSave;
+      await db.childcareAccounts.update(id, fields);
+      return id;
+    }
+    return await db.childcareAccounts.add(toSave);
+  },
+
+  /**
+   * Delete a childcare account and all its ledger entries.
+   * @param {number} id - Account id.
+   * @returns {Promise<void>}
+   */
+  async deleteAccount(id) {
+    await db.transaction('rw', db.childcareAccounts, db.childcareLedger, async () => {
+      await db.childcareLedger.where('accountId').equals(id).delete();
+      await db.childcareAccounts.delete(id);
+    });
+  },
+
+  // ---------------------------------------------------------------------------
+  // Ledger queries
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Get all ledger entries for an account, sorted by date ascending.
+   * @param {number} accountId
+   * @returns {Promise<Array>}
+   */
+  async getLedger(accountId) {
+    const entries = await db.childcareLedger
+      .where('accountId')
+      .equals(accountId)
+      .toArray();
+    return entries.sort((a, b) => a.date.localeCompare(b.date));
+  },
+
+  // ---------------------------------------------------------------------------
+  // Internal helpers
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Get the remaining top-up capacity for the entitlement period containing `date`.
+   * Standard cap: £500 (50000 pence). Disabled-child cap: £1,000 (100000 pence).
+   *
+   * @param {number} accountId
+   * @param {string} date - ISO date string (YYYY-MM-DD).
+   * @returns {Promise<number>} Remaining capacity in pence.
+   */
+  async getRemainingCap(accountId, date) {
+    const account = await db.childcareAccounts.get(accountId);
+    if (!account) throw new Error(`Childcare account ${accountId} not found`);
+
+    const cap = account.isDisabled ? 100000 : 50000; // pence
+
+    const { start: periodStart, end: periodEnd } = getEntitlementPeriod(
+      account.entitlementStart,
+      date
+    );
+
+    const startStr = periodStart.toISOString().slice(0, 10);
+    const endStr = periodEnd.toISOString().slice(0, 10);
+
+    // Sum all 'top-up' entries within this entitlement period
+    const topUpEntries = await db.childcareLedger
+      .where('accountId')
+      .equals(accountId)
+      .and(entry => entry.type === 'top-up' && entry.date >= startStr && entry.date < endStr)
+      .toArray();
+
+    const used = topUpEntries.reduce((sum, e) => sum + (e.amount || 0), 0);
+    return Math.max(0, cap - used);
+  },
+
+  /**
+   * Recalculate and persist running balances for all ledger entries of an account.
+   * Entries are ordered by date ascending, then by id (insertion order) for same-day entries.
+   *
+   * @param {number} accountId
+   * @returns {Promise<void>}
+   */
+  async _recalculateBalances(accountId) {
+    const entries = await db.childcareLedger
+      .where('accountId')
+      .equals(accountId)
+      .toArray();
+
+    // Sort by date, then id for same-day stability
+    entries.sort((a, b) => {
+      const dateCmp = a.date.localeCompare(b.date);
+      return dateCmp !== 0 ? dateCmp : a.id - b.id;
+    });
+
+    let balance = 0;
+    for (const entry of entries) {
+      if (entry.type === 'spend') {
+        balance -= entry.amount;
+      } else {
+        // 'deposit' and 'top-up' are credits
+        balance += entry.amount;
+      }
+      await db.childcareLedger.update(entry.id, { runningBalance: balance });
+    }
+  },
+
+  // ---------------------------------------------------------------------------
+  // Transactions
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Record a user deposit into a childcare account.
+   *
+   * Steps:
+   * 1. Validates account exists.
+   * 2. Calculates remaining quarterly top-up cap.
+   * 3. Adds a 'deposit' ledger entry.
+   * 4. If top-up capacity > 0, adds a 'top-up' ledger entry.
+   * 5. Recalculates running balances for all entries on this account.
+   * 6. Creates a corresponding one-off expense in the main budget.
+   *
+   * @param {number} accountId - Childcare account id.
+   * @param {string} date - ISO date string (YYYY-MM-DD).
+   * @param {number|string} amount - Deposit amount (pounds or pence integer).
+   * @param {number|null} categoryId - Budget category id for the expense entry.
+   * @returns {Promise<{ depositId: number, topUpId: number|null, expenseId: number }>}
+   */
+  async addDeposit(accountId, date, amount, categoryId) {
+    const account = await db.childcareAccounts.get(accountId);
+    if (!account) throw new Error(`Childcare account ${accountId} not found`);
+
+    // Normalise to pence
+    const amountPence = typeof amount === 'number' && amount > 10000
+      ? amount // already in pence (heuristic: > £100.00 raw)
+      : toPence(amount);
+
+    let depositId, topUpId = null, expenseId;
+
+    await db.transaction('rw', db.childcareLedger, db.oneOffExpenses, async () => {
+      // 1. Add deposit entry
+      depositId = await db.childcareLedger.add({
+        accountId,
+        date,
+        type: 'deposit',
+        amount: amountPence,
+        runningBalance: 0 // placeholder; recalculated below
+      });
+
+      // 2. Calculate and apply top-up
+      const remainingCap = await childcareRepository.getRemainingCap(accountId, date);
+      const topUpAmount = calculateTopUp(amountPence, remainingCap);
+
+      if (topUpAmount > 0) {
+        topUpId = await db.childcareLedger.add({
+          accountId,
+          date,
+          type: 'top-up',
+          amount: topUpAmount,
+          runningBalance: 0 // placeholder
+        });
+      }
+
+      // 3. Add corresponding one-off expense in main budget
+      expenseId = await db.oneOffExpenses.add({
+        date,
+        note: `Tax-free Childcare: ${account.childName}`,
+        amount: amountPence,
+        categoryId: categoryId || null
+      });
+    });
+
+    // 4. Recalculate running balances (outside transaction to avoid re-entrancy issues)
+    await childcareRepository._recalculateBalances(accountId);
+
+    return { depositId, topUpId, expenseId };
+  },
+
+  /**
+   * Record a spend (payment to childcare provider) from a childcare account.
+   *
+   * @param {number} accountId - Childcare account id.
+   * @param {string} date - ISO date string (YYYY-MM-DD).
+   * @param {number|string} amount - Spend amount (pounds or pence integer).
+   * @param {string} description - Provider name or description.
+   * @returns {Promise<{ spendId: number }>}
+   */
+  async addSpend(accountId, date, amount, description) {
+    const account = await db.childcareAccounts.get(accountId);
+    if (!account) throw new Error(`Childcare account ${accountId} not found`);
+
+    const amountPence = typeof amount === 'number' && amount > 10000
+      ? amount
+      : toPence(amount);
+
+    let spendId;
+
+    await db.transaction('rw', db.childcareLedger, async () => {
+      spendId = await db.childcareLedger.add({
+        accountId,
+        date,
+        type: 'spend',
+        amount: amountPence,
+        description: description || '',
+        runningBalance: 0 // placeholder
+      });
+    });
+
+    await childcareRepository._recalculateBalances(accountId);
+
+    return { spendId };
+  },
+
+  /**
+   * Get the current balance for a childcare account (latest ledger entry's runningBalance).
+   * Returns 0 if no entries exist.
+   *
+   * @param {number} accountId
+   * @returns {Promise<number>} Balance in pence.
+   */
+  async getBalance(accountId) {
+    const entries = await db.childcareLedger
+      .where('accountId')
+      .equals(accountId)
+      .toArray();
+
+    if (entries.length === 0) return 0;
+
+    // Sort by date desc, then id desc for same-day
+    entries.sort((a, b) => {
+      const dateCmp = b.date.localeCompare(a.date);
+      return dateCmp !== 0 ? dateCmp : b.id - a.id;
+    });
+
+    return entries[0].runningBalance;
+  }
+};
