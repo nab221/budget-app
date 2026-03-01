@@ -43,15 +43,68 @@ export const pdfImportUI = {
       await this.processAndRenderPreview(parsedTransactions);
 
     } catch (err) {
+      console.error('PDF Import Error:', err);
       if (err.message === "NO_TEXT_LAYER") {
-        alert("This PDF appears to be a scanned image and cannot be read automatically. Please enter transactions manually.");
-        window.templateUI.closeModal();
+        window.templateUI.showModal('Parsing Error', 
+          safeHTML`<p>This PDF appears to be a scanned image or an image-based PDF and cannot be read automatically. Please use manual entry instead.</p>`,
+          safeHTML`<button class="primary" onclick="window.templateUI.closeModal()">Close</button>`
+        );
       } else {
-        console.error(err);
-        alert("Failed to parse PDF. Falling back to manual mapping.");
-        this.renderManualMappingUI();
+        const content = `
+          <p>An unexpected error occurred while parsing the PDF statement.</p>
+          <p class="hint" style="margin-top:10px">Error: ${sanitize(err.message)}</p>
+          <div style="margin-top:15px; background:var(--bg-alt); padding:10px; border-radius:4px">
+            <p style="font-size:0.8rem">If this is a valid bank statement, please click "Copy Debug Info" and share it with the developer (scrubbed of personal details).</p>
+          </div>
+        `;
+        const footer = `
+          <div style="display:flex; justify-content:space-between; width:100%">
+            <button class="ghost" onclick="window.pdfImportUI.copyDebugInfo()">Copy Debug Info</button>
+            <div>
+              <button class="ghost" onclick="window.pdfImportUI.renderManualMappingUI()">Try Manual Mapping</button>
+              <button class="primary" onclick="window.templateUI.closeModal()">Close</button>
+            </div>
+          </div>
+        `;
+        window.templateUI.showModal('Parsing Error', safeHTML`${content}`, safeHTML`${footer}`);
       }
     }
+  },
+
+  copyDebugInfo() {
+    if (!this.state.rawPdfRows || this.state.rawPdfRows.length === 0) {
+      alert("No PDF data available to copy.");
+      return;
+    }
+    
+    // Scrub logic: remove digits from strings that look like account numbers or long sequences
+    const scrub = (text) => {
+      if (!text) return text;
+      // Replace 4+ consecutive digits with X
+      return text.replace(/\d{4,}/g, 'XXXX');
+    };
+
+    const debugData = JSON.stringify(this.state.rawPdfRows.map(row => 
+      row.map(item => ({ ...item, text: scrub(item.text) }))
+    ), null, 2);
+
+    navigator.clipboard.writeText(debugData).then(() => {
+      alert('Scrubbed debug info copied to clipboard!');
+    }).catch(err => {
+      console.error('Failed to copy: ', err);
+      // Fallback for older browsers or non-secure contexts
+      const textArea = document.createElement("textarea");
+      textArea.value = debugData;
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        alert('Scrubbed debug info copied to clipboard!');
+      } catch (copyErr) {
+        alert('Failed to copy to clipboard. Check console.');
+      }
+      document.body.removeChild(textArea);
+    });
   },
 
   attemptAutoParse(rows) {
@@ -315,6 +368,12 @@ export const pdfImportUI = {
     }
 
     const skippedCount = (this.state.transactions.length + this.state.conflicts.length) - count;
+
+    // Reset state so UI is clean for next import
+    this.state.transactions = [];
+    this.state.conflicts = [];
+    this.state.rawPdfRows = [];
+
     this.renderImportSummary(count, skippedCount);
   },
 
@@ -392,7 +451,7 @@ export const pdfImportUI = {
 
     const footer = `
       <div style="display:flex; justify-content:space-between; width:100%">
-        <button class="ghost" onclick="console.log(window.pdfImportUI.state.rawPdfRows); alert('Check browser console (F12) for raw row data. You can also click the Debug button to see it here.')">Log to Console</button>
+        <button class="ghost" onclick="window.pdfImportUI.copyDebugInfo()">Copy Debug Info</button>
         <div>
           <button class="ghost" onclick="window.pdfImportUI.showDebugRaw()">Debug: Show Raw Text</button>
           <button class="ghost" onclick="window.templateUI.closeModal()">Cancel</button>
