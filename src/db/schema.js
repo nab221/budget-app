@@ -128,6 +128,25 @@ db.version(6).stores({
   await tx.table('targets').clear();
 });
 
+// Define version 7 schema: Tax-Free Childcare tracking
+// Adds childcareAccounts and childcareLedger tables for dedicated TFC tracking.
+// childcareLedger is indexed by accountId for efficient per-account queries.
+db.version(7).stores({
+  income: '++id, date, source, amount, categoryId',
+  recurrentExpenses: '++id, date, categoryId, label, amount, status, frequency, nextDate, isEssential, cycleTotal, cycleCurrent, endDate',
+  oneOffExpenses: '++id, date, categoryId, note, amount',
+  recurringTemplates: '++id, name, amount, categoryId, frequency, type',
+  debts: '++id, name, type, apr, creditLimit, currentBalance',
+  statements: '++id, debtId, date, amount, interest, fees',
+  assets: '++id, name, type, asOfDate, currentBalance',
+  categories: '++id, name, group',
+  targets: '++id, bucket, amount',
+  netWorthSnapshots: '++id, month, totalAssets, totalDebt, netWorth',
+  categoryMappings: '++id, description, categoryId',
+  childcareAccounts: '++id, childName, targetMonthlySpend, entitlementStart, isDisabled',
+  childcareLedger: '++id, accountId, date, type, amount, runningBalance'
+});
+
 // Handle schema updates in other tabs
 db.on('versionchange', function() {
   db.close();
