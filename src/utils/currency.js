@@ -45,3 +45,21 @@ export function formatGBP(pence) {
     maximumFractionDigits: 2
   }).format(amount);
 }
+
+/**
+ * Formats integer pence as a short GBP string (e.g., £10.5k).
+ * Uses compact notation for large values.
+ * 
+ * @param {number} pence - The amount in integer pence.
+ * @returns {string} - The short formatted currency string.
+ */
+export function formatGBPShort(pence) {
+  const amount = fromPence(pence);
+  
+  return new Intl.NumberFormat('en-GB', {
+    style: 'currency',
+    currency: 'GBP',
+    notation: 'compact',
+    maximumFractionDigits: 1
+  }).format(amount);
+}

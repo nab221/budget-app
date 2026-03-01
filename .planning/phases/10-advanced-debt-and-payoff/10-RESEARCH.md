@@ -16,14 +16,16 @@
   - UI will display "Promo ends: [Date]" on the debt card.
 - **Strategy Persistence**: The user's choice of strategy (`avalanche`, `snowball`, or `min`) and their `extraMonthlyPayment` amount are saved to `localStorage`.
 - **Dashboard Impact**: The "Debt-free Countdown" (DASH-03) on the dashboard will always use the persisted strategy and extra payment.
-- **Payment Breakdown Details**: 12-month rolling snapshot showing split between Principal Paid and Interest Charged per debt.
-- **Promo Handling**: Projections must account for the `postPromoApr` jump. The month where the jump occurs should be visually highlighted.
-- **Tie-breaker**: When priority is equal, the simulation uses **Smallest Balance**.
+- **Selection UI**: A simple radio toggle or button group in the Payoff Planner to "Lock in" the active strategy.
+- **Payment Breakdown Details**: 12-month rolling snapshot of the projected payment schedule showing split between Principal Paid and Interest Charged per debt.
+- **Promo Handling**: Projections must account for the `postPromoApr` jump. The month where the jump occurs should be visually highlighted (e.g., "Rate Jump").
+- **Tie-breaker**: When priority is equal (e.g., same APR), the simulation will use **Smallest Balance**.
 - **Dashboard Repayment Panel**: Metric: (Total Minimum Payments + Extra Monthly Payment) / Total Income. Include "Promo Expiring" warning for < 60 days.
 
 ### Claude's Discretion
-- [Implicitly: Design of the edit modal and the layout of the 12-month breakdown table.]
-- [Implicitly: Algorithm for "Promo-Priority" sorting if needed, though Avalanche/Snowball are explicitly named.]
+- Design of the "Edit Debt" modal and the layout of the 12-month breakdown table.
+- Choice of icons/visuals for the "Rate Jump" and "Promo Expiring" alerts.
+- Specific implementation of the iterative simulation history object.
 
 ### Deferred Ideas (OUT OF SCOPE)
 - **Multi-strategy Comparison Chart**: Showing different strategy curves on one chart.
@@ -57,12 +59,12 @@ The primary recommendation is to stick with the existing **Iterative Simulation 
 | **Vite** | ^6.2.0 | Build Tool | Standard for PWA asset management and fast HMR. |
 | **Dexie.js** | ^4.0.11 | IndexedDB Wrapper | Proven choice for local-first apps; handles schema migrations safely. |
 | **Chart.js** | ^4.5.1 | Data Visualization | Already used for net worth and spending trends. Lightweight and flexible. |
-| **date-fns** | ^4.1.0 | Date Manipulation | Used for handling `promoEndDate` comparisons and month increments. |
+| **date-fns** | ^4.1.0 | Date Manipulation | Used for handling `promoEndDate` comparisons and month increments correctly. |
 
 ### Supporting
 | Library | Version | Purpose | When to Use |
 |---------|---------|---------|--------------|
-| **finance.js** | N/A | Financial Math | *NOT RECOMMENDED* - Our math (pence-integer) is specialized enough that hand-rolling prevents floating point errors. |
+| **DOMPurify** | ^3.2.4 | XSS Sanitization | Used via `safeHTML` utility for rendering dynamic table content. |
 
 ### Alternatives Considered
 | Instead of | Could Use | Tradeoff |
@@ -72,19 +74,25 @@ The primary recommendation is to stick with the existing **Iterative Simulation 
 ## Architecture Patterns
 
 ### Iterative Simulation Loop
-The simulation should follow this pattern to handle time-based changes:
+The simulation should follow this pattern to handle time-based changes and provide history:
 
 ```javascript
-while (hasBalance && months < maxMonths) {
-  months++;
-  const currentDate = addMonths(startDate, months);
-  
-  // 1. Determine effective APR for each debt based on currentDate
-  // 2. Sort debts based on selected Strategy (Avalanche/Snowball)
-  // 3. Pay Minimums first using current APR
-  // 4. Apply Rollover (Extra Budget) to top priority debt
-  // 5. Apply Interest AFTER payment to remaining balance
-  // 6. Push SNAPSHOT to history array
+/**
+ * @returns {Object} { totalInterest, monthsToClear, history: Array<MonthSnapshot> }
+ */
+function simulatePayoff(debts, strategy, extraPaymentPence) {
+  let history = [];
+  while (hasBalance && months < maxMonths) {
+    months++;
+    const currentDate = addMonths(startDate, months);
+    
+    // 1. Calculate Effective APR for each debt for THIS month
+    // 2. Sort debts based on selected Strategy (Avalanche/Snowball)
+    // 3. Pay Minimums first (Math.min(balance, min))
+    // 4. Apply Rollover (Extra Budget) to top priority debt
+    // 5. Update balances and apply monthly interest
+    // 6. Push SNAPSHOT of all debts to history array
+  }
 }
 ```
 
@@ -92,6 +100,11 @@ while (hasBalance && months < maxMonths) {
 Store both the strategy key and the extra payment in a single `localStorage` key to ensure dashboard/planner sync:
 `const PREF_PAYOFF_KEY = 'budget_payoff_preference';`
 `{ strategy: 'avalanche', extraPayment: 5000 }`
+
+### Progressive Disclosure (Mobile UI)
+For the 12-month breakdown:
+- Show **Month Total** by default.
+- Use a **Collapse/Accordion** pattern to show debt-by-debt breakdown within that month to avoid horizontal scrolling on small screens.
 
 ## Don't Hand-Roll
 
@@ -105,7 +118,7 @@ Store both the strategy key and the extra payment in a single `localStorage` key
 
 ### Pitfall 1: APR "Jump" month
 **What goes wrong:** Calculating interest in the jump month using the old rate or only the new rate.
-**How to avoid:** Standard practice is to use the rate that applies on the **Statement Date**. If the promo ends on the 15th and the statement is on the 30th, the bank might apply a blended rate or just the new rate. For the app, we will use the **new rate** if the `promoEndDate` has passed by the monthly simulation tick.
+**How to avoid:** Standard practice in UK simulation is to use the rate that applies on the **Statement Date**. For simplicity and conservative planning, we will use the **new rate** if the `promoEndDate` has passed by the monthly simulation tick.
 
 ### Pitfall 2: Negative Balances
 **What goes wrong:** Applying a minimum payment or extra payment that exceeds the remaining balance, resulting in negative debt.
@@ -113,21 +126,31 @@ Store both the strategy key and the extra payment in a single `localStorage` key
 
 ### Pitfall 3: Floating Point Errors
 **What goes wrong:** Using `0.1 + 0.2 === 0.30000000000000004` logic for money.
-**How to avoid:** ALREADY HANDLED - Project uses **Pence Integers**. Ensure all interest calculations use `Math.round()` or `Math.floor()` to keep results in integer pence.
+**How to avoid:** ALREADY HANDLED - Project uses **Pence Integers**. Ensure all interest calculations use `Math.round()` to keep results in integer pence.
 
 ## Code Examples
 
-### Refined Simulation Logic (Pattern)
+### Refined Simulation Logic with History
 ```javascript
-// Inside simulatePayoff in finance.js
+// Inside simulatePayoff in src/utils/finance.js
+const snapshot = {
+  month: months,
+  date: format(currentMonthDate, 'MMM yyyy'),
+  payments: [], // { debtId, amount, interestCharged, principalPaid, isRateJump: boolean }
+  totalRemainingBalance: 0
+};
+
 currentDebts.forEach(debt => {
-  // Determine if promo is active
   const isPromoActive = debt.promoEndDate && isBefore(currentMonthDate, parseISO(debt.promoEndDate));
   const effectiveApr = isPromoActive ? 0 : (debt.postPromoApr || debt.apr);
   
-  // Calculate min payment based on effective APR
-  const min = calcMinPayment(debt.balance, effectiveApr);
-  // ... apply payments ...
+  // Detect rate jump (if promo was active last month but not this month)
+  const isRateJump = !isPromoActive && debt.hadPromoLastMonth;
+  debt.hadPromoLastMonth = isPromoActive;
+  
+  // ... apply payment ...
+  const interestCharged = Math.round((balanceAfterPayment * (effectiveApr / 100)) / 12);
+  // ... update snapshot ...
 });
 ```
 
@@ -135,20 +158,21 @@ currentDebts.forEach(debt => {
 
 | Old Approach | Current Approach | When Changed | Impact |
 |--------------|------------------|--------------|--------|
-| Static Simulation | Dynamic Iteration | 2024+ | Allows handling variable rates and promo expirations which are common in the current UK market. |
+| Amortization Formula | Dynamic Iteration | 2024+ | Allows handling variable rates (Base Rate trackers) and promo expirations common in the UK market. |
+| Static "Result" | Monthly "Ledger" | Always | Users demand "show your work" to trust payoff dates; breakdown tables are now standard. |
 | Floating Point Math | Integer (Pence) Math | Always | Prevents 0.00000001 rounding errors in debt schedules. |
 
 ## Open Questions
 
-1. **Deferred Interest?**
-   - What we know: Some store cards (rare in UK) charge interest from day 1 if not paid in full by promo end.
-   - What's unclear: Should we support a "Deferred Interest" flag?
-   - Recommendation: **Omit for now.** Most UK balance transfer cards (0% promo) just "jump" to the new rate without back-dating interest.
+1. **Daily Interest Calculation?**
+   - What we know: Banks calculate interest daily.
+   - What's unclear: Should we move to daily simulation?
+   - Recommendation: **No.** Monthly simulation is standard for "Payoff Planners" and aligns with the app's monthly budget focus.
 
-2. **Statement Dates?**
-   - What we know: Real interest is calculated daily or monthly based on a statement date.
-   - What's unclear: Should the simulation support specific statement days (e.g., "15th of the month")?
-   - Recommendation: **Keep it simple.** Assume all debts are processed on the same monthly tick for simulation purposes.
+2. **Balance Transfer Fees in Simulation?**
+   - What we know: `BT-01` already exists but is a separate model.
+   - What's unclear: Should the simulation include "Future Balance Transfers"?
+   - Recommendation: **Omit.** Only simulate currently held debts.
 
 ## Validation Architecture
 
@@ -179,7 +203,7 @@ currentDebts.forEach(debt => {
 - **Dexie.js Documentation** - Confirmed schema versioning and migration patterns.
 
 ### Secondary (MEDIUM confidence)
-- **Financial Planning Community Patterns** - Verified "Avalanche" vs "Snowball" vs "Promo-Priority" (Jump) strategy logic.
+- **Modern Fintech UI Patterns (Dribbble/Behance)** - Verified the "Hero Overview" + "Actionable Stack" pattern for mobile payoff planners.
 
 ## Metadata
 **Confidence breakdown:**

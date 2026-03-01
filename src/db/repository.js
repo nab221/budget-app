@@ -389,6 +389,33 @@ export const recurrentExpenseRepository = {
         await db.recurrentExpenses.update(item.id, updates);
       }
     });
+  },
+
+  /** Add a recurrent expense and trigger balance recalculation. */
+  async add(data) {
+    const toSave = { ...data, amount: toPence(data.amount) };
+    const id = await db.recurrentExpenses.add(toSave);
+    const dateForRecalc = toSave.nextDate || toSave.date;
+    if (dateForRecalc) triggerBalanceRecalc(dateForRecalc).catch(() => {});
+    return id;
+  },
+
+  /** Update a recurrent expense and trigger recalculation. */
+  async update(id, data) {
+    const toUpdate = { ...data };
+    if (toUpdate.amount !== undefined) toUpdate.amount = toPence(toUpdate.amount);
+    await db.recurrentExpenses.update(id, toUpdate);
+    const dateForRecalc = toUpdate.nextDate || toUpdate.date || (await db.recurrentExpenses.get(id))?.nextDate;
+    if (dateForRecalc) triggerBalanceRecalc(dateForRecalc).catch(() => {});
+    return 1;
+  },
+
+  /** Delete a recurrent expense and trigger recalculation. */
+  async delete(id) {
+    const record = await db.recurrentExpenses.get(id);
+    await db.recurrentExpenses.delete(id);
+    const dateForRecalc = record?.nextDate || record?.date;
+    if (dateForRecalc) triggerBalanceRecalc(dateForRecalc).catch(() => {});
   }
 };
 

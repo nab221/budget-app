@@ -6,6 +6,17 @@
 export const CLOUD_LAST_BACKUP_KEY = 'cloud_last_backup';
 
 /**
+ * localStorage key for the user-configured balance chain start date (YYYY-MM).
+ * Shared by app.js (save/load) and the balance UI tests.
+ */
+export const BALANCE_START_DATE_KEY = 'budget_balance_start_date';
+
+/**
+ * localStorage key for the user-configured initial opening balance (pence).
+ */
+export const BALANCE_OPENING_AMOUNT_KEY = 'budget_balance_opening_amount';
+
+/**
  * Checks and requests storage persistence.
  * This is crucial for Safari and mobile browsers where data might be purged.
  *

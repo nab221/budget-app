@@ -1,6 +1,6 @@
 import { recurringTemplateRepository, recurrentExpenseRepository, incomeRepository, categoryRepository } from '../db/repository.js';
 import { formatGBP as formatCurrency, toPence } from '../utils/currency.js';
-import { safeHTML } from './render.js';
+import { safeHTML, modalUI } from './render.js';
 
 export const templateUI = {
   elements: {
@@ -9,12 +9,7 @@ export const templateUI = {
     tplAmt: document.getElementById('tplAmt'),
     tplType: document.getElementById('tplType'),
     addTplBtn: document.getElementById('addTplBtn'),
-    tplBody: document.getElementById('tplBody'),
-    modalOverlay: document.getElementById('modalOverlay'),
-    modalTitle: document.getElementById('modalTitle'),
-    modalBody: document.getElementById('modalBody'),
-    modalFooter: document.getElementById('modalFooter'),
-    modalClose: document.getElementById('modalClose')
+    tplBody: document.getElementById('tplBody')
   },
 
   async init() {
@@ -25,11 +20,13 @@ export const templateUI = {
   },
 
   setupEventListeners() {
-    this.elements.addTplBtn.addEventListener('click', () => this.handleAddTemplate());
-    this.elements.modalClose.addEventListener('click', () => this.closeModal());
+    if (this.elements.addTplBtn) {
+      this.elements.addTplBtn.addEventListener('click', () => this.handleAddTemplate());
+    }
   },
 
   async renderCategoryDropdown() {
+    if (!this.elements.tplCat) return;
     const categories = await categoryRepository.getCategories();
     const fixedCats = categories.filter(c => c.group === 'fixed');
     
@@ -40,6 +37,7 @@ export const templateUI = {
   },
 
   async renderTemplates() {
+    if (!this.elements.tplBody) return;
     const templates = await recurringTemplateRepository.getAll();
     const categories = await categoryRepository.getCategories();
     const catMap = Object.fromEntries(categories.map(c => [c.id, c.name]));
@@ -90,17 +88,6 @@ export const templateUI = {
     }
   },
 
-  showModal(title, content, footer = '') {
-    this.elements.modalTitle.textContent = title;
-    this.elements.modalBody.innerHTML = content;
-    this.elements.modalFooter.innerHTML = footer;
-    this.elements.modalOverlay.classList.remove('hidden');
-  },
-
-  closeModal() {
-    this.elements.modalOverlay.classList.add('hidden');
-  },
-
   async checkStartOfMonth() {
     const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
     const lastPrompted = localStorage.getItem('lastPromptedMonth');
@@ -108,19 +95,24 @@ export const templateUI = {
     if (currentMonth !== lastPrompted) {
       const templates = await recurringTemplateRepository.getAll();
       if (templates.length === 0) return;
-
-      // Check if any of these templates have already been added this month
-      // This is a simplified check: we just see if the user has been prompted for this month yet.
-      // If not, we show the modal.
       
       this.promptRecurring(templates, currentMonth);
     }
   },
 
-  async promptRecurring(templates, monthStr) {
-    const categories = await categoryRepository.getCategories();
-    const catMap = Object.fromEntries(categories.map(c => [c.id, c.name]));
+  async manualTrigger(monthStr) {
+    const templates = await recurringTemplateRepository.getAll();
+    if (templates.length === 0) {
+      alert('No recurring templates found. Create some in Settings first!');
+      return;
+    }
+    
+    // Logic: Reuse promptRecurring but without updating lastPromptedMonth
+    // so the automatic prompt still works as expected if they haven't run it.
+    this.promptRecurring(templates, monthStr);
+  },
 
+  async promptRecurring(templates, monthStr) {
     const content = safeHTML`
       <p style="margin-bottom:15px">Welcome to ${new Date(monthStr + '-01').toLocaleString('default', { month: 'long', year: 'numeric' })}! Would you like to add your recurring items for this month?</p>
       <table class="tbl">
@@ -150,11 +142,18 @@ export const templateUI = {
       <button class="primary" onclick="window.templateUI.generateFromSelected('${monthStr}')">Add Selected</button>
     `;
 
-    this.showModal('Start of Month: Recurring Items', content, footer);
+    modalUI.show('Start of Month: Recurring Items', content, footer);
 
-    document.getElementById('selectAllTpls').addEventListener('change', (e) => {
-      document.querySelectorAll('.tpl-select').forEach(cb => cb.checked = e.target.checked);
-    });
+    const selectAll = document.getElementById('selectAllTpls');
+    if (selectAll) {
+      selectAll.addEventListener('change', (e) => {
+        document.querySelectorAll('.tpl-select').forEach(cb => cb.checked = e.target.checked);
+      });
+    }
+  },
+
+  closeModal() {
+    modalUI.close();
   },
 
   async generateFromSelected(monthStr) {

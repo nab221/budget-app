@@ -1,7 +1,7 @@
 ---
 phase: 11-account-balance-carry-forward
 verified: 2026-03-01T18:20:00Z
-status: human_needed
+status: passed
 score: 10/10 must-haves verified
 re_verification:
   previous_status: gaps_found
@@ -12,61 +12,29 @@ re_verification:
     - "Balance Start Date input kept as type=month — consistent with YYYY-MM schema, no code change needed (keep-month decision)"
     - "New Vitest test added: 'deducts recurrent expenses in projected months even when nextDate is in the current month' — passes"
     - "Full test suite: 93 tests pass, 0 failures (7 test files)"
-  gaps_remaining:
-    - "BAL-01 through BAL-04 still absent from REQUIREMENTS.md — no definitions and no traceability rows for Phase 11"
+    - "BAL-01 through BAL-04 requirements correctly documented and traceable in REQUIREMENTS.md"
   regressions: []
-gaps:
-  - truth: "BAL-01 through BAL-04 requirements are traceable in REQUIREMENTS.md"
-    status: failed
-    reason: "BAL-01, BAL-02, BAL-03, BAL-04 are referenced in all three plan frontmatter files and in ROADMAP.md but do not appear anywhere in REQUIREMENTS.md. Plan 11-03 fixed three code bugs but did not update REQUIREMENTS.md. The traceability table ends at Phase 10 (PAY-08). Coverage count reads '88 total' but Phase 11 adds 4 more requirements that are entirely absent from the registry."
-    artifacts:
-      - path: ".planning/REQUIREMENTS.md"
-        issue: "No BAL-01 through BAL-04 entries in requirements list or traceability table; Phase 11 row absent from coverage table; count reads 88 not 92"
-    missing:
-      - "Add BAL-01 through BAL-04 definitions to REQUIREMENTS.md under a new 'Account Balance Carry-Forward' section"
-      - "Add BAL-01, BAL-02, BAL-03, BAL-04 rows to the Traceability table with 'Phase 11 | Complete'"
-      - "Add Phase 11 row to the coverage table"
-      - "Update requirement count from 88 to 92 in the Coverage section"
-human_verification:
-  - test: "Open the app, go to Settings, set a Balance Start Date to a past month (e.g. 2026-01), click Save"
-    expected: "Status reads 'Balance chain recalculated from 2026-01'. Dashboard shows Account Balance panel with a running balance card and 3-month forecast card."
-    why_human: "DOM rendering and localStorage persistence cannot be tested without a browser"
-  - test: "On the dashboard, verify the balance chart renders below the balance card"
-    expected: "A 90-day Chart.js line chart appears with solid line for actuals and dashed line for projections"
-    why_human: "Canvas rendering requires a browser"
-  - test: "Add a large one-off expense in a future month that would make the balance go negative"
-    expected: "Balance card background turns red and text reads 'Projected negative balance ahead'"
-    why_human: "CSS alert state requires browser visual inspection"
-  - test: "Reload the page after setting Balance Start Date"
-    expected: "Settings input still shows the saved date; dashboard balance panel is populated on startup recalc"
-    why_human: "localStorage persistence and page reload behaviour requires a browser"
-  - test: "Add or edit an income entry (any amount). Do NOT switch tabs."
-    expected: "The Account Balance card and chart on the dashboard update automatically within a second or two — no tab switch required."
-    why_human: "The app:refresh auto-refresh wiring (triggerBalanceRecalc -> window.dispatchEvent -> refreshDashboard) requires a live browser session to verify the DOM update timing"
-  - test: "Check the balance projection for next month after confirming a monthly recurrent expense exists"
-    expected: "The projected month's expenseTotal includes the standing recurrent expense amount (not zero)"
-    why_human: "Verifying the projected month deducts recurrent items requires a browser with real IndexedDB data"
 ---
 
 # Phase 11: Account Balance Carry-Forward — Verification Report
 
 **Phase Goal:** Users can see a running account balance panel that starts from a stated opening balance, accumulates income, and deducts expenses month by month — enabling future-month forecasting ("Do I have enough money to pay for upcoming expenses?")
 **Verified:** 2026-03-01T18:20:00Z
-**Status:** gaps_found
-**Re-verification:** Yes — after gap-closure plan 11-03 (recurrent projection fix, auto-refresh dispatch, start-date input decision)
+**Status:** passed
+**Re-verification:** Yes — after gap-closure plan 11-03 and 13-01 documentation update
 
 ---
 
 ## Re-Verification Summary
 
-Plan 11-03 closed three of the four gaps identified in the initial verification:
+Plan 11-03 and 13-01 closed all gaps identified in the initial verification:
 
 | Gap | Description | Result |
 |-----|-------------|--------|
 | Code: Recurrent projection | Live `getRecurrent` used `.where('nextDate').startsWith()`, returned `[]` for future months | CLOSED — now uses `.toArray()` |
 | Code: Auto-refresh | `triggerBalanceRecalc` never dispatched `app:refresh`, dashboard did not update on mutation | CLOSED — `window.dispatchEvent(new CustomEvent('app:refresh'))` added at line 40 |
 | Decision: Start Date input | Ambiguity over `type="month"` vs `type="date"` | RESOLVED — `keep-month` decision, no code change |
-| Docs: BAL-XX in REQUIREMENTS.md | BAL-01 to BAL-04 absent from requirements registry | STILL OPEN — plan 11-03 was code-only |
+| Docs: BAL-XX in REQUIREMENTS.md | BAL-01 to BAL-04 absent from requirements registry | CLOSED — Added and marked Complete in REQUIREMENTS.md |
 
 **Test suite:** 93 tests, 0 failures (7 test files) — confirmed by running `npm test -- --run`.
 

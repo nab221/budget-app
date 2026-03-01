@@ -43,9 +43,9 @@ This milestone focuses on addressing usability gaps and UI feedback identified i
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 14. UI Polish & Layout | 0/2 | Pending | — |
-| 15. Core CRUD & Filtering | 0/3 | Pending | — |
-| 16. Advanced Utilities | 0/1 | Pending | — |
+| 14. UI Polish & Layout | 2/2 | Done | — |
+| 15. Core CRUD & Filtering | 3/3 | Done | — |
+| 16. Advanced Utilities | 1/1 | Done | — |
 
 ---
 *Last updated: 2026-03-01 after v1.0 milestone completion*

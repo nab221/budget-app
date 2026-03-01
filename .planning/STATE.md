@@ -24,8 +24,8 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 
 Phase: 14 of 16 (UI Polish & Layout — In Progress)
 Plan: 0 of 2 (No plans started)
-Status: Planning
-Last activity: 2026-03-01 — Milestone v1.1 initialized after v1.0 completion.
+Status: Research
+Last activity: 2026-03-01 — Phase 14 Context established (14-CONTEXT.md).
 
 Progress: [          ] 0% (milestone start)
 

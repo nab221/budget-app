@@ -1,154 +1,101 @@
 # Architecture
 
-**Analysis Date:** 2026-02-28
+**Analysis Date:** 2025-03-04
 
 ## Pattern Overview
 
-**Overall:** Single-page application (SPA) with client-side state management and local-first data persistence
+**Overall:** Modular Vanilla JavaScript with Repository Pattern and Reactive UI Updates.
 
 **Key Characteristics:**
-- Monolithic HTML file (single source of truth)
-- Client-side only — no backend server required
-- IndexedDB for persistent local data storage
-- Dexie.js ORM abstraction over IndexedDB
-- Event-driven UI with DOM manipulation
-- Module-like organization within single file using sections and global functions
+- **Repository Pattern:** Data access is encapsulated in repository objects in `src/db/repository.js`, which interact with Dexie.js.
+- **UI Modules:** Each major feature (transactions, expenses, debts, etc.) has its own UI module in `src/ui/` responsible for rendering and event handling.
+- **Global Event Bus:** Uses a `CustomEvent` ('app:refresh') dispatched on `window` to trigger UI updates across multiple modules.
+- **Vanilla DOM Manipulation:** Uses template literals and `innerHTML` (or safe DOM methods) to render components without a heavy framework.
 
 ## Layers
 
-**Presentation Layer:**
-- Purpose: Render UI components and handle user interactions
-- Location: `budget-app.html` — `<style>` block (lines 8-106) and DOM structure (lines 108-292)
-- Contains: CSS variables, grid layouts, card/modal components, tab-based navigation
-- Depends on: None (base HTML/CSS)
-- Used by: DOM event listeners and JavaScript render functions
+**Data Layer:**
+- Purpose: Handles persistence and data retrieval using Dexie.js (IndexedDB).
+- Location: `src/db/`
+- Contains: `schema.js` (DB definition), `repository.js` (Business logic and data access), `backup.js` (Export/Import).
+- Depends on: `dexie.min.js`
+- Used by: UI Layer modules.
 
-**View Logic Layer:**
-- Purpose: Render data into DOM, manage tab switching, form handling
-- Location: `budget-app.html` — `<script>` block render functions (lines 412-748)
-- Contains: `renderIncome()`, `renderFixed()`, `renderVariable()`, `renderSubs()`, `renderDebts()`, `renderAssets()`, `renderCategories()`, `renderSummary()`, `renderStmtHistory()`
-- Depends on: Database layer, utility functions
-- Used by: `refreshAll()` orchestrator and direct event listeners
+**UI Layer:**
+- Purpose: Manages user interaction and DOM rendering.
+- Location: `src/ui/`
+- Contains: Feature-specific modules like `transactions.js`, `expenses.js`, `dashboard.js`.
+- Depends on: Data Layer (repositories), Utility Layer.
+- Used by: `src/app.js` (Entry point).
 
-**Business Logic Layer:**
-- Purpose: Calculate derived values, debt payoff strategies, minimum payments
-- Location: `budget-app.html` — utility and calculation functions (lines 508-690)
-- Contains: `calcMinPayment()`, `getLatestBalance()`, payoff simulation logic in `calcPayoff` listener
-- Depends on: Data layer
-- Used by: View logic and event listeners
-
-**Data Access Layer:**
-- Purpose: CRUD operations and database queries
-- Location: `budget-app.html` — database interactions (lines 298-308, 753-787)
-- Contains: Dexie schema definition, table access via `db.{table}.add()`, `.toArray()`, `.where()`, `.delete()`, bulk operations
-- Depends on: Dexie.js library
-- Used by: Business logic and view logic
+**Utility Layer:**
+- Purpose: Provides shared helper functions for currency, formatting, and calculations.
+- Location: `src/utils/`
+- Contains: `currency.js`, `finance.js`, `storage.js`.
+- Depends on: None.
+- Used by: Data Layer and UI Layer.
 
 ## Data Flow
 
-**User Input → Add Record:**
+**Transaction Management:**
 
-1. User fills form (e.g., income date, source, amount)
-2. Event listener attached to button (e.g., `addIncBtn`) fires
-3. Handler extracts form values from DOM input elements
-4. Validation checks (date required, amount not NaN)
-5. `db.income.add()` inserts to IndexedDB
-6. Form fields cleared
-7. `refreshAll()` called to re-render all views
+1. User inputs data into a form (e.g., in `src/ui/transactions.js`).
+2. UI module calls a repository method (e.g., `incomeRepository.add`).
+3. Repository saves data to IndexedDB via Dexie.
+4. UI module triggers a refresh (either directly calling `render()` or dispatching `app:refresh`).
+5. All listening UI modules re-fetch data from repositories and update the DOM.
 
-**Display Data:**
+**Balance Calculation:**
 
-1. `refreshAll()` calls all `render*()` functions in parallel using `Promise.all()`
-2. Each render function:
-   - Queries database (e.g., `db.income.orderBy('date').toArray()`)
-   - Filters data based on view mode (current month, YTD, all)
-   - Maps rows to HTML table rows or list items
-   - Sets `innerHTML` to render
-   - Returns aggregated total for summary dashboard
-3. `renderSummary()` receives totals and calculates derived metrics
-4. Dashboard displays income, expenses, net position, net worth, ratios
+1. Changes to transactions trigger `calculateBalanceChain` in `src/utils/finance.js`.
+2. The chain calculation iterates through months, updating `balanceSnapshots` in the database.
+3. Dashboard UI module (`src/ui/dashboard.js`) re-renders the balance panel using these snapshots.
 
-**Delete Record:**
+**Recurring Templates Trigger:**
 
-1. User clicks delete button with record ID in `onclick` attribute
-2. Global `window.del()` function called
-3. `db[table].delete(id)` removes from database
-4. `refreshAll()` re-renders all affected views
+1. `templateUI.checkStartOfMonth()` is called during app initialization (`src/app.js`).
+2. It compares the current month with `localStorage.getItem('lastPromptedMonth')`.
+3. If a new month is detected, a modal (`src/ui/templates.js`) prompts the user to add selected recurring items.
+4. Confirmed items are added to `recurrentExpenseRepository` or `incomeRepository`.
 
 **State Management:**
-
-- **View state:** Stored in DOM (active tab, month picker value, view mode select)
-- **Data state:** Stored in IndexedDB, queried on-demand (no in-memory cache)
-- **Computed state:** Calculated on every render (totals, ratios, minimum payments)
-- **Modal state:** Class toggle on overlay element (`.hidden` class)
+- **Persistence:** All application state is persisted in IndexedDB.
+- **Session State:** Simple UI state (like active tabs or selected month) is managed within UI module objects (e.g., `expensesUI.activeSubTab`).
+- **Global Coordination:** Managed via the `window.app` object and global event listeners in `src/app.js`.
 
 ## Key Abstractions
 
-**Dexie Database Object (`db`):**
-- Purpose: ORM abstraction over IndexedDB tables
-- Examples: `db.income`, `db.fixedSpends`, `db.debts`, `db.statements`, `db.assets`, `db.categories`
-- Pattern: Each table has CRUD methods (`.add()`, `.toArray()`, `.where()`, `.delete()`, `.bulkAdd()`, `.clear()`)
+**UI Module Pattern:**
+- Purpose: Encapsulates all logic for a specific UI section.
+- Examples: `src/ui/transactions.js`, `src/ui/expenses.js`, `src/ui/debts.js`.
+- Pattern: Object literal with `init()`, `setupEventListeners()`, and `render()` methods.
 
-**Render Functions:**
-- Purpose: Query data and generate DOM HTML
-- Examples: `renderIncome()`, `renderFixed()`, `renderVariable()`, `renderSubs()`, `renderDebts()`, `renderAssets()`, `renderCategories()`
-- Pattern: Async function that queries DB, maps to HTML, sets innerHTML, returns totals
-
-**Period/View Filtering:**
-- Purpose: Filter records by date range (current month, YTD, all-time)
-- Examples: `inRange()`, `viewSelect` listener, `monthPicker` listener
-- Pattern: `anchorYear` and `anchorMonth` globals drive filtering; `inRange()` comparator used in array filters
-
-**Debt Payoff Simulation:**
-- Purpose: Calculate Avalanche and Snowball payoff strategies
-- Examples: `calcMinPayment()`, `simulate()` closure in `calcPayoff` listener
-- Pattern: Orders debts by balance (Snowball) or APR (Avalanche), loops through 600 months, accumulates interest and payments
+**Repository Pattern:**
+- Purpose: Abstracting Dexie/IndexedDB operations behind a clean API.
+- Examples: `src/db/repository.js`
+- Pattern: Named objects (e.g., `incomeRepository`) with async methods like `add`, `delete`, `getAll`, `getByMonth`.
 
 ## Entry Points
 
-**Initial Load:**
-- Location: `budget-app.html` — lines 791-793
-- Triggers: Browser opens HTML file
-- Responsibilities: Initialize period (month picker), fetch all data, render all views
-
-**Modal Operations:**
-- Location: `budget-app.html` — statement modal (lines 266-292)
-- Triggers: User clicks `+ Statement` button on debt row
-- Responsibilities: Open modal, pre-fill latest balance, save statement to DB, render history
-
-**Export/Import/Reset:**
-- Location: `budget-app.html` — lines 753-787
-- Triggers: User clicks export, import, or reset buttons
-- Responsibilities: Serialize data to JSON, parse imported JSON, bulk insert/clear all tables
+**Application Initialization:**
+- Location: `src/app.js`
+- Triggers: DOM `DOMContentLoaded` (implied by script inclusion in `index.html`).
+- Responsibilities: Initializes all UI modules, sets up global navigation (tabs, month picker), and handles initial data seeding.
 
 ## Error Handling
 
-**Strategy:** Defensive validation with silent failures and user alerts
+**Strategy:** Localized try-catch blocks in UI modules for user actions, with global catch in `init()`.
 
 **Patterns:**
-- Form validation: Check required fields and data types before DB insert (lines 406, 429, 454, 476, 502, 699)
-- JSON parsing: Try/catch with alert on invalid import (line 768)
-- Database queries: Assume success; no explicit error handling
-- Date parsing: `isNaN()` checks on date inputs and calculations
-- Division by zero: Guard checks for `b>0` in percentage calculations (line 320)
+- **UI Alerts:** Most user-facing errors (e.g., failed validation or DB error) are shown via `alert()`.
+- **Initialization Error:** Fatal errors during `app.js` init are rendered directly into the `#app` container to provide feedback.
 
 ## Cross-Cutting Concerns
 
-**Logging:** None — no logging framework; errors surfaced via browser console only
-
-**Validation:** Inline in event listeners:
-- Required fields checked before insert
-- Type coercion with `parseFloat()` and `isNaN()`
-- String trimming on text inputs to prevent empty entries
-
-**Authentication:** None — local-only app with no user accounts
-
-**Data Persistence:** Automatic via IndexedDB; user must manually export/import for backups
-
-**Currency Formatting:** `£()` utility function (lines 313-317) formats numbers as GBP strings with 2 decimal places
-
-**Date Formatting:** `fmtDate()` and `fmtMonth()` utilities (lines 318-319) format dates using Intl API for en-GB locale
+**Logging:** Uses `console.log` and `console.warn` for development and background process monitoring.
+**Validation:** Basic client-side validation (null checks, `isNaN`) performed in UI modules before calling repository methods.
+**Authentication:** Not applicable (local-first application). Cloud backup integrations (`google-drive.js`, `onedrive.js`) handle their own OAuth flows.
 
 ---
 
-*Architecture analysis: 2026-02-28*
+*Architecture analysis: 2025-03-04*
