@@ -13,13 +13,13 @@ import { findBestMatch } from '../utils/string-similarity.js';
  * @returns {Promise<Array<Object>>} transactions with `isDuplicate: true` flag and `duplicateOf` original record
  */
 export async function findDuplicates(transactions) {
-  const [incomes, fixed, variables] = await Promise.all([
+  const [incomes, recurrent, oneOff] = await Promise.all([
     db.income.toArray(),
-    db.fixedSpends.toArray(),
-    db.variableSpends.toArray()
+    db.recurrentExpenses.toArray(),
+    db.oneOffExpenses.toArray()
   ]);
 
-  const existing = [...incomes, ...fixed, ...variables];
+  const existing = [...incomes, ...recurrent, ...oneOff];
   
   return transactions.map(tx => {
     const txAmount = typeof tx.amount === 'number' ? tx.amount : toPence(tx.amount);
@@ -159,12 +159,11 @@ export const categoryRepository = {
    * @returns {Promise<boolean>}
    */
   async isCategoryInUse(categoryId) {
-    const fixedCount = await db.fixedSpends.where('categoryId').equals(categoryId).count();
-    const varCount = await db.variableSpends.where('categoryId').equals(categoryId).count();
-    const subCount = await db.subscriptions.where('categoryId').equals(categoryId).count();
+    const recurrentCount = await db.recurrentExpenses.where('categoryId').equals(categoryId).count();
+    const oneOffCount = await db.oneOffExpenses.where('categoryId').equals(categoryId).count();
     const incCount = await db.income.where('categoryId').equals(categoryId).count();
 
-    return (fixedCount + varCount + subCount + incCount) > 0;
+    return (recurrentCount + oneOffCount + incCount) > 0;
   }
 };
 
@@ -236,9 +235,64 @@ export const variableSpendRepository = {
 };
 
 /**
- * Subscription Repository
+ * Recurrent Expense Repository
+ * Handles recurring (fixed-frequency) expenses: bills, loans, subscriptions, etc.
  */
-export const subscriptionRepository = createBaseRepository(db.subscriptions);
+export const recurrentExpenseRepository = {
+  ...createBaseRepository(db.recurrentExpenses),
+  /**
+   * Get all recurrent expenses that have a nextDate within the given month.
+   * Since recurrent items are not strictly date-filtered by entry date,
+   * we return all recurrent items (they represent standing commitments).
+   * @param {string} monthStr - YYYY-MM
+   * @returns {Promise<Array>}
+   */
+  async getByMonth(monthStr) {
+    // Return all recurrent items — they persist across months as standing commitments.
+    // Caller can filter by status/nextDate as needed.
+    return await db.recurrentExpenses.toArray();
+  },
+  /**
+   * Mark all pending recurrent items as paid for the current cycle.
+   * Increments cycleCurrent for items with cycleTotal > 0.
+   * @returns {Promise<void>}
+   */
+  async markAllAsPaid() {
+    await db.transaction('rw', db.recurrentExpenses, async () => {
+      const pending = await db.recurrentExpenses.where('status').equals('pending').toArray();
+      for (const item of pending) {
+        const updates = { status: 'paid' };
+        if (item.cycleTotal > 0) {
+          updates.cycleCurrent = Math.min((item.cycleCurrent || 0) + 1, item.cycleTotal);
+        }
+        await db.recurrentExpenses.update(item.id, updates);
+      }
+    });
+  }
+};
+
+/**
+ * One-off Expense Repository
+ * Handles singular or infrequent expenses (previously "variable spends").
+ */
+export const oneOffExpenseRepository = {
+  ...createBaseRepository(db.oneOffExpenses),
+  /**
+   * Get all one-off expenses for the given month (by entry date).
+   * @param {string} monthStr - YYYY-MM
+   * @returns {Promise<Array>}
+   */
+  async getByMonth(monthStr) {
+    return await db.oneOffExpenses.where('date').startsWith(monthStr).toArray();
+  }
+};
+
+/**
+ * Subscription Repository (deprecated — kept for data-compatibility with older exports)
+ */
+export const subscriptionRepository = db.subscriptions
+  ? createBaseRepository(db.subscriptions)
+  : { getAll: async () => [], add: async () => {}, delete: async () => {} };
 
 /**
  * Debt Repository
@@ -325,17 +379,18 @@ export async function getSpendingTrends(targetMonth) {
 
   const results = await Promise.all(
     months.map(async (monthStr) => {
-      const [incomeList, fixedList, variableList] = await Promise.all([
+      const [incomeList, recurrentList, oneOffList] = await Promise.all([
         db.income.where('date').startsWith(monthStr).toArray(),
-        db.fixedSpends.where('date').startsWith(monthStr).toArray(),
-        db.variableSpends.where('date').startsWith(monthStr).toArray()
+        // Recurrent items: filter those whose nextDate falls within this month
+        db.recurrentExpenses.where('nextDate').startsWith(monthStr).toArray(),
+        db.oneOffExpenses.where('date').startsWith(monthStr).toArray()
       ]);
       const sum = (arr) => arr.reduce((acc, r) => acc + (r.amount || 0), 0);
       return {
         month: monthStr,
         income: sum(incomeList),
-        fixed: sum(fixedList),
-        variable: sum(variableList)
+        fixed: sum(recurrentList),
+        variable: sum(oneOffList)
       };
     })
   );
@@ -351,38 +406,38 @@ export async function getSpendingTrends(targetMonth) {
  */
 export async function getDashboardData(periodType, targetMonth) {
   let incomeQuery = db.income;
-  let fixedQuery = db.fixedSpends;
-  let variableQuery = db.variableSpends;
+  // Recurrent expenses use nextDate for scheduling; one-off expenses use date for entry
+  let recurrentQuery = db.recurrentExpenses;
+  let oneOffQuery = db.oneOffExpenses;
 
   if (periodType === 'month') {
     incomeQuery = incomeQuery.where('date').startsWith(targetMonth);
-    fixedQuery = fixedQuery.where('date').startsWith(targetMonth);
-    variableQuery = variableQuery.where('date').startsWith(targetMonth);
+    // For recurrent items, filter by nextDate within the target month
+    recurrentQuery = recurrentQuery.where('nextDate').startsWith(targetMonth);
+    oneOffQuery = oneOffQuery.where('date').startsWith(targetMonth);
   } else if (periodType === 'ytd') {
     const year = targetMonth.split('-')[0];
     const startOfYear = `${year}-01-01`;
-    // Using a high day number to cover the end of the month
-    const endOfMonth = `${targetMonth}-31`; 
+    const endOfMonth = `${targetMonth}-31`;
     incomeQuery = incomeQuery.where('date').between(startOfYear, endOfMonth, true, true);
-    fixedQuery = fixedQuery.where('date').between(startOfYear, endOfMonth, true, true);
-    variableQuery = variableQuery.where('date').between(startOfYear, endOfMonth, true, true);
+    recurrentQuery = recurrentQuery.where('nextDate').between(startOfYear, endOfMonth, true, true);
+    oneOffQuery = oneOffQuery.where('date').between(startOfYear, endOfMonth, true, true);
   }
   // For 'all', we use the full table (no .where())
 
-  const [incomeList, fixedList, variableList, subs, debts, assets] = await Promise.all([
+  const [incomeList, recurrentList, oneOffList, debts, assets] = await Promise.all([
     incomeQuery.toArray(),
-    fixedQuery.toArray(),
-    variableQuery.toArray(),
-    db.subscriptions.toArray(),
+    recurrentQuery.toArray(),
+    oneOffQuery.toArray(),
     db.debts.toArray(),
     db.assets.toArray()
   ]);
 
   const sum = (arr, field = 'amount') => arr.reduce((acc, curr) => acc + (curr[field] || 0), 0);
 
-  // Group spending by categoryId
+  // Group spending by categoryId (recurrent = "fixed", one-off = "variable")
   const categorySpending = {};
-  [...fixedList, ...variableList].forEach(spend => {
+  [...recurrentList, ...oneOffList].forEach(spend => {
     const cid = spend.categoryId;
     if (cid) {
       categorySpending[cid] = (categorySpending[cid] || 0) + (spend.amount || 0);
@@ -390,22 +445,21 @@ export async function getDashboardData(periodType, targetMonth) {
   });
 
   const incomeTotal = sum(incomeList);
-  const fixedTotal = sum(fixedList);
-  const variableTotal = sum(variableList);
-  const totalSubscriptions = sum(subs);
+  const recurrentTotal = sum(recurrentList);
+  const oneOffTotal = sum(oneOffList);
   const totalDebt = sum(debts, 'currentBalance');
   const totalAssets = sum(assets, 'currentBalance');
 
   return {
     income: incomeTotal,
-    fixed: fixedTotal,
-    variable: variableTotal,
-    netPosition: incomeTotal - (fixedTotal + variableTotal),
-    totalSubscriptions,
+    fixed: recurrentTotal,
+    variable: oneOffTotal,
+    netPosition: incomeTotal - (recurrentTotal + oneOffTotal),
+    totalSubscriptions: 0, // Subscriptions are now part of recurrentExpenses
     totalDebt,
     totalAssets,
     netWorth: totalAssets - totalDebt,
-    fixedToIncomeRatio: incomeTotal > 0 ? Math.round((fixedTotal / incomeTotal) * 100) : 0,
+    fixedToIncomeRatio: incomeTotal > 0 ? Math.round((recurrentTotal / incomeTotal) * 100) : 0,
     categorySpending
   };
 }

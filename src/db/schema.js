@@ -91,6 +91,23 @@ db.version(4).stores({
   categoryMappings: '++id, description, categoryId'
 });
 
+// Define version 5 schema: consolidated expense model
+// Replaces fixedSpends, variableSpends, and subscriptions with recurrentExpenses and oneOffExpenses.
+// The deprecated tables are omitted from version 5 stores so Dexie marks them for deletion.
+db.version(5).stores({
+  income: '++id, date, source, amount, categoryId',
+  recurrentExpenses: '++id, date, categoryId, label, amount, status, frequency, nextDate, isEssential, cycleTotal, cycleCurrent, endDate',
+  oneOffExpenses: '++id, date, categoryId, note, amount',
+  recurringTemplates: '++id, name, amount, categoryId, frequency, type',
+  debts: '++id, name, type, apr, creditLimit, currentBalance',
+  statements: '++id, debtId, date, amount, interest, fees',
+  assets: '++id, name, type, asOfDate, currentBalance',
+  categories: '++id, name, group',
+  targets: '++id, categoryId, amount',
+  netWorthSnapshots: '++id, month, totalAssets, totalDebt, netWorth',
+  categoryMappings: '++id, description, categoryId'
+});
+
 // Handle schema updates in other tabs
 db.on('versionchange', function() {
   db.close();
