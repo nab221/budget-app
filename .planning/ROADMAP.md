@@ -23,7 +23,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 8: Income & Expenses Refinement** - 3-month income history and consolidated expense tabs (Recurrent vs One-off) (completed 2026-03-01)
 - [x] **Phase 9: Tax-free Childcare Tracker** - Monitor 2 accounts with gov top-up and predicted spending (completed 2026-03-01)
 - [x] **Phase 10: Advanced Debt & Payoff** - Debt editing, 0% promo tracking, and interactive payoff strategy details (completed 2026-03-01)
-- [ ] **Phase 11: Account Balance Carry-Forward** - Running account balance panel that carries forward through months so users can see if they have enough money for future expenses
+- [x] **Phase 11: Account Balance Carry-Forward** - Running account balance panel that carries forward through months so users can see if they have enough money for future expenses (completed 2026-03-01)
 
 ## Phase Details
 
@@ -213,4 +213,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 5.1 → 6 → 7 �
 | 8. Income & Expenses Refinement | 2/2 | Complete | 2026-03-01 |
 | 9. Tax-free Childcare Tracker | 2/2 | Complete | 2026-03-01 |
 | 10. Advanced Debt & Payoff | 3/3 | Complete   | 2026-03-01 |
-| 11. Account Balance Carry-Forward | 1/2 | In Progress|  |
+| 11. Account Balance Carry-Forward | 2/2 | Complete   | 2026-03-01 |

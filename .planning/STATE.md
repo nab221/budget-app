@@ -8,7 +8,7 @@ progress:
   total_phases: 11
   completed_phases: 10
   total_plans: 34
-  completed_plans: 33
+  completed_plans: 34
 ---
 
 # Project State
@@ -22,12 +22,12 @@ See: .planning/PROJECT.md (updated 2026-02-28)
 
 ## Current Position
 
-Phase: 11 of 11 (Account Balance Carry-Forward — In Progress)
-Plan: 1 of 2 (Plan 01 complete)
-Status: In Progress
-Last activity: 2026-03-01 — Phase 11 Plan 01 complete: Schema v9 balanceSnapshots, Opening Balance seed, snapshot repository, calculateBalanceChain engine, and recalculation triggers.
+Phase: 11 of 11 (Account Balance Carry-Forward — Complete)
+Plan: 2 of 2 (Plan 02 complete)
+Status: Complete
+Last activity: 2026-03-01 — Phase 11 Plan 02 complete: Dashboard balance card, 3-month forecast, 90-day Chart.js trend chart, Settings start date input with recalculation, and 14 Vitest unit tests.
 
-Progress: [▓▓▓▓▓░░░░░] 50% (of current phase)
+Progress: [▓▓▓▓▓▓▓▓▓▓] 100% (phase complete)
 
 ## Performance Metrics
 
@@ -64,6 +64,7 @@ Progress: [▓▓▓▓▓░░░░░] 50% (of current phase)
 | Phase 10 P02 | 20 | 2 tasks | 3 files |
 | Phase 10 P03 | 15m | 2 tasks | 4 files |
 | Phase 11 P01 | 6min | 3 tasks | 5 files |
+| Phase 11 P02 | 15min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -114,6 +115,9 @@ Recent decisions affecting current work:
 - [Phase 11]: balanceSnapshots indexed by YYYY-MM string for simple deleteFrom range and timezone-safe comparison
 - [Phase 11]: calculateBalanceChain uses dep injection for testing and lazy dynamic import for live DB path to avoid circular module dependency
 - [Phase 11]: Opening Balance category uses group=system to distinguish from user categories; idempotent ensureOpeningBalanceCategory seeds it on DB upgrade
+- [Phase 11-02]: Balance card alert state computed from isProjection flag and closingBalance < 0 check — no additional DB call needed
+- [Phase 11-02]: BALANCE_START_DATE_KEY exported from app.js (re-exported from storage.js) so tests can import it without touching the DOM
+- [Phase 11-02]: Vitest unit tests used instead of Playwright E2E — Playwright not installed; engine logic fully covered by unit tests
 
 ### Roadmap Evolution
 
@@ -134,5 +138,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 11-01-PLAN.md — schema v9 balanceSnapshots, Opening Balance category seed, balanceSnapshotRepository, calculateBalanceChain engine, and recalculation triggers on income/oneOff repos.
+Stopped at: Completed 11-02-PLAN.md — dashboard balance card, 3-month forecast, 90-day trend chart, Settings start date input, and 14 Vitest unit tests. Phase 11 complete.
 Resume file: None
