@@ -107,7 +107,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   1. User can connect their Dropbox account (PKCE OAuth, no server required), save their data file to Dropbox, and load it back to restore or sync across devices
   2. User can connect their Google Drive account and save/load their data file; re-authentication is handled silently when the token expires
   3. Connected cloud account preference persists across sessions and the user can disconnect at any time from the settings area
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 06-01-PLAN.md — Google Drive + OneDrive utility modules (auth, file ops)
+- [ ] 06-02-PLAN.md — Cloud backup UI module (provider cards, connect/backup/restore/disconnect)
+- [ ] 06-03-PLAN.md — HTML wiring, app.js integration, and end-to-end verification
 
 ## Progress
 
