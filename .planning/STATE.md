@@ -1,14 +1,14 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.0
-milestone_name: milestone
+milestone_name: Polish & Tech Debt
 status: unknown
-last_updated: "2026-03-01T08:03:01.426Z"
+last_updated: "2026-03-01T09:52:11.759Z"
 progress:
-  total_phases: 6
+  total_phases: 7
   completed_phases: 6
-  total_plans: 21
-  completed_plans: 21
+  total_plans: 25
+  completed_plans: 24
 ---
 
 # Project State
@@ -18,21 +18,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-28)
 
 **Core value:** A clear, reliable view of where the money goes each month — income vs fixed vs variable spending, debt progress, and net worth — all in one place, accessible on any device
-**Current focus:** Phase 6 — Cloud Backup
+**Current focus:** Phase 7 — Milestone v1.0 Polish & Tech Debt
 
 ## Current Position
 
-Phase: 6 of 6 (Cloud Backup)
-Plan: 3 of 3 (Wire Cloud Backup into App - COMPLETE)
-Status: Complete
-Last activity: 2026-03-01 — Plan 06-03 complete: wired cloud-backup.js into app via index.html (GIS script + cloudBackupContainer), app.js (import + init + render on tab), vite.config.js (Workbox comment). UI verified by user — both provider cards visible in Settings.
+Phase: 7 of 10 (Milestone v1.0 Polish & Tech Debt)
+Plan: 1 of 2 (Tech debt cleanup - PLANNED)
+Status: In Progress
+Last activity: 2026-03-01 — Phase 6 (Cloud Backup) and Phase 5.1 (PDF Import Stabilization) completed and verified. Phase 7 planning initiated; 07-01-PLAN.md created to address tech debt items (innerHTML, dead code, logic unification).
 
-Progress: [▓▓▓▓▓▓▓▓▓▓] 100%
+Progress: [▓▓▓▓▓▓▓▓░░] 74%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
+- Total plans completed: 25
 - Average duration: —
 - Total execution time: —
 
@@ -54,6 +54,7 @@ Progress: [▓▓▓▓▓▓▓▓▓▓] 100%
 | Phase 06-cloud-backup P01 | 4 | 2 tasks | 4 files |
 | Phase 06-cloud-backup P02 | 3 | 1 task | 1 file |
 | Phase 06-cloud-backup P03 | 10 | 2 tasks | 3 files |
+| Phase 07-milestone-v1.0-polish-and-tech-debt P01 | 201s | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -81,6 +82,8 @@ Recent decisions affecting current work:
 - [Phase 06-cloud-backup]: GIS script loaded as CDN async/defer in index.html — not bundled — required for popup-safe OAuth flow timing
 - [Phase 06-cloud-backup]: Workbox globPatterns covers local assets only — GIS CDN excluded automatically, cloud features gracefully disabled offline via navigator.onLine checks
 - [Phase 06-cloud-backup]: cloudBackupUI.render() called in settings tab handler alongside other render calls — card always reflects localStorage truth on tab open
+- [Phase 07-milestone-v1.0-polish-and-tech-debt]: importBackupData placed in src/db/backup.js (db layer) consumed by both UI restore paths
+- [Phase 07-milestone-v1.0-polish-and-tech-debt]: CLOUD_LAST_BACKUP_KEY consolidated to storage.js as single source of truth imported by all 3 cloud files
 
 ### Pending Todos
 

@@ -141,7 +141,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. Restore implementations in `cloud-backup.js` and `backup.js` are unified or cross-referenced.
   5. All human verification items from the audit are documented as performed.
 **Plans**:
-- [ ] 07-01-PLAN.md — Tech debt cleanup (pending)
+- [ ] 07-01-PLAN.md — Tech debt cleanup (2026-03-01)
 - [ ] 07-02-PLAN.md — Manual verification and v1.0 Sign-off (pending)
 
 ### Phase 8: Income & Expenses Refinement
@@ -191,10 +191,10 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 5.1 → 6 → 7 �
 | 2. Core Budget Features | 4/4 | Complete | 2026-02-28 |
 | 3. Dashboard, Payoff Planner, and Budget Targets | 5/5 | Complete | 2026-02-28 |
 | 4. PWA and Charts | 3/3 | Complete   | 2026-02-28 |
-| 5. PDF Bank Statement Import | 3/3 | Unverified | 2026-03-01 |
-| 5.1 PDF Import Stabilization | 2/2 | Not started | - |
+| 5. PDF Bank Statement Import | 3/3 | Complete | 2026-03-01 |
+| 5.1 PDF Import Stabilization | 2/2 | Complete | 2026-03-01 |
 | 6. Cloud Backup | 3/3 | Complete   | 2026-03-01 |
-| 7. Milestone v1.0 Polish & Tech Debt | 0/2 | Not started | - |
+| 7. Milestone v1.0 Polish & Tech Debt | 1/2 | In Progress|  |
 | 8. Income & Expenses Refinement | 0/2 | Not started | - |
 | 9. Tax-free Childcare Tracker | 0/2 | Not started | - |
 | 10. Advanced Debt & Payoff | 0/2 | Not started | - |
