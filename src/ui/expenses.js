@@ -389,6 +389,15 @@ export const expensesUI = {
 
     const total = items.reduce((s, i) => s + (i.amount || 0), 0);
 
+    const renderNoteCell = (item) => {
+      const note = item.note || '—';
+      const isTFC = typeof item.note === 'string' && item.note.startsWith('Tax-free Childcare:');
+      const badge = isTFC
+        ? `<span class="pill" style="background:var(--info);color:#fff;font-size:.65rem;margin-left:4px">Tax-free Childcare</span>`
+        : '';
+      return safeHTML`${note}${badge}`;
+    };
+
     container.innerHTML = `
       <table class="tbl">
         <thead>
@@ -405,7 +414,7 @@ export const expensesUI = {
             <tr>
               <td>${item.date}</td>
               <td>${catMap[item.categoryId] || 'None'}</td>
-              <td>${item.note || '—'}</td>
+              <td>${renderNoteCell(item)}</td>
               <td class="r">${formatGBP(item.amount)}</td>
               <td class="r">
                 <button class="sm danger" onclick="deleteOneOffExpense(${item.id})">✕</button>

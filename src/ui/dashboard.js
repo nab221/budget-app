@@ -3,6 +3,7 @@ import { formatGBP } from '../utils/currency.js';
 import { simulatePayoff } from '../utils/finance.js';
 import { renderTrendsChart } from './charts.js';
 import { checkStoragePersistence } from './pwa-ux.js';
+import { getEntitlementPeriod } from '../utils/childcare.js';
 
 /**
  * Render the dashboard summary cards.
@@ -41,6 +42,10 @@ export async function renderDashboard(containerId, periodType, targetMonth) {
     }
   }
 
+  // Childcare assets card (only if accounts exist)
+  const childcareSummary = data.childcareSummary || [];
+  const childcareTotalBalance = childcareSummary.reduce((s, c) => s + c.balance, 0);
+
   const cards = [
     { label: 'Income', value: data.income, color: 'var(--accent)' },
     { label: 'Recurrent Expenses', value: data.fixed, color: 'var(--danger)' },
@@ -48,6 +53,7 @@ export async function renderDashboard(containerId, periodType, targetMonth) {
     { label: 'Net Position', value: data.netPosition, color: data.netPosition >= 0 ? 'var(--accent)' : 'var(--danger)' },
     { label: 'Total Debt', value: data.totalDebt, color: 'var(--danger)' },
     { label: 'Total Assets', value: data.totalAssets, color: 'var(--accent)' },
+    ...(childcareSummary.length > 0 ? [{ label: 'Childcare Assets', value: childcareTotalBalance, color: 'var(--info)' }] : []),
     {
       label: 'Net Worth',
       badge: !isPersisted ? { text: 'Risk', title: 'Storage persistence not granted. Your data may be purged by the browser.' } : null,
@@ -94,9 +100,10 @@ export async function renderDashboard(containerId, periodType, targetMonth) {
     console.warn('Could not render trends chart:', err);
   }
 
-  // Also render progress bars and snapshots
+  // Also render progress bars, snapshots, and childcare funding card
   renderProgressBars(data.bucketSpending);
   renderSnapshots();
+  renderChildcareFunding(childcareSummary);
 }
 
 /**
@@ -148,6 +155,77 @@ async function renderProgressBars(bucketSpending) {
       </div>
     `;
   }).join('');
+}
+
+/**
+ * Renders the Childcare Funding section on the dashboard.
+ * Shows per-account balances, funding gaps, top-up suggestions,
+ * and reconfirmation alerts for accounts approaching period end.
+ *
+ * @param {Array} childcareSummary - Array of { account, balance, gap, suggestedDeposit }
+ */
+function renderChildcareFunding(childcareSummary) {
+  // Find or create the childcare section container
+  let section = document.getElementById('dashboardChildcareSection');
+  if (!section) {
+    // Insert before the grid2 section (Budget Progress / Net Worth History)
+    const dashCard = document.querySelector('.card section');
+    const grid2 = document.querySelector('.card .grid2');
+    if (grid2) {
+      section = document.createElement('div');
+      section.id = 'dashboardChildcareSection';
+      section.style.cssText = 'margin-top:20px; padding-top:20px; border-top:1px solid var(--border)';
+      grid2.parentNode.insertBefore(section, grid2);
+    }
+  }
+  if (!section) return;
+
+  if (!childcareSummary || childcareSummary.length === 0) {
+    section.innerHTML = '';
+    return;
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  const accountRows = childcareSummary.map(({ account, balance, gap, suggestedDeposit }) => {
+    // Check reconfirmation due
+    let reconfirmHTML = '';
+    if (account.entitlementStart) {
+      try {
+        const period = getEntitlementPeriod(account.entitlementStart, today);
+        const msUntilEnd = period.end.getTime() - new Date(today).getTime();
+        const daysUntilEnd = Math.ceil(msUntilEnd / (1000 * 60 * 60 * 24));
+        if (daysUntilEnd >= 0 && daysUntilEnd <= 7) {
+          reconfirmHTML = `<span class="pill" style="background:var(--warn);color:#000;font-size:.65rem;margin-left:6px" title="Log in to GOV.UK to reconfirm TFC eligibility">Reconfirm in ${daysUntilEnd}d</span>`;
+        }
+      } catch (e) {
+        // Ignore
+      }
+    }
+
+    const gapInfo = gap > 0
+      ? `<span style="color:var(--warn);font-size:.8rem">Gap: ${formatGBP(gap)} — Deposit ${formatGBP(suggestedDeposit)} to cover</span>`
+      : `<span style="color:var(--success);font-size:.8rem">Funded</span>`;
+
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border-light)">
+        <div>
+          <span style="font-weight:600;font-size:.9rem">${account.childName}</span>
+          ${reconfirmHTML}
+          <div style="margin-top:2px">${gapInfo}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:1rem;font-weight:700;color:var(--info)">${formatGBP(balance)}</div>
+          <div class="hint" style="font-size:.7rem">of ${formatGBP(account.targetMonthlySpend || 0)} target</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  section.innerHTML = `
+    <h3 style="font-size:.9rem;margin-bottom:12px;font-weight:600">Childcare Funding</h3>
+    ${accountRows}
+  `;
 }
 
 /**
