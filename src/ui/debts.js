@@ -13,6 +13,7 @@ export const debtUI = {
    */
   async init() {
     this.setupEventListeners();
+    window.addEventListener('app:refresh', () => this.render());
     await this.render();
   },
 
