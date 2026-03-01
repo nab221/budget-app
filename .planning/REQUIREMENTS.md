@@ -138,16 +138,23 @@
 - [x] **CHILD-02**: App calculates and displays government top-up (20%) for every deposit
 - [x] **CHILD-03**: User can log weekly/monthly outgoings from childcare accounts
 - [x] **CHILD-04**: App suggests top-up values to cover predicted future childcare expenses
-- [ ] **CHILD-05**: Dashboard shows current balances and "missing" funds needed to cover predicted outgoings
+- [x] **CHILD-05**: Dashboard shows current balances and "missing" funds needed to cover predicted outgoings
+
+### Account Balance Carry-Forward
+
+- [x] **BAL-01**: Opening balance transaction creates the correct starting point for the balance chain (seeded from "Opening Balance" category entry in the configured start month)
+- [x] **BAL-02**: Closing balance of one month becomes the opening balance of the next (carry-forward arithmetic engine)
+- [x] **BAL-03**: Balance chain engine calculates actuals for past months and projections for future months, deducting all recurrent expenses in every projected month
+- [x] **BAL-04**: Dashboard shows a running balance panel (current balance card, 3-month forecast card, 90-day trend chart) with red alert state for negative projections; user can configure and persist a Balance Start Date in Settings
 
 ### Advanced Debt & Payoff
 
-- [ ] **DEBT-07**: User can edit existing debt details (Name, Credit Limit, APR)
-- [ ] **DEBT-08**: User can track 0% promotional APR period end dates and post-promo APR
-- [ ] **DEBT-09**: Dashboard shows "Debts Repayment" panel with total monthly minimum payments and its impact on net position
-- [ ] **PAY-06**: Payoff Planner supports interactive strategy selection (Avalanche/Snowball/Min Only) with corresponding chart/detail updates
-- [ ] **PAY-07**: Payoff Planner shows detailed payment breakdown (exactly how much goes to each debt for the selected strategy)
-- [ ] **PAY-08**: Payoff simulation correctly accounts for 0% promotional periods and subsequent APR jumps
+- [x] **DEBT-07**: User can edit existing debt details (Name, Credit Limit, APR)
+- [x] **DEBT-08**: User can track 0% promotional APR period end dates and post-promo APR
+- [x] **DEBT-09**: Dashboard shows "Debts Repayment" panel with total monthly minimum payments and its impact on net position
+- [x] **PAY-06**: Payoff Planner supports interactive strategy selection (Avalanche/Snowball/Min Only) with corresponding chart/detail updates
+- [x] **PAY-07**: Payoff Planner shows detailed payment breakdown (exactly how much goes to each debt for the selected strategy)
+- [x] **PAY-08**: Payoff simulation correctly accounts for 0% promotional periods and subsequent APR jumps
 
 ### PWA
 
@@ -268,17 +275,21 @@
 | CHILD-02 | Phase 9 | Complete |
 | CHILD-03 | Phase 9 | Complete |
 | CHILD-04 | Phase 9 | Complete |
-| CHILD-05 | Phase 9 | Pending |
-| DEBT-07 | Phase 10 | Pending |
-| DEBT-08 | Phase 10 | Pending |
-| DEBT-09 | Phase 10 | Pending |
-| PAY-06 | Phase 10 | Pending |
-| PAY-07 | Phase 10 | Pending |
-| PAY-08 | Phase 10 | Pending |
+| CHILD-05 | Phase 9 | Complete |
+| DEBT-07 | Phase 10 | Complete |
+| DEBT-08 | Phase 10 | Complete |
+| DEBT-09 | Phase 10 | Complete |
+| PAY-06 | Phase 10 | Complete |
+| PAY-07 | Phase 10 | Complete |
+| PAY-08 | Phase 10 | Complete |
+| BAL-01 | Phase 11 | Complete |
+| BAL-02 | Phase 11 | Complete |
+| BAL-03 | Phase 11 | Complete |
+| BAL-04 | Phase 11 | Complete |
 
 **Coverage:**
-- v1 requirements: 88 total (72 original + 16 new)
-- Mapped to phases: 88
+- v1 requirements: 92 total (72 original + 20 new)
+- Mapped to phases: 92
 - Unmapped: 0
 
 | Phase | Requirements |
@@ -292,6 +303,7 @@
 | Phase 8: Income & Expenses Refinement | INC-05, EXP-01 to EXP-04 (5 total) |
 | Phase 9: Tax-free Childcare Tracker | CHILD-01 to CHILD-05 (5 total) |
 | Phase 10: Advanced Debt & Payoff | DEBT-07 to DEBT-09, PAY-06 to PAY-08 (6 total) |
+| Phase 11: Account Balance Carry-Forward | BAL-01 to BAL-04 (4 total) |
 
 ---
 *Requirements defined: 2026-02-28*
