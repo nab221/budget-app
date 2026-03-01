@@ -1,7 +1,7 @@
 import { safeHTML, sanitize } from './render.js';
 import { extractTextFromPdf, parsers } from '../utils/pdf-parser.js';
-import { findDuplicates, suggestCategory, categoryRepository, updateCategorizationLearningRule, incomeRepository, variableSpendRepository } from '../db/repository.js';
-import { formatGBP } from '../utils/currency.js';
+import { findDuplicates, suggestCategory, categoryRepository, updateCategorizationLearningRule, incomeRepository, variableSpendRepository, fixedSpendRepository } from '../db/repository.js';
+import { formatGBP, toPence } from '../utils/currency.js';
 
 export const pdfImportUI = {
   state: {
