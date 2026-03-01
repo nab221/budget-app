@@ -1,6 +1,6 @@
 import { getDashboardData, getSpendingTrends, debtRepository, targetRepository, netWorthRepository } from '../db/repository.js';
 import { formatGBP } from '../utils/currency.js';
-import { simulatePayoff } from '../utils/finance.js';
+import { simulatePayoff, calcMinPayment } from '../utils/finance.js';
 import { renderTrendsChart } from './charts.js';
 import { checkStoragePersistence } from './pwa-ux.js';
 import { getEntitlementPeriod } from '../utils/childcare.js';
@@ -104,6 +104,76 @@ export async function renderDashboard(containerId, periodType, targetMonth) {
   renderProgressBars(data.bucketSpending);
   renderSnapshots();
   renderChildcareFunding(childcareSummary);
+  renderDebtRepaymentPanel(debts, data.income);
+}
+
+/**
+ * Renders a debt repayment impact panel on the dashboard.
+ * Shows min payments + extra as % of income and alerts for expiring promos.
+ * @param {Array} debts 
+ * @param {number} totalIncomePence 
+ */
+function renderDebtRepaymentPanel(debts, totalIncomePence) {
+  let section = document.getElementById('dashboardDebtRepaymentSection');
+  if (!section) {
+    const dashCard = document.querySelector('.card section');
+    const grid2 = document.querySelector('.card .grid2');
+    if (grid2) {
+      section = document.createElement('div');
+      section.id = 'dashboardDebtRepaymentSection';
+      section.style.cssText = 'margin-top:20px; padding-top:20px; border-top:1px solid var(--border)';
+      grid2.parentNode.insertBefore(section, grid2);
+    }
+  }
+  if (!section) return;
+
+  if (!debts || debts.length === 0) {
+    section.innerHTML = '';
+    return;
+  }
+
+  const extraMonthlyPounds = parseFloat(localStorage.getItem('payoffExtra')) || 0;
+  const extraMonthlyPence = extraMonthlyPounds * 100;
+  
+  const today = new Date();
+  const totalMinPayments = debts.reduce((sum, d) => sum + calcMinPayment(d.currentBalance, d.apr, 0, today, d.promoEndDate), 0);
+  const totalRepayment = totalMinPayments + extraMonthlyPence;
+  const impactPercent = totalIncomePence > 0 ? Math.round((totalRepayment / totalIncomePence) * 100) : 0;
+
+  // Check for promos expiring within 60 days
+  const sixtyDaysFromNow = new Date();
+  sixtyDaysFromNow.setDate(sixtyDaysFromNow.getDate() + 60);
+  const expiringDebts = debts.filter(d => {
+    if (!d.promoEndDate) return false;
+    const promoEnd = new Date(d.promoEndDate);
+    return promoEnd <= sixtyDaysFromNow && promoEnd >= new Date();
+  });
+
+  const alertsHTML = expiringDebts.map(d => `
+    <div style="background:rgba(213, 94, 0, 0.1); border-left:4px solid var(--warn); padding:8px 12px; margin-bottom:8px; font-size:.85rem">
+      ⚠️ <strong>Promo Expiring:</strong> ${d.name} ends on ${d.promoEndDate}. 
+      APR will jump to ${d.postPromoApr}%.
+    </div>
+  `).join('');
+
+  section.innerHTML = `
+    <h3 style="font-size:.9rem;margin-bottom:12px;font-weight:600">Debt Repayment Impact</h3>
+    
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px">
+      <div>
+        <div style="font-size:1.1rem; font-weight:700">${formatGBP(totalRepayment)} / month</div>
+        <div class="hint" style="font-size:.75rem">
+          ${formatGBP(totalMinPayments)} min + ${formatGBP(extraMonthlyPence)} extra
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:1.5rem; font-weight:800; color:${impactPercent > 30 ? 'var(--danger)' : impactPercent > 15 ? 'var(--warn)' : 'var(--success)'}">${impactPercent}%</div>
+        <div class="hint" style="font-size:.75rem">of net income</div>
+      </div>
+    </div>
+
+    ${alertsHTML}
+  `;
 }
 
 /**
