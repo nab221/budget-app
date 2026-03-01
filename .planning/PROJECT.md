@@ -6,8 +6,14 @@
 - **Key Features**: Offline-first, IndexedDB, UK Bank PDF Import, Cloud Backup (GDrive/OneDrive), Debt Payoff Planner, Account Balance Forecasting.
 
 ## Next Milestone: v1.1
-- **Goal**: UX Refinement & Multi-currency Foundation.
-- **Planned Features**: Multi-currency account tracking (isolated from GBP budget), foreign currency summary tab, and UI polish based on initial v1.0 feedback.
+- **Goal**: UX Refinement & Core CRUD Polish.
+- **Planned Features**: 
+  - UI readability improvements (spacing, "clamping" fixes).
+  - Full edit support for all transaction types.
+  - Search and category filtering for income and expenses.
+  - Manual setting of initial balances.
+  - Reordered and refined dashboard balance panel.
+  - Manual triggering of recurring templates.
 
 ---
 
