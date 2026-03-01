@@ -93,7 +93,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. If auto-parse fails or user selects manual mode, user can map PDF columns to date, description, amount, and debt/credit fields and proceed to import
   3. If the PDF is image-based or scanned (no text layer), the app clearly tells the user it cannot be parsed and suggests manual entry instead
   4. After import, the user sees a summary of how many transactions were imported, skipped, or rejected, and imported entries appear in the correct tab (income or variable spending) based on user selection
-**Plans**: TBD
+**Plans**:
+- [ ] 05-01-PLAN.md — PDF Parsing Engine & Data Layer
+- [ ] 05-02-PLAN.md — Preview UI & Manual Mapping
+- [ ] 05-03-PLAN.md — Bank Expansion & Refinement
+
 
 ### Phase 6: Cloud Backup
 **Goal**: Users can back up and restore their data via Dropbox or Google Drive, enabling cross-device access without a backend

@@ -69,8 +69,8 @@ db.version(2).stores({
   });
 });
 
-// Define version 3 schema with targets and snapshots
-db.version(3).stores({
+// Define version 4 schema with category mappings for PDF import learning
+db.version(4).stores({
   income: '++id, date, source, amount, categoryId',
   fixedSpends: '++id, date, categoryId, label, amount, status',
   variableSpends: '++id, date, categoryId, note, amount',
@@ -81,7 +81,8 @@ db.version(3).stores({
   assets: '++id, name, type, asOfDate, currentBalance',
   categories: '++id, name, group',
   targets: '++id, categoryId, amount',
-  netWorthSnapshots: '++id, month, totalAssets, totalDebt, netWorth'
+  netWorthSnapshots: '++id, month, totalAssets, totalDebt, netWorth',
+  categoryMappings: '++id, description, categoryId'
 });
 
 // Handle schema updates in other tabs
