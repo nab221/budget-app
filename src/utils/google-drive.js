@@ -12,6 +12,8 @@
  * tied to a user gesture.
  */
 
+import { CLOUD_LAST_BACKUP_KEY } from './storage.js';
+
 // --- Constants ---
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '';
@@ -20,7 +22,6 @@ const DRIVE_FILE_NAME = 'budget-backup.json';
 
 const CLOUD_PROVIDER_KEY = 'cloud_provider';
 const CLOUD_ACCOUNT_KEY = 'cloud_account_email';
-const CLOUD_LAST_BACKUP_KEY = 'cloud_last_backup';
 
 // --- Module-scope state (NOT exported) ---
 

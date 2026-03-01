@@ -13,6 +13,7 @@
  */
 
 import { PublicClientApplication, InteractionRequiredAuthError } from '@azure/msal-browser';
+import { CLOUD_LAST_BACKUP_KEY } from './storage.js';
 
 // --- Constants ---
 
@@ -22,7 +23,6 @@ const MSAL_SCOPES = ['Files.ReadWrite', 'User.Read'];
 
 const CLOUD_PROVIDER_KEY = 'cloud_provider';
 const CLOUD_ACCOUNT_KEY = 'cloud_account_email';
-const CLOUD_LAST_BACKUP_KEY = 'cloud_last_backup';
 
 // --- Module-scope state ---
 
@@ -209,20 +209,3 @@ export async function oneDriveDownload() {
   return res.text();
 }
 
-/**
- * Fetches the authenticated user's email address from the Microsoft Graph /me
- * endpoint. Requires the User.Read scope.
- *
- * @returns {Promise<string>} The user's email or userPrincipalName.
- */
-export async function getOneDriveUserEmail() {
-  const token = await getOneDriveToken();
-
-  const res = await fetch(
-    'https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName',
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
-
-  const data = await res.json();
-  return data.mail || data.userPrincipalName;
-}
