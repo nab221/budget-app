@@ -19,7 +19,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 5: PDF Bank Statement Import** - Auto-parse UK bank PDFs with manual fallback for bulk transaction import (completed 2026-03-01)
 - [x] **Phase 5.1: PDF Import Stabilization** - Fix critical bugs and verify Phase 5 (INSERTED, completed 2026-03-01)
 - [x] **Phase 6: Cloud Backup** - Google Drive and OneDrive backup integration for cross-device data access (completed 2026-03-01)
-- [x] **Phase 7: Milestone v1.0 Polish & Tech Debt** - Address accumulated debt and perform final human verification (completed 2026-03-01)
+- [x] **Phase 7: Milestone v1.0 Polish & Tech Debt** - Address accumulated tech debt and perform final human verification (completed 2026-03-01)
 - [x] **Phase 8: Income & Expenses Refinement** - 3-month income history and consolidated expense tabs (Recurrent vs One-off) (completed 2026-03-01)
 - [x] **Phase 9: Tax-free Childcare Tracker** - Monitor 2 accounts with gov top-up and predicted spending (completed 2026-03-01)
 - [x] **Phase 10: Advanced Debt & Payoff** - Debt editing, 0% promo tracking, and interactive payoff strategy details (completed 2026-03-01)
@@ -203,12 +203,13 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Depends on:** Phase 11
 **Requirements:** BAL-01, BAL-02, BAL-03
 **Gap Closure:** Closes integration defects from v1.0 audit
+**Plans:** 1 plan
 **Success Criteria**:
   1. Adding, editing, or deleting a recurrent expense immediately recalculates balance snapshots and dispatches `app:refresh`.
   2. Projected months in the balance chain only count recurrent expenses whose `nextDate` (or next cycle date) falls in that month.
   3. A quarterly expense is counted exactly once per quarter in balance projections, not in every projected month.
 **Plans**:
-- [ ] 12-01-PLAN.md — recurrentExpenseRepository trigger wiring & calculateBalanceChain month filter (pending)
+- [ ] 12-01-PLAN.md — recurrentExpenseRepository trigger wiring & calculateBalanceChain frequency-aware month filter
 
 ### Phase 13: Milestone Human Verification
 **Goal:** Complete browser UAT for Phases 08, 09, and 11 — formally close all `human_needed` VERIFICATION.md items and update statuses to `passed` so the v1.0 milestone can be signed off
