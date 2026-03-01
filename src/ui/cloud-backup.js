@@ -13,6 +13,7 @@
 
 import { db } from '../db/schema.js';
 import { templateUI } from './templates.js';
+import { importBackupData } from '../db/backup.js';
 import {
   initGoogleDrive, withGoogleToken, disconnectGoogle,
   googleDriveUpload, googleDriveDownload, isGoogleConnected
@@ -56,23 +57,16 @@ async function collectData() {
 
 /**
  * Imports backup data into IndexedDB and reloads the page.
+ * Delegates the database transaction to the shared importBackupData utility.
+ *
  * @param {{ data: object }} parsed - Parsed backup object with a .data property.
  */
 async function importData(parsed) {
   if (!parsed || typeof parsed.data !== 'object') {
     throw new Error('Invalid backup data');
   }
-  const data = parsed.data;
 
-  await db.transaction('rw', db.tables, async () => {
-    for (const table of db.tables) {
-      if (data[table.name]) {
-        await table.clear();
-        await table.bulkAdd(data[table.name]);
-      }
-    }
-  });
-
+  await importBackupData(parsed.data);
   window.location.reload();
 }
 
