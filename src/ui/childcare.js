@@ -1,5 +1,5 @@
 import { childcareRepository, categoryRepository } from '../db/repository.js';
-import { formatGBP, toPence } from '../utils/currency.js';
+import { formatGBP } from '../utils/currency.js';
 import { calculateFundingGap, getEntitlementPeriod } from '../utils/childcare.js';
 import { safeHTML } from './render.js';
 
@@ -464,8 +464,10 @@ export const childcareUI = {
     try {
       const result = await childcareRepository.addDeposit(accountId, date, amount, categoryId);
 
+      // amount is in pounds; top-up = 25% of deposit in pence
+      const depositPence = Math.round(amount * 100);
       const topUpMsg = result.topUpId
-        ? ` Government top-up of ${formatGBP(Math.round(amount * 100 * 0.25))} applied.`
+        ? ` Government top-up of ${formatGBP(Math.round(depositPence * 0.25))} applied.`
         : ' No top-up available (quarterly cap reached).';
 
       // Clear deposit amount
