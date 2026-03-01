@@ -118,11 +118,36 @@
 
 ### PDF Import
 
-- [ ] **PDF-01**: User can upload a PDF bank statement and have the app attempt automatic parsing (Barclays, HSBC, NatWest, Lloyds, Santander)
-- [ ] **PDF-02**: If auto-parse succeeds, user sees a preview of detected transactions (date, description, amount) and can confirm or deselect individual rows before importing
-- [ ] **PDF-03**: If auto-parse fails or user selects manual mode, user can map PDF columns (date, description, amount, debit/credit) to fields
-- [ ] **PDF-04**: App clearly informs user if the PDF is image/scanned (not parseable) with guidance to use manual entry instead
-- [ ] **PDF-05**: Imported transactions are added to the appropriate tab (income or variable spending) based on user selection
+- [x] **PDF-01**: User can upload a PDF bank statement and have the app attempt automatic parsing (Barclays, HSBC, NatWest, Lloyds, Santander)
+- [x] **PDF-02**: If auto-parse succeeds, user sees a preview of detected transactions (date, description, amount) and can confirm or deselect individual rows before importing
+- [x] **PDF-03**: If auto-parse fails or user selects manual mode, user can map PDF columns (date, description, amount, debit/credit) to fields
+- [x] **PDF-04**: App clearly informs user if the PDF is image/scanned (not parseable) with guidance to use manual entry instead
+- [x] **PDF-05**: Imported transactions are added to the appropriate tab (income or variable spending) based on user selection
+
+### Income & Expenses Refinement
+
+- [ ] **INC-05**: Income tab shows last 3 months of history for trend visibility
+- [ ] **EXP-01**: Consolidate "Fixed", "Variable", and "Subscriptions" into "Recurrent" and "One-off" expense tabs
+- [ ] **EXP-02**: Support "cancelable" labels for recurrent items to distinguish optional spending from obligations
+- [ ] **EXP-03**: Support varying recurrent expenses (10-month cycles like Council Tax, quarterly like TV License)
+- [ ] **EXP-04**: Expense list shows labels for things that can be cancelled
+
+### Tax-free Childcare Tracking
+
+- [ ] **CHILD-01**: User can track 2 independent Tax-free Childcare accounts with balances
+- [ ] **CHILD-02**: App calculates and displays government top-up (20%) for every deposit
+- [ ] **CHILD-03**: User can log weekly/monthly outgoings from childcare accounts
+- [ ] **CHILD-04**: App suggests top-up values to cover predicted future childcare expenses
+- [ ] **CHILD-05**: Dashboard shows current balances and "missing" funds needed to cover predicted outgoings
+
+### Advanced Debt & Payoff
+
+- [ ] **DEBT-07**: User can edit existing debt details (Name, Credit Limit, APR)
+- [ ] **DEBT-08**: User can track 0% promotional APR period end dates and post-promo APR
+- [ ] **DEBT-09**: Dashboard shows "Debts Repayment" panel with total monthly minimum payments and its impact on net position
+- [ ] **PAY-06**: Payoff Planner supports interactive strategy selection (Avalanche/Snowball/Min Only) with corresponding chart/detail updates
+- [ ] **PAY-07**: Payoff Planner shows detailed payment breakdown (exactly how much goes to each debt for the selected strategy)
+- [ ] **PAY-08**: Payoff simulation correctly accounts for 0% promotional periods and subsequent APR jumps
 
 ### PWA
 
@@ -225,19 +250,35 @@
 | PWA-02 | Phase 4 | Complete |
 | PWA-03 | Deferred | Out of Scope (v1) |
 | PWA-04 | Phase 4 | Complete |
-| PDF-01 | Phase 5 | Pending |
-| PDF-02 | Phase 5 | Pending |
-| PDF-03 | Phase 5 | Pending |
-| PDF-04 | Phase 5 | Pending |
-| PDF-05 | Phase 5 | Pending |
+| PDF-01 | Phase 5 | Completed |
+| PDF-02 | Phase 5 | Completed |
+| PDF-03 | Phase 5 | Completed |
+| PDF-04 | Phase 5 | Completed |
+| PDF-05 | Phase 5 | Completed |
 | CLOUD-01 | Phase 6 | Complete |
 | CLOUD-02 | Phase 6 | Complete |
 | CLOUD-03 | Phase 6 | Complete |
 | CLOUD-04 | Phase 6 | Complete |
+| INC-05 | Phase 8 | Pending |
+| EXP-01 | Phase 8 | Pending |
+| EXP-02 | Phase 8 | Pending |
+| EXP-03 | Phase 8 | Pending |
+| EXP-04 | Phase 8 | Pending |
+| CHILD-01 | Phase 9 | Pending |
+| CHILD-02 | Phase 9 | Pending |
+| CHILD-03 | Phase 9 | Pending |
+| CHILD-04 | Phase 9 | Pending |
+| CHILD-05 | Phase 9 | Pending |
+| DEBT-07 | Phase 10 | Pending |
+| DEBT-08 | Phase 10 | Pending |
+| DEBT-09 | Phase 10 | Pending |
+| PAY-06 | Phase 10 | Pending |
+| PAY-07 | Phase 10 | Pending |
+| PAY-08 | Phase 10 | Pending |
 
 **Coverage:**
-- v1 requirements: 72 total
-- Mapped to phases: 72
+- v1 requirements: 88 total (72 original + 16 new)
+- Mapped to phases: 88
 - Unmapped: 0
 
 | Phase | Requirements |
@@ -248,7 +289,10 @@
 | Phase 4: PWA and Charts | CHART-01 to CHART-02, PWA-01 to PWA-04 (6 total) |
 | Phase 5: PDF Bank Statement Import | PDF-01 to PDF-05 (5 total) |
 | Phase 6: Cloud Backup | CLOUD-01 to CLOUD-04 (4 total) |
+| Phase 8: Income & Expenses Refinement | INC-05, EXP-01 to EXP-04 (5 total) |
+| Phase 9: Tax-free Childcare Tracker | CHILD-01 to CHILD-05 (5 total) |
+| Phase 10: Advanced Debt & Payoff | DEBT-07 to DEBT-09, PAY-06 to PAY-08 (6 total) |
 
 ---
 *Requirements defined: 2026-02-28*
-*Last updated: 2026-02-28 after roadmap creation — traceability populated, count corrected to 72*
+*Last updated: 2026-03-01 — PDF-01 to PDF-05 marked Completed after Phase 5 and 5.1 verification (Phase 07-02)*

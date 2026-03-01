@@ -1,3 +1,19 @@
+---
+phase: 05-pdf-bank-statement-import
+plan: 01
+subsystem: PDF Import
+tags: [pdf, parsing, data-layer]
+requirements-completed: [PDF-01, PDF-04]
+requires: []
+provides: [pdf-parser.js, extractTextFromPdf, parsers (Lloyds/Santander)]
+tech-stack: [pdfjs-dist, string-similarity, date-fns, Dexie]
+key-files:
+  created: [src/utils/pdf-parser.js, src/utils/string-similarity.js]
+  modified: [src/db/schema.js, src/db/repository.js]
+metrics:
+  completed_date: "2026-03-01"
+---
+
 # Phase 05-01: PDF Parsing Engine & Data Layer - Summary
 
 ## Execution Overview

@@ -1,3 +1,19 @@
+---
+phase: 05-pdf-bank-statement-import
+plan: 02
+subsystem: PDF Import
+tags: [pdf, ui, manual-mapping, preview]
+requirements-completed: [PDF-02, PDF-03]
+requires: [PDF-01]
+provides: [pdfImportUI, preview modal, manual column mapping UI]
+tech-stack: [pdfjs-dist, DOMPurify/safeHTML]
+key-files:
+  created: [src/ui/pdf-import.js]
+  modified: [index.html, src/app.js]
+metrics:
+  completed_date: "2026-03-01"
+---
+
 # Phase 05-02: Preview UI & Manual Mapping - Summary
 
 ## Execution Overview

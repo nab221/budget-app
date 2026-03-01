@@ -16,8 +16,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Core Budget Features** - Income, fixed/variable spending, subscriptions, recurring templates, debt tracker, assets, and data safety
 - [x] **Phase 3: Dashboard, Payoff Planner, and Budget Targets** - Computation-heavy display features that depend on Phase 2 data
 - [x] **Phase 4: PWA and Charts** - Make the app installable and offline; add spending trend and debt payoff timeline charts (completed 2026-02-28)
-- [ ] **Phase 5: PDF Bank Statement Import** - Auto-parse UK bank PDFs with manual fallback for bulk transaction import (Unverified)
-- [ ] **Phase 5.1: PDF Import Stabilization** - Fix critical bugs and verify Phase 5 (INSERTED)
+- [x] **Phase 5: PDF Bank Statement Import** - Auto-parse UK bank PDFs with manual fallback for bulk transaction import (completed 2026-03-01)
+- [x] **Phase 5.1: PDF Import Stabilization** - Fix critical bugs and verify Phase 5 (INSERTED, completed 2026-03-01)
 - [x] **Phase 6: Cloud Backup** - Google Drive and OneDrive backup integration for cross-device data access (completed 2026-03-01)
 - [ ] **Phase 7: Milestone v1.0 Polish & Tech Debt** - Address accumulated debt and perform final human verification
 - [ ] **Phase 8: Income & Expenses Refinement** - 3-month income history and consolidated expense tabs (Recurrent vs One-off)
@@ -141,7 +141,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. Restore implementations in `cloud-backup.js` and `backup.js` are unified or cross-referenced.
   5. All human verification items from the audit are documented as performed.
 **Plans**:
-- [ ] 07-01-PLAN.md — Tech debt cleanup (2026-03-01)
+- [x] 07-01-PLAN.md — Tech debt cleanup (2026-03-01)
 - [ ] 07-02-PLAN.md — Manual verification and v1.0 Sign-off (pending)
 
 ### Phase 8: Income & Expenses Refinement

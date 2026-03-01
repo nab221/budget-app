@@ -1,3 +1,19 @@
+---
+phase: 05-pdf-bank-statement-import
+plan: 03
+subsystem: PDF Import
+tags: [pdf, parsers, bank-expansion, ux]
+requirements-completed: [PDF-01, PDF-02, PDF-03, PDF-04, PDF-05]
+requires: [PDF-01, PDF-02, PDF-03]
+provides: [parsers (Nationwide, Amex, MBNA, TSB Mortgage), import button on all tabs]
+tech-stack: [pdfjs-dist, regex-based parsing]
+key-files:
+  created: []
+  modified: [src/utils/pdf-parser.js, src/ui/pdf-import.js, index.html]
+metrics:
+  completed_date: "2026-03-01"
+---
+
 # Phase 05-03: Bank Expansion & Refinement - Summary
 
 ## Execution Overview
