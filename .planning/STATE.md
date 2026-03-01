@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: Polish & Tech Debt
 status: unknown
-last_updated: "2026-03-01T12:17:29.967Z"
+last_updated: "2026-03-01T13:10:00Z"
 progress:
-  total_phases: 8
+  total_phases: 11
   completed_phases: 8
-  total_plans: 27
-  completed_plans: 27
+  total_plans: 33
+  completed_plans: 28
 ---
 
 # Project State
@@ -18,14 +18,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-28)
 
 **Core value:** A clear, reliable view of where the money goes each month — income vs fixed vs variable spending, debt progress, and net worth — all in one place, accessible on any device
-**Current focus:** Phase 8 — Income & Expenses Refinement
+**Current focus:** Phase 9 — Tax-free Childcare Tracker
 
 ## Current Position
 
-Phase: 8 of 8 (Income & Expenses Refinement — COMPLETE)
-Plan: 2 of 2 (Income History & Bucket Targets — COMPLETE)
-Status: Complete
-Last activity: 2026-03-01 — 08-02 complete: 3-month income sliding window with grouped totals, Dexie v6 bucket-based targets (Recurrent/One-off), updated dashboard progress bars, CSS polish.
+Phase: 9 of 10 (Tax-free Childcare Tracker — IN PROGRESS)
+Plan: 1 of 2
+Status: In progress
+Last activity: 2026-03-01 — 09-01 complete: Dexie v7 childcare schema, TFC calculation utilities (19 tests), childcareRepository with top-up engine and budget integration.
 
 Progress: [▓▓▓▓▓▓▓▓▓▓] 100%
 
@@ -58,6 +58,7 @@ Progress: [▓▓▓▓▓▓▓▓▓▓] 100%
 | Phase 07-milestone-v1.0-polish-and-tech-debt P02 | ~30min | 3 tasks | 10 files |
 | Phase 08-income-expenses-refinement P01 | 466s | 3 tasks | 9 files |
 | Phase 08-income-expenses-refinement P02 | 344s | 3 tasks | 6 files |
+| Phase 09-tax-free-childcare-tracker P01 | 246s | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -96,6 +97,13 @@ Recent decisions affecting current work:
 - [Phase 08-01]: PDF import maps 'fixed' category group to recurrentExpenses (essential=true, monthly) and 'variable' to oneOffExpenses
 - [Phase 08-01]: Dashboard Subscriptions card removed; Fixed/Variable renamed to Recurrent/One-off in dashboard summary cards
 - [Phase Phase 08-02]: getThreeMonthHistory uses Dexie .between() on YYYY-MM-DD strings; schema v6 clears category targets on upgrade; getDashboardData returns both categorySpending and bucketSpending; --success CSS variable added to both themes
+- [Phase 09-01]: Running balances recalculated by full ledger re-scan after each mutation — correctness over efficiency; getRemainingCap uses getEntitlementPeriod as single source of truth for 3-month window; addDeposit calls getRemainingCap outside Dexie transaction block to avoid re-entrancy
+
+### Roadmap Evolution
+
+- Phase 9 registered: Tax-free Childcare Tracker (directory created, roadmap entry pre-existing)
+- Phase 10 registered: Advanced Debt & Payoff (directory created, roadmap entry pre-existing)
+- Phase 11 added: Account Balance Carry-Forward
 
 ### Pending Todos
 
@@ -110,5 +118,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 08-02-PLAN.md — 3-month income history, bucket-based targets, CSS polish. Phase 8 COMPLETE.
+Stopped at: Completed 09-01-PLAN.md — Dexie v7 schema, TFC utilities (19 tests), childcareRepository.
 Resume file: None

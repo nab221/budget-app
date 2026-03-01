@@ -134,10 +134,10 @@
 
 ### Tax-free Childcare Tracking
 
-- [ ] **CHILD-01**: User can track 2 independent Tax-free Childcare accounts with balances
-- [ ] **CHILD-02**: App calculates and displays government top-up (20%) for every deposit
-- [ ] **CHILD-03**: User can log weekly/monthly outgoings from childcare accounts
-- [ ] **CHILD-04**: App suggests top-up values to cover predicted future childcare expenses
+- [x] **CHILD-01**: User can track 2 independent Tax-free Childcare accounts with balances
+- [x] **CHILD-02**: App calculates and displays government top-up (20%) for every deposit
+- [x] **CHILD-03**: User can log weekly/monthly outgoings from childcare accounts
+- [x] **CHILD-04**: App suggests top-up values to cover predicted future childcare expenses
 - [ ] **CHILD-05**: Dashboard shows current balances and "missing" funds needed to cover predicted outgoings
 
 ### Advanced Debt & Payoff
@@ -264,10 +264,10 @@
 | EXP-02 | Phase 8 | Complete |
 | EXP-03 | Phase 8 | Complete |
 | EXP-04 | Phase 8 | Complete |
-| CHILD-01 | Phase 9 | Pending |
-| CHILD-02 | Phase 9 | Pending |
-| CHILD-03 | Phase 9 | Pending |
-| CHILD-04 | Phase 9 | Pending |
+| CHILD-01 | Phase 9 | Complete |
+| CHILD-02 | Phase 9 | Complete |
+| CHILD-03 | Phase 9 | Complete |
+| CHILD-04 | Phase 9 | Complete |
 | CHILD-05 | Phase 9 | Pending |
 | DEBT-07 | Phase 10 | Pending |
 | DEBT-08 | Phase 10 | Pending |
