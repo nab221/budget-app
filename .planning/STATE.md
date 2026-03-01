@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: Polish & Tech Debt
 status: unknown
-last_updated: "2026-03-01T16:27:50.994Z"
+last_updated: "2026-03-01T18:14:11.842Z"
 progress:
   total_phases: 11
-  completed_phases: 10
-  total_plans: 34
-  completed_plans: 34
+  completed_phases: 11
+  total_plans: 35
+  completed_plans: 35
 ---
 
 # Project State
@@ -65,6 +65,7 @@ Progress: [▓▓▓▓▓▓▓▓▓▓] 100% (phase complete)
 | Phase 10 P03 | 15m | 2 tasks | 4 files |
 | Phase 11 P01 | 6min | 3 tasks | 5 files |
 | Phase 11 P02 | 15min | 3 tasks | 6 files |
+| Phase 11 P03 | 231s | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -118,6 +119,9 @@ Recent decisions affecting current work:
 - [Phase 11-02]: Balance card alert state computed from isProjection flag and closingBalance < 0 check — no additional DB call needed
 - [Phase 11-02]: BALANCE_START_DATE_KEY exported from app.js (re-exported from storage.js) so tests can import it without touching the DOM
 - [Phase 11-02]: Vitest unit tests used instead of Playwright E2E — Playwright not installed; engine logic fully covered by unit tests
+- [Phase 11-03]: Balance Start Date input keeps type=month (keep-month): consistent with YYYY-MM schema, label already matches, zero code change
+- [Phase 11-03]: Live getRecurrent closure uses .toArray() so all standing recurrent commitments apply to every projected month
+- [Phase 11-03]: app:refresh dispatched inside try block after calculateBalanceChain resolves — dashboard updates immediately on any income/expense mutation
 
 ### Roadmap Evolution
 
