@@ -72,6 +72,9 @@ export const debtUI = {
         console.error('Failed to delete statement:', error);
       }
     };
+
+    window.editDebt = (id) => this.editDebt(id);
+    window.saveDebt = (id) => this.saveDebt(id);
   },
 
   async handleAddDebt() {
@@ -80,6 +83,8 @@ export const debtUI = {
     const apr = parseFloat(document.getElementById('debtApr').value);
     const limit = parseFloat(document.getElementById('debtLimit').value);
     const balance = parseFloat(document.getElementById('debtBalance').value);
+    const promoEnd = document.getElementById('debtPromoEnd').value;
+    const postApr = parseFloat(document.getElementById('debtPostApr').value);
 
     if (!name || isNaN(apr) || isNaN(balance)) {
       alert('Please fill in Name, APR, and Balance correctly.');
@@ -92,7 +97,9 @@ export const debtUI = {
         type,
         apr,
         creditLimit: isNaN(limit) ? 0 : limit,
-        currentBalance: balance
+        currentBalance: balance,
+        promoEndDate: promoEnd || null,
+        postPromoApr: isNaN(postApr) ? apr : postApr
       });
       
       // Clear form
@@ -100,6 +107,8 @@ export const debtUI = {
       document.getElementById('debtApr').value = '';
       document.getElementById('debtLimit').value = '';
       document.getElementById('debtBalance').value = '';
+      document.getElementById('debtPromoEnd').value = '';
+      document.getElementById('debtPostApr').value = '';
       
       await this.render();
     } catch (error) {
@@ -166,7 +175,9 @@ export const debtUI = {
           const minPay = calcMinPayment(debt.currentBalance, debt.apr);
           
           return safeHTML`
-            <div class="card" style="border:1px solid var(--border); padding:15px; display:flex; flex-direction:column; gap:8px">
+            <div class="card clickable-card" 
+                 onclick="editDebt(${debt.id})"
+                 style="border:1px solid var(--border); padding:15px; display:flex; flex-direction:column; gap:8px; cursor:pointer; position:relative">
               <div style="display:flex; justify-content:space-between; align-items:flex-start">
                 <h3 style="margin:0; font-size:1.1rem">${debt.name}</h3>
                 <span class="pill" style="font-size:0.7rem">${debt.type.replace('_', ' ')}</span>
@@ -180,6 +191,12 @@ export const debtUI = {
                 <div>APR: ${debt.apr}%</div>
                 <div class="r">Limit: ${debt.creditLimit > 0 ? formatGBP(debt.creditLimit) : 'N/A'}</div>
               </div>
+
+              ${debt.promoEndDate ? `
+                <div style="font-size:0.75rem; color:var(--warn); margin-top:4px">
+                  Promo ends: ${debt.promoEndDate} (${debt.postPromoApr}%)
+                </div>
+              ` : ''}
               
               ${debt.creditLimit > 0 ? `
                 <div style="height:6px; background:var(--bg-alt); border-radius:3px; overflow:hidden; margin-top:4px">
@@ -193,8 +210,8 @@ export const debtUI = {
                   Est. Min: <strong>${formatGBP(minPay)}</strong>
                 </div>
                 <div style="display:flex; gap:5px">
-                  <button class="sm ghost" onclick="showStatements(${debt.id}, '${debt.name}')">History</button>
-                  <button class="sm danger" onclick="deleteDebt(${debt.id})">✕</button>
+                  <button class="sm ghost" onclick="event.stopPropagation(); showStatements(${debt.id}, '${debt.name}')">History</button>
+                  <button class="sm danger" onclick="event.stopPropagation(); deleteDebt(${debt.id})">✕</button>
                 </div>
               </div>
             </div>
@@ -202,6 +219,77 @@ export const debtUI = {
         }).join('')}
       </div>
     `;
+  },
+
+  /**
+   * Show modal to edit an existing debt.
+   */
+  async editDebt(id) {
+    const debt = await debtRepository.get(id);
+    if (!debt) return;
+
+    const content = safeHTML`
+      <div class="form-row" style="flex-direction:column; gap:12px">
+        <div><label>Name</label><input id="editDebtName" type="text" value="${debt.name}"/></div>
+        <div>
+          <label>Type</label>
+          <select id="editDebtType">
+            <option value="credit_card" ${debt.type === 'credit_card' ? 'selected' : ''}>Credit Card</option>
+            <option value="loan" ${debt.type === 'loan' ? 'selected' : ''}>Loan</option>
+            <option value="overdraft" ${debt.type === 'overdraft' ? 'selected' : ''}>Overdraft</option>
+            <option value="other" ${debt.type === 'other' ? 'selected' : ''}>Other</option>
+          </select>
+        </div>
+        <div><label>APR (%)</label><input id="editDebtApr" type="number" step="0.1" value="${debt.apr}"/></div>
+        <div><label>Limit (£)</label><input id="editDebtLimit" type="number" step="0.01" value="${fromPence(debt.creditLimit)}"/></div>
+        <div><label>Balance (£) (Display only - log statement to change)</label><input type="text" value="${formatGBP(debt.currentBalance)}" disabled/></div>
+        <div><label>Promo End</label><input id="editDebtPromoEnd" type="date" value="${debt.promoEndDate || ''}"/></div>
+        <div><label>Post-Promo APR (%)</label><input id="editDebtPostApr" type="number" step="0.1" value="${debt.postPromoApr || debt.apr}"/></div>
+      </div>
+    `;
+
+    const footer = safeHTML`
+      <button class="ghost" onclick="window.templateUI.closeModal()">Cancel</button>
+      <button class="primary" onclick="saveDebt(${id})">Save Changes</button>
+    `;
+
+    window.templateUI.showModal(`Edit Debt: ${debt.name}`, content, footer);
+  },
+
+  /**
+   * Save changes from the edit modal.
+   */
+  async saveDebt(id) {
+    const name = document.getElementById('editDebtName').value.trim();
+    const type = document.getElementById('editDebtType').value;
+    const apr = parseFloat(document.getElementById('editDebtApr').value);
+    const limit = parseFloat(document.getElementById('editDebtLimit').value);
+    const promoEnd = document.getElementById('editDebtPromoEnd').value;
+    const postApr = parseFloat(document.getElementById('editDebtPostApr').value);
+
+    if (!name || isNaN(apr)) {
+      alert('Please fill in Name and APR correctly.');
+      return;
+    }
+
+    try {
+      await debtRepository.update(id, {
+        name,
+        type,
+        apr,
+        creditLimit: limit,
+        promoEndDate: promoEnd || null,
+        postPromoApr: isNaN(postApr) ? apr : postApr
+      });
+      
+      window.templateUI.closeModal();
+      await this.render();
+      // Also refresh dashboard if visible
+      if (window.app) window.app.renderAll();
+    } catch (error) {
+      console.error('Failed to update debt:', error);
+      alert('Failed to update debt: ' + error.message);
+    }
   },
 
   /**
