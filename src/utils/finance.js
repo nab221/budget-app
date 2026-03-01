@@ -1,4 +1,4 @@
-import { addMonths, parseISO, isBefore, format } from 'date-fns';
+import { addMonths, parseISO, isBefore, format, startOfMonth } from 'date-fns';
 
 /**
  * Financial utility functions for UK debt and asset tracking.
@@ -202,6 +202,136 @@ export function simulatePayoff(debts, strategy, extraPaymentPence = 0, startDate
     })),
     history
   };
+}
+
+/**
+ * Calculates the rolling monthly balance chain from a start date.
+ *
+ * Algorithm per month:
+ *   openingBalance = previous month's closingBalance (or 0 for the first month)
+ *   incomeTotal    = sum of all income records dated in that month
+ *   expenseTotal   = sum of recurrent (by nextDate) + one-off (by date) expenses in that month
+ *   closingBalance = openingBalance + incomeTotal - expenseTotal
+ *
+ * The "Opening Balance" income category (group = 'system') is treated as the
+ * initial account balance for the very first month: if such a record exists in
+ * the income table for the startDate month it seeds openingBalance for that
+ * month (and is excluded from incomeTotal so it isn't double-counted).
+ *
+ * Snapshots are saved (upserted) via balanceSnapshotRepository after each month.
+ *
+ * @param {string} startDate - YYYY-MM-DD or YYYY-MM string for the first month.
+ * @param {number} [horizonMonths=3] - How many months beyond the current calendar month to project.
+ * @param {Object} [deps] - Dependency injection for unit-testing (replaces live DB calls).
+ *   @param {Function} deps.getIncome          - (monthStr) => Promise<Array<{amount,categoryId}>>
+ *   @param {Function} deps.getRecurrent       - (monthStr) => Promise<Array<{amount}>>
+ *   @param {Function} deps.getOneOff          - (monthStr) => Promise<Array<{amount}>>
+ *   @param {Function} deps.getOpeningBalCatId - () => Promise<number|null>
+ *   @param {Function} deps.saveSnapshot       - (snapshot) => Promise<number>
+ * @returns {Promise<Array<{month, openingBalance, incomeTotal, expenseTotal, closingBalance}>>}
+ */
+export async function calculateBalanceChain(startDate, horizonMonths = 3, deps = null) {
+  // Resolve month string from a YYYY-MM-DD or YYYY-MM input
+  const startMonthStr = String(startDate).slice(0, 7); // "YYYY-MM"
+
+  // Determine the final month to compute (current calendar month + horizon)
+  const today = new Date();
+  const currentMonthStr = format(today, 'yyyy-MM');
+  const endDate = addMonths(startOfMonth(today), horizonMonths);
+  const endMonthStr = format(endDate, 'yyyy-MM');
+
+  // Build ordered list of months to process
+  const months = [];
+  let cursor = parseISO(`${startMonthStr}-01`);
+  const endISO = parseISO(`${endMonthStr}-01`);
+  while (!isBefore(endISO, cursor)) {
+    months.push(format(cursor, 'yyyy-MM'));
+    cursor = addMonths(cursor, 1);
+  }
+
+  // -----------------------------------------------------------------
+  // Resolve data accessors — either injected deps or live DB imports
+  // -----------------------------------------------------------------
+  let getIncome, getRecurrent, getOneOff, getOpeningBalCatId, saveSnapshot;
+
+  if (deps) {
+    ({ getIncome, getRecurrent, getOneOff, getOpeningBalCatId, saveSnapshot } = deps);
+  } else {
+    // Lazy-import to avoid circular dependency issues in tests
+    const { db } = await import('../db/schema.js');
+    const { balanceSnapshotRepository } = await import('../db/repository.js');
+
+    getIncome = async (monthStr) =>
+      db.income.where('date').startsWith(monthStr).toArray();
+
+    getRecurrent = async (monthStr) =>
+      db.recurrentExpenses.where('nextDate').startsWith(monthStr).toArray();
+
+    getOneOff = async (monthStr) =>
+      db.oneOffExpenses.where('date').startsWith(monthStr).toArray();
+
+    getOpeningBalCatId = async () => {
+      const cat = await db.categories.where('name').equals('Opening Balance').first();
+      return cat ? cat.id : null;
+    };
+
+    saveSnapshot = (snapshot) => balanceSnapshotRepository.save(snapshot);
+  }
+
+  // Fetch the "Opening Balance" category id once
+  const openingBalCatId = await getOpeningBalCatId();
+
+  const snapshots = [];
+  let runningOpeningBalance = 0;
+
+  for (const monthStr of months) {
+    const incomeRecords = await getIncome(monthStr);
+
+    // Separate "Opening Balance" system entries from regular income
+    let openingBalanceEntry = 0;
+    const regularIncome = [];
+    for (const record of incomeRecords) {
+      if (openingBalCatId !== null && record.categoryId === openingBalCatId) {
+        openingBalanceEntry += record.amount || 0;
+      } else {
+        regularIncome.push(record);
+      }
+    }
+
+    // For the very first month, seed the opening balance from the special category entry
+    const openingBalance =
+      monthStr === startMonthStr ? openingBalanceEntry + runningOpeningBalance : runningOpeningBalance;
+
+    const incomeTotal = regularIncome.reduce((sum, r) => sum + (r.amount || 0), 0);
+
+    const [recurrentRecords, oneOffRecords] = await Promise.all([
+      getRecurrent(monthStr),
+      getOneOff(monthStr)
+    ]);
+
+    const expenseTotal =
+      recurrentRecords.reduce((sum, r) => sum + (r.amount || 0), 0) +
+      oneOffRecords.reduce((sum, r) => sum + (r.amount || 0), 0);
+
+    const closingBalance = openingBalance + incomeTotal - expenseTotal;
+
+    const snapshot = {
+      month: monthStr,
+      openingBalance,
+      incomeTotal,
+      expenseTotal,
+      closingBalance,
+      isProjection: monthStr > currentMonthStr
+    };
+
+    await saveSnapshot(snapshot);
+    snapshots.push(snapshot);
+
+    // Carry the closing balance forward as the opening balance for the next month
+    runningOpeningBalance = closingBalance;
+  }
+
+  return snapshots;
 }
 
 /**
