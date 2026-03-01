@@ -126,11 +126,11 @@
 
 ### Income & Expenses Refinement
 
-- [ ] **INC-05**: Income tab shows last 3 months of history for trend visibility
-- [ ] **EXP-01**: Consolidate "Fixed", "Variable", and "Subscriptions" into "Recurrent" and "One-off" expense tabs
-- [ ] **EXP-02**: Support "cancelable" labels for recurrent items to distinguish optional spending from obligations
-- [ ] **EXP-03**: Support varying recurrent expenses (10-month cycles like Council Tax, quarterly like TV License)
-- [ ] **EXP-04**: Expense list shows labels for things that can be cancelled
+- [x] **INC-05**: Income tab shows last 3 months of history for trend visibility
+- [x] **EXP-01**: Consolidate "Fixed", "Variable", and "Subscriptions" into "Recurrent" and "One-off" expense tabs
+- [x] **EXP-02**: Support "cancelable" labels for recurrent items to distinguish optional spending from obligations
+- [x] **EXP-03**: Support varying recurrent expenses (10-month cycles like Council Tax, quarterly like TV License)
+- [x] **EXP-04**: Expense list shows labels for things that can be cancelled
 
 ### Tax-free Childcare Tracking
 
@@ -259,11 +259,11 @@
 | CLOUD-02 | Phase 6 | Complete |
 | CLOUD-03 | Phase 6 | Complete |
 | CLOUD-04 | Phase 6 | Complete |
-| INC-05 | Phase 8 | Pending |
-| EXP-01 | Phase 8 | Pending |
-| EXP-02 | Phase 8 | Pending |
-| EXP-03 | Phase 8 | Pending |
-| EXP-04 | Phase 8 | Pending |
+| INC-05 | Phase 8 | Complete |
+| EXP-01 | Phase 8 | Complete |
+| EXP-02 | Phase 8 | Complete |
+| EXP-03 | Phase 8 | Complete |
+| EXP-04 | Phase 8 | Complete |
 | CHILD-01 | Phase 9 | Pending |
 | CHILD-02 | Phase 9 | Pending |
 | CHILD-03 | Phase 9 | Pending |
