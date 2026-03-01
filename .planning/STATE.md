@@ -1,14 +1,14 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1
-milestone_name: Income & Expenses Refinement
-status: in-progress
-last_updated: "2026-03-01T12:00:00.000Z"
+milestone: v1.0
+milestone_name: Polish & Tech Debt
+status: unknown
+last_updated: "2026-03-01T12:10:47.171Z"
 progress:
   total_phases: 8
-  completed_phases: 7
-  total_plans: 26
-  completed_plans: 26
+  completed_phases: 8
+  total_plans: 27
+  completed_plans: 27
 ---
 
 # Project State
@@ -22,12 +22,12 @@ See: .planning/PROJECT.md (updated 2026-02-28)
 
 ## Current Position
 
-Phase: 8 of 8 (Income & Expenses Refinement — In Progress)
-Plan: 1 of ? (Consolidated Expenses UI — COMPLETE)
-Status: In Progress
-Last activity: 2026-03-01 — 08-01 complete: Dexie v5 schema with recurrentExpenses/oneOffExpenses, unified Expenses tab with Essential/Non-essential grouping, cycle tracking and bulk mark-paid.
+Phase: 8 of 8 (Income & Expenses Refinement — COMPLETE)
+Plan: 2 of 2 (Income History & Bucket Targets — COMPLETE)
+Status: Complete
+Last activity: 2026-03-01 — 08-02 complete: 3-month income sliding window with grouped totals, Dexie v6 bucket-based targets (Recurrent/One-off), updated dashboard progress bars, CSS polish.
 
-Progress: [▓▓▓▓▓▓▓▓▓░] 90%
+Progress: [▓▓▓▓▓▓▓▓▓▓] 100%
 
 ## Performance Metrics
 
@@ -57,6 +57,7 @@ Progress: [▓▓▓▓▓▓▓▓▓░] 90%
 | Phase 07-milestone-v1.0-polish-and-tech-debt P01 | 201s | 3 tasks | 8 files |
 | Phase 07-milestone-v1.0-polish-and-tech-debt P02 | ~30min | 3 tasks | 10 files |
 | Phase 08-income-expenses-refinement P01 | 466s | 3 tasks | 9 files |
+| Phase 08-income-expenses-refinement P02 | 344s | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -94,6 +95,7 @@ Recent decisions affecting current work:
 - [Phase 08-01]: fixedSpendRepository/variableSpendRepository stubbed as no-ops post v5 migration — not deleted to avoid import errors
 - [Phase 08-01]: PDF import maps 'fixed' category group to recurrentExpenses (essential=true, monthly) and 'variable' to oneOffExpenses
 - [Phase 08-01]: Dashboard Subscriptions card removed; Fixed/Variable renamed to Recurrent/One-off in dashboard summary cards
+- [Phase Phase 08-02]: getThreeMonthHistory uses Dexie .between() on YYYY-MM-DD strings; schema v6 clears category targets on upgrade; getDashboardData returns both categorySpending and bucketSpending; --success CSS variable added to both themes
 
 ### Pending Todos
 
@@ -108,5 +110,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 08-01-PLAN.md — Consolidated Expenses UI and schema migration complete.
+Stopped at: Completed 08-02-PLAN.md — 3-month income history, bucket-based targets, CSS polish. Phase 8 COMPLETE.
 Resume file: None

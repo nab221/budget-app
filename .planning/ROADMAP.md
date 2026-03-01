@@ -20,7 +20,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 5.1: PDF Import Stabilization** - Fix critical bugs and verify Phase 5 (INSERTED, completed 2026-03-01)
 - [x] **Phase 6: Cloud Backup** - Google Drive and OneDrive backup integration for cross-device data access (completed 2026-03-01)
 - [x] **Phase 7: Milestone v1.0 Polish & Tech Debt** - Address accumulated debt and perform final human verification (completed 2026-03-01)
-- [ ] **Phase 8: Income & Expenses Refinement** - 3-month income history and consolidated expense tabs (Recurrent vs One-off)
+- [x] **Phase 8: Income & Expenses Refinement** - 3-month income history and consolidated expense tabs (Recurrent vs One-off) (completed 2026-03-01)
 - [ ] **Phase 9: Tax-free Childcare Tracker** - Monitor 2 accounts with gov top-up and predicted spending
 - [ ] **Phase 10: Advanced Debt & Payoff** - Debt editing, 0% promo tracking, and interactive payoff strategy details
 
@@ -154,7 +154,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Recurrent items support "cancelable" labels and varying cycles (e.g., 10-month Council Tax).
 **Plans**:
 - [x] 08-01-PLAN.md — Expense Tab Refactoring & Migration (2026-03-01)
-- [ ] 08-02-PLAN.md — Income History & UI Polish
+- [x] 08-02-PLAN.md — Income History & Bucket Targets (2026-03-01)
 
 ### Phase 9: Tax-free Childcare Tracker
 **Goal**: Monitor government-topped-up childcare accounts and predict future funding needs.
@@ -195,6 +195,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 5.1 → 6 → 7 �
 | 5.1 PDF Import Stabilization | 2/2 | Complete | 2026-03-01 |
 | 6. Cloud Backup | 3/3 | Complete   | 2026-03-01 |
 | 7. Milestone v1.0 Polish & Tech Debt | 2/2 | Complete | 2026-03-01 |
-| 8. Income & Expenses Refinement | 0/2 | Not started | - |
+| 8. Income & Expenses Refinement | 2/2 | Complete | 2026-03-01 |
 | 9. Tax-free Childcare Tracker | 0/2 | Not started | - |
 | 10. Advanced Debt & Payoff | 0/2 | Not started | - |
