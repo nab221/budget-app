@@ -69,6 +69,12 @@ db.version(2).stores({
   });
 });
 
+// NOTE: Version 3 was intentionally skipped during development.
+// A partial schema iteration was started and then abandoned before release; the
+// version number was already consumed locally, so the next shipped version is 4.
+// Dexie.js handles this gap transparently — existing v2 databases upgrade
+// directly to v4, which is safe per Dexie semantics (no v3 upgrade() path runs).
+
 // Define version 4 schema with category mappings for PDF import learning
 db.version(4).stores({
   income: '++id, date, source, amount, categoryId',
