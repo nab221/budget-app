@@ -85,8 +85,8 @@ export const parsers = {
     const months = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER', 'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
     const monthPattern = months.join('|');
     
-    const datePattern = `(?:\\d{2}\\s(?:${monthPattern})(?:\\s\\d{2,4})?)`;
-    const txRegex = new RegExp(`(${datePattern})\\s+(?:${datePattern}\\s+)?(.+?)\\s+([\\d,]+\\.\\d{2})(?:\\s+(CR))?$`, 'i');
+    const datePattern = `(?:\\d{2}\\s(?:${monthPattern}))`;
+    const txRegex = new RegExp(`^(${datePattern})(?:\\s+${datePattern})?\\s+(.+?)\\s+([\\d,]+\\.\\d{2})(?:\\s+(CR))?$`, 'i');
 
     for (const row of rows) {
       if (row.length < 3) continue;
@@ -127,10 +127,21 @@ export const parsers = {
     for (const row of rows) {
       if (row.length < 3) continue;
       const rowText = row.map(item => item.text.trim()).filter(Boolean).join(' ');
-      const match = rowText.match(/^(\d{2}\/\d{2}\/\d{4})\s+(.+?)\s+([\d,]+\.\d{2})?\s*([\d,]+\.\d{2})?/);
+      const match = rowText.match(/^(\d{2}\/\d{2}\/\d{4})\s+(.+?)\s+([\d,]+\.\d{2})?(?:\s+([\d,]+\.\d{2}))?$/);
       if (match) {
         const [_, dateStr, descRaw, moneyOutStr, moneyInStr] = match;
-        let amountPence = moneyInStr ? toPence(moneyInStr) : (moneyOutStr ? toPence(moneyOutStr) * -1 : 0);
+        let amountPence = 0;
+        if (moneyInStr) {
+            amountPence = toPence(moneyInStr);
+        } else if (moneyOutStr) {
+            const desc = descRaw.toLowerCase();
+            if (desc.includes('salary') || desc.includes('interest') || desc.includes('credit')) {
+                amountPence = toPence(moneyOutStr);
+            } else {
+                amountPence = toPence(moneyOutStr) * -1;
+            }
+        }
+        
         const parts = dateStr.split('/');
         if (parts.length === 3 && amountPence !== 0) {
             transactions.push({
