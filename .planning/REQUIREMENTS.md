@@ -114,7 +114,7 @@
 - [x] **CLOUD-01**: User can connect a Dropbox account (PKCE OAuth, no server required) and save their data file to Dropbox
 - [x] **CLOUD-02**: User can load their data file from Dropbox to restore or sync across devices
 - [x] **CLOUD-03**: User can connect a Google Drive account and save/load their data file (GIS + gapi OAuth)
-- [ ] **CLOUD-04**: Connected cloud account preference persists in localStorage; user can disconnect at any time
+- [x] **CLOUD-04**: Connected cloud account preference persists in localStorage; user can disconnect at any time
 
 ### PDF Import
 
@@ -233,7 +233,7 @@
 | CLOUD-01 | Phase 6 | Complete |
 | CLOUD-02 | Phase 6 | Complete |
 | CLOUD-03 | Phase 6 | Complete |
-| CLOUD-04 | Phase 6 | Pending |
+| CLOUD-04 | Phase 6 | Complete |
 
 **Coverage:**
 - v1 requirements: 72 total

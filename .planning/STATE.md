@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-01T06:32:14.935Z"
+last_updated: "2026-03-01T06:37:10Z"
 progress:
   total_phases: 6
   completed_phases: 5
   total_plans: 21
-  completed_plans: 19
+  completed_plans: 20
 ---
 
 # Project State
@@ -23,11 +23,11 @@ See: .planning/PROJECT.md (updated 2026-02-28)
 ## Current Position
 
 Phase: 6 of 6 (Cloud Backup)
-Plan: 1 of 3 (Cloud Provider Utility Modules - COMPLETE)
+Plan: 2 of 3 (Cloud Backup UI Module - COMPLETE)
 Status: In progress
-Last activity: 2026-03-01 — Plan 06-01 complete: Google Drive and OneDrive utility modules (GIS token model + MSAL.js singleton, Drive appDataFolder + Graph API file operations).
+Last activity: 2026-03-01 — Plan 06-02 complete: cloud-backup.js UI module with two provider cards, connect/backup/restore/disconnect flows, popup-safe Google token calls, confirmation modals.
 
-Progress: [▓▓▓▓▓▓░░░░] 60%
+Progress: [▓▓▓▓▓▓▓░░░] 67%
 
 ## Performance Metrics
 
@@ -52,6 +52,7 @@ Progress: [▓▓▓▓▓▓░░░░] 60%
 | Phase 04-pwa-and-charts P01 | 8 min | 2 tasks | 7 files |
 | Phase 04-pwa-and-charts P03 | 3 | 2 tasks | 7 files |
 | Phase 06-cloud-backup P01 | 4 | 2 tasks | 4 files |
+| Phase 06-cloud-backup P02 | 3 | 1 task | 1 file |
 
 ## Accumulated Context
 
@@ -74,6 +75,8 @@ Recent decisions affecting current work:
 - [Phase 06-cloud-backup]: GIS token held in module-scope _tokenData only (not localStorage) — access tokens are short-lived and not safe to persist
 - [Phase 06-cloud-backup]: drive.appdata scope chosen — non-sensitive, no OAuth verification required, app-specific hidden folder
 - [Phase 06-cloud-backup]: Error strings standardised (NO_BACKUP_FOUND, NOT_CONNECTED) across both modules for cloud-backup.js matching
+- [Phase 06-cloud-backup]: renderCard() re-reads localStorage on each call rather than caching state — ensures UI always reflects truth after connect/disconnect
+- [Phase 06-cloud-backup]: withGoogleToken() called directly from connect/backup onclick handlers — never deferred into a Promise chain to avoid popup blocker
 
 ### Pending Todos
 
@@ -88,5 +91,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 06-01-PLAN.md — Google Drive and OneDrive utility modules
+Stopped at: Completed 06-02-PLAN.md — Cloud Backup UI module (cloud-backup.js)
 Resume file: None
