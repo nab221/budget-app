@@ -105,7 +105,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Requirements**: CLOUD-01, CLOUD-02, CLOUD-03, CLOUD-04
 **Success Criteria** (what must be TRUE):
   1. User can connect their OneDrive account (MSAL.js PKCE, no server required), save their data file to OneDrive, and load it back to restore or sync across devices
-  2. User can connect their Google Drive account and save/load their data file; re-authentication is handled silently when the token expires
+  2. User can connect their Google Drive account and save/load their data file; re-authentication opens a GIS popup when the cached token expires (GIS does not support headless silent refresh)
   3. Connected cloud account preference persists across sessions and the user can disconnect at any time from the settings area
 **Plans**: 3 plans
 Plans:
