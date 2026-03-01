@@ -395,7 +395,7 @@ export const expensesUI = {
       const badge = isTFC
         ? `<span class="pill" style="background:var(--info);color:#fff;font-size:.65rem;margin-left:4px">Tax-free Childcare</span>`
         : '';
-      return safeHTML`${note}${badge}`;
+      return `${note}${badge}`;
     };
 
     container.innerHTML = `

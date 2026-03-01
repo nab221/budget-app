@@ -733,7 +733,7 @@ export const childcareRepository = {
     // 4. Recalculate running balances (outside transaction to avoid re-entrancy issues)
     await childcareRepository._recalculateBalances(accountId);
 
-    return { depositId, topUpId, expenseId };
+    return { depositId, topUpId, topUpAmount, expenseId };
   },
 
   /**
