@@ -347,11 +347,18 @@ export const statementRepository = createBaseRepository(db.statements, ['amount'
 
 /**
  * Target Repository
+ * Targets are now bucket-based: 'recurrent' or 'one-off'.
+ * The categoryId field has been removed in schema v6.
  */
 export const targetRepository = {
   ...createBaseRepository(db.targets),
-  async getByCategory(categoryId) {
-    return await db.targets.where('categoryId').equals(Number(categoryId)).first();
+  /**
+   * Get the target record for a given bucket name.
+   * @param {string} bucketName - 'recurrent' or 'one-off'
+   * @returns {Promise<Object|undefined>}
+   */
+  async getByBucket(bucketName) {
+    return await db.targets.where('bucket').equals(bucketName).first();
   }
 };
 
@@ -491,6 +498,11 @@ export async function getDashboardData(periodType, targetMonth) {
     totalAssets,
     netWorth: totalAssets - totalDebt,
     fixedToIncomeRatio: incomeTotal > 0 ? Math.round((recurrentTotal / incomeTotal) * 100) : 0,
-    categorySpending
+    categorySpending,
+    // Bucket-based spending for progress bar display
+    bucketSpending: {
+      recurrent: recurrentTotal,
+      'one-off': oneOffTotal
+    }
   };
 }

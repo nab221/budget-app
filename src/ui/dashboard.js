@@ -1,4 +1,4 @@
-import { getDashboardData, getSpendingTrends, debtRepository, categoryRepository, targetRepository, netWorthRepository } from '../db/repository.js';
+import { getDashboardData, getSpendingTrends, debtRepository, targetRepository, netWorthRepository } from '../db/repository.js';
 import { formatGBP } from '../utils/currency.js';
 import { simulatePayoff } from '../utils/finance.js';
 import { renderTrendsChart } from './charts.js';
@@ -95,51 +95,55 @@ export async function renderDashboard(containerId, periodType, targetMonth) {
   }
 
   // Also render progress bars and snapshots
-  renderProgressBars(data.categorySpending);
+  renderProgressBars(data.bucketSpending);
   renderSnapshots();
 }
 
 /**
- * Renders category budget progress bars on the dashboard.
- * @param {Object} categorySpending - Map of categoryId -> spentPence
+ * Renders bucket budget progress bars on the dashboard.
+ * Displays two bars: Recurrent and One-off, using bucket-based targets.
+ * @param {Object} bucketSpending - { recurrent: pence, 'one-off': pence }
  */
-async function renderProgressBars(categorySpending) {
+async function renderProgressBars(bucketSpending) {
   const container = document.getElementById('dashboardProgress');
   if (!container) return;
 
-  const [categories, targets] = await Promise.all([
-    categoryRepository.getCategories(),
-    targetRepository.getAll()
-  ]);
+  const targets = await targetRepository.getAll();
+  const targetMap = new Map(targets.map(t => [t.bucket, t.amount]));
 
-  const targetMap = new Map(targets.map(t => [t.categoryId, t.amount]));
-  const categoriesWithTargets = categories.filter(c => targetMap.has(c.id));
+  const buckets = [
+    { key: 'recurrent', label: 'Recurrent', hint: 'Standing commitments: rent, bills, loans' },
+    { key: 'one-off', label: 'One-off', hint: 'Irregular spending: groceries, clothing, etc.' }
+  ];
 
-  if (categoriesWithTargets.length === 0) {
-    container.innerHTML = '<div class="hint">Set targets in Settings to see progress.</div>';
+  const bucketsWithTargets = buckets.filter(b => targetMap.has(b.key));
+
+  if (bucketsWithTargets.length === 0) {
+    container.innerHTML = '<div class="hint">Set Recurrent and One-off targets in Settings to see progress.</div>';
     return;
   }
 
-  container.innerHTML = categoriesWithTargets.map(cat => {
-    const actual = categorySpending[cat.id] || 0;
-    const target = targetMap.get(cat.id);
+  container.innerHTML = bucketsWithTargets.map(b => {
+    const actual = (bucketSpending && bucketSpending[b.key]) || 0;
+    const target = targetMap.get(b.key);
     const percent = Math.min(Math.round((actual / target) * 100), 100);
     const isOver = actual > target;
-    
+
     let barColor = 'var(--success)';
     if (percent >= 100) barColor = 'var(--danger)';
     else if (percent >= 80) barColor = 'var(--warn)';
 
     return `
       <div style="margin-bottom:12px">
-        <div style="display:flex; justify-content:space-between; font-size:.8rem; margin-bottom:4px">
-          <span>${cat.name}</span>
+        <div style="display:flex; justify-content:space-between; font-size:.8rem; margin-bottom:2px">
+          <span style="font-weight:600" title="${b.hint}">${b.label}</span>
           <span style="font-weight:600; color:${isOver ? 'var(--danger)' : 'inherit'}">
             ${formatGBP(actual)} / ${formatGBP(target)}
           </span>
         </div>
+        <div class="hint" style="font-size:.7rem;margin-bottom:4px">${b.hint}</div>
         <div style="height:8px; background:var(--bg-alt); border-radius:4px; overflow:hidden">
-          <div style="height:100%; width:${percent}%; background:${barColor}"></div>
+          <div style="height:100%; width:${percent}%; background:${barColor}; transition:width 0.3s"></div>
         </div>
       </div>
     `;

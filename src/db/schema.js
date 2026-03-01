@@ -108,6 +108,26 @@ db.version(5).stores({
   categoryMappings: '++id, description, categoryId'
 });
 
+// Define version 6 schema: bucket-based budget targets
+// Transitions targets from per-category to two buckets: 'recurrent' and 'one-off'.
+// Existing per-category targets are dropped (no migration needed — fresh config).
+db.version(6).stores({
+  income: '++id, date, source, amount, categoryId',
+  recurrentExpenses: '++id, date, categoryId, label, amount, status, frequency, nextDate, isEssential, cycleTotal, cycleCurrent, endDate',
+  oneOffExpenses: '++id, date, categoryId, note, amount',
+  recurringTemplates: '++id, name, amount, categoryId, frequency, type',
+  debts: '++id, name, type, apr, creditLimit, currentBalance',
+  statements: '++id, debtId, date, amount, interest, fees',
+  assets: '++id, name, type, asOfDate, currentBalance',
+  categories: '++id, name, group',
+  targets: '++id, bucket, amount',
+  netWorthSnapshots: '++id, month, totalAssets, totalDebt, netWorth',
+  categoryMappings: '++id, description, categoryId'
+}).upgrade(async tx => {
+  // Clear old category-based targets — they are incompatible with bucket model.
+  await tx.table('targets').clear();
+});
+
 // Handle schema updates in other tabs
 db.on('versionchange', function() {
   db.close();
