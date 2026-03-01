@@ -1,7 +1,7 @@
-import { getDashboardData, getSpendingTrends, debtRepository, targetRepository, netWorthRepository } from '../db/repository.js';
+import { getDashboardData, getSpendingTrends, debtRepository, targetRepository, netWorthRepository, balanceSnapshotRepository } from '../db/repository.js';
 import { formatGBP } from '../utils/currency.js';
-import { simulatePayoff, calcMinPayment } from '../utils/finance.js';
-import { renderTrendsChart } from './charts.js';
+import { simulatePayoff, calcMinPayment, calculateBalanceChain } from '../utils/finance.js';
+import { renderTrendsChart, renderBalanceChart } from './charts.js';
 import { checkStoragePersistence } from './pwa-ux.js';
 import { getEntitlementPeriod } from '../utils/childcare.js';
 
@@ -102,11 +102,12 @@ export async function renderDashboard(containerId, periodType, targetMonth) {
     console.warn('Could not render trends chart:', err);
   }
 
-  // Also render progress bars, snapshots, and childcare funding card
+  // Also render progress bars, snapshots, childcare funding card, and balance panel
   renderProgressBars(data.bucketSpending);
   renderSnapshots();
   renderChildcareFunding(childcareSummary);
   renderDebtRepaymentPanel(debts, data.income);
+  renderBalancePanel();
 }
 
 /**
@@ -298,6 +299,108 @@ function renderChildcareFunding(childcareSummary) {
     <h3 style="font-size:.9rem;margin-bottom:12px;font-weight:600">Childcare Funding</h3>
     ${accountRows}
   `;
+}
+
+/**
+ * Renders the Balance Panel on the dashboard.
+ * Shows the running balance (today's closing balance) and a 3-month forward forecast.
+ * Turns the card background red if any projected snapshot in the next 3 months is < 0.
+ * Also renders the 90-day balance trend chart.
+ */
+async function renderBalancePanel() {
+  let section = document.getElementById('dashboardBalanceSection');
+  if (!section) {
+    // Insert before the grid2 section (Budget Progress / Net Worth History)
+    const grid2 = document.querySelector('.card .grid2');
+    if (grid2) {
+      section = document.createElement('div');
+      section.id = 'dashboardBalanceSection';
+      section.style.cssText = 'margin-top:20px; padding-top:20px; border-top:1px solid var(--border)';
+      grid2.parentNode.insertBefore(section, grid2);
+    }
+  }
+  if (!section) return;
+
+  // Load all snapshots
+  let snapshots = [];
+  try {
+    // Fetch all stored balance snapshots
+    const allSnaps = await balanceSnapshotRepository.getLatestSnapshot();
+    // If no snapshots exist yet, trigger recalculation
+    if (!allSnaps) {
+      const earliest = await (async () => {
+        try {
+          const { db } = await import('../db/schema.js');
+          return db.income.orderBy('date').first();
+        } catch (e) {
+          return null;
+        }
+      })();
+      const startDate = earliest ? String(earliest.date).slice(0, 7) : new Date().toISOString().slice(0, 7);
+      snapshots = await calculateBalanceChain(startDate, 3);
+    } else {
+      // Read all snapshots from DB (sorted by month)
+      const { db } = await import('../db/schema.js');
+      const raw = await db.balanceSnapshots.toArray();
+      snapshots = raw.sort((a, b) => a.month.localeCompare(b.month));
+    }
+  } catch (err) {
+    console.warn('[renderBalancePanel] Could not load balance data:', err);
+    section.innerHTML = '<div class="hint">Balance data unavailable.</div>';
+    return;
+  }
+
+  if (!snapshots || snapshots.length === 0) {
+    section.innerHTML = '<div class="hint">No balance data yet. Add income records to see your running balance.</div>';
+    return;
+  }
+
+  // Determine today's balance (last non-projection snapshot, or first if all projections)
+  const today = new Date().toISOString().slice(0, 7);
+  const actualSnaps = snapshots.filter(s => !s.isProjection);
+  const currentSnap = actualSnaps.length > 0
+    ? actualSnaps[actualSnaps.length - 1]
+    : snapshots[0];
+
+  // Check if any projection in the next 3 months is negative
+  const projectionSnaps = snapshots.filter(s => s.isProjection);
+  const hasNegativeProjection = projectionSnaps.some(s => s.closingBalance < 0);
+  const currentBalanceNegative = currentSnap.closingBalance < 0;
+  const isAlertState = hasNegativeProjection || currentBalanceNegative;
+
+  // Get forecast — the last projection snapshot
+  const forecastSnap = projectionSnaps.length > 0
+    ? projectionSnaps[projectionSnaps.length - 1]
+    : currentSnap;
+
+  // Build the balance card HTML
+  const cardBg = isAlertState
+    ? 'background:rgba(220,38,38,0.08); border:1px solid var(--danger);'
+    : 'background:var(--bg-alt); border:1px solid var(--border);';
+  const balanceColor = currentBalanceNegative ? 'var(--danger)' : 'var(--success)';
+  const forecastColor = forecastSnap.closingBalance < 0 ? 'var(--danger)' : 'var(--success)';
+
+  section.innerHTML = `
+    <h3 style="font-size:.9rem;margin-bottom:12px;font-weight:600">Account Balance</h3>
+    <div id="balanceCard" style="display:flex;justify-content:space-between;align-items:stretch;gap:16px;padding:16px;border-radius:8px;${cardBg}">
+      <div style="flex:1">
+        <div class="hint" style="font-size:.75rem;margin-bottom:4px">Running Balance (${currentSnap.month})</div>
+        <div style="font-size:1.6rem;font-weight:800;color:${balanceColor}">${formatGBP(currentSnap.closingBalance)}</div>
+        ${isAlertState ? '<div style="font-size:.75rem;color:var(--danger);margin-top:4px;font-weight:600">Projected negative balance ahead</div>' : ''}
+      </div>
+      <div style="flex:1;border-left:1px solid var(--border);padding-left:16px">
+        <div class="hint" style="font-size:.75rem;margin-bottom:4px">3-Month Forecast (${forecastSnap.month})</div>
+        <div style="font-size:1.6rem;font-weight:800;color:${forecastColor}">${formatGBP(forecastSnap.closingBalance)}</div>
+        <div class="hint" style="font-size:.7rem;margin-top:4px">Based on known income &amp; expenses</div>
+      </div>
+    </div>
+    <div class="chart-container" style="margin-top:16px">
+      <canvas id="balanceChart"></canvas>
+    </div>
+  `;
+
+  // Render the 90-day trend chart
+  renderBalanceChart('balanceChart', snapshots);
 }
 
 /**
