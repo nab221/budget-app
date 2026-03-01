@@ -21,7 +21,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 6: Cloud Backup** - Google Drive and OneDrive backup integration for cross-device data access (completed 2026-03-01)
 - [x] **Phase 7: Milestone v1.0 Polish & Tech Debt** - Address accumulated debt and perform final human verification (completed 2026-03-01)
 - [x] **Phase 8: Income & Expenses Refinement** - 3-month income history and consolidated expense tabs (Recurrent vs One-off) (completed 2026-03-01)
-- [ ] **Phase 9: Tax-free Childcare Tracker** - Monitor 2 accounts with gov top-up and predicted spending
+- [x] **Phase 9: Tax-free Childcare Tracker** - Monitor 2 accounts with gov top-up and predicted spending (completed 2026-03-01)
 - [ ] **Phase 10: Advanced Debt & Payoff** - Debt editing, 0% promo tracking, and interactive payoff strategy details
 - [ ] **Phase 11: Account Balance Carry-Forward** - Running account balance panel that carries forward through months so users can see if they have enough money for future expenses
 
@@ -167,19 +167,19 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Dashboard shows current balances and funding gaps for predicted monthly expenses.
 **Plans**:
 - [x] 09-01-PLAN.md — Childcare Data Layer & Calculations (2026-03-01)
-- [ ] 09-02-PLAN.md — Childcare UI & Dashboard Integration (pending)
+- [x] 09-02-PLAN.md — Childcare UI & Dashboard Integration (2026-03-01)
 
 ### Phase 10: Advanced Debt & Payoff
 **Goal**: Provide granular control over debt terms and interactive strategy selection in the planner.
 **Depends on**: Phase 3
 **Requirements**: DEBT-07, DEBT-08, DEBT-09, PAY-06, PAY-07, PAY-08
-**Success Criteria**:
+**Success Criteria** (what must be TRUE):
   1. User can edit Name, Limit, and APR of existing debts.
   2. 0% promotional periods are tracked and correctly handled in payoff simulations.
   3. Payoff Planner details show a month-by-month breakdown of payments per debt for the selected strategy.
 **Plans**:
-- [ ] 10-01-PLAN.md — Debt Editing & Promo Tracking (pending)
-- [ ] 10-02-PLAN.md — Interactive Payoff Planner & Details (pending)
+- [x] 10-01-PLAN.md — Debt Editing & Promo Tracking (2026-03-01)
+- [x] 10-02-PLAN.md — Interactive Payoff Planner & Details (2026-03-01)
 
 ### Phase 11: Account Balance Carry-Forward
 **Goal**: Users can see a running account balance panel that starts from a stated opening balance, accumulates income, and deducts expenses month by month — enabling future-month forecasting ("Do I have enough money to pay for upcoming expenses?")
@@ -210,6 +210,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 5.1 → 6 → 7 �
 | 6. Cloud Backup | 3/3 | Complete   | 2026-03-01 |
 | 7. Milestone v1.0 Polish & Tech Debt | 2/2 | Complete | 2026-03-01 |
 | 8. Income & Expenses Refinement | 2/2 | Complete | 2026-03-01 |
-| 9. Tax-free Childcare Tracker | 1/2 | In progress | - |
+| 9. Tax-free Childcare Tracker | 2/2 | Complete | 2026-03-01 |
 | 10. Advanced Debt & Payoff | 0/2 | Not started | - |
 | 11. Account Balance Carry-Forward | 0/2 | Not started | - |

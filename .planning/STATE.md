@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: Polish & Tech Debt
 status: unknown
-last_updated: "2026-03-01T13:10:00Z"
+last_updated: "2026-03-01T13:21:00Z"
 progress:
   total_phases: 11
-  completed_phases: 8
+  completed_phases: 9
   total_plans: 33
-  completed_plans: 28
+  completed_plans: 30
 ---
 
 # Project State
@@ -22,10 +22,10 @@ See: .planning/PROJECT.md (updated 2026-02-28)
 
 ## Current Position
 
-Phase: 9 of 10 (Tax-free Childcare Tracker — IN PROGRESS)
-Plan: 1 of 2
-Status: In progress
-Last activity: 2026-03-01 — 09-01 complete: Dexie v7 childcare schema, TFC calculation utilities (19 tests), childcareRepository with top-up engine and budget integration.
+Phase: 9 of 10 (Tax-free Childcare Tracker — COMPLETE)
+Plan: 2 of 2
+Status: Complete
+Last activity: 2026-03-01 — 09-02 complete: Childcare UI tab, dashboard TFC funding card, expense badge integration.
 
 Progress: [▓▓▓▓▓▓▓▓▓▓] 100%
 
@@ -59,6 +59,7 @@ Progress: [▓▓▓▓▓▓▓▓▓▓] 100%
 | Phase 08-income-expenses-refinement P01 | 466s | 3 tasks | 9 files |
 | Phase 08-income-expenses-refinement P02 | 344s | 3 tasks | 6 files |
 | Phase 09-tax-free-childcare-tracker P01 | 246s | 3 tasks | 4 files |
+| Phase 09-tax-free-childcare-tracker P02 | 475s | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -98,6 +99,7 @@ Recent decisions affecting current work:
 - [Phase 08-01]: Dashboard Subscriptions card removed; Fixed/Variable renamed to Recurrent/One-off in dashboard summary cards
 - [Phase Phase 08-02]: getThreeMonthHistory uses Dexie .between() on YYYY-MM-DD strings; schema v6 clears category targets on upgrade; getDashboardData returns both categorySpending and bucketSpending; --success CSS variable added to both themes
 - [Phase 09-01]: Running balances recalculated by full ledger re-scan after each mutation — correctness over efficiency; getRemainingCap uses getEntitlementPeriod as single source of truth for 3-month window; addDeposit calls getRemainingCap outside Dexie transaction block to avoid re-entrancy
+- [Phase 09-02]: childcareSummary returned from getDashboardData so dashboard.js receives pre-computed gap/suggestedDeposit without a second DB round-trip; Childcare Assets card only shown when accounts exist
 
 ### Roadmap Evolution
 
@@ -118,5 +120,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 09-01-PLAN.md — Dexie v7 schema, TFC utilities (19 tests), childcareRepository.
+Stopped at: Completed 09-02-PLAN.md — Childcare UI tab, dashboard TFC funding card with reconfirmation alerts, expense badge.
 Resume file: None
