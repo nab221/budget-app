@@ -147,6 +147,30 @@ db.version(7).stores({
   childcareLedger: '++id, accountId, date, type, amount, runningBalance'
 });
 
+// Define version 8 schema: Advanced Debt Tracking
+// Adds promoEndDate and postPromoApr for better payoff simulation accuracy.
+db.version(8).stores({
+  income: '++id, date, source, amount, categoryId',
+  recurrentExpenses: '++id, date, categoryId, label, amount, status, frequency, nextDate, isEssential, cycleTotal, cycleCurrent, endDate',
+  oneOffExpenses: '++id, date, categoryId, note, amount',
+  recurringTemplates: '++id, name, amount, categoryId, frequency, type',
+  debts: '++id, name, type, apr, creditLimit, currentBalance, promoEndDate, postPromoApr',
+  statements: '++id, debtId, date, amount, interest, fees',
+  assets: '++id, name, type, asOfDate, currentBalance',
+  categories: '++id, name, group',
+  targets: '++id, bucket, amount',
+  netWorthSnapshots: '++id, month, totalAssets, totalDebt, netWorth',
+  categoryMappings: '++id, description, categoryId',
+  childcareAccounts: '++id, childName, targetMonthlySpend, entitlementStart, isDisabled',
+  childcareLedger: '++id, accountId, date, type, amount, runningBalance'
+}).upgrade(async tx => {
+  // Initialize promo fields for existing debts
+  await tx.table('debts').toCollection().modify(debt => {
+    if (debt.promoEndDate === undefined) debt.promoEndDate = null;
+    if (debt.postPromoApr === undefined) debt.postPromoApr = debt.apr || 0;
+  });
+});
+
 // Handle schema updates in other tabs
 db.on('versionchange', function() {
   db.close();
