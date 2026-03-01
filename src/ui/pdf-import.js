@@ -63,6 +63,22 @@ export const pdfImportUI = {
     txs = parsers.santanderCurrent(rows);
     if (txs.length > 0) return txs;
 
+    // Try Nationwide
+    txs = parsers.nationwide(rows);
+    if (txs.length > 0) return txs;
+
+    // Try Amex
+    txs = parsers.amex(rows);
+    if (txs.length > 0) return txs;
+
+    // Try MBNA
+    txs = parsers.mbna(rows);
+    if (txs.length > 0) return txs;
+
+    // Try TSB Mortgage
+    txs = parsers.tsbMortgage(rows);
+    if (txs.length > 0) return txs;
+
     return [];
   },
 
