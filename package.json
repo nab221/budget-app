@@ -11,8 +11,11 @@
   },
   "dependencies": {
     "chart.js": "^4.5.1",
+    "date-fns": "^4.1.0",
     "dexie": "^4.0.11",
-    "dompurify": "^3.2.4"
+    "dompurify": "^3.2.4",
+    "pdfjs-dist": "^5.4.624",
+    "string-similarity": "^4.0.4"
   },
   "devDependencies": {
     "vite": "^6.2.0",

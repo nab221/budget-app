@@ -1,5 +1,6 @@
 import {
   Chart,
+  LineController,
   CategoryScale,
   LinearScale,
   PointElement,
@@ -11,6 +12,7 @@ import {
 
 // Register only the components needed for the stacked area chart
 Chart.register(
+  LineController,
   CategoryScale,
   LinearScale,
   PointElement,

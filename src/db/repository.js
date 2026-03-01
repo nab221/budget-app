@@ -1,5 +1,86 @@
 import { db } from './schema.js';
 import { toPence } from '../utils/currency.js';
+import { findBestMatch } from '../utils/string-similarity.js';
+
+/**
+ * PDF Import Repository Functions
+ */
+
+/**
+ * Finds potential duplicate transactions across income, fixedSpends, and variableSpends.
+ * Matches by exact Date and Amount (in pence).
+ * @param {Array<{date: string, amount: number|string}>} transactions 
+ * @returns {Promise<Array<Object>>} transactions with `isDuplicate: true` flag and `duplicateOf` original record
+ */
+export async function findDuplicates(transactions) {
+  const [incomes, fixed, variables] = await Promise.all([
+    db.income.toArray(),
+    db.fixedSpends.toArray(),
+    db.variableSpends.toArray()
+  ]);
+
+  const existing = [...incomes, ...fixed, ...variables];
+  
+  return transactions.map(tx => {
+    const txAmount = typeof tx.amount === 'number' ? tx.amount : toPence(tx.amount);
+    
+    const duplicate = existing.find(ex => {
+      // Allow loose matching on amount in case it's stored differently, but exact date
+      return ex.date === tx.date && Math.abs(ex.amount) === Math.abs(txAmount);
+    });
+
+    if (duplicate) {
+      return { ...tx, isDuplicate: true, duplicateOf: duplicate };
+    }
+    return { ...tx, isDuplicate: false };
+  });
+}
+
+/**
+ * Suggests a category based on the description using fuzzy matching against learned mappings.
+ * @param {string} description 
+ * @returns {Promise<number|null>} suggested category ID, or null if no good match
+ */
+export async function suggestCategory(description) {
+  if (!description) return null;
+
+  const mappings = await db.categoryMappings.toArray();
+  if (mappings.length === 0) return null;
+
+  const targetStrings = mappings.map(m => m.description);
+  const match = findBestMatch(description, targetStrings);
+
+  // Use a 0.85 confidence threshold
+  if (match && match.rating >= 0.85) {
+    const matchedMapping = mappings.find(m => m.description === match.target);
+    return matchedMapping ? matchedMapping.categoryId : null;
+  }
+
+  return null;
+}
+
+/**
+ * Updates the internal mapping of descriptions to categories after a successful import.
+ * @param {Array<{description: string, categoryId: number|string}>} transactions 
+ */
+export async function updateCategorizationLearningRule(transactions) {
+  for (const tx of transactions) {
+    if (!tx.description || !tx.categoryId) continue;
+
+    const existing = await db.categoryMappings.where('description').equals(tx.description).first();
+    
+    if (existing) {
+      if (existing.categoryId !== Number(tx.categoryId)) {
+        await db.categoryMappings.update(existing.id, { categoryId: Number(tx.categoryId) });
+      }
+    } else {
+      await db.categoryMappings.add({
+        description: tx.description,
+        categoryId: Number(tx.categoryId)
+      });
+    }
+  }
+}
 
 /**
  * Category Repository
