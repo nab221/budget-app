@@ -16,8 +16,13 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Core Budget Features** - Income, fixed/variable spending, subscriptions, recurring templates, debt tracker, assets, and data safety
 - [x] **Phase 3: Dashboard, Payoff Planner, and Budget Targets** - Computation-heavy display features that depend on Phase 2 data
 - [x] **Phase 4: PWA and Charts** - Make the app installable and offline; add spending trend and debt payoff timeline charts (completed 2026-02-28)
-- [ ] **Phase 5: PDF Bank Statement Import** - Auto-parse UK bank PDFs with manual fallback for bulk transaction import
+- [ ] **Phase 5: PDF Bank Statement Import** - Auto-parse UK bank PDFs with manual fallback for bulk transaction import (Unverified)
+- [ ] **Phase 5.1: PDF Import Stabilization** - Fix critical bugs and verify Phase 5 (INSERTED)
 - [x] **Phase 6: Cloud Backup** - Google Drive and OneDrive backup integration for cross-device data access (completed 2026-03-01)
+- [ ] **Phase 7: Milestone v1.0 Polish & Tech Debt** - Address accumulated debt and perform final human verification
+- [ ] **Phase 8: Income & Expenses Refinement** - 3-month income history and consolidated expense tabs (Recurrent vs One-off)
+- [ ] **Phase 9: Tax-free Childcare Tracker** - Monitor 2 accounts with gov top-up and predicted spending
+- [ ] **Phase 10: Advanced Debt & Payoff** - Debt editing, 0% promo tracking, and interactive payoff strategy details
 
 ## Phase Details
 
@@ -94,10 +99,23 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. If the PDF is image-based or scanned (no text layer), the app clearly tells the user it cannot be parsed and suggests manual entry instead
   4. After import, the user sees a summary of how many transactions were imported, skipped, or rejected, and imported entries appear in the correct tab (income or variable spending) based on user selection
 **Plans**:
-- [ ] 05-01-PLAN.md — PDF Parsing Engine & Data Layer
-- [ ] 05-02-PLAN.md — Preview UI & Manual Mapping
-- [ ] 05-03-PLAN.md — Bank Expansion & Refinement
+- [x] 05-01-PLAN.md — PDF Parsing Engine & Data Layer (2026-03-01)
+- [x] 05-02-PLAN.md — Preview UI & Manual Mapping (2026-03-01)
+- [x] 05-03-PLAN.md — Bank Expansion & Refinement (2026-03-01)
 
+### Phase 5.1: PDF Import Stabilization (INSERTED)
+**Goal**: Resolve runtime ReferenceErrors in `pdf-import.js`, fix dashboard refresh after import, and formally verify all PDF requirements (PDF-01 to PDF-05).
+**Depends on**: Phase 5
+**Requirements**: PDF-01, PDF-02, PDF-03, PDF-04, PDF-05
+**Success Criteria**:
+  1. `fixedSpendRepository` and `toPence` are correctly imported and usable in `pdf-import.js`.
+  2. PDF transactions can be imported into fixed-spend categories without error.
+  3. Manual column mapping works without ReferenceError.
+  4. Dashboard and transaction tables refresh correctly after import.
+  5. `05-VERIFICATION.md` is produced and all PDF requirements are marked satisfied.
+**Plans**:
+- [x] 05-04-PLAN.md — Critical fixes and UX refinement (2026-03-01)
+- [x] 05-05-PLAN.md — Parser stabilization and verification (2026-03-01)
 
 ### Phase 6: Cloud Backup
 **Goal**: Users can back up and restore their data via Google Drive or OneDrive, enabling cross-device access without a backend
@@ -107,17 +125,65 @@ Decimal phases appear between their surrounding integers in numeric order.
   1. User can connect their OneDrive account (MSAL.js PKCE, no server required), save their data file to OneDrive, and load it back to restore or sync across devices
   2. User can connect their Google Drive account and save/load their data file; re-authentication opens a GIS popup when the cached token expires (GIS does not support headless silent refresh)
   3. Connected cloud account preference persists across sessions and the user can disconnect at any time from the settings area
-**Plans**: 3 plans
-Plans:
-- [ ] 06-01-PLAN.md — Google Drive + OneDrive utility modules (auth, file ops)
-- [ ] 06-02-PLAN.md — Cloud backup UI module (provider cards, connect/backup/restore/disconnect)
-- [ ] 06-03-PLAN.md — HTML wiring, app.js integration, and end-to-end verification
+**Plans**:
+- [x] 06-01-PLAN.md — Google Drive + OneDrive utility modules (auth, file ops) (2026-03-01)
+- [x] 06-02-PLAN.md — Cloud backup UI module (provider cards, connect/backup/restore/disconnect) (2026-03-01)
+- [x] 06-03-PLAN.md — HTML wiring, app.js integration, and end-to-end verification (2026-03-01)
+
+### Phase 7: Milestone v1.0 Polish & Tech Debt
+**Goal**: Clean up accumulated tech debt and perform final manual verification of PWA and Cloud Backup features.
+**Depends on**: Phase 4, Phase 6
+**Requirements**: CHART-01, CHART-02, PWA-01, PWA-02, PWA-04, CLOUD-01, CLOUD-02, CLOUD-03, CLOUD-04
+**Success Criteria**:
+  1. `dashboard.js` line 47 uses `textContent` or equivalent safe pattern.
+  2. Dead code in `onedrive.js` is removed.
+  3. `CLOUD_LAST_BACKUP_KEY` is consolidated.
+  4. Restore implementations in `cloud-backup.js` and `backup.js` are unified or cross-referenced.
+  5. All human verification items from the audit are documented as performed.
+**Plans**:
+- [ ] 07-01-PLAN.md — Tech debt cleanup (pending)
+- [ ] 07-02-PLAN.md — Manual verification and v1.0 Sign-off (pending)
+
+### Phase 8: Income & Expenses Refinement
+**Goal**: Improve financial trend visibility and simplify expense tracking by merging redundant tabs.
+**Depends on**: Phase 2
+**Requirements**: INC-05, EXP-01, EXP-02, EXP-03, EXP-04
+**Success Criteria**:
+  1. Income tab displays current month plus the previous 2 months of history.
+  2. "Fixed", "Variable", and "Subscriptions" tabs are merged into "Recurrent Expenses" and "One-off Expenses".
+  3. Recurrent items support "cancelable" labels and varying cycles (e.g., 10-month Council Tax).
+**Plans**:
+- [ ] 08-01-PLAN.md — Expense Tab Refactoring & Migration (pending)
+- [ ] 08-02-PLAN.md — Income History & UI Polish (pending)
+
+### Phase 9: Tax-free Childcare Tracker
+**Goal**: Monitor government-topped-up childcare accounts and predict future funding needs.
+**Depends on**: Phase 2, Phase 3
+**Requirements**: CHILD-01, CHILD-02, CHILD-03, CHILD-04, CHILD-05
+**Success Criteria**:
+  1. User can manage 2 independent childcare accounts with balance tracking.
+  2. Gov top-up (20%) is automatically calculated and shown for deposits.
+  3. Dashboard shows current balances and funding gaps for predicted monthly expenses.
+**Plans**:
+- [ ] 09-01-PLAN.md — Childcare Data Layer & Calculations (pending)
+- [ ] 09-02-PLAN.md — Childcare UI & Dashboard Integration (pending)
+
+### Phase 10: Advanced Debt & Payoff
+**Goal**: Provide granular control over debt terms and interactive strategy selection in the planner.
+**Depends on**: Phase 3
+**Requirements**: DEBT-07, DEBT-08, DEBT-09, PAY-06, PAY-07, PAY-08
+**Success Criteria**:
+  1. User can edit Name, Limit, and APR of existing debts.
+  2. 0% promotional periods are tracked and correctly handled in payoff simulations.
+  3. Payoff Planner details show a month-by-month breakdown of payments per debt for the selected strategy.
+**Plans**:
+- [ ] 10-01-PLAN.md — Debt Editing & Promo Tracking (pending)
+- [ ] 10-02-PLAN.md — Interactive Payoff Planner & Details (pending)
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
-(Note: Phase 5 depends on Phase 2, not Phase 4 — it can begin in parallel with Phase 4 if needed)
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 5.1 → 6 → 7 → 8 → 9 → 10
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -125,5 +191,10 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 2. Core Budget Features | 4/4 | Complete | 2026-02-28 |
 | 3. Dashboard, Payoff Planner, and Budget Targets | 5/5 | Complete | 2026-02-28 |
 | 4. PWA and Charts | 3/3 | Complete   | 2026-02-28 |
-| 5. PDF Bank Statement Import | 0/TBD | Not started | - |
+| 5. PDF Bank Statement Import | 3/3 | Unverified | 2026-03-01 |
+| 5.1 PDF Import Stabilization | 2/2 | Not started | - |
 | 6. Cloud Backup | 3/3 | Complete   | 2026-03-01 |
+| 7. Milestone v1.0 Polish & Tech Debt | 0/2 | Not started | - |
+| 8. Income & Expenses Refinement | 0/2 | Not started | - |
+| 9. Tax-free Childcare Tracker | 0/2 | Not started | - |
+| 10. Advanced Debt & Payoff | 0/2 | Not started | - |
