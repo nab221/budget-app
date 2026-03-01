@@ -29,6 +29,9 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Only local assets are precached. External CDN scripts are intentionally excluded.
+        // Note: GIS (accounts.google.com/gsi/client) is intentionally NOT precached.
+        // Cloud backup features require network — gracefully disabled offline by navigator.onLine checks.
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
         cleanupOutdatedCaches: true,
         clientsClaim: true,
