@@ -262,6 +262,38 @@ describe('Finance Utilities', () => {
       expect(mar.expenseTotal).toBe(0);
       expect(mar.closingBalance).toBe(0);
     });
+
+    it('deducts recurrent expenses in projected months even when nextDate is in the current month', async () => {
+      // Scenario: a recurrent expense has nextDate in the current month (2026-03).
+      // The projected month (2026-04) should still deduct it, because recurrent
+      // items are standing commitments that repeat every month.
+      //
+      // This test uses deps injection, but the makeDeps helper passes recurrent
+      // data keyed by month. For the live DB path the fix is that getRecurrent
+      // always returns all items regardless of nextDate — here we simulate that
+      // behaviour by returning the same recurrent item for every month.
+
+      const RECURRENT_AMOUNT = 80000; // £800/month standing commitment
+
+      const saved = [];
+      // Build deps where getRecurrent always returns the same recurrent item
+      // regardless of which month is queried — this mirrors the fixed live path.
+      const deps = {
+        getIncome: async (_month) => [],
+        getRecurrent: async (_month) => [{ amount: RECURRENT_AMOUNT }],
+        getOneOff: async (_month) => [],
+        getOpeningBalCatId: async () => null,
+        saveSnapshot: async (snap) => { saved.push({ ...snap }); return saved.length; }
+      };
+
+      // horizonMonths=1: computes 2026-03 (current) + 2026-04 (projected)
+      const result = await calculateBalanceChain('2026-03', 1, deps);
+      const apr = result.find(s => s.month === '2026-04');
+
+      expect(apr).toBeDefined();
+      // The projected month MUST deduct the standing recurrent commitment
+      expect(apr.expenseTotal).toBe(RECURRENT_AMOUNT);
+    });
   });
 
   describe('simulatePayoff with Advanced Features', () => {

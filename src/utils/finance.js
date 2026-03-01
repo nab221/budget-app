@@ -264,8 +264,8 @@ export async function calculateBalanceChain(startDate, horizonMonths = 3, deps =
     getIncome = async (monthStr) =>
       db.income.where('date').startsWith(monthStr).toArray();
 
-    getRecurrent = async (monthStr) =>
-      db.recurrentExpenses.where('nextDate').startsWith(monthStr).toArray();
+    getRecurrent = async (_monthStr) =>
+      db.recurrentExpenses.toArray();
 
     getOneOff = async (monthStr) =>
       db.oneOffExpenses.where('date').startsWith(monthStr).toArray();
