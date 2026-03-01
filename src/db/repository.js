@@ -3,6 +3,45 @@ import { toPence } from '../utils/currency.js';
 import { findBestMatch } from '../utils/string-similarity.js';
 import { calculateTopUp, getEntitlementPeriod, calculateFundingGap } from '../utils/childcare.js';
 
+// ---------------------------------------------------------------------------
+// Balance recalculation trigger
+// ---------------------------------------------------------------------------
+
+/**
+ * Invalidate balance snapshots from the affected month onwards and schedule
+ * a background recalculation.
+ *
+ * Called automatically by incomeRepository and oneOffExpenseRepository on
+ * add / update / delete mutations.  Runs asynchronously so callers are not
+ * blocked; errors are logged rather than re-thrown.
+ *
+ * @param {string} date - ISO date string (YYYY-MM-DD) of the modified record.
+ */
+export async function triggerBalanceRecalc(date) {
+  // Derive month string from the affected date
+  const monthStr = String(date).slice(0, 7); // "YYYY-MM"
+  if (!monthStr || monthStr.length < 7) return;
+
+  try {
+    // Lazy-import to avoid circular dependency at module initialisation time.
+    const { balanceSnapshotRepository } = await import('./repository.js');
+    const { calculateBalanceChain } = await import('../utils/finance.js');
+
+    // 1. Invalidate all snapshots from the changed month onwards
+    await balanceSnapshotRepository.deleteFrom(monthStr);
+
+    // 2. Recalculate from the earliest month that has income data
+    //    (fallback to the changed month if no earlier data exists).
+    const earliest = await db.income.orderBy('date').first();
+    const startMonth = earliest ? String(earliest.date).slice(0, 7) : monthStr;
+
+    // Run with a 3-month forward horizon (default)
+    await calculateBalanceChain(startMonth, 3);
+  } catch (err) {
+    console.error('[triggerBalanceRecalc] Failed to recalculate balances:', err);
+  }
+}
+
 /**
  * PDF Import Repository Functions
  */
@@ -227,12 +266,41 @@ const createBaseRepository = (table, amountFields = ['amount']) => ({
 
 /**
  * Income Repository
+ * Mutations trigger a background balance recalculation from the affected month.
  */
 export const incomeRepository = {
   ...createBaseRepository(db.income),
+
+  /** Add an income record and trigger recalculation. */
+  async add(data) {
+    const toSave = { ...data, amount: toPence(data.amount) };
+    const id = await db.income.add(toSave);
+    triggerBalanceRecalc(toSave.date).catch(() => {}); // fire-and-forget
+    return id;
+  },
+
+  /** Update an income record and trigger recalculation from the record's (new) date. */
+  async update(id, data) {
+    const toUpdate = { ...data };
+    if (toUpdate.amount !== undefined) toUpdate.amount = toPence(toUpdate.amount);
+    await db.income.update(id, toUpdate);
+    // Use the updated date if provided, otherwise look up existing date
+    const dateForRecalc = toUpdate.date || (await db.income.get(id))?.date;
+    if (dateForRecalc) triggerBalanceRecalc(dateForRecalc).catch(() => {});
+    return 1;
+  },
+
+  /** Delete an income record and trigger recalculation from the record's date. */
+  async delete(id) {
+    const record = await db.income.get(id);
+    await db.income.delete(id);
+    if (record?.date) triggerBalanceRecalc(record.date).catch(() => {});
+  },
+
   async getByMonth(monthStr) {
     return await db.income.where('date').startsWith(monthStr).toArray();
   },
+
   /**
    * Get income records for a 3-month sliding window ending at targetMonthStr.
    * Returns records from the start of (targetMonth - 2) through the end of targetMonth.
@@ -326,9 +394,36 @@ export const recurrentExpenseRepository = {
 /**
  * One-off Expense Repository
  * Handles singular or infrequent expenses (previously "variable spends").
+ * Mutations trigger a background balance recalculation from the affected month.
  */
 export const oneOffExpenseRepository = {
   ...createBaseRepository(db.oneOffExpenses),
+
+  /** Add a one-off expense and trigger recalculation. */
+  async add(data) {
+    const toSave = { ...data, amount: toPence(data.amount) };
+    const id = await db.oneOffExpenses.add(toSave);
+    triggerBalanceRecalc(toSave.date).catch(() => {}); // fire-and-forget
+    return id;
+  },
+
+  /** Update a one-off expense and trigger recalculation. */
+  async update(id, data) {
+    const toUpdate = { ...data };
+    if (toUpdate.amount !== undefined) toUpdate.amount = toPence(toUpdate.amount);
+    await db.oneOffExpenses.update(id, toUpdate);
+    const dateForRecalc = toUpdate.date || (await db.oneOffExpenses.get(id))?.date;
+    if (dateForRecalc) triggerBalanceRecalc(dateForRecalc).catch(() => {});
+    return 1;
+  },
+
+  /** Delete a one-off expense and trigger recalculation. */
+  async delete(id) {
+    const record = await db.oneOffExpenses.get(id);
+    await db.oneOffExpenses.delete(id);
+    if (record?.date) triggerBalanceRecalc(record.date).catch(() => {});
+  },
+
   /**
    * Get all one-off expenses for the given month (by entry date).
    * @param {string} monthStr - YYYY-MM
