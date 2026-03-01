@@ -1,7 +1,7 @@
 import { db } from './schema.js';
 import { toPence } from '../utils/currency.js';
 import { findBestMatch } from '../utils/string-similarity.js';
-import { calculateTopUp, getEntitlementPeriod } from '../utils/childcare.js';
+import { calculateTopUp, getEntitlementPeriod, calculateFundingGap } from '../utils/childcare.js';
 
 /**
  * PDF Import Repository Functions
@@ -464,12 +464,13 @@ export async function getDashboardData(periodType, targetMonth) {
   }
   // For 'all', we use the full table (no .where())
 
-  const [incomeList, recurrentList, oneOffList, debts, assets] = await Promise.all([
+  const [incomeList, recurrentList, oneOffList, debts, assets, childcareAccounts] = await Promise.all([
     incomeQuery.toArray(),
     recurrentQuery.toArray(),
     oneOffQuery.toArray(),
     db.debts.toArray(),
-    db.assets.toArray()
+    db.assets.toArray(),
+    db.childcareAccounts.toArray()
   ]);
 
   const sum = (arr, field = 'amount') => arr.reduce((acc, curr) => acc + (curr[field] || 0), 0);
@@ -487,7 +488,19 @@ export async function getDashboardData(periodType, targetMonth) {
   const recurrentTotal = sum(recurrentList);
   const oneOffTotal = sum(oneOffList);
   const totalDebt = sum(debts, 'currentBalance');
-  const totalAssets = sum(assets, 'currentBalance');
+  const manualAssets = sum(assets, 'currentBalance');
+
+  // Include childcare account balances in total assets (Net Worth integration)
+  const childcareSummary = await Promise.all(
+    childcareAccounts.map(async (account) => {
+      const balance = await childcareRepository.getBalance(account.id);
+      const { gap, suggestedDeposit } = calculateFundingGap(account.targetMonthlySpend || 0, balance);
+      return { account, balance, gap, suggestedDeposit };
+    })
+  );
+
+  const childcareTotalBalance = childcareSummary.reduce((sum, c) => sum + c.balance, 0);
+  const totalAssets = manualAssets + childcareTotalBalance;
 
   return {
     income: incomeTotal,
@@ -504,7 +517,9 @@ export async function getDashboardData(periodType, targetMonth) {
     bucketSpending: {
       recurrent: recurrentTotal,
       'one-off': oneOffTotal
-    }
+    },
+    // Childcare summary for dashboard card
+    childcareSummary
   };
 }
 
