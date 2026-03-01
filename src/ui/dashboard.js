@@ -41,11 +41,6 @@ export async function renderDashboard(containerId, periodType, targetMonth) {
     }
   }
 
-  // Build Net Worth label — append a red "Risk" badge when persistence is denied
-  const netWorthLabel = isPersisted
-    ? 'Net Worth'
-    : 'Net Worth <span class="pill" style="background:var(--danger);color:#fff;font-size:.65rem;vertical-align:middle" title="Storage persistence not granted. Your data may be purged by the browser.">Risk</span>';
-
   const cards = [
     { label: 'Income', value: data.income, color: 'var(--accent)' },
     { label: 'Fixed Expenses', value: data.fixed, color: 'var(--danger)' },
@@ -54,19 +49,43 @@ export async function renderDashboard(containerId, periodType, targetMonth) {
     { label: 'Subscriptions', value: data.totalSubscriptions, color: 'var(--text-soft)' },
     { label: 'Total Debt', value: data.totalDebt, color: 'var(--danger)' },
     { label: 'Total Assets', value: data.totalAssets, color: 'var(--accent)' },
-    { label: netWorthLabel, value: data.netWorth, color: data.netWorth >= 0 ? 'var(--accent)' : 'var(--danger)', isRaw: false, labelIsHtml: true },
+    {
+      label: 'Net Worth',
+      badge: !isPersisted ? { text: 'Risk', title: 'Storage persistence not granted. Your data may be purged by the browser.' } : null,
+      value: data.netWorth,
+      color: data.netWorth >= 0 ? 'var(--accent)' : 'var(--danger)'
+    },
     { label: 'Fixed-to-Income', value: `${data.fixedToIncomeRatio}%`, color: data.fixedToIncomeRatio > 50 ? 'var(--warn)' : 'var(--text-soft)', isRaw: true },
     { label: 'Debt-Free In', value: debtFreeText, color: debtFreeColor, isRaw: true }
   ];
 
-  container.innerHTML = cards.map(card => `
-    <div class="sum-item">
-      <div class="sum-label">${card.label}</div>
-      <div class="sum-val" style="color: ${card.color}">
-        ${card.isRaw ? card.value : formatGBP(card.value)}
-      </div>
-    </div>
-  `).join('');
+  // Build cards using safe DOM methods — no innerHTML for dynamic content (FOUND-04)
+  container.textContent = '';
+  for (const card of cards) {
+    const item = document.createElement('div');
+    item.className = 'sum-item';
+
+    const labelEl = document.createElement('div');
+    labelEl.className = 'sum-label';
+    labelEl.textContent = card.label;
+
+    if (card.badge) {
+      const badge = document.createElement('span');
+      badge.className = 'pill';
+      badge.style.cssText = 'background:var(--danger);color:#fff;font-size:.65rem;vertical-align:middle';
+      badge.title = card.badge.title;
+      badge.textContent = card.badge.text;
+      labelEl.append(' ', badge);
+    }
+
+    const valEl = document.createElement('div');
+    valEl.className = 'sum-val';
+    valEl.style.color = card.color;
+    valEl.textContent = card.isRaw ? card.value : formatGBP(card.value);
+
+    item.append(labelEl, valEl);
+    container.append(item);
+  }
 
   // Render spending trends chart (12 months)
   try {
