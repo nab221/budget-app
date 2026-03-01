@@ -267,25 +267,25 @@
 | CLOUD-03 | Phase 6 | Complete |
 | CLOUD-04 | Phase 6 | Complete |
 | INC-05 | Phase 8 | Complete |
-| EXP-01 | Phase 8 | Complete |
-| EXP-02 | Phase 8 | Complete |
-| EXP-03 | Phase 8 | Complete |
-| EXP-04 | Phase 8 | Complete |
-| CHILD-01 | Phase 9 | Complete |
-| CHILD-02 | Phase 9 | Complete |
-| CHILD-03 | Phase 9 | Complete |
-| CHILD-04 | Phase 9 | Complete |
-| CHILD-05 | Phase 9 | Complete |
+| EXP-01 | Phase 13 | Pending |
+| EXP-02 | Phase 13 | Pending |
+| EXP-03 | Phase 13 | Pending |
+| EXP-04 | Phase 13 | Pending |
+| CHILD-01 | Phase 13 | Pending |
+| CHILD-02 | Phase 13 | Pending |
+| CHILD-03 | Phase 13 | Pending |
+| CHILD-04 | Phase 13 | Pending |
+| CHILD-05 | Phase 13 | Pending |
 | DEBT-07 | Phase 10 | Complete |
 | DEBT-08 | Phase 10 | Complete |
 | DEBT-09 | Phase 10 | Complete |
 | PAY-06 | Phase 10 | Complete |
 | PAY-07 | Phase 10 | Complete |
 | PAY-08 | Phase 10 | Complete |
-| BAL-01 | Phase 11 | Complete |
-| BAL-02 | Phase 11 | Complete |
-| BAL-03 | Phase 11 | Complete |
-| BAL-04 | Phase 11 | Complete |
+| BAL-01 | Phase 12 | Pending |
+| BAL-02 | Phase 12 | Pending |
+| BAL-03 | Phase 12 | Pending |
+| BAL-04 | Phase 13 | Pending |
 
 **Coverage:**
 - v1 requirements: 92 total (72 original + 20 new)
@@ -304,6 +304,8 @@
 | Phase 9: Tax-free Childcare Tracker | CHILD-01 to CHILD-05 (5 total) |
 | Phase 10: Advanced Debt & Payoff | DEBT-07 to DEBT-09, PAY-06 to PAY-08 (6 total) |
 | Phase 11: Account Balance Carry-Forward | BAL-01 to BAL-04 (4 total) |
+| Phase 12: Balance Integration Fixes (gap closure) | BAL-01, BAL-02, BAL-03 (3 total — integration defect fixes) |
+| Phase 13: Milestone Human Verification (gap closure) | EXP-01 to EXP-04, CHILD-01 to CHILD-05, BAL-04 (10 total — browser UAT sign-off) |
 
 ---
 *Requirements defined: 2026-02-28*

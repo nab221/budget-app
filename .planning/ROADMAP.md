@@ -24,6 +24,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 9: Tax-free Childcare Tracker** - Monitor 2 accounts with gov top-up and predicted spending (completed 2026-03-01)
 - [x] **Phase 10: Advanced Debt & Payoff** - Debt editing, 0% promo tracking, and interactive payoff strategy details (completed 2026-03-01)
 - [x] **Phase 11: Account Balance Carry-Forward** - Running account balance panel that carries forward through months so users can see if they have enough money for future expenses (completed 2026-03-01)
+- [ ] **Phase 12: Balance Integration Fixes** - Fix recurrentExpenseRepository balance triggers and calculateBalanceChain month filtering (gap closure)
+- [ ] **Phase 13: Milestone Human Verification** - Browser UAT sign-off for Phases 08, 09, and 11 (gap closure)
 
 ## Phase Details
 
@@ -192,13 +194,38 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Closing balance carries forward automatically as the opening balance for the next month.
   4. User can see a forecast view showing projected balance over future months based on recurrent income and expenses.
 **Plans**:
-- [ ] 11-01-PLAN.md — Balance data layer & carry-forward logic (pending)
-- [ ] 11-02-PLAN.md — Balance panel UI & forecast view (pending)
+- [x] 11-01-PLAN.md — Balance data layer & carry-forward logic (2026-03-01)
+- [x] 11-02-PLAN.md — Balance panel UI & forecast view (2026-03-01)
+- [x] 11-03-PLAN.md — Gap closure: recurrent projection fix & auto-refresh (2026-03-01)
+
+### Phase 12: Balance Integration Fixes
+**Goal:** Fix two integration defects in the account balance carry-forward feature — stale projections after recurrent mutations and inaccurate future-month expense totals for non-monthly items
+**Depends on:** Phase 11
+**Requirements:** BAL-01, BAL-02, BAL-03
+**Gap Closure:** Closes integration defects from v1.0 audit
+**Success Criteria**:
+  1. Adding, editing, or deleting a recurrent expense immediately recalculates balance snapshots and dispatches `app:refresh`.
+  2. Projected months in the balance chain only count recurrent expenses whose `nextDate` (or next cycle date) falls in that month.
+  3. A quarterly expense is counted exactly once per quarter in balance projections, not in every projected month.
+**Plans**:
+- [ ] 12-01-PLAN.md — recurrentExpenseRepository trigger wiring & calculateBalanceChain month filter (pending)
+
+### Phase 13: Milestone Human Verification
+**Goal:** Complete browser UAT for Phases 08, 09, and 11 — formally close all `human_needed` VERIFICATION.md items and update statuses to `passed` so the v1.0 milestone can be signed off
+**Depends on:** Phase 12
+**Requirements:** EXP-01, EXP-02, EXP-03, EXP-04, CHILD-01, CHILD-02, CHILD-03, CHILD-04, CHILD-05, BAL-01, BAL-02, BAL-03, BAL-04
+**Gap Closure:** Closes human_needed items from v1.0 audit
+**Success Criteria**:
+  1. Phase 08 VERIFICATION.md status updated from `gaps_found` to `passed`; EXP-01–04 confirmed by browser.
+  2. Phase 09 5-item browser UAT checklist completed; CHILD-01–05 confirmed; `09-VERIFICATION.md` status updated to `passed`.
+  3. Phase 11 6-item browser UAT checklist completed (including auto-refresh and recurrent projection after Phase 12 fixes); BAL-01–04 confirmed; `11-VERIFICATION.md` status updated to `passed`.
+**Plans**:
+- [ ] 13-01-PLAN.md — Phase 08/09/11 browser UAT guide and verification update (pending)
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 5.1 → 6 → 7 → 8 → 9 → 10 → 11
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 5.1 → 6 → 7 → 8 → 9 → 10 → 11 → 12 → 13
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -214,3 +241,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 5.1 → 6 → 7 �
 | 9. Tax-free Childcare Tracker | 2/2 | Complete | 2026-03-01 |
 | 10. Advanced Debt & Payoff | 3/3 | Complete   | 2026-03-01 |
 | 11. Account Balance Carry-Forward | 3/3 | Complete   | 2026-03-01 |
+| 12. Balance Integration Fixes | 0/1 | Pending | — |
+| 13. Milestone Human Verification | 0/1 | Pending | — |
