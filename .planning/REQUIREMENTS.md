@@ -111,9 +111,9 @@
 
 ### Cloud Backup
 
-- [x] **CLOUD-01**: User can connect a Dropbox account (PKCE OAuth, no server required) and save their data file to Dropbox
-- [x] **CLOUD-02**: User can load their data file from Dropbox to restore or sync across devices
-- [x] **CLOUD-03**: User can connect a Google Drive account and save/load their data file (GIS + gapi OAuth)
+- [x] **CLOUD-01**: User can connect a Microsoft OneDrive account (MSAL.js PKCE, no server required) and save their data file to OneDrive
+- [x] **CLOUD-02**: User can load their data file from OneDrive to restore or sync across devices
+- [x] **CLOUD-03**: User can connect a Google Drive account and save/load their data file (GIS token + Drive v3 appDataFolder)
 - [x] **CLOUD-04**: Connected cloud account preference persists in localStorage; user can disconnect at any time
 
 ### PDF Import

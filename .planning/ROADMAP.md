@@ -17,7 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Dashboard, Payoff Planner, and Budget Targets** - Computation-heavy display features that depend on Phase 2 data
 - [x] **Phase 4: PWA and Charts** - Make the app installable and offline; add spending trend and debt payoff timeline charts (completed 2026-02-28)
 - [ ] **Phase 5: PDF Bank Statement Import** - Auto-parse UK bank PDFs with manual fallback for bulk transaction import
-- [x] **Phase 6: Cloud Backup** - Dropbox and Google Drive backup integration for cross-device data access (completed 2026-03-01)
+- [x] **Phase 6: Cloud Backup** - Google Drive and OneDrive backup integration for cross-device data access (completed 2026-03-01)
 
 ## Phase Details
 
@@ -100,11 +100,11 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 
 ### Phase 6: Cloud Backup
-**Goal**: Users can back up and restore their data via Dropbox or Google Drive, enabling cross-device access without a backend
+**Goal**: Users can back up and restore their data via Google Drive or OneDrive, enabling cross-device access without a backend
 **Depends on**: Phase 2
 **Requirements**: CLOUD-01, CLOUD-02, CLOUD-03, CLOUD-04
 **Success Criteria** (what must be TRUE):
-  1. User can connect their Dropbox account (PKCE OAuth, no server required), save their data file to Dropbox, and load it back to restore or sync across devices
+  1. User can connect their OneDrive account (MSAL.js PKCE, no server required), save their data file to OneDrive, and load it back to restore or sync across devices
   2. User can connect their Google Drive account and save/load their data file; re-authentication is handled silently when the token expires
   3. Connected cloud account preference persists across sessions and the user can disconnect at any time from the settings area
 **Plans**: 3 plans
