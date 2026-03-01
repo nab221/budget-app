@@ -180,6 +180,7 @@ export function simulatePayoff(debts, strategy, extraPaymentPence = 0, startDate
         amount: payment,
         interestCharged,
         principalPaid,
+        remainingBalance: debt.balance,
         isRateJump: debt.isRateJump
       });
       snapshot.totalInterestCharged += interestCharged;
