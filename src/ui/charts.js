@@ -167,6 +167,118 @@ export function renderTrendsChart(canvasId, data) {
 }
 
 /**
+ * Render (or re-render) a 90-day balance trend chart.
+ * Actual months use solid lines; projected months use dashed lines.
+ *
+ * @param {string} canvasId - The id of the <canvas> element to render into.
+ * @param {Array<{month: string, closingBalance: number, isProjection: boolean}>} snapshots
+ *   Balance snapshots in chronological order. Amounts are in pence.
+ */
+export function renderBalanceChart(canvasId, snapshots) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+
+  // Destroy previous instance to avoid Chart.js "Canvas already in use" error
+  if (_chartInstances.has(canvasId)) {
+    _chartInstances.get(canvasId).destroy();
+    _chartInstances.delete(canvasId);
+  }
+
+  if (!snapshots || snapshots.length === 0) return;
+
+  const labels = snapshots.map(s => s.month);
+  const actualData = snapshots.map(s => s.isProjection ? null : s.closingBalance);
+  const projectionData = snapshots.map((s, i) => {
+    // Connect the projection line to the last actual data point
+    if (s.isProjection) return s.closingBalance;
+    if (i === snapshots.length - 1 || snapshots[i + 1]?.isProjection) return s.closingBalance;
+    return null;
+  });
+
+  const balanceColor = '#0072B2'; // Okabe-Ito Blue
+
+  const chart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Balance (Actual)',
+          data: actualData,
+          borderColor: balanceColor,
+          backgroundColor: balanceColor + '22',
+          fill: true,
+          tension: 0.2,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          borderWidth: 2,
+          spanGaps: false
+        },
+        {
+          label: 'Balance (Forecast)',
+          data: projectionData,
+          borderColor: balanceColor,
+          backgroundColor: 'transparent',
+          fill: false,
+          tension: 0.2,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          borderWidth: 2,
+          borderDash: [6, 4],
+          spanGaps: true
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
+      plugins: {
+        legend: {
+          position: 'top',
+          labels: {
+            font: { size: 11 },
+            usePointStyle: true,
+            pointStyleWidth: 10
+          }
+        },
+        tooltip: {
+          position: 'nearest',
+          callbacks: {
+            label: (ctx) => {
+              if (ctx.parsed.y === null) return null;
+              return ` ${ctx.dataset.label}: ${formatPence(ctx.parsed.y)}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { font: { size: 10 } }
+        },
+        y: {
+          beginAtZero: false,
+          ticks: {
+            font: { size: 10 },
+            callback: (value) => formatPence(value)
+          },
+          grid: {
+            color: 'rgba(148,163,184,0.15)'
+          }
+        }
+      }
+    }
+  });
+
+  _chartInstances.set(canvasId, chart);
+  return chart;
+}
+
+/**
  * Render (or re-render) a line chart showing debt balance projections over time.
  *
  * Initial X-axis view is focused on the next 24 months for mobile readability.
