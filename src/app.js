@@ -15,6 +15,11 @@ import { initPWA, installApp, checkExportReminder } from './ui/pwa-ux';
 import { pdfImportUI } from './ui/pdf-import';
 import { cloudBackupUI } from './ui/cloud-backup.js';
 import { childcareUI } from './ui/childcare.js';
+import { calculateBalanceChain } from './utils/finance.js';
+import { balanceSnapshotRepository } from './db/repository.js';
+
+/** localStorage key for the user-configured balance start date (YYYY-MM). */
+export const BALANCE_START_DATE_KEY = 'budget_balance_start_date';
 
 /**
  * Main application entry point.
@@ -107,6 +112,11 @@ async function init() {
         await templateUI.renderTemplates();
         await targetsUI.renderTargetSettings();
         cloudBackupUI.render();
+        // Populate balance start date input from localStorage
+        const balanceStartInput = document.getElementById('balanceStartDate');
+        if (balanceStartInput) {
+          balanceStartInput.value = localStorage.getItem(BALANCE_START_DATE_KEY) || '';
+        }
       }
       
       // Always refresh dashboard in case totals changed
@@ -126,10 +136,18 @@ async function init() {
   // 5. Initialize UI Modules
   // First seed defaults if necessary
   await categoryRepository.seedDefaultCategories();
-  
+
   // Take monthly snapshot
   await netWorthRepository.checkAndTakeSnapshot();
-  
+
+  // Trigger balance chain calculation on startup (fire-and-forget to avoid blocking)
+  const savedBalanceStart = localStorage.getItem(BALANCE_START_DATE_KEY);
+  if (savedBalanceStart) {
+    calculateBalanceChain(savedBalanceStart, 3).catch(err =>
+      console.warn('[init] Background balance recalc failed:', err)
+    );
+  }
+
   // Then init all modules
   await categoryUI.init();
   await transactionUI.init();
@@ -145,7 +163,38 @@ async function init() {
   // Initial dashboard render
   refreshDashboard();
 
-  // 6. Install App button & PDF Import
+  // 6. Balance Start Date: Save button handler
+  const saveBalanceStartBtn = document.getElementById('saveBalanceStartBtn');
+  if (saveBalanceStartBtn) {
+    saveBalanceStartBtn.addEventListener('click', async () => {
+      const input = document.getElementById('balanceStartDate');
+      const statusEl = document.getElementById('balanceStartStatus');
+      const monthValue = input ? input.value.trim() : '';
+
+      if (!monthValue || !/^\d{4}-\d{2}$/.test(monthValue)) {
+        if (statusEl) statusEl.textContent = 'Please enter a valid month.';
+        return;
+      }
+
+      // Persist to localStorage
+      localStorage.setItem(BALANCE_START_DATE_KEY, monthValue);
+
+      // Invalidate all snapshots and recalculate from new start date
+      try {
+        if (statusEl) statusEl.textContent = 'Recalculating...';
+        await balanceSnapshotRepository.deleteFrom('0000-00'); // delete all snapshots
+        await calculateBalanceChain(monthValue, 3);
+        if (statusEl) statusEl.textContent = `Balance chain recalculated from ${monthValue}.`;
+        // Refresh the dashboard to reflect new data
+        refreshDashboard();
+      } catch (err) {
+        console.error('[saveBalanceStartBtn] Recalc failed:', err);
+        if (statusEl) statusEl.textContent = 'Recalculation failed. See console for details.';
+      }
+    });
+  }
+
+  // Install App button & PDF Import
   const installBtn = document.getElementById('installAppBtn');
   if (installBtn) {
     installBtn.addEventListener('click', () => installApp());
