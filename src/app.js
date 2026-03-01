@@ -3,7 +3,7 @@ import { ensurePersistence } from './utils/storage';
 import { categoryUI } from './ui/categories';
 import { categoryRepository, netWorthRepository } from './db/repository';
 import { transactionUI } from './ui/transactions';
-import { subscriptionUI } from './ui/subscriptions';
+import { expensesUI } from './ui/expenses';
 import { debtUI } from './ui/debts';
 import { assetUI } from './ui/assets';
 import { templateUI } from './ui/templates';
@@ -68,6 +68,7 @@ async function init() {
     monthPicker.addEventListener('change', () => {
       console.log(`Month changed to: ${monthPicker.value}`);
       transactionUI.render(monthPicker.value);
+      expensesUI.render(monthPicker.value);
       refreshDashboard();
     });
   }
@@ -94,8 +95,8 @@ async function init() {
       });
 
       // Refresh data when switching tabs
-      if (panelId === 'income' || panelId === 'fixed' || panelId === 'variable') await transactionUI.render();
-      if (panelId === 'subs') await subscriptionUI.render();
+      if (panelId === 'income') await transactionUI.render();
+      if (panelId === 'expenses') await expensesUI.render(monthPicker ? monthPicker.value : undefined);
       if (panelId === 'debts') await debtUI.render();
       if (panelId === 'assets') await assetUI.render();
       if (panelId === 'payoff') await renderPayoffPlanner();
@@ -130,7 +131,7 @@ async function init() {
   // Then init all modules
   await categoryUI.init();
   await transactionUI.init();
-  await subscriptionUI.init();
+  await expensesUI.init();
   await debtUI.init();
   await assetUI.init();
   await templateUI.init();

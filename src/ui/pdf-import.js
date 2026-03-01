@@ -1,6 +1,6 @@
 import { safeHTML, sanitize } from './render.js';
 import { extractTextFromPdf, parsers } from '../utils/pdf-parser.js';
-import { findDuplicates, suggestCategory, categoryRepository, updateCategorizationLearningRule, incomeRepository, variableSpendRepository, fixedSpendRepository } from '../db/repository.js';
+import { findDuplicates, suggestCategory, categoryRepository, updateCategorizationLearningRule, incomeRepository, recurrentExpenseRepository, oneOffExpenseRepository } from '../db/repository.js';
 import { formatGBP, toPence } from '../utils/currency.js';
 
 export const pdfImportUI = {
@@ -345,12 +345,23 @@ export const pdfImportUI = {
       };
 
       if (category.group === 'fixed') {
-        await fixedSpendRepository.add({ ...txData, label: tx.description, status: 'paid' });
+        // 'fixed' category group -> recurrent expense (imported as essential, monthly by default)
+        await recurrentExpenseRepository.add({
+          ...txData,
+          label: tx.description,
+          status: 'paid',
+          frequency: 'monthly',
+          nextDate: tx.date,
+          isEssential: true,
+          cycleTotal: 0,
+          cycleCurrent: 0
+        });
       } else if (category.group === 'variable') {
-        await variableSpendRepository.add({ ...txData, note: tx.description });
+        // 'variable' category group -> one-off expense
+        await oneOffExpenseRepository.add({ ...txData, note: tx.description });
       } else {
-          // Fallback if income mapping
-          await incomeRepository.add({ ...txData, source: tx.description });
+        // Fallback if income mapping
+        await incomeRepository.add({ ...txData, source: tx.description });
       }
       
       learningData.push({ description: tx.description, categoryId: tx.categoryId });
