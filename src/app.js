@@ -12,6 +12,7 @@ import { backupUI } from './ui/backup';
 import { renderDashboard } from './ui/dashboard';
 import { renderPayoffPlanner } from './ui/payoff';
 import { initPWA, installApp, checkExportReminder } from './ui/pwa-ux';
+import { pdfImportUI } from './ui/pdf-import';
 
 /**
  * Main application entry point.
@@ -46,6 +47,8 @@ async function init() {
       renderDashboard('summaryGrid', viewSelect.value, monthPicker.value);
     }
   };
+
+  window.app = { renderAll: refreshDashboard };
 
   if (monthPicker) {
     if (!monthPicker.value) {
@@ -120,14 +123,26 @@ async function init() {
   await assetUI.init();
   await templateUI.init();
   await backupUI.init();
+  await pdfImportUI.init();
 
   // Initial dashboard render
   refreshDashboard();
 
-  // 6. Install App button
+  // 6. Install App button & PDF Import
   const installBtn = document.getElementById('installAppBtn');
   if (installBtn) {
     installBtn.addEventListener('click', () => installApp());
+  }
+
+  const pdfInput = document.getElementById('pdfImportFile');
+  if (pdfInput) {
+    pdfInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        pdfImportUI.handleFileUpload(e.target.files[0]);
+        // Reset input to allow selecting same file again
+        e.target.value = '';
+      }
+    });
   }
 
   console.log('Budget App ready');
