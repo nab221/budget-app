@@ -215,23 +215,29 @@ export const incomeRepository = {
 };
 
 /**
- * Fixed Spends Repository
+ * Fixed Spends Repository (deprecated — tables removed in schema v5)
+ * Kept as a no-op stub so any remaining import references don't throw at module load.
  */
 export const fixedSpendRepository = {
-  ...createBaseRepository(db.fixedSpends),
-  async getByMonth(monthStr) {
-    return await db.fixedSpends.where('date').startsWith(monthStr).toArray();
-  }
+  get: async () => null,
+  getAll: async () => [],
+  getByMonth: async () => [],
+  add: async () => {},
+  update: async () => {},
+  delete: async () => {}
 };
 
 /**
- * Variable Spends Repository
+ * Variable Spends Repository (deprecated — tables removed in schema v5)
+ * Kept as a no-op stub so any remaining import references don't throw at module load.
  */
 export const variableSpendRepository = {
-  ...createBaseRepository(db.variableSpends),
-  async getByMonth(monthStr) {
-    return await db.variableSpends.where('date').startsWith(monthStr).toArray();
-  }
+  get: async () => null,
+  getAll: async () => [],
+  getByMonth: async () => [],
+  add: async () => {},
+  update: async () => {},
+  delete: async () => {}
 };
 
 /**

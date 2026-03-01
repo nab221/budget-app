@@ -1,4 +1,4 @@
-import { recurringTemplateRepository, fixedSpendRepository, incomeRepository, categoryRepository } from '../db/repository.js';
+import { recurringTemplateRepository, recurrentExpenseRepository, incomeRepository, categoryRepository } from '../db/repository.js';
 import { formatGBP as formatCurrency, toPence } from '../utils/currency.js';
 import { safeHTML } from './render.js';
 
@@ -175,12 +175,17 @@ export const templateUI = {
 
     for (const tpl of toGenerate) {
       if (tpl.type === 'fixed') {
-        await fixedSpendRepository.add({
+        await recurrentExpenseRepository.add({
           date,
           categoryId: tpl.categoryId,
           label: tpl.name,
           amount: tpl.amount / 100, // Repository expects float for currency.js toPence
-          status: 'pending'
+          status: 'pending',
+          frequency: 'monthly',
+          nextDate: date,
+          isEssential: true,
+          cycleTotal: 0,
+          cycleCurrent: 0
         });
       } else if (tpl.type === 'income') {
         await incomeRepository.add({
