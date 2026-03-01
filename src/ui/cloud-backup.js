@@ -22,11 +22,11 @@ import {
   oneDriveUpload, oneDriveDownload,
   isOneDriveConnected
 } from '../utils/onedrive.js';
+import { CLOUD_LAST_BACKUP_KEY } from '../utils/storage.js';
 
 // --- Constants ---
 
 const CLOUD_ACCOUNT_KEY = 'cloud_account_email';
-const CLOUD_LAST_BACKUP_KEY = 'cloud_last_backup';
 
 // --- Private helpers ---
 
