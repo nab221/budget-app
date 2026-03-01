@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calcMinPayment, simulatePayoff, modelBalanceTransfer } from './finance';
+import { calcMinPayment, simulatePayoff, modelBalanceTransfer, calculateBalanceChain } from './finance';
 
 describe('Finance Utilities', () => {
   describe('calcMinPayment', () => {
@@ -101,6 +101,166 @@ describe('Finance Utilities', () => {
 
       // With 20% APR: max(1% + interest=2667, 2.25%=2250, floor=500)
       expect(calcMinPayment(balance, apr, 0, refDate, promoEndDate)).toBe(2667);
+    });
+  });
+
+  describe('calculateBalanceChain', () => {
+    // ---------------------------------------------------------------------------
+    // Helper to build injected deps for calculateBalanceChain
+    // ---------------------------------------------------------------------------
+
+    /**
+     * Build a deps object for calculateBalanceChain.
+     * @param {Object} data - { income: {[month]: Array}, recurrent: {[month]: Array}, oneOff: {[month]: Array} }
+     * @param {number|null} openingBalCatId - The category id that signals an "Opening Balance" entry.
+     * @param {Array} savedSnapshots - Output array into which saved snapshots are pushed.
+     */
+    function makeDeps(data, openingBalCatId, savedSnapshots = []) {
+      return {
+        getIncome: async (month) => data.income?.[month] ?? [],
+        getRecurrent: async (month) => data.recurrent?.[month] ?? [],
+        getOneOff: async (month) => data.oneOff?.[month] ?? [],
+        getOpeningBalCatId: async () => openingBalCatId,
+        saveSnapshot: async (snap) => { savedSnapshots.push({ ...snap }); return savedSnapshots.length; }
+      };
+    }
+
+    it('returns one snapshot per month between startDate and current+horizon', async () => {
+      // Use a past startDate so the range is deterministic
+      // horizonMonths=0 means only up to the current month
+      const startDate = '2026-01-01'; // 2 months before March 2026
+      const saved = [];
+      const deps = makeDeps({}, null, saved);
+
+      const result = await calculateBalanceChain(startDate, 0, deps);
+
+      // Should have Jan 2026, Feb 2026, Mar 2026 (today per memory context is 2026-03-01)
+      expect(result.length).toBeGreaterThanOrEqual(3);
+      expect(result[0].month).toBe('2026-01');
+    });
+
+    it('calculates closing = opening + income - expenses for a simple month', async () => {
+      const saved = [];
+      const deps = makeDeps(
+        {
+          income: { '2026-01': [{ amount: 300000, categoryId: 99 }] }, // £3000 salary
+          recurrent: { '2026-01': [{ amount: 100000 }] },               // £1000 bills
+          oneOff: { '2026-01': [{ amount: 50000 }] }                    // £500 groceries
+        },
+        null, // no opening balance category
+        saved
+      );
+
+      const result = await calculateBalanceChain('2026-01', 0, deps);
+      const jan = result.find(s => s.month === '2026-01');
+
+      expect(jan).toBeDefined();
+      expect(jan.incomeTotal).toBe(300000);
+      expect(jan.expenseTotal).toBe(150000);
+      expect(jan.closingBalance).toBe(150000); // 0 + 300000 - 150000
+    });
+
+    it('seeds opening balance from the Opening Balance category entry', async () => {
+      const OPENING_CAT_ID = 42;
+      const saved = [];
+      const deps = makeDeps(
+        {
+          income: {
+            '2026-01': [
+              { amount: 500000, categoryId: OPENING_CAT_ID }, // £5000 account balance seed
+              { amount: 200000, categoryId: 1 }               // £2000 regular salary
+            ]
+          },
+          recurrent: { '2026-01': [{ amount: 100000 }] },
+          oneOff: {}
+        },
+        OPENING_CAT_ID,
+        saved
+      );
+
+      const result = await calculateBalanceChain('2026-01', 0, deps);
+      const jan = result.find(s => s.month === '2026-01');
+
+      // openingBalance = 500000 (from Opening Balance entry)
+      // incomeTotal = 200000 (salary only; Opening Balance entry excluded)
+      // expenseTotal = 100000
+      // closingBalance = 500000 + 200000 - 100000 = 600000
+      expect(jan.openingBalance).toBe(500000);
+      expect(jan.incomeTotal).toBe(200000);
+      expect(jan.closingBalance).toBe(600000);
+    });
+
+    it('correctly carries closing balance forward as opening balance for next month', async () => {
+      const saved = [];
+      const deps = makeDeps(
+        {
+          income: {
+            '2026-01': [{ amount: 200000, categoryId: 1 }],
+            '2026-02': [{ amount: 200000, categoryId: 1 }]
+          },
+          recurrent: {
+            '2026-01': [{ amount: 150000 }],
+            '2026-02': [{ amount: 150000 }]
+          },
+          oneOff: {}
+        },
+        null,
+        saved
+      );
+
+      const result = await calculateBalanceChain('2026-01', 0, deps);
+      const jan = result.find(s => s.month === '2026-01');
+      const feb = result.find(s => s.month === '2026-02');
+
+      // Jan: 0 + 200000 - 150000 = 50000
+      expect(jan.closingBalance).toBe(50000);
+      // Feb: 50000 + 200000 - 150000 = 100000
+      expect(feb.openingBalance).toBe(50000);
+      expect(feb.closingBalance).toBe(100000);
+    });
+
+    it('marks future months as projections and past months as actuals', async () => {
+      const saved = [];
+      const deps = makeDeps({}, null, saved);
+
+      // Start 1 month in the past, horizon 2 months forward
+      const result = await calculateBalanceChain('2026-02', 2, deps);
+
+      const feb = result.find(s => s.month === '2026-02');
+      const may = result.find(s => s.month === '2026-05'); // 2 months after March 2026
+
+      expect(feb.isProjection).toBe(false); // past month
+      expect(may.isProjection).toBe(true);  // future month
+    });
+
+    it('saves a snapshot for every month via saveSnapshot', async () => {
+      const saved = [];
+      const deps = makeDeps({}, null, saved);
+
+      const result = await calculateBalanceChain('2026-01', 0, deps);
+      // One save call per month
+      expect(saved.length).toBe(result.length);
+      // Each saved snapshot has required fields
+      for (const snap of saved) {
+        expect(snap).toHaveProperty('month');
+        expect(snap).toHaveProperty('openingBalance');
+        expect(snap).toHaveProperty('closingBalance');
+        expect(snap).toHaveProperty('incomeTotal');
+        expect(snap).toHaveProperty('expenseTotal');
+      }
+    });
+
+    it('handles months with zero income and zero expenses', async () => {
+      const saved = [];
+      const deps = makeDeps({}, null, saved);
+
+      const result = await calculateBalanceChain('2026-03', 0, deps);
+      const mar = result.find(s => s.month === '2026-03');
+
+      expect(mar.openingBalance).toBe(0);
+      expect(mar.incomeTotal).toBe(0);
+      expect(mar.expenseTotal).toBe(0);
+      expect(mar.closingBalance).toBe(0);
     });
   });
 
