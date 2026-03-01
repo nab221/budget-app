@@ -237,6 +237,7 @@ export const expensesUI = {
 
   /**
    * Populate the category <select> elements inside the Expenses panel.
+   * Preserves the user's current selection while refreshing the option list.
    */
   async populateCategoryDropdowns() {
     const categories = await categoryRepository.getCategories();
@@ -244,10 +245,12 @@ export const expensesUI = {
     const fillSelect = (id) => {
       const el = document.getElementById(id);
       if (!el) return;
-      // Only repopulate if empty (avoid resetting user choice)
-      if (el.options.length > 1) return;
+      // Remember the current selection before repopulating
+      const currentVal = el.value;
       el.innerHTML = '<option value="">— Category —</option>' +
         categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+      // Restore selection if it still exists
+      if (currentVal) el.value = currentVal;
     };
 
     fillSelect('recCat');
