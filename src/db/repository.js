@@ -37,6 +37,7 @@ export async function triggerBalanceRecalc(date) {
 
     // Run with a 3-month forward horizon (default)
     await calculateBalanceChain(startMonth, 3);
+    window.dispatchEvent(new CustomEvent('app:refresh'));
   } catch (err) {
     console.error('[triggerBalanceRecalc] Failed to recalculate balances:', err);
   }
