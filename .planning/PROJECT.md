@@ -1,80 +1,58 @@
 # Project: Budget App
 
 ## Current State
-- **Latest Version**: v1.2 (Daily Cash Flow Engine)
-- **Status**: Milestone v1.3 Planning.
-- **Key Features**: Offline-first, IndexedDB, UK Bank PDF Import, Cloud Backup, Debt Payoff Planner, 90-day Daily Cash Flow Forecast.
+- **Latest Version**: v1.3 (Enhanced Debt Management)
+- **Status**: Completed Milestone v1.3. Ready for next milestone.
+- **Key Features**: Offline-first, UK Bank PDF Summary Extraction, Automated Debt Payment Tracking, 90-day Daily Cash Flow Forecast, Cloud Backup (GDrive/OneDrive).
 
-## Next Milestone: v1.3
-- **Goal**: Enhanced Debt Management.
-- **Planned Features**: 
-  - Comprehensive statement tracking (opening/closing/min payment).
-  - Automatic recurring expense creation for debt payments.
-  - PDF statement summary extraction.
-  - Actual payment confirmation workflow.
-  - Full integration with cash flow forecast.
+## Next Milestone: TBD
+- **Goal**: TBD
+- **Status**: Run `/gsd:new-milestone` to define.
 
 ---
+
+<details>
+<summary>Milestone History</summary>
+
+### v1.3: Enhanced Debt Management (2026-03-02)
+- Implemented Schema v11 for statement lifecycle.
+- Added automated "Min Payment" recurrent expense generation.
+- Built multi-strategy PDF summary extractor (Lloyds, NW, Amex, etc.).
+- specialized "Mark Paid" workflow for debt validation.
+- Integrated debt obligations into 90-day cash flow forecast.
+
+### v1.2: Daily Cash Flow Engine (2026-03-02)
+- Implemented daily balance forecasting.
+- Added UK bank holiday and weekend date adjustments.
+- Built interactive 90-day balance trend charts.
+- Added low-balance critical alerts.
+
+### v1.1: UX Refinement & CRUD Hardening
+- Unified Expenses tab with sub-views.
+- Cycle tracking for recurrent items.
+- Search and category filtering.
+
+### v1.0: Modular Rebuild & Foundation
+- Full rebuild from monolith to ES6 modules.
+- Core budget entities (Income, Expenses, Debts, Assets).
+- Payoff planner and budget targets.
+- PDF transaction import.
+- Encrypted export/import.
+
+</details>
 
 <details>
 <summary>Initial Requirements & Context (v1.0 Rebuild)</summary>
 
 ## What This Is
-
-A personal budget tracking web app — a full rebuild of a buggy AI-generated prototype — designed for a UK-based user and their partner. It runs entirely in the browser (no server required), stores data locally via IndexedDB, and is installable as a PWA on desktop and mobile. GBP is the primary currency; foreign currency accounts are tracked separately and kept out of the main budget.
-
-## Core Value
-
-A clear, reliable view of where the money goes each month — income vs fixed vs variable spending, debt progress, and net worth — all in one place, accessible on any device.
-
-## Requirements (v1.0)
-
-### Validated
-
-- ✓ Dashboard with income, fixed/variable expenses, net position, subscriptions, total debt, total assets, net worth, and fixed-to-income ratio
-- ✓ Income tracking
-- ✓ Fixed and variable spending tabs
-- ✓ Subscriptions tab with monthly-equivalent calculation
-- ✓ Credit card & debt tracker with UK minimum payment rules
-- ✓ Payoff planner (Avalanche + Snowball strategies)
-- ✓ Assets snapshot for net-worth tracking
-- ✓ Category management (add/delete/seed)
-- ✓ JSON export/import for backup
-- ✓ Rebuild as clean modular structure (separate HTML/CSS/JS, ES6 modules)
-- ✓ Fix all known bugs
-- ✓ Recurring transaction templates
-- ✓ Charts: spending trends, debt-payoff timeline
-- ✓ Budget targets per category
-- ✓ PDF bank statement import
-- ✓ Balance-transfer modelling
-- ✓ Dark/light theme toggle
-- ✓ PWA manifest
-- ✓ Encrypted export
-- ✓ Debt-free date countdown on dashboard
-- ✓ Google Drive / OneDrive backup integration
-
-### Out of Scope
-
-- Real-time cloud sync
-- Multi-user accounts / authentication
-- Native mobile app (iOS/Android)
-- Mixing foreign currencies into main GBP budget totals
-- Server-side processing
-
-## Context
-
-- Existing codebase: `budget-app.html` (796-line monolith, vanilla JS + Dexie.js 4.0.8)
-- UK-based user; GBP primary currency; also holds accounts in BRL, EUR, USD
-- App currently opened as a local HTML file; goal is GitHub Pages or similar static hosting + PWA install
+A personal budget tracking web app — a full rebuild of a buggy AI-generated prototype — designed for a UK-based user and their partner. It runs entirely in the browser (no server required), stores data locally via IndexedDB, and is installable as a PWA on desktop and mobile.
 
 ## Constraints
-
 - **No server**: Must remain fully client-side; all data in IndexedDB
-- **Tech stack**: Vanilla JS; Dexie.js for IndexedDB
 - **Offline**: Must work fully offline after first load (PWA requirement)
-- **Compatibility**: Chrome, Edge, Firefox, Safari (modern versions)
+- **Tech stack**: Vanilla JS; Dexie.js for IndexedDB
 
 </details>
 
 ---
-*Last updated: 2026-03-02 after v1.2 milestone completion*
+*Last updated: 2026-03-02 after v1.3 milestone completion*
