@@ -1,41 +1,59 @@
-# Roadmap: Budget App v1.1 (UX Refinement)
+# Roadmap: Budget App v1.2 (Daily Cash Flow Engine)
 
 ## Overview
-This milestone focuses on addressing usability gaps and UI feedback identified in v1.0. It improves the core experience of tracking and managing transactions while adding missing CRUD and filtering capabilities.
+This milestone introduces the Daily Cash Flow Engine, providing a 90-day forward prediction of daily balances. It incorporates intelligent UK Bank Holiday and weekend logic, auto-generation of expected income, and new UI components for visualizing the financial forecast.
 
 ## Phases
 
-- [ ] **Phase 14: UI Polish & Layout** - Improve overall spacing, "clamping" issues, and reorder the dashboard balance panel.
-- [ ] **Phase 15: Core CRUD & Filtering** - Add edit support, real-time search, and category filtering for income and expenses.
-- [ ] **Phase 16: Advanced Utilities** - Implement initial balance settings and manual template triggers.
+- [ ] **Phase 17: Schema & UK Bank Holidays** - Data foundation including Schema v10, migrations, and UK Bank Holiday integration.
+- [ ] **Phase 18: Forecast Logic** - The core 90-day day-by-day iteration engine with weekend and holiday adjustment logic.
+- [ ] **Phase 19: Expected Income Integration** - Historical pattern recognition for auto-generating expected income.
+- [ ] **Phase 20: Cash Flow Experience** - User-facing components including the Planner tab, Dashboard chart, and low-balance warnings.
 
 ---
 
 ## Phase Details
 
-### Phase 14: UI Polish & Layout
-**Goal**: Address visual "tightness" and reorder the balance panel for better logical flow.
-**Requirements**: UX-01.1, UX-01.2, UX-01.3, CTRL-01.3, CTRL-01.4
+### Phase 17: Schema & UK Bank Holidays
+**Goal**: Build the data foundation for daily snapshots and external holiday awareness.
+**Depends on**: Phase 16
+**Requirements**: SCHEMA-01.1, SCHEMA-01.2, SCHEMA-01.3, SCHEMA-01.4, SCHEMA-01.5
 **Success Criteria**:
-  1. All tables show consistent padding and row height, with no text overlapping.
-  2. Summary cards and dashboard items have increased visual breathing room.
-  3. Dashboard balance panel displays: Running Balance → Next Month Forecast → 3-Month Forecast.
-  4. Next Month Forecast card has a consistent appearance with the other balance cards.
+  1. Database includes `dailyBalanceSnapshots`, `expectedIncome`, and `bankHolidayOverrides` tables.
+  2. UK Bank Holidays are successfully fetched from the `gov.uk` API on initial load.
+  3. Holiday data is cached locally, allowing the engine to function fully offline.
+  4. Repositories in `src/db/repository.js` support CRUD for new tables.
 
-### Phase 15: Core CRUD & Filtering
-**Goal**: Provide users with better control over their data and easier ways to find specific entries.
-**Requirements**: CRUD-01.1, CRUD-01.2, CRUD-01.3, CRUD-01.4, FILT-01.1, FILT-01.2, FILT-01.3
-**Success Criteria**:
-  1. Users can edit income, recurrent expenses, one-off expenses, and debt statements.
-  2. Editing a row prepopulates the entry form and toggles it to "Update" mode.
-  3. Real-time text search and category filtering are functional in the Income and Expenses tabs.
+**Plans**:
+- [ ] 17-01-PLAN.md — Schema v10 & Repositories
+- [ ] 17-02-PLAN.md — UK Bank Holiday Utility & Caching
 
-### Phase 16: Advanced Utilities
-**Goal**: Add power-user features for initial setup and recurring data entry.
-**Requirements**: CTRL-01.1, CTRL-01.2
+### Phase 18: Forecast Logic
+**Goal**: Implement the core engine for calculating daily financial projections.
+**Depends on**: Phase 17
+**Requirements**: FORC-01.1, FORC-01.2, FORC-01.3
 **Success Criteria**:
-  1. Users can set an initial opening balance amount for their balance start month in Settings.
-  2. A "Call Templates" button exists in the Expenses tab to manually trigger the recurring template prompt for the current month.
+  1. A 90-day daily balance sequence is generated starting from today.
+  2. Projected expenses falling on Saturdays, Sundays, or Bank Holidays are shifted to the next working day.
+  3. The `src/utils/cashflow.js` utility correctly iterates days using the formula: `opening + income - expenses = closing`.
+
+### Phase 19: Expected Income Integration
+**Goal**: Reduce manual data entry by predicting income based on historical patterns.
+**Depends on**: Phase 18
+**Requirements**: INC-01.1, INC-01.2
+**Success Criteria**:
+  1. System suggests "Expected Income" entries based on recurring historical transactions.
+  2. Users can manage, override, and manually add expected income in a new dedicated UI.
+  3. Expected income is incorporated into the 90-day daily forecast.
+
+### Phase 20: Cash Flow Experience
+**Goal**: Provide clear visibility of future financial health to the user.
+**Depends on**: Phase 19
+**Requirements**: UI-01.1, UI-01.2, UI-01.3, UI-01.4
+**Success Criteria**:
+  1. A "Cash Flow Planner" tab allows the user to browse the 90-day daily breakdown.
+  2. The main Dashboard features a line chart visualizing the 90-day balance trend.
+  3. "Critical Date Warnings" highlight dates where the predicted balance is negative or below a set threshold.
 
 ---
 
@@ -43,9 +61,10 @@ This milestone focuses on addressing usability gaps and UI feedback identified i
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 14. UI Polish & Layout | 2/2 | Done | — |
-| 15. Core CRUD & Filtering | 3/3 | Done | — |
-| 16. Advanced Utilities | 1/1 | Done | — |
+| 17. Schema & UK Bank Holidays | 0/2 | Not started | — |
+| 18. Forecast Logic | 0/2 | Not started | — |
+| 19. Expected Income Integration | 0/2 | Not started | — |
+| 20. Cash Flow Experience | 0/3 | Not started | — |
 
 ---
-*Last updated: 2026-03-01 after v1.0 milestone completion*
+*Last updated: 2026-03-02*
