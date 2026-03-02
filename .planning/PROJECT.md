@@ -2,17 +2,23 @@
 
 ## Current State
 - **Latest Version**: v1.3 (Enhanced Debt Management)
-- **Status**: Completed Milestone v1.3. Ready for next milestone.
+- **Status**: Starting Milestone v1.4: Local File Persistence.
 - **Key Features**: Offline-first, UK Bank PDF Summary Extraction, Automated Debt Payment Tracking, 90-day Daily Cash Flow Forecast, Cloud Backup (GDrive/OneDrive).
 
-## Next Milestone: TBD
-- **Goal**: TBD
-- **Status**: Run `/gsd:new-milestone` to define.
+## Next Milestone: v1.4 Local File Persistence
+- **Goal**: Enable direct sync between IndexedDB and a local file via File System Access API.
+- **Status**: Roadmap Created. Ready for Phase 1.
 
 ---
 
 <details>
 <summary>Milestone History</summary>
+
+### v1.4: Local File Persistence (Active)
+- Refactoring database mutations to repository.
+- File System Handle utility.
+- Debounced auto-save logic.
+- Cloud-sync folder resilience.
 
 ### v1.3: Enhanced Debt Management (2026-03-02)
 - Implemented Schema v11 for statement lifecycle.
@@ -55,4 +61,4 @@ A personal budget tracking web app — a full rebuild of a buggy AI-generated pr
 </details>
 
 ---
-*Last updated: 2026-03-02 after v1.3 milestone completion*
+*Last updated: 2026-03-02 (v1.4 Initialization)*

@@ -291,7 +291,335 @@ input[type="number"]{text-align:right}
   </div>
 </div>
 
+<!-- ════════ FILE PICKER MODAL ════════ -->
+<div class="modal-overlay hidden" id="filePickerModal">
+  <div class="modal">
+    <h3>📂 Select Budget File</h3>
+    <div class="hint" style="margin-bottom:12px">
+      To sync across devices, choose a file in your <strong>OneDrive</strong> or <strong>Dropbox</strong> folder.
+      Auto-save is only available on desktop Chrome and Edge.
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button id="openFileBtn" class="primary" style="justify-content:center;padding:12px">Open Existing Budget File</button>
+      <button id="createFileBtn" class="ghost" style="justify-content:center;padding:12px">Create New Budget File</button>
+    </div>
+  </div>
+</div>
+
 <script>
+// ═══════════════════════════════════════════════
+// FILE SYSTEM PERSISTENCE (Milestone v1.4)
+// ═══════════════════════════════════════════════
+let fileHandle = null;
+let saveTimeout = null;
+
+/**
+ * Native IndexedDB for file handle storage (Dexie has serialization issues with handles).
+ */
+const HandleStore = {
+  dbName: 'BudgetFileHandles',
+  storeName: 'handles',
+  key: 'currentFile',
+
+  async get() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(this.dbName, 1);
+      request.onupgradeneeded = () => request.result.createObjectStore(this.storeName);
+      request.onsuccess = () => {
+        const db = request.result;
+        const tx = db.transaction(this.storeName, 'readonly');
+        const req = tx.objectStore(this.storeName).get(this.key);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  },
+
+  async set(handle) {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(this.dbName, 1);
+      request.onupgradeneeded = () => request.result.createObjectStore(this.storeName);
+      request.onsuccess = () => {
+        const db = request.result;
+        const tx = db.transaction(this.storeName, 'readwrite');
+        const req = tx.objectStore(this.storeName).put(handle, this.key);
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  },
+
+  async clear() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(this.dbName, 1);
+      request.onsuccess = () => {
+        const db = request.result;
+        const tx = db.transaction(this.storeName, 'readwrite');
+        const req = tx.objectStore(this.storeName).delete(this.key);
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  }
+};
+
+/**
+ * Debounce auto-save to file.
+ */
+function scheduleAutoSave() {
+  if (!fileHandle) return;
+  clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(saveToFile, 500);
+}
+
+/**
+ * Save current database state to the selected file.
+ */
+async function saveToFile() {
+  if (!fileHandle) return;
+  try {
+    // Check permission
+    const perm = await fileHandle.queryPermission({ mode: 'readwrite' });
+    if (perm !== 'granted') {
+      const newPerm = await fileHandle.requestPermission({ mode: 'readwrite' });
+      if (newPerm !== 'granted') throw new Error('Permission denied');
+    }
+
+    const payload = {
+      meta: { version: 2, exportedAt: new Date().toISOString() },
+      income: await db.income.toArray(),
+      fixedSpends: await db.fixedSpends.toArray(),
+      variableSpends: await db.variableSpends.toArray(),
+      subscriptions: await db.subscriptions.toArray(),
+      debts: await db.debts.toArray(),
+      statements: await db.statements.toArray(),
+      assets: await db.assets.toArray(),
+      categories: await db.categories.toArray()
+    };
+
+    const writable = await fileHandle.createWritable();
+    await writable.write(JSON.stringify(payload, null, 2));
+    await writable.close();
+    updateSaveStatus('✓ Saved', 2000);
+  } catch (err) {
+    console.error('Save failed:', err);
+    updateSaveStatus('⚠ Offline / Error', 0);
+  }
+}
+
+/**
+ * Load data from file and handle merge/overwrite.
+ */
+async function loadFromFile(handle) {
+  try {
+    const file = await handle.getFile();
+    const content = await file.text();
+    if (!content.trim()) return; // New file
+
+    const data = JSON.parse(content);
+    const localCount = await db.income.count() + await db.fixedSpends.count() + await db.debts.count();
+
+    if (localCount > 0) {
+      const choice = confirm('File contains data. Overwrite local data? (Cancel to Merge)');
+      if (choice) {
+        await Promise.all([db.income.clear(),db.fixedSpends.clear(),db.variableSpends.clear(),
+          db.subscriptions.clear(),db.debts.clear(),db.statements.clear(),db.assets.clear(),db.categories.clear()]);
+      }
+    }
+
+    const strip = arr => (arr || []).map(({id, ...rest}) => rest);
+    await db.income.bulkAdd(strip(data.income));
+    await db.fixedSpends.bulkAdd(strip(data.fixedSpends));
+    await db.variableSpends.bulkAdd(strip(data.variableSpends));
+    await db.subscriptions.bulkAdd(strip(data.subscriptions));
+    await db.debts.bulkAdd(strip(data.debts));
+    await db.statements.bulkAdd(strip(data.statements));
+    await db.assets.bulkAdd(strip(data.assets));
+    await db.categories.bulkAdd(strip(data.categories));
+
+    fileHandle = handle;
+    await HandleStore.set(handle);
+    refreshAll();
+    updateToolbar();
+  } catch (err) {
+    alert('Failed to load file: ' + err.message);
+  }
+}
+
+/**
+ * Update the save status indicator.
+ */
+let statusTimeout = null;
+function updateSaveStatus(text, duration) {
+  const el = document.getElementById('saveStatus');
+  if (!el) return;
+  el.textContent = text;
+  el.className = text.includes('✓') ? 'green' : 'red';
+  clearTimeout(statusTimeout);
+  if (duration > 0) {
+    statusTimeout = setTimeout(() => { el.textContent = ''; }, duration);
+  }
+}
+
+/**
+ * Initialize file system persistence.
+ */
+async function initPersistence() {
+  if (!('showOpenFilePicker' in window)) {
+    console.log('File System Access API not supported');
+    updateToolbar();
+    return;
+  }
+
+  try {
+    const savedHandle = await HandleStore.get();
+    if (savedHandle) {
+      // Verify permission
+      const perm = await savedHandle.queryPermission({ mode: 'readwrite' });
+      if (perm === 'granted') {
+        fileHandle = savedHandle;
+      } else {
+        // We have a handle but need to re-request permission via user gesture
+        // We'll show a "Reconnect" button in the toolbar
+        fileHandle = savedHandle;
+      }
+    } else {
+      // First launch or reset: show picker modal
+      document.getElementById('filePickerModal').classList.remove('hidden');
+    }
+  } catch (err) {
+    console.error('Persistence init failed:', err);
+  }
+  updateToolbar();
+}
+
+/**
+ * Update the header toolbar based on persistence state.
+ */
+function updateToolbar() {
+  const toolbar = document.querySelector('.toolbar');
+  const isSupported = 'showOpenFilePicker' in window;
+
+  if (!isSupported) {
+    toolbar.innerHTML = `
+      <div class="hint" style="margin-right:10px">💡 On desktop Chrome/Edge: auto-save available</div>
+      <button id="exportBtn" class="ghost">⬇ Export</button>
+      <label for="importFile" class="ghost" style="cursor:pointer;display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border:1px solid var(--border);border-radius:999px;font-size:inherit">
+        ⬆ Import <input id="importFile" type="file" accept="application/json" class="file-input"/>
+      </label>
+      <button id="resetBtn" class="danger">✖ Reset</button>
+    `;
+    // Re-attach listeners for legacy buttons
+    document.getElementById('exportBtn').onclick = exportData;
+    document.getElementById('importFile').onchange = importData;
+    document.getElementById('resetBtn').onclick = resetData;
+    return;
+  }
+
+  if (fileHandle) {
+    toolbar.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;font-size:.8rem;color:var(--text-soft)">
+        <span>💾 Auto-saving to: <strong>${fileHandle.name}</strong></span>
+        <span id="saveStatus" style="min-width:60px"></span>
+      </div>
+      <button id="changeFileBtn" class="ghost sm">📁 Change File</button>
+      <button id="resetPersistenceBtn" class="danger sm">✖ Reset</button>
+    `;
+    document.getElementById('changeFileBtn').onclick = async () => {
+      await saveToFile();
+      document.getElementById('filePickerModal').classList.remove('hidden');
+    };
+    document.getElementById('resetPersistenceBtn').onclick = async () => {
+      if (!confirm('Clear file connection? Data remains in browser.')) return;
+      await HandleStore.clear();
+      fileHandle = null;
+      document.getElementById('filePickerModal').classList.remove('hidden');
+      updateToolbar();
+    };
+  } else {
+    toolbar.innerHTML = `<button onclick="document.getElementById('filePickerModal').classList.remove('hidden')" class="primary sm">📂 Select Budget File</button>`;
+  }
+}
+
+// File Picker Handlers
+document.getElementById('openFileBtn').addEventListener('click', async () => {
+  try {
+    const [handle] = await window.showOpenFilePicker({
+      types: [{ accept: { 'application/json': ['.json'] } }]
+    });
+    await loadFromFile(handle);
+    document.getElementById('filePickerModal').classList.add('hidden');
+  } catch (err) {
+    if (err.name !== 'AbortError') alert(err.message);
+  }
+});
+
+document.getElementById('createFileBtn').addEventListener('click', async () => {
+  try {
+    const handle = await window.showSaveFilePicker({
+      suggestedName: 'budget-data.json',
+      types: [{ accept: { 'application/json': ['.json'] } }]
+    });
+    fileHandle = handle;
+    await HandleStore.set(handle);
+    await saveToFile();
+    document.getElementById('filePickerModal').classList.add('hidden');
+    updateToolbar();
+  } catch (err) {
+    if (err.name !== 'AbortError') alert(err.message);
+  }
+});
+
+// Helper functions for toolbar buttons
+async function exportData() {
+  const payload = {
+    meta: { version: 2, exportedAt: new Date().toISOString() },
+    income: await db.income.toArray(),
+    fixedSpends: await db.fixedSpends.toArray(),
+    variableSpends: await db.variableSpends.toArray(),
+    subscriptions: await db.subscriptions.toArray(),
+    debts: await db.debts.toArray(),
+    statements: await db.statements.toArray(),
+    assets: await db.assets.toArray(),
+    categories: await db.categories.toArray()
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'budget-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+async function importData(e) {
+  const file = e.target.files[0]; if (!file) return;
+  let data;
+  try { data = JSON.parse(await file.text()) } catch { alert('Invalid JSON'); return }
+  if (!confirm('Import will merge data into current database. Continue?')) return;
+  const strip = arr => (arr || []).map(({ id, ...rest }) => rest);
+  if (Array.isArray(data.income)) await db.income.bulkAdd(strip(data.income));
+  if (Array.isArray(data.fixedSpends)) await db.fixedSpends.bulkAdd(strip(data.fixedSpends));
+  if (Array.isArray(data.variableSpends)) await db.variableSpends.bulkAdd(strip(data.variableSpends));
+  if (Array.isArray(data.subscriptions)) await db.subscriptions.bulkAdd(strip(data.subscriptions));
+  if (Array.isArray(data.debts)) await db.debts.bulkAdd(strip(data.debts));
+  if (Array.isArray(data.statements)) await db.statements.bulkAdd(strip(data.statements));
+  if (Array.isArray(data.assets)) await db.assets.bulkAdd(strip(data.assets));
+  if (Array.isArray(data.categories)) await db.categories.bulkAdd(strip(data.categories));
+  scheduleAutoSave();
+  refreshAll(); e.target.value = '';
+}
+
+async function resetData() {
+  if (!confirm('Permanently delete ALL data? Export first!')) return;
+  await Promise.all([db.income.clear(), db.fixedSpends.clear(), db.variableSpends.clear(),
+  db.subscriptions.clear(), db.debts.clear(), db.statements.clear(), db.assets.clear(), db.categories.clear()]);
+  scheduleAutoSave();
+  refreshAll();
+}
+
 // ═══════════════════════════════════════════════
 // DATABASE SCHEMA
 // ═══════════════════════════════════════════════
@@ -365,7 +693,10 @@ document.getElementById('seedCatsBtn').addEventListener('click', async ()=>{
   for(const[g,names]of Object.entries(DEFAULT_CATS)){
     for(const n of names){if(!existSet.has(g+'|'+n))toAdd.push({group:g,name:n})}
   }
-  if(toAdd.length)await db.categories.bulkAdd(toAdd);
+  if(toAdd.length) {
+    await db.categories.bulkAdd(toAdd);
+    scheduleAutoSave();
+  }
   refreshAll();
 });
 
@@ -374,6 +705,7 @@ document.getElementById('addCatBtn').addEventListener('click', async ()=>{
   const name=document.getElementById('catName').value.trim();
   if(!name)return;
   await db.categories.add({group,name});
+  scheduleAutoSave();
   document.getElementById('catName').value='';
   refreshAll();
 });
@@ -394,7 +726,7 @@ async function renderCategories(){
     if(cur&&[...sel.options].some(o=>o.value===cur))sel.value=cur;
   }
 }
-window.deleteCat = async id=>{await db.categories.delete(id);refreshAll()};
+window.deleteCat = async id=>{await db.categories.delete(id);scheduleAutoSave();refreshAll()};
 
 // ═══════════════════════════════════════════════
 // INCOME
@@ -405,6 +737,7 @@ document.getElementById('addIncBtn').addEventListener('click', async ()=>{
   const amount=parseFloat(document.getElementById('incAmount').value);
   if(!date||isNaN(amount))return;
   await db.income.add({date,source,amount});
+  scheduleAutoSave();
   document.getElementById('incAmount').value='';
   refreshAll();
 });
@@ -428,6 +761,7 @@ document.getElementById('addFixBtn').addEventListener('click', async ()=>{
   const amount=parseFloat(document.getElementById('fixAmt').value);
   if(!date||isNaN(amount))return;
   await db.fixedSpends.add({date,category,label,status,amount});
+  scheduleAutoSave();
   document.getElementById('fixAmt').value='';
   refreshAll();
 });
@@ -453,6 +787,7 @@ document.getElementById('addVarBtn').addEventListener('click', async ()=>{
   const amount=parseFloat(document.getElementById('varAmt').value);
   if(!date||isNaN(amount))return;
   await db.variableSpends.add({date,category,note,amount});
+  scheduleAutoSave();
   document.getElementById('varAmt').value='';
   refreshAll();
 });
@@ -475,6 +810,7 @@ document.getElementById('addSubBtn').addEventListener('click', async ()=>{
   const method=document.getElementById('subMethod').value;
   if(!name||isNaN(amount))return;
   await db.subscriptions.add({name,amount,frequency,nextDate,method});
+  scheduleAutoSave();
   document.getElementById('subName').value='';document.getElementById('subAmt').value='';
   refreshAll();
 });
@@ -501,6 +837,7 @@ document.getElementById('addDebtBtn').addEventListener('click', async ()=>{
   const minFloor=parseFloat(document.getElementById('debtMinFloor').value)||5;
   if(!name)return;
   await db.debts.add({name,type,limit,apr,minRule,minValue,minFloor});
+  scheduleAutoSave();
   document.getElementById('debtName').value='';document.getElementById('debtLimit').value='';document.getElementById('debtAPR').value='';
   refreshAll();
 });
@@ -589,6 +926,7 @@ document.getElementById('saveStmtBtn').addEventListener('click', async ()=>{
   if(isNaN(closeBal))closeBal=openBal+purchases-payments+interest+fees;
   const notes=document.getElementById('stmtNotes').value.trim();
   await db.statements.add({debtId:currentDebtId,month,openBal,purchases,payments,interest,fees,closeBal,notes});
+  scheduleAutoSave();
   document.getElementById('stmtModal').classList.add('hidden');
   refreshAll();
 });
@@ -601,7 +939,7 @@ async function renderStmtHistory(debtId){
     <table class="tbl"><thead><tr><th>Month</th><th class="r">Open</th><th class="r">Purchases</th><th class="r">Paid In</th><th class="r">Interest</th><th class="r">Fees</th><th class="r">Close</th><th></th></tr></thead>
     <tbody>${stmts.map(s=>`<tr><td>${fmtMonth(s.month)}</td><td class="r">${£(s.openBal)}</td><td class="r">${£(s.purchases)}</td><td class="r green">${£(s.payments)}</td><td class="r red">${£(s.interest)}</td><td class="r">${£(s.fees)}</td><td class="r">${£(s.closeBal)}</td><td><button class="ghost danger sm" onclick="delStmt(${s.id})">✕</button></td></tr>`).join('')}</tbody></table>`;
 }
-window.delStmt = async id=>{await db.statements.delete(id);if(currentDebtId)await renderStmtHistory(currentDebtId);refreshAll()};
+window.delStmt = async id=>{await db.statements.delete(id);scheduleAutoSave();if(currentDebtId)await renderStmtHistory(currentDebtId);refreshAll()};
 
 // ═══════════════════════════════════════════════
 // PAYOFF PLANNER (Snowball vs Avalanche)
@@ -698,6 +1036,7 @@ document.getElementById('addAstBtn').addEventListener('click', async ()=>{
   const asOf=document.getElementById('astDate').value||null;
   if(!name||isNaN(amount))return;
   await db.assets.add({name,amount,asOf});
+  scheduleAutoSave();
   document.getElementById('astName').value='';document.getElementById('astAmt').value='';
   refreshAll();
 });
@@ -734,7 +1073,7 @@ async function renderSummary(totalIncome,totalFixed,totalVar,totalSubs,totalDebt
 // ═══════════════════════════════════════════════
 // GENERIC DELETE
 // ═══════════════════════════════════════════════
-window.del = async (table,id)=>{await db[table].delete(id);refreshAll()};
+window.del = async (table,id)=>{await db[table].delete(id);scheduleAutoSave();refreshAll()};
 
 // ═══════════════════════════════════════════════
 // REFRESH ALL
@@ -776,6 +1115,7 @@ document.getElementById('importFile').addEventListener('change', async e=>{
   if(Array.isArray(data.statements))await db.statements.bulkAdd(strip(data.statements));
   if(Array.isArray(data.assets))await db.assets.bulkAdd(strip(data.assets));
   if(Array.isArray(data.categories))await db.categories.bulkAdd(strip(data.categories));
+  scheduleAutoSave();
   refreshAll();e.target.value='';
 });
 
@@ -783,6 +1123,7 @@ document.getElementById('resetBtn').addEventListener('click', async ()=>{
   if(!confirm('Permanently delete ALL data? Export first!'))return;
   await Promise.all([db.income.clear(),db.fixedSpends.clear(),db.variableSpends.clear(),
     db.subscriptions.clear(),db.debts.clear(),db.statements.clear(),db.assets.clear(),db.categories.clear()]);
+  scheduleAutoSave();
   refreshAll();
 });
 
@@ -791,6 +1132,7 @@ document.getElementById('resetBtn').addEventListener('click', async ()=>{
 // ═══════════════════════════════════════════════
 initPeriod();
 refreshAll();
+initPersistence();
 </script>
 </body>
 </html>

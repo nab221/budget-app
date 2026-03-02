@@ -4,6 +4,20 @@ import { findBestMatch } from '../utils/string-similarity.js';
 import { calculateTopUp, getEntitlementPeriod, calculateFundingGap } from '../utils/childcare.js';
 
 // ---------------------------------------------------------------------------
+// Sync trigger hook
+// ---------------------------------------------------------------------------
+
+/**
+ * Trigger an automatic file-based synchronization.
+ * This is a no-op until the SyncManager is initialized in Phase 3.
+ */
+export function triggerSync() {
+  if (window.scheduleAutoSave) {
+    window.scheduleAutoSave();
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Balance recalculation trigger
 // ---------------------------------------------------------------------------
 
@@ -271,7 +285,9 @@ const createBaseRepository = (table, amountFields = ['amount']) => ({
         toSave[field] = toPence(toSave[field]);
       }
     }
-    return await table.add(toSave);
+    const id = await table.add(toSave);
+    triggerSync();
+    return id;
   },
 
   async update(id, data) {
@@ -281,11 +297,36 @@ const createBaseRepository = (table, amountFields = ['amount']) => ({
         toUpdate[field] = toPence(toUpdate[field]);
       }
     }
-    return await table.update(id, toUpdate);
+    const result = await table.update(id, toUpdate);
+    triggerSync();
+    return result;
   },
 
   async delete(id) {
-    return await table.delete(id);
+    const result = await table.delete(id);
+    triggerSync();
+    return result;
+  },
+
+  async bulkAdd(items) {
+    const toAdd = items.map(item => {
+      const formatted = { ...item };
+      for (const field of amountFields) {
+        if (formatted[field] !== undefined) {
+          formatted[field] = toPence(formatted[field]);
+        }
+      }
+      return formatted;
+    });
+    const result = await table.bulkAdd(toAdd);
+    triggerSync();
+    return result;
+  },
+
+  async clear() {
+    const result = await table.clear();
+    triggerSync();
+    return result;
   }
 });
 
@@ -302,6 +343,7 @@ export const incomeRepository = {
     const id = await db.income.add(toSave);
     triggerBalanceRecalc(toSave.date).catch(() => {}); // fire-and-forget
     triggerDailyForecastRecalc(toSave.date).catch(() => {});
+    triggerSync();
     return id;
   },
 
@@ -316,6 +358,7 @@ export const incomeRepository = {
       triggerBalanceRecalc(dateForRecalc).catch(() => {});
       triggerDailyForecastRecalc(dateForRecalc).catch(() => {});
     }
+    triggerSync();
     return 1;
   },
 
@@ -327,6 +370,7 @@ export const incomeRepository = {
       triggerBalanceRecalc(record.date).catch(() => {});
       triggerDailyForecastRecalc(record.date).catch(() => {});
     }
+    triggerSync();
   },
 
   async getByMonth(monthStr) {
@@ -434,6 +478,7 @@ export const recurrentExpenseRepository = {
       triggerBalanceRecalc(dateForRecalc).catch(() => {});
       triggerDailyForecastRecalc(dateForRecalc).catch(() => {});
     }
+    triggerSync();
     return id;
   },
 
@@ -447,6 +492,7 @@ export const recurrentExpenseRepository = {
       triggerBalanceRecalc(dateForRecalc).catch(() => {});
       triggerDailyForecastRecalc(dateForRecalc).catch(() => {});
     }
+    triggerSync();
     return 1;
   },
 
@@ -459,6 +505,7 @@ export const recurrentExpenseRepository = {
       triggerBalanceRecalc(dateForRecalc).catch(() => {});
       triggerDailyForecastRecalc(dateForRecalc).catch(() => {});
     }
+    triggerSync();
   }
 };
 
@@ -476,6 +523,7 @@ export const oneOffExpenseRepository = {
     const id = await db.oneOffExpenses.add(toSave);
     triggerBalanceRecalc(toSave.date).catch(() => {}); // fire-and-forget
     triggerDailyForecastRecalc(toSave.date).catch(() => {});
+    triggerSync();
     return id;
   },
 
@@ -489,6 +537,7 @@ export const oneOffExpenseRepository = {
       triggerBalanceRecalc(dateForRecalc).catch(() => {});
       triggerDailyForecastRecalc(dateForRecalc).catch(() => {});
     }
+    triggerSync();
     return 1;
   },
 
@@ -500,6 +549,7 @@ export const oneOffExpenseRepository = {
       triggerBalanceRecalc(record.date).catch(() => {});
       triggerDailyForecastRecalc(record.date).catch(() => {});
     }
+    triggerSync();
   },
 
   /**

@@ -29,16 +29,29 @@ That's it. No server, no internet, no installation.
 
 ## Data Storage
 
-- All data is stored locally in your browser's **IndexedDB** database.
-- IndexedDB can hold hundreds of MB — far more than you'll ever need for a budget app.
-- Data persists across browser restarts, but can be lost if you clear site data.
-- **Always export backups** (JSON) regularly using the ⬇ Export button.
+- **Primary Storage**: All data is stored locally in your browser's **IndexedDB** database.
+- **Secondary Storage**: On supported browsers, data is automatically mirrored to a local JSON file (see **File-Based Sync** below).
+- **Persistence**: Data persists across browser restarts, but can be lost if you clear site data.
+- **Backups**: Always export backups (JSON) regularly if not using File-Based Sync.
+
+## File-Based Sync (Automatic)
+
+Budget Console supports the **File System Access API** for a seamless, cloud-synced experience:
+
+1. **How it works**: Select or create a JSON file (e.g., `budget-data.json`) on first launch.
+2. **Auto-save**: Every change you make is automatically saved to this file (with a 500ms debounce).
+3. **Cloud Sync**: By saving the file in your **OneDrive**, **Dropbox**, or **Google Drive** folder, the file is automatically synced across all your devices.
+4. **Browser Support**:
+   - **Supported**: Desktop Chrome, Edge, and Opera (version 86+).
+   - **Unsupported**: Firefox, Safari, and all mobile browsers. These will fall back to manual Export/Import.
 
 ## Export / Import / Reset
 
-- **Export**: downloads a `.json` file with all your data.
-- **Import**: merges a previously exported `.json` file into the current database.
-- **Reset**: permanently deletes all data in the current browser profile for this file.
+- **Export**: Downloads a `.json` file with all your data. Use this for manual backups.
+- **Import**: Merges a previously exported `.json` file into the current database.
+- **Reset**: 
+  - **Manual mode**: Permanently deletes all data in the current browser profile.
+  - **File-Sync mode**: Disconnects the current file handle (data remains in the browser).
 
 ## Fully Offline Mode
 
