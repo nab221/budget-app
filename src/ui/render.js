@@ -14,7 +14,19 @@ export function safeHTML(strings, ...values) {
     return acc + str + val;
   }, '');
   
-  return DOMPurify.sanitize(raw, {
+  // Check if it's a table fragment that DOMPurify might strip
+  const trimmed = raw.trim().toLowerCase();
+  const isTableFragment = 
+    trimmed.startsWith('<tr') || 
+    trimmed.startsWith('<td') || 
+    trimmed.startsWith('<th') || 
+    trimmed.startsWith('<thead') || 
+    trimmed.startsWith('<tbody');
+  
+  const rawToSanitize = isTableFragment ? `<table>${raw}</table>` : raw;
+
+  let sanitized = DOMPurify.sanitize(rawToSanitize, {
+    FORCE_BODY: true,
     ALLOWED_TAGS: [
       'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'br', 'hr', 'ul', 'ol', 'li',
       'b', 'strong', 'i', 'em', 'u', 'span', 'div', 'table', 'thead', 'tbody',
@@ -26,6 +38,14 @@ export function safeHTML(strings, ...values) {
       'style', 'for', 'disabled', 'readonly', 'selected', 'checked', 'onclick', 'href'
     ]
   });
+
+  if (isTableFragment) {
+    // Remove the table wrapper and any tbody that DOMPurify might have added
+    sanitized = sanitized.replace(/^<table>/, '').replace(/<\/table>$/, '');
+    sanitized = sanitized.replace(/^<tbody>/, '').replace(/<\/tbody>$/, '');
+  }
+
+  return sanitized;
 }
 
 /**
