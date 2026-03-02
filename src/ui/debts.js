@@ -218,12 +218,12 @@ export const debtUI = {
     this.toggleDebtForm(true);
   },
 
-  toggleStmtForm(show = true) {
+  async toggleStmtForm(show = true) {
     const container = document.getElementById('stmtFormContainer');
     if (!container) return;
     if (show) {
       container.classList.remove('hidden');
-      this.renderStmtForm();
+      return await this.renderStmtForm();
     } else {
       container.classList.add('hidden');
       this.editingStmtId = null;
@@ -380,28 +380,28 @@ export const debtUI = {
   },
 
   /**
-   * Pre-fills the statement form with extracted PDF data
-   */
-  prefillStatementForm(summary) {
-    this.toggleStmtForm(true);
-    
-    if (summary.statementDate) document.getElementById('stmtDateInput').value = summary.statementDate;
-    if (summary.openingBalance !== null) document.getElementById('stmtOpeningBalanceInput').value = (summary.openingBalance / 100).toFixed(2);
-    if (summary.newBalance !== null) document.getElementById('stmtBalanceInput').value = (summary.newBalance / 100).toFixed(2);
-    if (summary.minimumPayment !== null) document.getElementById('stmtMinPaymentInput').value = (summary.minimumPayment / 100).toFixed(2);
-    if (summary.paymentDueDate) document.getElementById('stmtDueDateInput').value = summary.paymentDueDate;
+ * Pre-fills the statement form with extracted PDF data
+ */
+async prefillStatementForm(summary) {
+  await this.toggleStmtForm(true);
+  
+  if (summary.statementDate) document.getElementById('stmtDateInput').value = summary.statementDate;
+  if (summary.openingBalance !== null) document.getElementById('stmtOpeningBalanceInput').value = (summary.openingBalance / 100).toFixed(2);
+  if (summary.newBalance !== null) document.getElementById('stmtBalanceInput').value = (summary.newBalance / 100).toFixed(2);
+  if (summary.minimumPayment !== null) document.getElementById('stmtMinPaymentInput').value = (summary.minimumPayment / 100).toFixed(2);
+  if (summary.paymentDueDate) document.getElementById('stmtDueDateInput').value = summary.paymentDueDate;
 
-    // Pulse effect to show what was filled
-    const fields = ['stmtDateInput', 'stmtOpeningBalanceInput', 'stmtBalanceInput', 'stmtMinPaymentInput', 'stmtDueDateInput'];
-    fields.forEach(id => {
-      const el = document.getElementById(id);
-      if (el) {
-        el.style.transition = 'background-color 0.5s';
-        el.style.backgroundColor = 'var(--accent-light)';
-        setTimeout(() => el.style.backgroundColor = '', 1500);
-      }
-    });
-  },
+  // Pulse effect to show what was filled
+  const fields = ['stmtDateInput', 'stmtOpeningBalanceInput', 'stmtBalanceInput', 'stmtMinPaymentInput', 'stmtDueDateInput'];
+  fields.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.style.transition = 'background-color 0.5s';
+      el.style.backgroundColor = 'var(--accent-light)';
+      setTimeout(() => el.style.backgroundColor = '', 1500);
+    }
+  });
+},
 
   /**
    * Render the list of debts.

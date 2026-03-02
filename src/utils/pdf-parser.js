@@ -246,7 +246,7 @@ export const parsers = {
  * Returns { statementDate, openingBalance, newBalance, minimumPayment, paymentDueDate }
  */
 export function extractStatementSummary(rows) {
-  const text = rows.map(r => r.map(i => i.text).join(' ')).join('\n');
+  const rowTexts = rows.map(r => r.map(i => i.text).join(' '));
 
   const summary = {
     statementDate: null,
@@ -258,18 +258,25 @@ export function extractStatementSummary(rows) {
 
   // Helper to normalize currency string to pence
   const parseCurrency = (str) => {
-    if (!str) return null;
-    const cleaned = str.replace(/[£,]/g, '').trim();
-    return Math.round(parseFloat(cleaned) * 100);
+    if (str === undefined || str === null) return null;
+    // Clean string: remove symbols, commas, and pipes
+    const cleaned = str.replace(/[£,]|\|/g, '').replace(/\s+/g, '').trim();
+    // Must contain a digit to be valid
+    if (!/\d/.test(cleaned)) return null;
+    const val = parseFloat(cleaned);
+    if (isNaN(val)) return null;
+    return Math.round(val * 100);
   };
 
   // Helper to normalize date string to ISO format (YYYY-MM-DD)
   const parseDate = (str) => {
     if (!str) return null;
-    let d = new Date(str);
+    // Clean string: remove pipes and extra spaces
+    const cleaned = str.replace(/\|/g, '').trim();
+    let d = new Date(cleaned);
     if (isNaN(d.getTime())) {
       // Try DD/MM/YYYY
-      const parts = str.split('/');
+      const parts = cleaned.split('/');
       if (parts.length === 3) {
         d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
       }
@@ -283,80 +290,161 @@ export function extractStatementSummary(rows) {
     return `${year}-${month}-${day}`;
   };
 
-  // Patterns for Statement Date
-  const datePatterns = [
-    /Statement Date\s+(\d{2}\s\w{3}\s\d{4})/i,
-    /Date of Statement\s+(\d{2}\/\d{2}\/\d{4})/i,
-    /Produced On\s+(\d{2}\s\w{3}\s\d{4})/i
-  ];
+  // Value patterns (currency and date)
+  const currencyValuePattern = /(?:[£]|£\s*\|)?\s*\d{1,3}(?:,\d{3})*(?:\.\d{2})/;
+  const dateValuePattern = /\d{1,2}\s\w+\s\d{4}|\d{1,2}\/\d{1,2}\/\d{4}/;
 
-  for (const p of datePatterns) {
-    const m = text.match(p);
-    if (m) {
-      summary.statementDate = parseDate(m[1]);
-      break;
+  // Scanner that handles same-line, next-line, and Amex multi-value GRID layouts
+  const scanFor = (labels, type) => {
+    const valPattern = type === 'currency' ? currencyValuePattern : dateValuePattern;
+    const candidates = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const rowItems = rows[i];
+      const rowText = rowItems.map(item => item.text).join(' ');
+
+      for (const labelRegex of labels) {
+        // Use word boundaries to avoid matching labels inside sentences
+        const strictLabelRegex = new RegExp(`\\b${labelRegex.source}\\b`, 'i');
+        
+        if (strictLabelRegex.test(rowText)) {
+          // 1. Same-line extraction (Strongest Priority)
+          // Value must follow label with only non-digit/non-currency chars between
+          const sameLineRegex = new RegExp(`${labelRegex.source}[^\\d£]*?(${valPattern.source})(?!\\s*%)`, 'i');
+          const sameLineMatch = rowText.match(sameLineRegex);
+          if (sameLineMatch && sameLineMatch[1]) {
+            const val = type === 'currency' ? parseCurrency(sameLineMatch[1]) : parseDate(sameLineMatch[1]);
+            if (val !== null) {
+              candidates.push({ val, score: 100, row: i });
+              continue;
+            }
+          }
+
+          // 2. Amex GRID extraction: multiple labels in row i, multiple values in row i+1
+          const labelIdxInRow = rowItems.findIndex(item => strictLabelRegex.test(item.text));
+          if (labelIdxInRow !== -1 && i + 1 < rows.length) {
+            const nextRowItems = rows[i + 1];
+            const valuesInNextRow = [];
+            nextRowItems.forEach((item, idx) => {
+               const m = item.text.match(new RegExp(`(${valPattern.source})(?!\\s*%)`, 'i'));
+               if (m) {
+                 valuesInNextRow.push({ val: m[1], x: item.x, idx });
+               } else if (type === 'currency' && item.text.trim() === '£' && idx + 1 < nextRowItems.length) {
+                 const nextItem = nextRowItems[idx+1];
+                 const nextM = nextItem.text.match(/^\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2}))(?!\s*%)/);
+                 if (nextM) valuesInNextRow.push({ val: nextM[1], x: item.x, idx });
+               }
+            });
+
+            if (valuesInNextRow.length > 0) {
+               const allRelevantLabelsInRow = [];
+               const masterLabels = [
+                 { regex: /Previous Closing Balance|Previous Balance/i, type: 'opening' },
+                 { regex: /New Credits/i, type: 'credits' },
+                 { regex: /New Debits/i, type: 'debits' },
+                 { regex: /(?<!Previous\s)Closing Balance|New Balance/i, type: 'closing' },
+                 { regex: /Minimum Repayment|Minimum Payment/i, type: 'min' },
+                 { regex: /Payment Due Date/i, type: 'due' },
+                 { regex: /Direct Debit Amount/i, type: 'dd_amount' },
+                 { regex: /Direct Debit Date/i, type: 'dd_date' }
+               ];
+
+               rowItems.forEach((item, idx) => {
+                  const masterMatch = masterLabels.find(ml => ml.regex.test(item.text));
+                  if (masterMatch) {
+                    let lType = 'other';
+                    if (item.text.includes('Closing Balance')) lType = item.text.includes('Previous') ? 'opening' : 'closing';
+                    else if (item.text.includes('Repayment')) lType = 'min';
+                    else if (item.text.includes('Due Date')) lType = 'due';
+                    else lType = masterMatch.type;
+                    allRelevantLabelsInRow.push({ text: item.text, x: item.x, idx, type: labelType });
+                  }
+               });
+
+               if (allRelevantLabelsInRow.length > 0) {
+                  const currentMaster = masterLabels.find(ml => ml.regex.source === labelRegex.source);
+                  const targetType = currentMaster ? currentMaster.type : null;
+
+                  if (targetType) {
+                    const myLabelIdx = allRelevantLabelsInRow.findIndex(l => l.type === targetType);
+                    if (myLabelIdx !== -1 && valuesInNextRow[myLabelIdx]) {
+                       const val = type === 'currency' ? parseCurrency(valuesInNextRow[myLabelIdx].val) : parseDate(valuesInNextRow[myLabelIdx].val);
+                       if (val !== null) candidates.push({ val, score: 90, row: i });
+                    }
+                  }
+               }
+
+               const labelX = rowItems[labelIdxInRow].x;
+               valuesInNextRow.sort((a, b) => Math.abs(a.x - labelX) - Math.abs(b.x - labelX));
+               const bestMatch = valuesInNextRow[0];
+               const val = type === 'currency' ? parseCurrency(bestMatch.val) : parseDate(bestMatch.val);
+               if (val !== null) candidates.push({ val, score: 80, row: i });
+            }
+          }
+
+          // 3. Simple Next-line fallback (Lowest Priority)
+          if (rowText.length < 60) {
+            for (let j = 1; j <= 3; j++) {
+              if (i + j >= rows.length) break;
+              const nextRowText = rows[i+j].map(item => item.text).join(' ');
+              const nextMatch = nextRowText.match(new RegExp(`^\\s*(${valPattern.source})(?!\\s*%)`, 'i'));
+              if (nextMatch && nextMatch[1]) {
+                const val = type === 'currency' ? parseCurrency(nextMatch[1]) : parseDate(nextMatch[1]);
+                if (val !== null) {
+                  candidates.push({ val, score: 50, row: i });
+                  break;
+                }
+              }
+            }
+          }
+        }
+      }
     }
-  }
 
-  // Patterns for Opening Balance
-  const openingPatterns = [
-    /Previous Balance\s+[£]?([\d,]+\.\d{2})/i,
-    /Opening Balance\s+[£]?([\d,]+\.\d{2})/i,
-    /Balance B\/F\s+[£]?([\d,]+\.\d{2})/i
-  ];
+    if (candidates.length === 0) return null;
+    // Sort by score (highest first) then by row (earliest first if scores equal)
+    candidates.sort((a, b) => b.score - a.score || a.row - b.row);
+    return candidates[0].val;
+  };
 
-  for (const p of openingPatterns) {
-    const m = text.match(p);
-    if (m) {
-      summary.openingBalance = parseCurrency(m[1]);
-      break;
-    }
-  }
+  summary.statementDate = scanFor([
+    /received by/i,
+    /Statement Date/i, 
+    /Date of Statement/i, 
+    /Produced On/i,
+    /Your credit card statement/i,
+    /as at/i
+  ], 'date');
 
-  // Patterns for Closing/New Balance
-  const closingPatterns = [
-    /New Balance\s+[£]?([\d,]+\.\d{2})/i,
-    /Closing Balance\s+[£]?([\d,]+\.\d{2})/i
-  ];
+  summary.openingBalance = scanFor([
+    /Previous Closing Balance/i,
+    /Previous Balance/i, 
+    /Opening Balance/i, 
+    /Balance B\/F/i,
+    /Last statement/i,
+    /Balance from previous statement/i
+  ], 'currency');
 
-  for (const p of closingPatterns) {
-    const m = text.match(p);
-    if (m) {
-      summary.newBalance = parseCurrency(m[1]);
-      break;
-    }
-  }
+  summary.newBalance = scanFor([
+    /(?<!Previous\s)Closing Balance/i,
+    /New Balance/i, 
+    /Your new balance/i,
+    /Total balance/i
+  ], 'currency');
 
-  // Patterns for Minimum Payment
-  const minPatterns = [
-    /Minimum Payment\s+[£]?([\d,]+\.\d{2})/i,
-    /Minimum Payment Due\s+[£]?([\d,]+\.\d{2})/i,
-    /Min Payment Due\s+[£]?([\d,]+\.\d{2})/i
-  ];
+  summary.minimumPayment = scanFor([
+    /Minimum Repayment/i,
+    /Minimum Payment/i, 
+    /Minimum Payment Due/i, 
+    /Min Payment Due/i
+  ], 'currency');
 
-  for (const p of minPatterns) {
-    const m = text.match(p);
-    if (m) {
-      summary.minimumPayment = parseCurrency(m[1]);
-      break;
-    }
-  }
-
-  // Patterns for Due Date
-  const duePatterns = [
-    /Payment Due Date\s+(\d{2}\s\w{3}\s\d{4})/i,
-    /Payment Due Date\s+(\d{2}\/\d{2}\/\d{4})/i,
-    /Payment due on\s+(\d{2}\s\w{3}\s\d{4})/i
-  ];
-
-  for (const p of duePatterns) {
-    const m = text.match(p);
-    if (m) {
-      summary.paymentDueDate = parseDate(m[1]);
-      break;
-    }
-  }
+  summary.paymentDueDate = scanFor([
+    /Payment Due Date/i, 
+    /Payment due on/i,
+    /To reach your account by/i,
+    /Please pay by/i
+  ], 'date');
 
   return summary;
 }
-
