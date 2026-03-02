@@ -165,11 +165,19 @@ export async function calculateForecast(startDate, horizonDays = 90) {
   const snapshots = [];
 
   // Pre-calculate effective dates for recurrent expenses to avoid repeated nextWorkingDay calls
-  const recurrentWithEffective = await Promise.all(recurrentList.map(async (item) => {
-    if (!item.nextDate) return { ...item, effectiveDate: null };
-    const effectiveDate = await nextWorkingDay(item.nextDate, true);
-    return { ...item, effectiveDate };
-  }));
+  const recurrentWithEffective = await Promise.all(recurrentList
+    .filter(item => {
+      // Skip items where cycleTotal > 0 and cycleCurrent >= cycleTotal (finished)
+      if (item.cycleTotal > 0 && item.cycleCurrent >= item.cycleTotal) return false;
+      // Skip items where status === 'paid'
+      if (item.status === 'paid') return false;
+      return true;
+    })
+    .map(async (item) => {
+      if (!item.nextDate) return { ...item, effectiveDate: null };
+      const effectiveDate = await nextWorkingDay(item.nextDate, true);
+      return { ...item, effectiveDate };
+    }));
 
   for (let i = 0; i < horizonDays; i++) {
     const dateStr = currentDay.toISOString().split('T')[0];
@@ -187,11 +195,13 @@ export async function calculateForecast(startDate, horizonDays = 90) {
       .filter(exp => exp.date === dateStr)
       .reduce((sum, exp) => sum + exp.amount, 0);
 
-    const dayRecurrent = recurrentWithEffective
-      .filter(exp => exp.effectiveDate === dateStr)
-      .reduce((sum, exp) => sum + exp.amount, 0);
+    const dayRecurrentExpenses = recurrentWithEffective
+      .filter(exp => exp.effectiveDate === dateStr);
+    
+    const dayRecurrentTotal = dayRecurrentExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+    const hasDebtPayment = dayRecurrentExpenses.some(exp => exp.isDebtPayment);
 
-    const totalExpenses = dayOneOff + dayRecurrent;
+    const totalExpenses = dayOneOff + dayRecurrentTotal;
     const openingBalance = currentBalance;
     currentBalance = openingBalance + dayIncome - totalExpenses;
 
@@ -200,7 +210,8 @@ export async function calculateForecast(startDate, horizonDays = 90) {
       openingBalance,
       closingBalance: currentBalance,
       incomeTotal: dayIncome,
-      expenseTotal: totalExpenses
+      expenseTotal: totalExpenses,
+      hasDebtPayment
     });
 
     currentDay.setUTCDate(currentDay.getUTCDate() + 1);
@@ -273,7 +284,7 @@ export async function generateExpectedIncomePredictions() {
 
       predictions.push({
         source,
-        amount: medianAmount,
+        amount: medianAmount / 100, // Convert to pounds (repository expects pounds)
         date: dateStr,
         categoryId,
         status: 'predicted'

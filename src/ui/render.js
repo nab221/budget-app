@@ -93,12 +93,33 @@ export const modalUI = {
    * Shows a modal.
    * @param {string} title - The title of the modal.
    * @param {string} content - The HTML content of the body.
-   * @param {string} footer - The HTML content of the footer.
+   * @param {string|Array} footer - The HTML content of the footer OR an array of button configs.
    */
   show(title, content, footer = '') {
     this.elements.title.textContent = title;
     this.elements.body.innerHTML = content;
-    this.elements.footer.innerHTML = footer;
+
+    if (Array.isArray(footer)) {
+      // Clear footer
+      this.elements.footer.innerHTML = '';
+      
+      // Build buttons from array
+      footer.forEach(btnConfig => {
+        const btn = document.createElement('button');
+        btn.textContent = btnConfig.label || 'Action';
+        if (btnConfig.className) btn.className = btnConfig.className;
+        if (btnConfig.onClick) {
+          btn.onclick = (e) => {
+            e.preventDefault();
+            btnConfig.onClick();
+          };
+        }
+        this.elements.footer.appendChild(btn);
+      });
+    } else {
+      this.elements.footer.innerHTML = footer;
+    }
+
     this.elements.overlay.classList.remove('hidden');
     document.body.style.overflow = 'hidden'; // Prevent background scrolling
   },
@@ -111,3 +132,17 @@ export const modalUI = {
     document.body.style.overflow = ''; // Restore scrolling
   }
 };
+
+/**
+ * Standalone showModal function.
+ */
+export function showModal(title, content, footer) {
+  modalUI.show(title, content, footer);
+}
+
+/**
+ * Standalone closeModal function.
+ */
+export function closeModal() {
+  modalUI.close();
+}

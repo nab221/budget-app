@@ -1,30 +1,33 @@
-# Requirements: Budget App v1.2 (Daily Cash Flow Engine)
+# Requirements: Budget App v1.3 (Enhanced Debt Management)
 
-**Milestone Goal:** Predict daily balances 90 days forward, handling UK bank holidays and weekends, with auto-generation of expected income.
+**Milestone Goal:** Comprehensive statement tracking with automatic expense integration and PDF summary extraction.
 
-## v1.2 Requirements
+## v1.3 Requirements
 
-### Schema & Data Infrastructure (SCHEMA-01)
-- [ ] **SCHEMA-01.1**: Implement Schema v10 including `dailyBalanceSnapshots`, `expectedIncome`, and `bankHolidayOverrides`.
-- [ ] **SCHEMA-01.2**: Implement robust migrations for Schema v10.
-- [ ] **SCHEMA-01.3**: Add repositories for new tables in `src/db/repository.js`.
-- [ ] **SCHEMA-01.4**: UK Bank Holiday handling via `gov.uk` API integration.
-- [ ] **SCHEMA-01.5**: Offline caching for UK Bank Holiday data to ensure engine works without internet.
+### Schema & Data Infrastructure (DEBT-01)
+- [ ] **DEBT-01.1**: Implement Schema v11: Expand `statements` table with `openingBalance`, `minimumPayment`, `paymentDueDate`, `actualPaymentAmount`, `actualPaymentDate`, and `linkedExpenseId`.
+- [ ] **DEBT-01.2**: Implement Schema v11: Add `isDebtPayment` and `linkedStatementId` flags to `recurrentExpenses`.
+- [ ] **DEBT-01.3**: Implement robust migrations for Schema v11.
+- [ ] **DEBT-01.4**: Update `statementRepository` to support atomic creation of statements and linked expenses via `addWithExpense()`.
+- [ ] **DEBT-01.5**: Update `statementRepository` to support updating actual payment details via `recordPayment()`.
 
-### Forecast Engine (FORC-01)
-- [ ] **FORC-01.1**: Implement 90-day forecast engine in `src/utils/cashflow.js` (opening + income - expenses = closing).
-- [ ] **FORC-01.2**: Implement logic to move expenses falling on weekends or bank holidays to the next working day.
-- [ ] **FORC-01.3**: Day-by-day iteration for 90 days to generate balance snapshots.
+### Statement Lifecycle & Automation (DEBT-02)
+- [ ] **DEBT-02.1**: Implement automatic "Min Payment" recurrent expense creation when a statement is logged.
+- [ ] **DEBT-02.2**: Ensure debt balance remains unchanged after payment confirmation; updates only occur when the *next* statement is logged.
+- [ ] **DEBT-02.3**: Validate that a new statement's opening balance matches the previous closing balance.
+- [ ] **DEBT-02.4**: Implement "Mark Paid" specialized workflow for debt-linked expenses that prompts for actual amount paid.
 
-### Expected Income Engine (INC-01)
-- [ ] **INC-01.1**: Auto-generate expected income entries from historical transaction patterns.
-- [ ] **INC-01.2**: Provide UI for managing/overriding auto-generated expected income in `src/ui/expected-income.js`.
+### PDF Summary Extraction (DEBT-03)
+- [ ] **DEBT-03.1**: Enhance `pdf-import.js` with a "Statement Summary" mode distinct from transaction parsing.
+- [ ] **DEBT-03.2**: Implement regex-based extraction for key fields (Balance, Min Due, Due Date) across multiple UK bank formats (Barclays, HSBC, etc.).
+- [ ] **DEBT-03.3**: Pre-fill the statement logging form with extracted data for user review.
+- [ ] **DEBT-03.4**: Provide manual fallback and hint if extraction fails.
 
-### Cash Flow UI & Dashboard (UI-01)
-- [ ] **UI-01.1**: New "Cash Flow Planner" tab to view 90-day daily breakdown.
-- [ ] **UI-01.2**: Add 90-day forecast chart to the main Dashboard.
-- [ ] **UI-01.3**: Implement "Critical Date Warnings" for days where balance is predicted to fall below zero or a threshold.
-- [ ] **UI-01.4**: Update `dashboard.js` and `charts.js` to integrate the new forecast data.
+### Forecast & UI Integration (DEBT-04)
+- [ ] **DEBT-04.1**: Integrate debt payments into the 90-day daily cash flow forecast.
+- [ ] **DEBT-04.2**: Apply v1.2 bank holiday and weekend adjustment logic to debt payment due dates.
+- [ ] **DEBT-04.3**: Add visual `💳` badge and unique styling for debt-related expenses in all lists and charts.
+- [ ] **DEBT-04.4**: Update Dashboard critical warnings to include upcoming debt payments.
 
 ---
 
@@ -32,20 +35,23 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SCHEMA-01.1 | Phase 17 | Pending |
-| SCHEMA-01.2 | Phase 17 | Pending |
-| SCHEMA-01.3 | Phase 17 | Pending |
-| SCHEMA-01.4 | Phase 17 | Pending |
-| SCHEMA-01.5 | Phase 17 | Pending |
-| FORC-01.1   | Phase 18 | Pending |
-| FORC-01.2   | Phase 18 | Pending |
-| FORC-01.3   | Phase 18 | Pending |
-| INC-01.1    | Phase 19 | Pending |
-| INC-01.2    | Phase 19 | Pending |
-| UI-01.1     | Phase 20 | Pending |
-| UI-01.2     | Phase 20 | Pending |
-| UI-01.3     | Phase 20 | Pending |
-| UI-01.4     | Phase 20 | Pending |
+| DEBT-01.1   | Phase 21 | Pending |
+| DEBT-01.2   | Phase 21 | Pending |
+| DEBT-01.3   | Phase 21 | Pending |
+| DEBT-01.4   | Phase 21 | Pending |
+| DEBT-01.5   | Phase 21 | Pending |
+| DEBT-02.1   | Phase 22 | Pending |
+| DEBT-02.2   | Phase 22 | Pending |
+| DEBT-02.3   | Phase 22 | Pending |
+| DEBT-02.4   | Phase 24 | Pending |
+| DEBT-03.1   | Phase 23 | Pending |
+| DEBT-03.2   | Phase 23 | Pending |
+| DEBT-03.3   | Phase 23 | Pending |
+| DEBT-03.4   | Phase 23 | Pending |
+| DEBT-04.1   | Phase 25 | Pending |
+| DEBT-04.2   | Phase 25 | Pending |
+| DEBT-04.3   | Phase 24 | Pending |
+| DEBT-04.4   | Phase 25 | Pending |
 
 ---
-*Last updated: 2026-03-01 after v1.1 milestone completion*
+*Last updated: 2026-03-02 for v1.3 milestone*

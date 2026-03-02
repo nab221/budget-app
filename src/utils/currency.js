@@ -46,6 +46,10 @@ export function formatGBP(pence) {
   }).format(amount);
 }
 
+// Aliases for compatibility
+export const formatCurrency = formatGBP;
+export const toPounds = fromPence;
+
 /**
  * Formats integer pence as a short GBP string (e.g., £10.5k).
  * Uses compact notation for large values.

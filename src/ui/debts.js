@@ -34,6 +34,19 @@ export const debtUI = {
       addStmtBtn.onclick = () => this.toggleStmtForm();
     }
 
+    const importStmtPdfBtn = document.getElementById('importStmtPdfBtn');
+    const stmtPdfFile = document.getElementById('stmtPdfFile');
+    if (importStmtPdfBtn && stmtPdfFile) {
+      importStmtPdfBtn.onclick = () => stmtPdfFile.click();
+      stmtPdfFile.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (file && window.pdfImportUI) {
+          await window.pdfImportUI.handleStatementUpload(file);
+        }
+        e.target.value = ''; // Reset for next use
+      };
+    }
+
     // Global handlers
     window.deleteDebt = async (id) => {
       if (!confirm('Are you sure you want to delete this debt? All statements will be lost.')) return;
@@ -63,9 +76,16 @@ export const debtUI = {
     };
 
     window.deleteStatement = async (id, debtId) => {
-      if (!confirm('Are you sure you want to delete this statement?')) return;
+      if (!confirm('Are you sure you want to delete this statement? The linked payment expense will also be removed.')) return;
       try {
-        await statementRepository.delete(id);
+        await statementRepository.deleteWithExpense(id);
+        
+        // Update debt balance to the latest remaining statement
+        const allStmts = await statementRepository.getAll();
+        const debtStmts = allStmts.filter(s => s.debtId === debtId).sort((a,b) => b.date.localeCompare(a.date));
+        const newBalance = debtStmts.length > 0 ? fromPence(debtStmts[0].amount) : 0;
+        await debtRepository.update(debtId, { currentBalance: newBalance });
+
         await this.renderStatements(debtId);
         await this.render(); 
       } catch (error) {
@@ -214,16 +234,37 @@ export const debtUI = {
     const container = document.getElementById('stmtFormContainer');
     if (!container) return;
 
+    const debtId = parseInt(document.getElementById('stmtDebtId').value);
+    
     let data = {
       date: new Date().toISOString().slice(0, 10),
+      openingBalance: '',
       amount: '',
       interest: 0,
-      fees: 0
+      fees: 0,
+      minimumPayment: '',
+      paymentDueDate: ''
     };
 
     if (this.editingStmtId) {
       const stmt = await statementRepository.get(this.editingStmtId);
-      if (stmt) data = { ...stmt, amount: (stmt.amount / 100).toFixed(2), interest: (stmt.interest / 100).toFixed(2), fees: (stmt.fees / 100).toFixed(2) };
+      if (stmt) {
+        data = { 
+          ...stmt, 
+          openingBalance: fromPence(stmt.openingBalance).toFixed(2),
+          amount: fromPence(stmt.amount).toFixed(2), 
+          interest: fromPence(stmt.interest).toFixed(2), 
+          fees: fromPence(stmt.fees).toFixed(2),
+          minimumPayment: fromPence(stmt.minimumPayment).toFixed(2)
+        };
+      }
+    } else if (debtId) {
+      // Suggest opening balance from the latest statement's closing balance
+      const allStmts = await statementRepository.getAll();
+      const debtStmts = allStmts.filter(s => s.debtId === debtId).sort((a,b) => b.date.localeCompare(a.date));
+      if (debtStmts.length > 0) {
+        data.openingBalance = fromPence(debtStmts[0].amount).toFixed(2);
+      }
     }
 
     const isUpdate = !!this.editingStmtId;
@@ -237,12 +278,17 @@ export const debtUI = {
         </h3>
       </div>
       <div class="form-row">
-        <div><label>Date</label><input id="stmtDateInput" type="date" value="${data.date}"/></div>
+        <div><label>Statement Date</label><input id="stmtDateInput" type="date" value="${data.date}"/></div>
+        <div><label>Opening Balance (£)</label><input id="stmtOpeningBalanceInput" type="number" step="0.01" value="${data.openingBalance}" placeholder="0.00"/></div>
         <div><label>New Balance (£)</label><input id="stmtBalanceInput" type="number" step="0.01" value="${data.amount}" placeholder="0.00"/></div>
       </div>
       <div class="form-row">
         <div><label>Interest (£)</label><input id="stmtInterestInput" type="number" step="0.01" value="${data.interest}"/></div>
         <div><label>Fees (£)</label><input id="stmtFeesInput" type="number" step="0.01" value="${data.fees}"/></div>
+      </div>
+      <div class="form-row">
+        <div><label>Min Payment Due (£)</label><input id="stmtMinPaymentInput" type="number" step="0.01" value="${data.minimumPayment}" placeholder="0.00"/></div>
+        <div><label>Payment Due Date</label><input id="stmtDueDateInput" type="date" value="${data.paymentDueDate || ''}"/></div>
         <div style="display:flex;align-items:flex-end;gap:8px">
           <button class="primary sm" onclick="debtUI.handleSaveStatement()">${isUpdate ? 'Save Changes' : 'Log Statement'}</button>
           <button class="ghost sm" onclick="debtUI.cancelEditStmt()">${isUpdate ? 'Cancel' : 'Hide'}</button>
@@ -258,28 +304,49 @@ export const debtUI = {
   async handleSaveStatement() {
     const debtId = parseInt(document.getElementById('stmtDebtId').value);
     const date = document.getElementById('stmtDateInput').value;
+    const openingBalance = parseFloat(document.getElementById('stmtOpeningBalanceInput').value);
     const balance = parseFloat(document.getElementById('stmtBalanceInput').value);
     const interest = parseFloat(document.getElementById('stmtInterestInput').value);
     const fees = parseFloat(document.getElementById('stmtFeesInput').value);
+    const minPayment = parseFloat(document.getElementById('stmtMinPaymentInput').value);
+    const dueDate = document.getElementById('stmtDueDateInput').value;
 
-    if (!debtId || !date || isNaN(balance)) {
-      alert('Please fill in Date and Balance.');
+    if (!debtId || !date || isNaN(balance) || isNaN(openingBalance)) {
+      alert('Please fill in Date, Opening Balance, and New Balance.');
       return;
+    }
+
+    // Continuity Validation
+    if (!this.editingStmtId) {
+      const allStmts = await statementRepository.getAll();
+      const debtStmts = allStmts.filter(s => s.debtId === debtId).sort((a,b) => b.date.localeCompare(a.date));
+      if (debtStmts.length > 0) {
+        const prevClosing = fromPence(debtStmts[0].amount);
+        if (Math.abs(openingBalance - prevClosing) > 0.01) {
+          if (!confirm(`Warning: Opening Balance (£${openingBalance.toFixed(2)}) does not match previous Statement's Closing Balance (£${prevClosing.toFixed(2)}). Continue anyway?`)) {
+            return;
+          }
+        }
+      }
     }
 
     try {
       const payload = {
         debtId,
         date,
+        openingBalance,
         amount: balance,
         interest: isNaN(interest) ? 0 : interest,
-        fees: isNaN(fees) ? 0 : fees
+        fees: isNaN(fees) ? 0 : fees,
+        minimumPayment: isNaN(minPayment) ? 0 : minPayment,
+        paymentDueDate: dueDate || null
       };
 
       if (this.editingStmtId) {
         await statementRepository.update(this.editingStmtId, payload);
       } else {
-        await statementRepository.add(payload);
+        const debt = await debtRepository.get(debtId);
+        await statementRepository.addWithExpense(payload, debt ? debt.name : 'Debt');
       }
 
       // Update the main debt record's currentBalance to reflect the latest statement
@@ -310,6 +377,30 @@ export const debtUI = {
     }
     this.editingStmtId = id;
     this.toggleStmtForm(true);
+  },
+
+  /**
+   * Pre-fills the statement form with extracted PDF data
+   */
+  prefillStatementForm(summary) {
+    this.toggleStmtForm(true);
+    
+    if (summary.statementDate) document.getElementById('stmtDateInput').value = summary.statementDate;
+    if (summary.openingBalance !== null) document.getElementById('stmtOpeningBalanceInput').value = (summary.openingBalance / 100).toFixed(2);
+    if (summary.newBalance !== null) document.getElementById('stmtBalanceInput').value = (summary.newBalance / 100).toFixed(2);
+    if (summary.minimumPayment !== null) document.getElementById('stmtMinPaymentInput').value = (summary.minimumPayment / 100).toFixed(2);
+    if (summary.paymentDueDate) document.getElementById('stmtDueDateInput').value = summary.paymentDueDate;
+
+    // Pulse effect to show what was filled
+    const fields = ['stmtDateInput', 'stmtOpeningBalanceInput', 'stmtBalanceInput', 'stmtMinPaymentInput', 'stmtDueDateInput'];
+    fields.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.style.transition = 'background-color 0.5s';
+        el.style.backgroundColor = 'var(--accent-light)';
+        setTimeout(() => el.style.backgroundColor = '', 1500);
+      }
+    });
   },
 
   /**
@@ -388,7 +479,7 @@ export const debtUI = {
     if (!body) return;
 
     if (stmts.length === 0) {
-      body.innerHTML = '<tr><td colspan="5" class="hint" style="text-align:center">No statements logged yet.</td></tr>';
+      body.innerHTML = '<tr><td colspan="7" class="hint" style="text-align:center">No statements logged yet.</td></tr>';
       return;
     }
 
@@ -397,9 +488,18 @@ export const debtUI = {
     body.innerHTML = stmts.map(s => safeHTML`
       <tr>
         <td>${s.date}</td>
+        <td class="r">${formatGBP(s.openingBalance)}</td>
         <td class="r">${formatGBP(s.amount)}</td>
         <td class="r">${formatGBP(s.interest)}</td>
         <td class="r">${formatGBP(s.fees)}</td>
+        <td class="r">${formatGBP(s.minimumPayment)}</td>
+        <td>${s.paymentDueDate || '—'}</td>
+        <td class="r" style="color:${s.actualPaymentAmount ? 'var(--success)' : 'inherit'}">
+          ${s.actualPaymentAmount ? formatGBP(s.actualPaymentAmount) : '—'}
+        </td>
+        <td style="color:${s.actualPaymentDate ? 'var(--success)' : 'inherit'}">
+          ${s.actualPaymentDate || '—'}
+        </td>
         <td class="r nw">
           <button class="sm ghost" onclick="debtUI.editStatement(${s.id})">Edit</button>
           <button class="sm danger" onclick="deleteStatement(${s.id}, ${debtId})">✕</button>

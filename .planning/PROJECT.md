@@ -1,18 +1,18 @@
 # Project: Budget App
 
 ## Current State
-- **Latest Version**: v1.1 (UX Refined)
-- **Status**: Milestone v1.2 Planning.
-- **Key Features**: Offline-first, IndexedDB, UK Bank PDF Import, Cloud Backup, Debt Payoff Planner, Account Balance Forecasting.
+- **Latest Version**: v1.2 (Daily Cash Flow Engine)
+- **Status**: Milestone v1.3 Planning.
+- **Key Features**: Offline-first, IndexedDB, UK Bank PDF Import, Cloud Backup, Debt Payoff Planner, 90-day Daily Cash Flow Forecast.
 
-## Next Milestone: v1.2
-- **Goal**: Daily Cash Flow Engine.
+## Next Milestone: v1.3
+- **Goal**: Enhanced Debt Management.
 - **Planned Features**: 
-  - 90-day daily balance prediction.
-  - UK Bank Holiday & Weekend adjustment logic.
-  - Expected income auto-generation from history.
-  - Cash Flow Planner tab.
-  - Dashboard 90-day forecast chart.
+  - Comprehensive statement tracking (opening/closing/min payment).
+  - Automatic recurring expense creation for debt payments.
+  - PDF statement summary extraction.
+  - Actual payment confirmation workflow.
+  - Full integration with cash flow forecast.
 
 ---
 
@@ -77,4 +77,4 @@ A clear, reliable view of where the money goes each month — income vs fixed vs
 </details>
 
 ---
-*Last updated: 2026-03-01 after v1.1 milestone completion*
+*Last updated: 2026-03-02 after v1.2 milestone completion*

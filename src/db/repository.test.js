@@ -67,6 +67,7 @@ vi.mock('./schema.js', () => {
   const childcareLedger = createMockTable();
   const debts = createMockTable();
   const assets = createMockTable();
+  const statements = createMockTable();
 
   return {
     db: {
@@ -79,13 +80,17 @@ vi.mock('./schema.js', () => {
       childcareLedger,
       debts,
       assets,
-      transaction: async (mode, tables, fn) => fn()
+      statements,
+      transaction: async (...args) => {
+        const fn = args[args.length - 1];
+        if (typeof fn === 'function') return fn();
+      }
     }
   };
 });
 
 // After mock is declared, import the repository (Vitest hoists vi.mock calls)
-const { balanceSnapshotRepository, categoryRepository } = await import('./repository.js');
+const { balanceSnapshotRepository, categoryRepository, statementRepository } = await import('./repository.js');
 const { db } = await import('./schema.js');
 
 // ---------------------------------------------------------------------------
@@ -279,5 +284,122 @@ describe('categoryRepository.ensureOpeningBalanceCategory', () => {
 
     const rows = await db.categories.toArray();
     expect(rows.length).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// statementRepository tests
+// ---------------------------------------------------------------------------
+
+describe('statementRepository', () => {
+  beforeEach(() => {
+    clearTable(db.statements);
+    clearTable(db.recurrentExpenses);
+    clearTable(db.categories);
+  });
+
+  describe('addWithExpense', () => {
+    it('creates a statement and a linked recurrent expense', async () => {
+      // 1. Setup category (matching repository's search name)
+      const categoryId = await db.categories.add({ name: 'Credit Cards & Loans', group: 'fixed' });
+
+      // 2. Add statement
+      const statementData = {
+        debtId: 1,
+        date: '2026-01-15',
+        amount: 500,
+        minimumPayment: 25,
+        paymentDueDate: '2026-02-05'
+      };
+
+      const statementId = await statementRepository.addWithExpense(statementData, 'Visa');
+
+      // 3. Verify statement
+      const statement = await db.statements.get(statementId);
+      expect(statement).toBeDefined();
+      expect(statement.amount).toBe(50000); // 500 * 100
+      expect(statement.minimumPayment).toBe(2500); // 25 * 100
+      expect(statement.linkedExpenseId).toBeDefined();
+
+      // 4. Verify expense
+      const expenseId = statement.linkedExpenseId;
+      const expense = await db.recurrentExpenses.get(expenseId);
+      expect(expense).toBeDefined();
+      expect(expense.label).toBe('Min Payment: Visa');
+      expect(expense.amount).toBe(2500);
+      expect(expense.nextDate).toBe('2026-02-05');
+      expect(expense.categoryId).toBe(categoryId);
+      expect(expense.status).toBe('pending');
+      expect(expense.isDebtPayment).toBe(true);
+      expect(expense.linkedStatementId).toBe(statementId);
+      expect(expense.cycleTotal).toBe(1);
+      expect(expense.cycleCurrent).toBe(0);
+    });
+
+    it('falls back to statement date if paymentDueDate is missing', async () => {
+      await db.categories.add({ name: 'Credit Cards & Loans', group: 'fixed' });
+
+      const statementId = await statementRepository.addWithExpense({
+        debtId: 1,
+        date: '2026-01-15',
+        amount: 500,
+        minimumPayment: 25
+      }, 'Visa');
+
+      const statement = await db.statements.get(statementId);
+      const expense = await db.recurrentExpenses.get(statement.linkedExpenseId);
+      expect(expense.nextDate).toBe('2026-01-15');
+    });
+
+    it('creates expense with null categoryId if category not found', async () => {
+      // NO category seeded
+      const statementId = await statementRepository.addWithExpense({
+        debtId: 1,
+        date: '2026-01-15',
+        amount: 500,
+        minimumPayment: 25
+      }, 'Visa');
+
+      const statement = await db.statements.get(statementId);
+      const expense = await db.recurrentExpenses.get(statement.linkedExpenseId);
+      expect(expense.categoryId).toBeNull();
+    });
+  });
+
+  describe('recordPayment', () => {
+    it('updates both statement and linked expense', async () => {
+      // 1. Setup
+      await db.categories.add({ name: 'Credit Cards & Loans', group: 'fixed' });
+      const statementId = await statementRepository.addWithExpense({
+        debtId: 1,
+        date: '2026-01-15',
+        amount: 500,
+        minimumPayment: 25,
+        paymentDueDate: '2026-02-05'
+      }, 'Visa');
+
+      const statementBefore = await db.statements.get(statementId);
+      const expenseId = statementBefore.linkedExpenseId;
+
+      // 2. Record payment
+      await statementRepository.recordPayment(statementId, 30, '2026-02-01');
+
+      // 3. Verify statement updates
+      const statementAfter = await db.statements.get(statementId);
+      expect(statementAfter.actualPaymentAmount).toBe(3000);
+      expect(statementAfter.actualPaymentDate).toBe('2026-02-01');
+
+      // 4. Verify expense updates
+      const expenseAfter = await db.recurrentExpenses.get(expenseId);
+      expect(expenseAfter.status).toBe('paid');
+      expect(expenseAfter.amount).toBe(3000);
+      expect(expenseAfter.cycleCurrent).toBe(1);
+      expect(expenseAfter.date).toBe('2026-02-01');
+    });
+
+    it('throws error if statement not found', async () => {
+      await expect(statementRepository.recordPayment(999, 10, '2026-01-01'))
+        .rejects.toThrow('Statement 999 not found');
+    });
   });
 });

@@ -240,3 +240,123 @@ export const parsers = {
     return processed;
   }
 };
+
+/**
+ * Extracts high-level summary data from a bank statement (PDF text rows).
+ * Returns { statementDate, openingBalance, newBalance, minimumPayment, paymentDueDate }
+ */
+export function extractStatementSummary(rows) {
+  const text = rows.map(r => r.map(i => i.text).join(' ')).join('\n');
+
+  const summary = {
+    statementDate: null,
+    openingBalance: null,
+    newBalance: null,
+    minimumPayment: null,
+    paymentDueDate: null
+  };
+
+  // Helper to normalize currency string to pence
+  const parseCurrency = (str) => {
+    if (!str) return null;
+    const cleaned = str.replace(/[£,]/g, '').trim();
+    return Math.round(parseFloat(cleaned) * 100);
+  };
+
+  // Helper to normalize date string to ISO format (YYYY-MM-DD)
+  const parseDate = (str) => {
+    if (!str) return null;
+    let d = new Date(str);
+    if (isNaN(d.getTime())) {
+      // Try DD/MM/YYYY
+      const parts = str.split('/');
+      if (parts.length === 3) {
+        d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+      }
+    }
+    if (isNaN(d.getTime())) return null;
+    
+    // Return YYYY-MM-DD without timezone shifts
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Patterns for Statement Date
+  const datePatterns = [
+    /Statement Date\s+(\d{2}\s\w{3}\s\d{4})/i,
+    /Date of Statement\s+(\d{2}\/\d{2}\/\d{4})/i,
+    /Produced On\s+(\d{2}\s\w{3}\s\d{4})/i
+  ];
+
+  for (const p of datePatterns) {
+    const m = text.match(p);
+    if (m) {
+      summary.statementDate = parseDate(m[1]);
+      break;
+    }
+  }
+
+  // Patterns for Opening Balance
+  const openingPatterns = [
+    /Previous Balance\s+[£]?([\d,]+\.\d{2})/i,
+    /Opening Balance\s+[£]?([\d,]+\.\d{2})/i,
+    /Balance B\/F\s+[£]?([\d,]+\.\d{2})/i
+  ];
+
+  for (const p of openingPatterns) {
+    const m = text.match(p);
+    if (m) {
+      summary.openingBalance = parseCurrency(m[1]);
+      break;
+    }
+  }
+
+  // Patterns for Closing/New Balance
+  const closingPatterns = [
+    /New Balance\s+[£]?([\d,]+\.\d{2})/i,
+    /Closing Balance\s+[£]?([\d,]+\.\d{2})/i
+  ];
+
+  for (const p of closingPatterns) {
+    const m = text.match(p);
+    if (m) {
+      summary.newBalance = parseCurrency(m[1]);
+      break;
+    }
+  }
+
+  // Patterns for Minimum Payment
+  const minPatterns = [
+    /Minimum Payment\s+[£]?([\d,]+\.\d{2})/i,
+    /Minimum Payment Due\s+[£]?([\d,]+\.\d{2})/i,
+    /Min Payment Due\s+[£]?([\d,]+\.\d{2})/i
+  ];
+
+  for (const p of minPatterns) {
+    const m = text.match(p);
+    if (m) {
+      summary.minimumPayment = parseCurrency(m[1]);
+      break;
+    }
+  }
+
+  // Patterns for Due Date
+  const duePatterns = [
+    /Payment Due Date\s+(\d{2}\s\w{3}\s\d{4})/i,
+    /Payment Due Date\s+(\d{2}\/\d{2}\/\d{4})/i,
+    /Payment due on\s+(\d{2}\s\w{3}\s\d{4})/i
+  ];
+
+  for (const p of duePatterns) {
+    const m = text.match(p);
+    if (m) {
+      summary.paymentDueDate = parseDate(m[1]);
+      break;
+    }
+  }
+
+  return summary;
+}
+

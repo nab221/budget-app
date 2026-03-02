@@ -1,7 +1,7 @@
 import { safeHTML, sanitize } from './render.js';
-import { extractTextFromPdf, parsers } from '../utils/pdf-parser.js';
+import { extractTextFromPdf, parsers, extractStatementSummary } from '../utils/pdf-parser.js';
 import { findDuplicates, suggestCategory, categoryRepository, updateCategorizationLearningRule, incomeRepository, recurrentExpenseRepository, oneOffExpenseRepository } from '../db/repository.js';
-import { formatGBP, toPence } from '../utils/currency.js';
+import { formatGBP, toPence, fromPence } from '../utils/currency.js';
 
 export const pdfImportUI = {
   state: {
@@ -9,6 +9,7 @@ export const pdfImportUI = {
     conflicts: [],
     categories: [],
     rawPdfRows: [], // For manual mapping
+    mode: 'transactions', // 'transactions' or 'statement'
   },
 
   async init() {
@@ -16,10 +17,27 @@ export const pdfImportUI = {
   },
 
   /**
-   * Main entry point when a user selects a PDF file
+   * Main entry point when a user selects a PDF file for transaction import
    * @param {File} file 
    */
   async handleFileUpload(file) {
+    this.state.mode = 'transactions';
+    return this._processFile(file);
+  },
+
+  /**
+   * Main entry point when a user selects a PDF file for statement summary import
+   * @param {File} file 
+   */
+  async handleStatementUpload(file) {
+    this.state.mode = 'statement';
+    return this._processFile(file);
+  },
+
+  /**
+   * Internal common process for PDF files
+   */
+  async _processFile(file) {
     if (!file || file.type !== 'application/pdf') {
       alert('Please upload a valid PDF file.');
       return;
@@ -31,7 +49,13 @@ export const pdfImportUI = {
       const rows = await extractTextFromPdf(file);
       this.state.rawPdfRows = rows;
       
-      // Try auto-parsing
+      if (this.state.mode === 'statement') {
+        const summary = extractStatementSummary(rows);
+        this.renderStatementSummaryPreview(summary);
+        return;
+      }
+
+      // Try auto-parsing for transactions
       let parsedTransactions = this.attemptAutoParse(rows);
       
       if (parsedTransactions.length === 0) {
@@ -68,6 +92,59 @@ export const pdfImportUI = {
         `;
         window.templateUI.showModal('Parsing Error', safeHTML`${content}`, safeHTML`${footer}`);
       }
+    }
+  },
+
+  renderStatementSummaryPreview(summary) {
+    const hasData = summary.statementDate || summary.openingBalance !== null || summary.newBalance !== null;
+
+    const content = `
+      <p style="margin-bottom:15px">Extracted the following summary from your PDF statement:</p>
+      
+      <div class="grid2" style="gap:15px; margin-bottom:20px; background:var(--bg-alt); padding:15px; border-radius:8px">
+        <div>
+          <label class="hint" style="display:block; margin-bottom:4px">Statement Date</label>
+          <div style="font-weight:bold; font-size:1.1rem">${summary.statementDate || '—'}</div>
+        </div>
+        <div>
+          <label class="hint" style="display:block; margin-bottom:4px">Opening Balance</label>
+          <div style="font-weight:bold; font-size:1.1rem">${summary.openingBalance !== null ? formatGBP(summary.openingBalance) : '—'}</div>
+        </div>
+        <div>
+          <label class="hint" style="display:block; margin-bottom:4px">New (Closing) Balance</label>
+          <div style="font-weight:bold; font-size:1.1rem">${summary.newBalance !== null ? formatGBP(summary.newBalance) : '—'}</div>
+        </div>
+        <div>
+          <label class="hint" style="display:block; margin-bottom:4px">Minimum Payment</label>
+          <div style="font-weight:bold; font-size:1.1rem">${summary.minimumPayment !== null ? formatGBP(summary.minimumPayment) : '—'}</div>
+        </div>
+        <div style="grid-column: span 2">
+          <label class="hint" style="display:block; margin-bottom:4px">Payment Due Date</label>
+          <div style="font-weight:bold; font-size:1.1rem">${summary.paymentDueDate || '—'}</div>
+        </div>
+      </div>
+
+      ${!hasData ? '<p class="hint" style="color:var(--danger)">No summary data could be automatically extracted. You can still enter it manually.</p>' : ''}
+      <p class="hint">Click "Pre-fill Form" to transfer this data to the statement logger, where you can make final adjustments.</p>
+    `;
+
+    const footer = `
+      <div style="display:flex; justify-content:space-between; width:100%">
+        <button class="ghost" onclick="window.pdfImportUI.copyDebugInfo()">Copy Debug Info</button>
+        <div>
+          <button class="ghost" onclick="window.templateUI.closeModal()">Cancel</button>
+          <button class="primary" onclick="window.pdfImportUI.prefillStatementForm(${JSON.stringify(summary).replace(/"/g, '&quot;')})">Pre-fill Form</button>
+        </div>
+      </div>
+    `;
+
+    window.templateUI.showModal('Statement Summary Extracted', safeHTML`${content}`, safeHTML`${footer}`);
+  },
+
+  prefillStatementForm(summary) {
+    window.templateUI.closeModal();
+    if (window.debtUI && typeof window.debtUI.prefillStatementForm === 'function') {
+      window.debtUI.prefillStatementForm(summary);
     }
   },
 

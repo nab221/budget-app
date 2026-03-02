@@ -128,11 +128,7 @@ export const expectedIncomeUI = {
           await incomeRepository.add({
             date: new Date().toISOString().split('T')[0], // Use today's date
             source: item.source,
-            amount: toPounds(item.amount), // Repository.add expects pounds if using createBaseRepository? No, incomeRepository.add uses toPence.
-            // Wait, incomeRepository.add uses toPence(data.amount).
-            // item.amount is already in pence.
-            // So I should pass item.amount / 100 or fix repository.
-            amount: item.amount / 100, 
+            amount: item.amount / 100, // Convert pence to pounds (repository expects pounds)
             categoryId: item.categoryId
           });
           // 2. Delete expected record
