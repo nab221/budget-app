@@ -12,7 +12,7 @@ import { calculateTopUp, getEntitlementPeriod, calculateFundingGap } from '../ut
  * This is a no-op until the SyncManager is initialized in Phase 3.
  */
 export function triggerSync() {
-  if (window.scheduleAutoSave) {
+  if (typeof window !== 'undefined' && window.scheduleAutoSave) {
     window.scheduleAutoSave();
   }
 }
@@ -143,6 +143,7 @@ export async function suggestCategory(description) {
  * @param {Array<{description: string, categoryId: number|string}>} transactions 
  */
 export async function updateCategorizationLearningRule(transactions) {
+  let changed = false;
   for (const tx of transactions) {
     if (!tx.description || !tx.categoryId) continue;
 
@@ -151,14 +152,17 @@ export async function updateCategorizationLearningRule(transactions) {
     if (existing) {
       if (existing.categoryId !== Number(tx.categoryId)) {
         await db.categoryMappings.update(existing.id, { categoryId: Number(tx.categoryId) });
+        changed = true;
       }
     } else {
       await db.categoryMappings.add({
         description: tx.description,
         categoryId: Number(tx.categoryId)
       });
+      changed = true;
     }
   }
+  if (changed) triggerSync();
 }
 
 /**
@@ -187,10 +191,12 @@ export const categoryRepository = {
     if (!['fixed', 'variable'].includes(group)) {
       throw new Error('Invalid category group');
     }
-    return await db.categories.add({
+    const id = await db.categories.add({
       group,
       name: name.trim()
     });
+    triggerSync();
+    return id;
   },
 
   /**
@@ -200,6 +206,7 @@ export const categoryRepository = {
    */
   async deleteCategory(id) {
     await db.categories.delete(id);
+    triggerSync();
   },
 
   /**
@@ -235,6 +242,7 @@ export const categoryRepository = {
     toAdd.push({ group: 'system', name: 'Opening Balance' });
 
     await db.categories.bulkAdd(toAdd);
+    triggerSync();
     return true;
   },
 
@@ -249,7 +257,9 @@ export const categoryRepository = {
       .equals('Opening Balance')
       .first();
     if (existing) return existing.id;
-    return await db.categories.add({ group: 'system', name: 'Opening Balance' });
+    const id = await db.categories.add({ group: 'system', name: 'Opening Balance' });
+    triggerSync();
+    return id;
   },
 
   /**
@@ -641,6 +651,7 @@ export const statementRepository = {
       triggerDailyForecastRecalc(toSave.date).catch(() => {});
     }
 
+    triggerSync();
     return statementId;
   },
 
@@ -680,6 +691,7 @@ export const statementRepository = {
       triggerBalanceRecalc(paymentDate).catch(() => {});
       triggerDailyForecastRecalc(paymentDate).catch(() => {});
     }
+    triggerSync();
   },
 
   /**
@@ -717,6 +729,7 @@ export const statementRepository = {
       triggerBalanceRecalc(dateForRecalc).catch(() => {});
       triggerDailyForecastRecalc(dateForRecalc).catch(() => {});
     }
+    triggerSync();
   },
 
   /** Override delete to trigger recalcs */
@@ -728,6 +741,7 @@ export const statementRepository = {
       triggerBalanceRecalc(stmt.date).catch(() => {});
       triggerDailyForecastRecalc(stmt.date).catch(() => {});
     }
+    triggerSync();
   },
 
   /** Delete a statement and its linked expense atomically */
@@ -749,6 +763,7 @@ export const statementRepository = {
       triggerBalanceRecalc(date).catch(() => {});
       triggerDailyForecastRecalc(date).catch(() => {});
     }
+    triggerSync();
   }
 };
 
@@ -799,6 +814,7 @@ export const netWorthRepository = {
       timestamp: new Date().toISOString()
     });
     
+    triggerSync();
     console.log(`Snapshot taken for ${today}`);
   }
 };
@@ -956,11 +972,15 @@ export const balanceSnapshotRepository = {
    */
   async save(snapshot) {
     const existing = await db.balanceSnapshots.where('month').equals(snapshot.month).first();
+    let id;
     if (existing) {
       await db.balanceSnapshots.update(existing.id, snapshot);
-      return existing.id;
+      id = existing.id;
+    } else {
+      id = await db.balanceSnapshots.add(snapshot);
     }
-    return await db.balanceSnapshots.add(snapshot);
+    triggerSync();
+    return id;
   },
 
   /**
@@ -976,6 +996,7 @@ export const balanceSnapshotRepository = {
       .map(s => s.id);
     if (toDelete.length > 0) {
       await db.balanceSnapshots.bulkDelete(toDelete);
+      triggerSync();
     }
   },
 
@@ -1025,12 +1046,16 @@ export const childcareRepository = {
     if (toSave.targetMonthlySpend !== undefined) {
       toSave.targetMonthlySpend = toPence(toSave.targetMonthlySpend);
     }
+    let id;
     if (toSave.id) {
-      const { id, ...fields } = toSave;
-      await db.childcareAccounts.update(id, fields);
-      return id;
+      const { id: accountId, ...fields } = toSave;
+      await db.childcareAccounts.update(accountId, fields);
+      id = accountId;
+    } else {
+      id = await db.childcareAccounts.add(toSave);
     }
-    return await db.childcareAccounts.add(toSave);
+    triggerSync();
+    return id;
   },
 
   /**
@@ -1043,6 +1068,7 @@ export const childcareRepository = {
       await db.childcareLedger.where('accountId').equals(id).delete();
       await db.childcareAccounts.delete(id);
     });
+    triggerSync();
   },
 
   // ---------------------------------------------------------------------------
@@ -1201,6 +1227,7 @@ export const childcareRepository = {
     // 4. Recalculate running balances (outside transaction to avoid re-entrancy issues)
     await childcareRepository._recalculateBalances(accountId);
 
+    triggerSync();
     return { depositId, topUpId, topUpAmount, expenseId };
   },
 
@@ -1236,6 +1263,7 @@ export const childcareRepository = {
 
     await childcareRepository._recalculateBalances(accountId);
 
+    triggerSync();
     return { spendId };
   },
 
@@ -1295,11 +1323,15 @@ export const dailyBalanceRepository = {
    */
   async save(snapshot) {
     const existing = await db.dailyBalanceSnapshots.where('date').equals(snapshot.date).first();
+    let id;
     if (existing) {
       await db.dailyBalanceSnapshots.update(existing.id, snapshot);
-      return existing.id;
+      id = existing.id;
+    } else {
+      id = await db.dailyBalanceSnapshots.add(snapshot);
     }
-    return await db.dailyBalanceSnapshots.add(snapshot);
+    triggerSync();
+    return id;
   },
 
   /**
@@ -1314,6 +1346,7 @@ export const dailyBalanceRepository = {
       .map(s => s.id);
     if (toDelete.length > 0) {
       await db.dailyBalanceSnapshots.bulkDelete(toDelete);
+      triggerSync();
     }
   },
 
@@ -1340,6 +1373,7 @@ export const dailyBalanceRepository = {
       await this.deleteFrom(minDate);
     }
     await db.dailyBalanceSnapshots.bulkAdd(snapshots);
+    triggerSync();
   }
 };
 
@@ -1362,6 +1396,7 @@ export const expectedIncomeRepository = {
   async add(data) {
     const id = await createBaseRepository(db.expectedIncome).add(data);
     triggerDailyForecastRecalc(data.date).catch(() => {});
+    triggerSync();
     return id;
   },
 
@@ -1370,6 +1405,7 @@ export const expectedIncomeRepository = {
     await createBaseRepository(db.expectedIncome).update(id, data);
     const dateForRecalc = data.date || (await db.expectedIncome.get(id))?.date;
     if (dateForRecalc) triggerDailyForecastRecalc(dateForRecalc).catch(() => {});
+    triggerSync();
     return 1;
   },
 
@@ -1378,6 +1414,7 @@ export const expectedIncomeRepository = {
     const record = await db.expectedIncome.get(id);
     await db.expectedIncome.delete(id);
     if (record?.date) triggerDailyForecastRecalc(record.date).catch(() => {});
+    triggerSync();
   }
 };
 

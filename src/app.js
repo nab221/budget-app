@@ -14,6 +14,7 @@ import { renderDashboard } from './ui/dashboard';
 import { renderPayoffPlanner } from './ui/payoff';
 import { initPWA, installApp, checkExportReminder } from './ui/pwa-ux';
 import { pdfImportUI } from './ui/pdf-import';
+import { initFileSyncUI } from './ui/file-sync';
 import { cloudBackupUI } from './ui/cloud-backup.js';
 import { childcareUI } from './ui/childcare.js';
 import { expectedIncomeUI } from './ui/expected-income.js';
@@ -168,6 +169,9 @@ async function init() {
   await pdfImportUI.init();
   await cloudBackupUI.init();
   await childcareUI.init();
+
+  // Milestone v1.4: Initialize File Sync
+  await initFileSyncUI();
 
   // Initial dashboard render
   refreshDashboard();

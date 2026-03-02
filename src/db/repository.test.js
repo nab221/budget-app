@@ -11,6 +11,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ---------------------------------------------------------------------------
+// Mock the global scheduleAutoSave
+// ---------------------------------------------------------------------------
+const scheduleAutoSaveMock = vi.fn();
+// Use globalThis for Vitest compatibility
+globalThis.window = globalThis.window || {};
+globalThis.window.scheduleAutoSave = scheduleAutoSaveMock;
+
+// ---------------------------------------------------------------------------
 // Mock the Dexie db so tests run without IndexedDB
 // ---------------------------------------------------------------------------
 
@@ -40,6 +48,17 @@ function createMockTable(initialRows = []) {
       rows.push({ id, ...item });
       return id;
     },
+    bulkAdd: async (items) => {
+      items.forEach(item => {
+        const id = nextId++;
+        rows.push({ id, ...item });
+      });
+      return items.length;
+    },
+    clear: async () => {
+      rows = [];
+      return 0;
+    },
     update: async (id, changes) => {
       const idx = rows.findIndex(r => r.id === id);
       if (idx !== -1) rows[idx] = { ...rows[idx], ...changes };
@@ -59,6 +78,7 @@ function createMockTable(initialRows = []) {
 // Mock the schema module before importing the repository
 vi.mock('./schema.js', () => {
   const balanceSnapshots = createMockTable();
+  const dailyBalanceSnapshots = createMockTable();
   const categories = createMockTable();
   const income = createMockTable();
   const recurrentExpenses = createMockTable();
@@ -68,10 +88,14 @@ vi.mock('./schema.js', () => {
   const debts = createMockTable();
   const assets = createMockTable();
   const statements = createMockTable();
+  const expectedIncome = createMockTable();
+  const netWorthSnapshots = createMockTable();
+  const bankHolidayOverrides = createMockTable();
 
   return {
     db: {
       balanceSnapshots,
+      dailyBalanceSnapshots,
       categories,
       income,
       recurrentExpenses,
@@ -81,6 +105,9 @@ vi.mock('./schema.js', () => {
       debts,
       assets,
       statements,
+      expectedIncome,
+      netWorthSnapshots,
+      bankHolidayOverrides,
       transaction: async (...args) => {
         const fn = args[args.length - 1];
         if (typeof fn === 'function') return fn();
@@ -401,5 +428,38 @@ describe('statementRepository', () => {
       await expect(statementRepository.recordPayment(999, 10, '2026-01-01'))
         .rejects.toThrow('Statement 999 not found');
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// triggerSync tests
+// ---------------------------------------------------------------------------
+
+describe('triggerSync', () => {
+  beforeEach(() => {
+    scheduleAutoSaveMock.mockClear();
+    clearTable(db.categories);
+    clearTable(db.statements);
+    clearTable(db.recurrentExpenses);
+    clearTable(db.balanceSnapshots);
+  });
+
+  it('is called when adding a category', async () => {
+    await categoryRepository.addCategory('fixed', 'Test Sync');
+    expect(scheduleAutoSaveMock).toHaveBeenCalled();
+  });
+
+  it('is called when adding a statement with expense', async () => {
+    await statementRepository.addWithExpense({
+      debtId: 1, date: '2026-01-01', amount: 100, minimumPayment: 10
+    }, 'Test Debt');
+    expect(scheduleAutoSaveMock).toHaveBeenCalled();
+  });
+
+  it('is called when saving a balance snapshot', async () => {
+    await balanceSnapshotRepository.save({
+      month: '2026-01', openingBalance: 0, closingBalance: 100, incomeTotal: 100, expenseTotal: 0
+    });
+    expect(scheduleAutoSaveMock).toHaveBeenCalled();
   });
 });

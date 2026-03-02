@@ -17,6 +17,69 @@ export const BALANCE_START_DATE_KEY = 'budget_balance_start_date';
 export const BALANCE_OPENING_AMOUNT_KEY = 'budget_balance_opening_amount';
 
 /**
+ * Checks if the File System Access API is supported by the current browser.
+ * @returns {boolean}
+ */
+export function checkFileSupport() {
+  return typeof window !== 'undefined' && 'showOpenFilePicker' in window;
+}
+
+/**
+ * Native IndexedDB for file handle storage.
+ * Dexie/Structured clone can sometimes have issues with direct handle serialization
+ * in older browser versions or specific environments, so we use a dedicated simple store.
+ */
+export const HandleStore = {
+  dbName: 'BudgetFileHandles',
+  storeName: 'handles',
+  key: 'currentFile',
+
+  async get() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(this.dbName, 1);
+      request.onupgradeneeded = () => request.result.createObjectStore(this.storeName);
+      request.onsuccess = () => {
+        const db = request.result;
+        const tx = db.transaction(this.storeName, 'readonly');
+        const req = tx.objectStore(this.storeName).get(this.key);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  },
+
+  async set(handle) {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(this.dbName, 1);
+      request.onupgradeneeded = () => request.result.createObjectStore(this.storeName);
+      request.onsuccess = () => {
+        const db = request.result;
+        const tx = db.transaction(this.storeName, 'readwrite');
+        const req = tx.objectStore(this.storeName).put(handle, this.key);
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  },
+
+  async clear() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(this.dbName, 1);
+      request.onsuccess = () => {
+        const db = request.result;
+        const tx = db.transaction(this.storeName, 'readwrite');
+        const req = tx.objectStore(this.storeName).delete(this.key);
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  }
+};
+
+/**
  * Checks and requests storage persistence.
  * This is crucial for Safari and mobile browsers where data might be purged.
  *
