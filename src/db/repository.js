@@ -413,6 +413,9 @@ export const recurrentExpenseRepository = {
     await db.transaction('rw', db.recurrentExpenses, async () => {
       const pending = await db.recurrentExpenses.where('status').equals('pending').toArray();
       for (const item of pending) {
+        // Skip specialized debt payments — they must be marked paid via statement confirmation
+        if (item.isDebtPayment) continue;
+
         const updates = { status: 'paid' };
         if (item.cycleTotal > 0) {
           updates.cycleCurrent = Math.min((item.cycleCurrent || 0) + 1, item.cycleTotal);
@@ -626,6 +629,75 @@ export const statementRepository = {
     if (paymentDate) {
       triggerBalanceRecalc(paymentDate).catch(() => {});
       triggerDailyForecastRecalc(paymentDate).catch(() => {});
+    }
+  },
+
+  /**
+   * Reset a payment for a statement and its linked expense.
+   * @param {number} statementId
+   */
+  async resetPayment(statementId) {
+    let dateForRecalc;
+    await db.transaction('rw', db.statements, db.recurrentExpenses, async () => {
+      // 1. Get statement
+      const statement = await db.statements.get(statementId);
+      if (!statement) throw new Error(`Statement ${statementId} not found`);
+
+      dateForRecalc = statement.actualPaymentDate || statement.paymentDueDate || statement.date;
+
+      // 2. Update statement
+      await db.statements.update(statementId, {
+        actualPaymentAmount: null,
+        actualPaymentDate: null
+      });
+
+      // 3. Update linked expense if exists
+      if (statement.linkedExpenseId) {
+        await db.recurrentExpenses.update(statement.linkedExpenseId, {
+          status: 'pending',
+          amount: statement.minimumPayment || 0,
+          cycleCurrent: 0,
+          date: null
+        });
+      }
+    });
+
+    // 4. Trigger recalcs
+    if (dateForRecalc) {
+      triggerBalanceRecalc(dateForRecalc).catch(() => {});
+      triggerDailyForecastRecalc(dateForRecalc).catch(() => {});
+    }
+  },
+
+  /** Override delete to trigger recalcs */
+  async delete(id) {
+    const stmt = await db.statements.get(id);
+    if (!stmt) return;
+    await db.statements.delete(id);
+    if (stmt.date) {
+      triggerBalanceRecalc(stmt.date).catch(() => {});
+      triggerDailyForecastRecalc(stmt.date).catch(() => {});
+    }
+  },
+
+  /** Delete a statement and its linked expense atomically */
+  async deleteWithExpense(id) {
+    let date;
+    await db.transaction('rw', db.statements, db.recurrentExpenses, async () => {
+      const stmt = await db.statements.get(id);
+      if (!stmt) return;
+      date = stmt.date;
+
+      if (stmt.linkedExpenseId) {
+        await db.recurrentExpenses.delete(stmt.linkedExpenseId);
+      }
+
+      await db.statements.delete(id);
+    });
+
+    if (date) {
+      triggerBalanceRecalc(date).catch(() => {});
+      triggerDailyForecastRecalc(date).catch(() => {});
     }
   }
 };
