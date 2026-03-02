@@ -130,7 +130,10 @@ export const pdfImportUI = {
 
     const footer = `
       <div style="display:flex; justify-content:space-between; width:100%">
-        <button class="ghost" onclick="window.pdfImportUI.copyDebugInfo()">Copy Debug Info</button>
+        <div>
+          <button class="ghost" onclick="window.pdfImportUI.copyDebugInfo()">Copy Debug Info</button>
+          <button class="ghost" onclick="window.pdfImportUI.showDebugRaw()">Show Raw Text</button>
+        </div>
         <div>
           <button class="ghost" onclick="window.templateUI.closeModal()">Cancel</button>
           <button class="primary" onclick="window.pdfImportUI.prefillStatementForm(${JSON.stringify(summary).replace(/"/g, '&quot;')})">Pre-fill Form</button>
