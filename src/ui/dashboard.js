@@ -171,11 +171,12 @@ export async function renderCashFlowForecast() {
         const borderColor = day.closingBalance < 0 ? 'var(--danger)' : 'var(--border)';
         const dayLabel = new Date(day.date).toLocaleDateString('en-GB', { weekday: 'short' });
         const dateLabel = day.date.split('-').slice(1).reverse().join('/');
+        const debtIcon = day.hasDebtPayment ? '<span title="Debt Payment Due" style="margin-left:4px">💳</span>' : '';
         
         return `
           <div style="min-width:100px; flex:1; padding:10px; background:${bgColor}; border:1px solid ${borderColor}; border-radius:8px; text-align:center">
             <div style="font-size:.7rem; text-transform:uppercase; color:var(--text-soft)">${dayLabel}</div>
-            <div style="font-weight:700; font-size:.8rem">${dateLabel}</div>
+            <div style="font-weight:700; font-size:.8rem">${dateLabel}${debtIcon}</div>
             <div style="margin:6px 0; font-weight:800; color:${day.closingBalance < 0 ? 'var(--danger)' : 'var(--accent)'}">${formatGBPShort(day.closingBalance)}</div>
             ${day.incomeTotal > 0 ? `<div style="font-size:.65rem; color:var(--success)">+${formatGBPShort(day.incomeTotal)}</div>` : ''}
             ${day.expenseTotal > 0 ? `<div style="font-size:.65rem; color:var(--danger)">-${formatGBPShort(day.expenseTotal)}</div>` : ''}

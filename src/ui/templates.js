@@ -1,6 +1,9 @@
 import { recurringTemplateRepository, recurrentExpenseRepository, incomeRepository, categoryRepository } from '../db/repository.js';
 import { formatGBP as formatCurrency, toPence } from '../utils/currency.js';
-import { safeHTML, modalUI } from './render.js';
+import { safeHTML, modalUI, showModal, closeModal } from './render.js';
+
+// Re-export for components that expect them in templates.js
+export { showModal, closeModal };
 
 export const templateUI = {
   elements: {

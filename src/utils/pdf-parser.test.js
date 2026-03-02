@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { extractTextFromPdf, parsers } from './pdf-parser.js';
+import { extractTextFromPdf, parsers, extractStatementSummary } from './pdf-parser.js';
 
 // Mock pdfjs-dist
 vi.mock('pdfjs-dist', () => {
@@ -59,6 +59,76 @@ describe('pdf-parser', () => {
       });
 
       await expect(extractTextFromPdf(new ArrayBuffer(0))).rejects.toThrow('NO_TEXT_LAYER');
+    });
+  });
+
+  describe('extractStatementSummary', () => {
+    const mockRows = (texts) => texts.map(t => [{ text: t, x: 0, y: 0, page: 1 }]);
+
+    it('should extract Barclays statement summary', () => {
+      const rows = mockRows([
+        'Statement Date 01 Aug 2025',
+        'Previous Balance £500.00',
+        'New Balance £1,234.56',
+        'Minimum Payment £25.00',
+        'Payment Due Date 21 Aug 2025'
+      ]);
+      const result = extractStatementSummary(rows);
+      expect(result).toEqual({
+        statementDate: '2025-08-01',
+        openingBalance: 50000,
+        newBalance: 123456,
+        minimumPayment: 2500,
+        paymentDueDate: '2025-08-21'
+      });
+    });
+
+    it('should extract HSBC statement summary', () => {
+      const rows = mockRows([
+        'Date of Statement 14/07/2025',
+        'Opening Balance 0.00',
+        'New Balance 1,500.00',
+        'Minimum Payment Due £35.00',
+        'Payment due on 07 Aug 2025'
+      ]);
+      const result = extractStatementSummary(rows);
+      expect(result).toEqual({
+        statementDate: '2025-07-14',
+        openingBalance: 0,
+        newBalance: 150000,
+        minimumPayment: 3500,
+        paymentDueDate: '2025-08-07'
+      });
+    });
+
+    it('should extract Lloyds statement summary', () => {
+      const rows = mockRows([
+        'Produced On 10 Sep 2025',
+        'Balance B/F 100.00',
+        'Closing Balance 250.00',
+        'Min Payment Due £10.00',
+        'Payment Due Date 10/10/2025'
+      ]);
+      const result = extractStatementSummary(rows);
+      expect(result).toEqual({
+        statementDate: '2025-09-10',
+        openingBalance: 10000,
+        newBalance: 25000,
+        minimumPayment: 1000,
+        paymentDueDate: '2025-10-10'
+      });
+    });
+
+    it('should return null for missing fields', () => {
+      const rows = mockRows(['No summary data here']);
+      const result = extractStatementSummary(rows);
+      expect(result).toEqual({
+        statementDate: null,
+        openingBalance: null,
+        newBalance: null,
+        minimumPayment: null,
+        paymentDueDate: null
+      });
     });
   });
 

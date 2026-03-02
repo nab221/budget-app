@@ -1,12 +1,14 @@
 import {
   recurrentExpenseRepository,
   oneOffExpenseRepository,
-  categoryRepository
+  categoryRepository,
+  statementRepository
 } from '../db/repository.js';
-import { formatGBP, toPence } from '../utils/currency.js';
+import { formatGBP, toPence, fromPence } from '../utils/currency.js';
 import { safeHTML } from './render.js';
 import { filterTransactions } from '../utils/filtering.js';
 import { templateUI } from './templates.js';
+import { nextWorkingDay } from '../utils/cashflow.js';
 
 /**
  * Expenses UI Module
@@ -114,6 +116,21 @@ export const expensesUI = {
       try {
         const item = await recurrentExpenseRepository.get(id);
         if (!item) return;
+
+        // Intercept for specialized debt payments
+        if (item.isDebtPayment && item.linkedStatementId) {
+          if (currentStatus === 'pending') {
+            await expensesUI.showDebtPaymentConfirmation(item);
+            return;
+          } else if (currentStatus === 'paid') {
+            if (confirm('Un-pay this debt payment? This will reset the linked statement.')) {
+              await statementRepository.resetPayment(item.linkedStatementId);
+              await this.render(this.currentMonth);
+            }
+            return;
+          }
+        }
+
         const newStatus = currentStatus === 'paid' ? 'pending' : 'paid';
         const updates = { status: newStatus };
         if (newStatus === 'paid' && item.cycleTotal > 0) {
@@ -474,10 +491,13 @@ export const expensesUI = {
         }
       }
 
-      let cancelBadge = '';
-      if (!item.isEssential && item.endDate) {
-        cancelBadge = `<span class="pill" style="background:var(--warn);color:#000;font-size:.65rem" title="Ends ${item.endDate}">Cancelable</span>`;
-      }
+      const cancelBadge = !item.isEssential && item.endDate
+        ? `<span class="pill" style="background:var(--warn);color:#000;font-size:.65rem" title="Ends ${item.endDate}">Cancelable</span>`
+        : '';
+
+      const debtBadge = item.isDebtPayment 
+        ? `<span class="pill" style="background:var(--accent);color:#fff;font-size:.65rem">💳 Debt</span>`
+        : '';
 
       return safeHTML`
         <tr class="${isPaid ? 'paid-row' : ''} ${isFinished ? 'finished-row' : ''}" data-id="${item.id}">
@@ -487,6 +507,7 @@ export const expensesUI = {
             ${item.label}
             ${progressBadge}
             ${cancelBadge}
+            ${debtBadge}
           </td>
           <td>${item.frequency || 'monthly'}</td>
           <td class="r">${formatGBP(item.amount)}</td>
@@ -600,6 +621,64 @@ export const expensesUI = {
     `;
 
     this.updateTotal('oneoff', total);
+  },
+
+  /**
+   * Specialized confirmation for debt payments.
+   */
+  async showDebtPaymentConfirmation(item) {
+    const today = new Date().toISOString().slice(0, 10);
+    const suggestedDate = await nextWorkingDay(today, true);
+    
+    const content = safeHTML`
+      <div style="margin-bottom:15px">
+        <p>Minimum payment for <strong>${item.label}</strong> is <strong>${formatGBP(item.amount)}</strong>.</p>
+        <p class="hint">How much did you actually pay and when?</p>
+      </div>
+      <div class="form-row">
+        <div>
+          <label>Actual Amount (£)</label>
+          <input id="debtActualAmt" type="number" step="0.01" value="${fromPence(item.amount).toFixed(2)}"/>
+        </div>
+        <div>
+          <label>Payment Date</label>
+          <input id="debtPaymentDate" type="date" value="${suggestedDate}"/>
+        </div>
+      </div>
+    `;
+
+    const footer = safeHTML`
+      <div style="display:flex; justify-content:flex-end; gap:8px; width:100%">
+        <button class="ghost" onclick="templateUI.closeModal()">Cancel</button>
+        <button class="primary" id="confirmDebtPayBtn">Confirm Payment</button>
+      </div>
+    `;
+
+    templateUI.showModal('Confirm Debt Payment', content, footer);
+
+    const confirmBtn = document.getElementById('confirmDebtPayBtn');
+    if (confirmBtn) {
+      confirmBtn.onclick = async () => {
+        const actualAmt = document.getElementById('debtActualAmt').value;
+        const paymentDate = document.getElementById('debtPaymentDate').value;
+        
+        if (!actualAmt || isNaN(actualAmt) || !paymentDate) {
+          alert('Please provide a valid amount and date.');
+          return;
+        }
+
+        try {
+          await statementRepository.recordPayment(item.linkedStatementId, actualAmt, paymentDate);
+          templateUI.closeModal();
+          await this.render(this.currentMonth);
+          // Broadcast refresh for Debts tab
+          window.dispatchEvent(new CustomEvent('app:refresh'));
+        } catch (err) {
+          console.error('Failed to record debt payment:', err);
+          alert('Error: ' + err.message);
+        }
+      };
+    }
   },
 
   updateTotal(type, totalPence) {

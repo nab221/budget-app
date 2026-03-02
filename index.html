@@ -94,9 +94,9 @@
           <button class="tab" data-tab="debts">Debts</button>
           <button class="tab" data-tab="payoff">Payoff Planner</button>
           <button class="tab" data-tab="assets">Assets</button>
-          <button class="tab-link" data-tab="childcare">Childcare</button>
-          <button class="tab-link" data-tab="cashflow">Cash Flow</button>
-          <button class="tab-link" data-tab="settings">Settings</button>
+          <button class="tab" data-tab="childcare">Childcare</button>
+          <button class="tab" data-tab="cashflow">Cash Flow</button>
+          <button class="tab" data-tab="settings">Settings</button>
 
         </div>
 
@@ -226,6 +226,8 @@
                 <h3 id="statementTitle">Statements: </h3>
                 <div style="display:flex; gap:8px;">
                   <button id="addStmtBtn" class="primary sm">Log Statement</button>
+                  <button id="importStmtPdfBtn" class="ghost sm">📄 Import PDF</button>
+                  <input type="file" id="stmtPdfFile" accept="application/pdf" style="display:none" />
                   <button class="ghost sm" onclick="document.getElementById('statementSection').classList.add('hidden')">Close</button>
                 </div>
               </div>
@@ -236,15 +238,19 @@
                 <thead>
                   <tr>
                     <th>Date</th>
-                    <th class="r">Balance</th>
+                    <th class="r">Opening</th>
+                    <th class="r">Closing</th>
                     <th class="r">Interest</th>
                     <th class="r">Fees</th>
+                    <th class="r">Min Pay</th>
+                    <th>Due Date</th>
+                    <th class="r">Actual Paid</th>
+                    <th>Paid Date</th>
                     <th></th>
                   </tr>
                 </thead>
                 <tbody id="stmtBody"></tbody>
-              </table>
-            </div>
+              </table>            </div>
           </div>
 
           <!-- ASSETS -->

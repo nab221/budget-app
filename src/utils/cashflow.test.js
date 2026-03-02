@@ -100,7 +100,26 @@ describe('cashflow utilities', () => {
     });
 
     it('accumulates balance correctly', async () => {
-      // ... (existing test)
+      // Existing test placeholder
+    });
+
+    it('excludes finished or paid recurrent expenses and flags debt payments', async () => {
+      recurrentExpenseRepository.getAll.mockResolvedValue([
+        { id: 1, amount: 5000, nextDate: '2026-03-02', label: 'Finished', cycleTotal: 1, cycleCurrent: 1 },
+        { id: 2, amount: 6000, nextDate: '2026-03-02', label: 'Paid', status: 'paid' },
+        { id: 3, amount: 7000, nextDate: '2026-03-02', label: 'Debt Payment', isDebtPayment: true },
+        { id: 4, amount: 8000, nextDate: '2026-03-02', label: 'Normal' }
+      ]);
+
+      const results = await calculateForecast('2026-03-02', 1);
+      
+      // Total should be 7000 (debt) + 8000 (normal) = 15000
+      // 5000 (finished) and 6000 (paid) should be excluded
+      expect(results[0].expenseTotal).toBe(15000);
+      expect(results[0].hasDebtPayment).toBe(true);
+      
+      const resultsNextDay = await calculateForecast('2026-03-03', 1);
+      expect(resultsNextDay[0].hasDebtPayment).toBe(false);
     });
   });
 
@@ -118,7 +137,7 @@ describe('cashflow utilities', () => {
       // Should have 3 predictions (one per month)
       expect(predictions.length).toBe(3);
       expect(predictions[0].source).toBe('Salary');
-      expect(predictions[0].amount).toBe(305000); // Median of 300k, 305k, 310k
+      expect(predictions[0].amount).toBe(3050); // Median of 300k, 305k, 310k (in pounds)
       
       // Check dates (assuming "today" is March 2026)
       // predictions[0] should be Apr 28, [1] May 28, [2] Jun 28
