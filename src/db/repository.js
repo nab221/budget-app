@@ -44,6 +44,30 @@ export async function triggerBalanceRecalc(date) {
 }
 
 /**
+ * Trigger a 90-day daily balance forecast recalculation.
+ * @param {string} date - Affected date (YYYY-MM-DD)
+ */
+export async function triggerDailyForecastRecalc(date) {
+  try {
+    const { calculateForecast } = await import('../utils/cashflow.js');
+    const { dailyBalanceRepository } = await import('./repository.js');
+
+    const today = new Date().toISOString().split('T')[0];
+    const startDate = date < today ? date : today;
+
+    // Calculate 90-day forecast starting from today or the affected date (whichever is earlier)
+    const snapshots = await calculateForecast(startDate, 90);
+    
+    // Persist to dailyBalanceSnapshots
+    await dailyBalanceRepository.bulkSave(snapshots);
+    
+    window.dispatchEvent(new CustomEvent('app:refresh'));
+  } catch (err) {
+    console.error('[triggerDailyForecastRecalc] Failed to recalculate forecast:', err);
+  }
+}
+
+/**
  * PDF Import Repository Functions
  */
 
@@ -277,6 +301,7 @@ export const incomeRepository = {
     const toSave = { ...data, amount: toPence(data.amount) };
     const id = await db.income.add(toSave);
     triggerBalanceRecalc(toSave.date).catch(() => {}); // fire-and-forget
+    triggerDailyForecastRecalc(toSave.date).catch(() => {});
     return id;
   },
 
@@ -287,7 +312,10 @@ export const incomeRepository = {
     await db.income.update(id, toUpdate);
     // Use the updated date if provided, otherwise look up existing date
     const dateForRecalc = toUpdate.date || (await db.income.get(id))?.date;
-    if (dateForRecalc) triggerBalanceRecalc(dateForRecalc).catch(() => {});
+    if (dateForRecalc) {
+      triggerBalanceRecalc(dateForRecalc).catch(() => {});
+      triggerDailyForecastRecalc(dateForRecalc).catch(() => {});
+    }
     return 1;
   },
 
@@ -295,7 +323,10 @@ export const incomeRepository = {
   async delete(id) {
     const record = await db.income.get(id);
     await db.income.delete(id);
-    if (record?.date) triggerBalanceRecalc(record.date).catch(() => {});
+    if (record?.date) {
+      triggerBalanceRecalc(record.date).catch(() => {});
+      triggerDailyForecastRecalc(record.date).catch(() => {});
+    }
   },
 
   async getByMonth(monthStr) {
@@ -396,7 +427,10 @@ export const recurrentExpenseRepository = {
     const toSave = { ...data, amount: toPence(data.amount) };
     const id = await db.recurrentExpenses.add(toSave);
     const dateForRecalc = toSave.nextDate || toSave.date;
-    if (dateForRecalc) triggerBalanceRecalc(dateForRecalc).catch(() => {});
+    if (dateForRecalc) {
+      triggerBalanceRecalc(dateForRecalc).catch(() => {});
+      triggerDailyForecastRecalc(dateForRecalc).catch(() => {});
+    }
     return id;
   },
 
@@ -406,7 +440,10 @@ export const recurrentExpenseRepository = {
     if (toUpdate.amount !== undefined) toUpdate.amount = toPence(toUpdate.amount);
     await db.recurrentExpenses.update(id, toUpdate);
     const dateForRecalc = toUpdate.nextDate || toUpdate.date || (await db.recurrentExpenses.get(id))?.nextDate;
-    if (dateForRecalc) triggerBalanceRecalc(dateForRecalc).catch(() => {});
+    if (dateForRecalc) {
+      triggerBalanceRecalc(dateForRecalc).catch(() => {});
+      triggerDailyForecastRecalc(dateForRecalc).catch(() => {});
+    }
     return 1;
   },
 
@@ -415,7 +452,10 @@ export const recurrentExpenseRepository = {
     const record = await db.recurrentExpenses.get(id);
     await db.recurrentExpenses.delete(id);
     const dateForRecalc = record?.nextDate || record?.date;
-    if (dateForRecalc) triggerBalanceRecalc(dateForRecalc).catch(() => {});
+    if (dateForRecalc) {
+      triggerBalanceRecalc(dateForRecalc).catch(() => {});
+      triggerDailyForecastRecalc(dateForRecalc).catch(() => {});
+    }
   }
 };
 
@@ -432,6 +472,7 @@ export const oneOffExpenseRepository = {
     const toSave = { ...data, amount: toPence(data.amount) };
     const id = await db.oneOffExpenses.add(toSave);
     triggerBalanceRecalc(toSave.date).catch(() => {}); // fire-and-forget
+    triggerDailyForecastRecalc(toSave.date).catch(() => {});
     return id;
   },
 
@@ -441,7 +482,10 @@ export const oneOffExpenseRepository = {
     if (toUpdate.amount !== undefined) toUpdate.amount = toPence(toUpdate.amount);
     await db.oneOffExpenses.update(id, toUpdate);
     const dateForRecalc = toUpdate.date || (await db.oneOffExpenses.get(id))?.date;
-    if (dateForRecalc) triggerBalanceRecalc(dateForRecalc).catch(() => {});
+    if (dateForRecalc) {
+      triggerBalanceRecalc(dateForRecalc).catch(() => {});
+      triggerDailyForecastRecalc(dateForRecalc).catch(() => {});
+    }
     return 1;
   },
 
@@ -449,7 +493,10 @@ export const oneOffExpenseRepository = {
   async delete(id) {
     const record = await db.oneOffExpenses.get(id);
     await db.oneOffExpenses.delete(id);
-    if (record?.date) triggerBalanceRecalc(record.date).catch(() => {});
+    if (record?.date) {
+      triggerBalanceRecalc(record.date).catch(() => {});
+      triggerDailyForecastRecalc(record.date).catch(() => {});
+    }
   },
 
   /**
@@ -998,5 +1045,142 @@ export const childcareRepository = {
     });
 
     return entries[0].runningBalance;
+  }
+};
+
+/**
+ * Daily Balance Snapshot Repository
+ *
+ * Stores daily opening/closing balance snapshots for the cash flow engine.
+ * Snapshots capture the state of a single day (keyed by date string YYYY-MM-DD).
+ */
+export const dailyBalanceRepository = {
+  /**
+   * Get the snapshot for a specific date.
+   * @param {string} date - YYYY-MM-DD string
+   * @returns {Promise<Object|undefined>}
+   */
+  async getByDate(date) {
+    return await db.dailyBalanceSnapshots.where('date').equals(date).first();
+  },
+
+  /**
+   * Save (upsert) a daily balance snapshot.
+   * @param {Object} snapshot - { date, openingBalance, closingBalance, incomeTotal, expenseTotal }
+   * @returns {Promise<number>}
+   */
+  async save(snapshot) {
+    const existing = await db.dailyBalanceSnapshots.where('date').equals(snapshot.date).first();
+    if (existing) {
+      await db.dailyBalanceSnapshots.update(existing.id, snapshot);
+      return existing.id;
+    }
+    return await db.dailyBalanceSnapshots.add(snapshot);
+  },
+
+  /**
+   * Delete all daily snapshots from a given date onwards (inclusive).
+   * @param {string} fromDate - YYYY-MM-DD string.
+   * @returns {Promise<void>}
+   */
+  async deleteFrom(fromDate) {
+    const all = await db.dailyBalanceSnapshots.toArray();
+    const toDelete = all
+      .filter(s => s.date >= fromDate)
+      .map(s => s.id);
+    if (toDelete.length > 0) {
+      await db.dailyBalanceSnapshots.bulkDelete(toDelete);
+    }
+  },
+
+  /**
+   * Get the most recent daily snapshot.
+   * @returns {Promise<Object|undefined>}
+   */
+  async getLatestSnapshot() {
+    const all = await db.dailyBalanceSnapshots.toArray();
+    if (all.length === 0) return undefined;
+    return all.reduce((latest, s) => (s.date > latest.date ? s : latest), all[0]);
+  },
+
+  /**
+   * Bulk save snapshots efficiently.
+   * @param {Array} snapshots
+   * @returns {Promise<void>}
+   */
+  async bulkSave(snapshots) {
+    // Clear existing snapshots in the horizon to avoid duplicates or stale data
+    if (snapshots.length > 0) {
+      const dates = snapshots.map(s => s.date);
+      const minDate = dates.reduce((min, d) => (d < min ? d : min), dates[0]);
+      await this.deleteFrom(minDate);
+    }
+    await db.dailyBalanceSnapshots.bulkAdd(snapshots);
+  }
+};
+
+/**
+ * Expected Income Repository
+ */
+export const expectedIncomeRepository = {
+  ...createBaseRepository(db.expectedIncome),
+
+  /**
+   * Get expected income records for a given month.
+   * @param {string} monthStr - YYYY-MM
+   * @returns {Promise<Array>}
+   */
+  async getByMonth(monthStr) {
+    return await db.expectedIncome.where('date').startsWith(monthStr).toArray();
+  },
+
+  /** Add an expected income record and trigger forecast recalculation. */
+  async add(data) {
+    const id = await createBaseRepository(db.expectedIncome).add(data);
+    triggerDailyForecastRecalc(data.date).catch(() => {});
+    return id;
+  },
+
+  /** Update an expected income record and trigger forecast recalculation. */
+  async update(id, data) {
+    await createBaseRepository(db.expectedIncome).update(id, data);
+    const dateForRecalc = data.date || (await db.expectedIncome.get(id))?.date;
+    if (dateForRecalc) triggerDailyForecastRecalc(dateForRecalc).catch(() => {});
+    return 1;
+  },
+
+  /** Delete an expected income record and trigger forecast recalculation. */
+  async delete(id) {
+    const record = await db.expectedIncome.get(id);
+    await db.expectedIncome.delete(id);
+    if (record?.date) triggerDailyForecastRecalc(record.date).catch(() => {});
+  }
+};
+
+/**
+ * Bank Holiday Repository
+ *
+ * Handles user overrides for bank holidays (e.g., marking a holiday as a working day).
+ */
+export const bankHolidayRepository = {
+  ...createBaseRepository(db.bankHolidayOverrides),
+
+  /**
+   * Get override for a specific date.
+   * @param {string} date - YYYY-MM-DD
+   * @returns {Promise<Object|undefined>}
+   */
+  async getOverride(date) {
+    return await db.bankHolidayOverrides.where('date').equals(date).first();
+  },
+
+  /**
+   * Check if a manual override is active for a date and if it marks it as open/working.
+   * @param {string} date - YYYY-MM-DD
+   * @returns {Promise<boolean|null>} null if no override, otherwise the isOpen value.
+   */
+  async isOverrideActive(date) {
+    const override = await this.getOverride(date);
+    return override ? !!override.isOpen : null;
   }
 };

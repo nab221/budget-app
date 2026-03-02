@@ -374,3 +374,90 @@ export function renderDebtPayoffChart(canvasId, projectionData) {
   _chartInstances.set(canvasId, chart);
   return chart;
 }
+
+/**
+ * Render (or re-render) a 90-day daily cash flow forecast chart.
+ *
+ * @param {string} canvasId - The id of the <canvas> element.
+ * @param {Array} snapshots - Array of daily snapshots.
+ */
+export function renderCashFlowChart(canvasId, snapshots) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+
+  if (_chartInstances.has(canvasId)) {
+    _chartInstances.get(canvasId).destroy();
+    _chartInstances.delete(canvasId);
+  }
+
+  if (!snapshots || snapshots.length === 0) return;
+
+  const labels = snapshots.map(s => s.date);
+  const data = snapshots.map(s => s.closingBalance);
+
+  const primaryColor = '#0072B2'; // OKABE_ITO.income (Blue)
+  const warnColor = '#D55E00';    // Vermilion
+
+  const pointColors = data.map(val => val < 0 ? warnColor : primaryColor);
+
+  const chart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Daily Balance',
+        data: data,
+        borderColor: primaryColor,
+        backgroundColor: primaryColor + '11',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.3,
+        pointBackgroundColor: pointColors,
+        pointBorderColor: pointColors,
+        pointRadius: (ctx) => (ctx.raw < 0 ? 4 : 0),
+        pointHoverRadius: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => ` Balance: ${formatPence(ctx.parsed.y)}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: {
+            font: { size: 10 },
+            autoSkip: true,
+            maxTicksLimit: 8,
+            maxRotation: 0
+          }
+        },
+        y: {
+          beginAtZero: false,
+          ticks: {
+            font: { size: 10 },
+            callback: (value) => formatPence(value)
+          },
+          grid: {
+            color: (ctx) => (ctx.tick.value === 0 ? warnColor : 'rgba(148,163,184,0.15)'),
+            lineWidth: (ctx) => (ctx.tick.value === 0 ? 2 : 1)
+          }
+        }
+      }
+    }
+  });
+
+  _chartInstances.set(canvasId, chart);
+  return chart;
+}

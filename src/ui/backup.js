@@ -90,11 +90,19 @@ export const backupUI = {
 
     const reader = new FileReader();
     reader.onload = async (e) => {
+      let content;
       try {
-        const content = JSON.parse(e.target.result);
+        content = JSON.parse(e.target.result);
+      } catch (err) {
+        alert('Invalid backup file format: Not a valid JSON file.');
+        return;
+      }
+
+      try {
         this.promptImportConfirmation(content);
       } catch (err) {
-        alert('Invalid backup file format.');
+        console.error('Import prompt error:', err);
+        alert('An error occurred while preparing the import prompt.');
       }
       // Reset input so the same file can be selected again
       event.target.value = '';

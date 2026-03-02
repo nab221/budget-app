@@ -1,7 +1,16 @@
-import { getDashboardData, getSpendingTrends, debtRepository, targetRepository, netWorthRepository, balanceSnapshotRepository } from '../db/repository.js';
+import { 
+  getDashboardData, 
+  getSpendingTrends, 
+  debtRepository, 
+  targetRepository, 
+  netWorthRepository, 
+  balanceSnapshotRepository,
+  dailyBalanceRepository,
+  expectedIncomeRepository
+} from '../db/repository.js';
 import { formatGBP, formatGBPShort } from '../utils/currency.js';
 import { simulatePayoff, calcMinPayment, calculateBalanceChain } from '../utils/finance.js';
-import { renderTrendsChart, renderBalanceChart } from './charts.js';
+import { renderTrendsChart, renderBalanceChart, renderCashFlowChart } from './charts.js';
 import { checkStoragePersistence } from './pwa-ux.js';
 import { getEntitlementPeriod } from '../utils/childcare.js';
 
@@ -112,6 +121,78 @@ export async function renderDashboard(containerId, periodType, targetMonth) {
   renderChildcareFunding(childcareSummary);
   renderDebtRepaymentPanel(debts, data.income);
   renderBalancePanel();
+  renderCashFlowForecast();
+}
+
+/**
+ * Renders the Daily Cash Flow Forecast section on the dashboard.
+ * Includes critical alerts, 7-day timeline, and the 90-day projection chart.
+ */
+export async function renderCashFlowForecast() {
+  const section = document.getElementById('cashflowForecastSection');
+  if (!section) return;
+
+  const snapshots = await dailyBalanceRepository.getAll();
+  if (!snapshots || snapshots.length === 0) {
+    section.innerHTML = '<div class="hint">Forecast data unavailable. Recalculating...</div>';
+    // Trigger a recalc if empty
+    const { triggerDailyForecastRecalc } = await import('../db/repository.js');
+    triggerDailyForecastRecalc(new Date().toISOString().split('T')[0]);
+    return;
+  }
+
+  // Sort chronological
+  snapshots.sort((a, b) => a.date.localeCompare(b.date));
+
+  // 1. Identify Critical Alert
+  const critical = snapshots.find(s => s.closingBalance < 0);
+  let alertHTML = '';
+  if (critical) {
+    const nextIncome = snapshots.find(s => s.date > critical.date && s.incomeTotal > 0);
+    alertHTML = `
+      <div class="card" style="background:rgba(213, 94, 0, 0.1); border-left:4px solid var(--danger); padding:12px; margin-bottom:15px">
+        <div style="font-weight:700; color:var(--danger); margin-bottom:4px">⚠️ Low Balance Alert</div>
+        <div style="font-size:.9rem">
+          Your balance is predicted to reach <strong style="color:var(--danger)">${formatGBP(critical.closingBalance)}</strong> on ${critical.date}.
+          ${nextIncome ? `<br/>Next income expected on <strong>${nextIncome.date}</strong>.` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  // 2. Build 7-Day Timeline
+  const today = new Date().toISOString().split('T')[0];
+  const timelineDays = snapshots.filter(s => s.date >= today).slice(0, 7);
+  
+  const timelineHTML = `
+    <div style="display:flex; gap:10px; overflow-x:auto; padding-bottom:10px; margin-bottom:15px">
+      ${timelineDays.map(day => {
+        const bgColor = day.closingBalance < 0 ? 'rgba(213, 94, 0, 0.1)' : 'var(--bg-alt)';
+        const borderColor = day.closingBalance < 0 ? 'var(--danger)' : 'var(--border)';
+        const dayLabel = new Date(day.date).toLocaleDateString('en-GB', { weekday: 'short' });
+        const dateLabel = day.date.split('-').slice(1).reverse().join('/');
+        
+        return `
+          <div style="min-width:100px; flex:1; padding:10px; background:${bgColor}; border:1px solid ${borderColor}; border-radius:8px; text-align:center">
+            <div style="font-size:.7rem; text-transform:uppercase; color:var(--text-soft)">${dayLabel}</div>
+            <div style="font-weight:700; font-size:.8rem">${dateLabel}</div>
+            <div style="margin:6px 0; font-weight:800; color:${day.closingBalance < 0 ? 'var(--danger)' : 'var(--accent)'}">${formatGBPShort(day.closingBalance)}</div>
+            ${day.incomeTotal > 0 ? `<div style="font-size:.65rem; color:var(--success)">+${formatGBPShort(day.incomeTotal)}</div>` : ''}
+            ${day.expenseTotal > 0 ? `<div style="font-size:.65rem; color:var(--danger)">-${formatGBPShort(day.expenseTotal)}</div>` : ''}
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+
+  section.innerHTML = `
+    <h3 style="font-size:.9rem; margin-bottom:12px; font-weight:600">Cash Flow Forecast</h3>
+    ${alertHTML}
+    ${timelineHTML}
+  `;
+
+  // Render Chart
+  renderCashFlowChart('cashflowChart', snapshots.slice(0, 90));
 }
 
 /**

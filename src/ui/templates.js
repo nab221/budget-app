@@ -152,6 +152,10 @@ export const templateUI = {
     }
   },
 
+  showModal(title, content, footer) {
+    modalUI.show(title, content, footer);
+  },
+
   closeModal() {
     modalUI.close();
   },

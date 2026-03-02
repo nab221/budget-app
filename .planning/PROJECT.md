@@ -1,19 +1,18 @@
 # Project: Budget App
 
 ## Current State
-- **Latest Version**: v1.0 (Shipped 2026-03-01)
-- **Status**: Stable. Rebuilt from monolith to modular PWA.
-- **Key Features**: Offline-first, IndexedDB, UK Bank PDF Import, Cloud Backup (GDrive/OneDrive), Debt Payoff Planner, Account Balance Forecasting.
+- **Latest Version**: v1.1 (UX Refined)
+- **Status**: Milestone v1.2 Planning.
+- **Key Features**: Offline-first, IndexedDB, UK Bank PDF Import, Cloud Backup, Debt Payoff Planner, Account Balance Forecasting.
 
-## Next Milestone: v1.1
-- **Goal**: UX Refinement & Core CRUD Polish.
+## Next Milestone: v1.2
+- **Goal**: Daily Cash Flow Engine.
 - **Planned Features**: 
-  - UI readability improvements (spacing, "clamping" fixes).
-  - Full edit support for all transaction types.
-  - Search and category filtering for income and expenses.
-  - Manual setting of initial balances.
-  - Reordered and refined dashboard balance panel.
-  - Manual triggering of recurring templates.
+  - 90-day daily balance prediction.
+  - UK Bank Holiday & Weekend adjustment logic.
+  - Expected income auto-generation from history.
+  - Cash Flow Planner tab.
+  - Dashboard 90-day forecast chart.
 
 ---
 
@@ -78,4 +77,4 @@ A clear, reliable view of where the money goes each month — income vs fixed vs
 </details>
 
 ---
-*Last updated: 2026-03-01 after v1.0 milestone completion*
+*Last updated: 2026-03-01 after v1.1 milestone completion*

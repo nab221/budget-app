@@ -1,30 +1,30 @@
-# Requirements: Budget App v1.1 (UX Refinement)
+# Requirements: Budget App v1.2 (Daily Cash Flow Engine)
 
-**Milestone Goal:** Improve overall usability, readability, and CRUD control based on initial v1.0 feedback.
+**Milestone Goal:** Predict daily balances 90 days forward, handling UK bank holidays and weekends, with auto-generation of expected income.
 
-## v1.1 Requirements
+## v1.2 Requirements
 
-### UI & Readability (UX-01)
-- [ ] **UX-01.1**: Resolve "clamping" and tight spacing in all tables (income, expenses, statements, etc.).
-- [ ] **UX-01.2**: Increase card and summary item padding for better visual breathing room.
-- [ ] **UX-01.3**: Enhance responsive layout to prevent text overlap in multi-column rows.
+### Schema & Data Infrastructure (SCHEMA-01)
+- [ ] **SCHEMA-01.1**: Implement Schema v10 including `dailyBalanceSnapshots`, `expectedIncome`, and `bankHolidayOverrides`.
+- [ ] **SCHEMA-01.2**: Implement robust migrations for Schema v10.
+- [ ] **SCHEMA-01.3**: Add repositories for new tables in `src/db/repository.js`.
+- [ ] **SCHEMA-01.4**: UK Bank Holiday handling via `gov.uk` API integration.
+- [ ] **SCHEMA-01.5**: Offline caching for UK Bank Holiday data to ensure engine works without internet.
 
-### Core CRUD Polish (CRUD-01)
-- [ ] **CRUD-01.1**: Implement full Edit support for Income entries.
-- [ ] **CRUD-01.2**: Implement full Edit support for Recurrent and One-off Expenses.
-- [ ] **CRUD-01.3**: Implement full Edit support for Debt Statement entries.
-- [ ] **CRUD-01.4**: Editing a transaction should toggle the "Add" form into an "Update" mode with prepopulated data.
+### Forecast Engine (FORC-01)
+- [ ] **FORC-01.1**: Implement 90-day forecast engine in `src/utils/cashflow.js` (opening + income - expenses = closing).
+- [ ] **FORC-01.2**: Implement logic to move expenses falling on weekends or bank holidays to the next working day.
+- [ ] **FORC-01.3**: Day-by-day iteration for 90 days to generate balance snapshots.
 
-### Search & Filtering (FILT-01)
-- [ ] **FILT-01.1**: Add a real-time text search filter to the Income tab.
-- [ ] **FILT-01.2**: Add category filtering to the Income tab.
-- [ ] **FILT-01.3**: Add text search and category filtering to the Expenses tab (both Recurrent and One-off sub-tabs).
+### Expected Income Engine (INC-01)
+- [ ] **INC-01.1**: Auto-generate expected income entries from historical transaction patterns.
+- [ ] **INC-01.2**: Provide UI for managing/overriding auto-generated expected income in `src/ui/expected-income.js`.
 
-### Advanced Data Control (CTRL-01)
-- [ ] **CTRL-01.1**: Allow users to set an arbitrary Opening Balance amount for the "Balance Start Month" in Settings.
-- [ ] **CTRL-01.2**: Add a button in the Expenses tab to manually trigger/apply recurring templates for the current month.
-- [ ] **CTRL-01.3**: Reorder the Dashboard balance panel: Running Balance → Next Month Forecast → 3-Month Forecast.
-- [ ] **CTRL-01.4**: Ensure "Next Month Forecast" in the balance panel matches the appearance and consistency of the other two balance cards.
+### Cash Flow UI & Dashboard (UI-01)
+- [ ] **UI-01.1**: New "Cash Flow Planner" tab to view 90-day daily breakdown.
+- [ ] **UI-01.2**: Add 90-day forecast chart to the main Dashboard.
+- [ ] **UI-01.3**: Implement "Critical Date Warnings" for days where balance is predicted to fall below zero or a threshold.
+- [ ] **UI-01.4**: Update `dashboard.js` and `charts.js` to integrate the new forecast data.
 
 ---
 
@@ -32,20 +32,20 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| UX-01.1     | Phase 14 | Pending |
-| UX-01.2     | Phase 14 | Pending |
-| UX-01.3     | Phase 14 | Pending |
-| CRUD-01.1   | Phase 15 | Pending |
-| CRUD-01.2   | Phase 15 | Pending |
-| CRUD-01.3   | Phase 15 | Pending |
-| CRUD-01.4   | Phase 15 | Pending |
-| FILT-01.1   | Phase 15 | Pending |
-| FILT-01.2   | Phase 15 | Pending |
-| FILT-01.3   | Phase 15 | Pending |
-| CTRL-01.1   | Phase 16 | Pending |
-| CTRL-01.2   | Phase 16 | Pending |
-| CTRL-01.3   | Phase 14 | Pending |
-| CTRL-01.4   | Phase 14 | Pending |
+| SCHEMA-01.1 | Phase 17 | Pending |
+| SCHEMA-01.2 | Phase 17 | Pending |
+| SCHEMA-01.3 | Phase 17 | Pending |
+| SCHEMA-01.4 | Phase 17 | Pending |
+| SCHEMA-01.5 | Phase 17 | Pending |
+| FORC-01.1   | Phase 18 | Pending |
+| FORC-01.2   | Phase 18 | Pending |
+| FORC-01.3   | Phase 18 | Pending |
+| INC-01.1    | Phase 19 | Pending |
+| INC-01.2    | Phase 19 | Pending |
+| UI-01.1     | Phase 20 | Pending |
+| UI-01.2     | Phase 20 | Pending |
+| UI-01.3     | Phase 20 | Pending |
+| UI-01.4     | Phase 20 | Pending |
 
 ---
-*Last updated: 2026-03-01 after v1.0 milestone completion*
+*Last updated: 2026-03-01 after v1.1 milestone completion*

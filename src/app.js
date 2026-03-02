@@ -16,6 +16,7 @@ import { initPWA, installApp, checkExportReminder } from './ui/pwa-ux';
 import { pdfImportUI } from './ui/pdf-import';
 import { cloudBackupUI } from './ui/cloud-backup.js';
 import { childcareUI } from './ui/childcare.js';
+import { expectedIncomeUI } from './ui/expected-income.js';
 import { calculateBalanceChain } from './utils/finance.js';
 import { balanceSnapshotRepository } from './db/repository.js';
 import { BALANCE_START_DATE_KEY, BALANCE_OPENING_AMOUNT_KEY } from './utils/storage.js';
@@ -108,6 +109,7 @@ async function init() {
       if (panelId === 'assets') await assetUI.render();
       if (panelId === 'payoff') await renderPayoffPlanner();
       if (panelId === 'childcare') await childcareUI.render();
+      if (panelId === 'cashflow') await expectedIncomeUI.render();
       if (panelId === 'settings') {
         await categoryUI.render();
         await templateUI.renderTemplates();

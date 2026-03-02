@@ -519,7 +519,7 @@ export const expensesUI = {
       ${nonEssential.map(renderRow).join('')}
     ` : '';
 
-    container.innerHTML = `
+    container.innerHTML = safeHTML`
       <table class="tbl">
         <thead>
           <tr>
@@ -571,7 +571,7 @@ export const expensesUI = {
       return `${note}${badge}`;
     };
 
-    container.innerHTML = `
+    container.innerHTML = safeHTML`
       <table class="tbl">
         <thead>
           <tr>

@@ -191,6 +191,36 @@ db.version(9).stores({
   balanceSnapshots: '++id, month, openingBalance, closingBalance, incomeTotal, expenseTotal'
 });
 
+// Define version 10 schema: Daily Cash Flow Engine
+// Adds dailyBalanceSnapshots, expectedIncome, and bankHolidayOverrides tables.
+// Adds predictedPaymentDate to recurrentExpenses for fine-grained forecasting.
+db.version(10).stores({
+  income: '++id, date, source, amount, categoryId',
+  recurrentExpenses: '++id, date, categoryId, label, amount, status, frequency, nextDate, predictedPaymentDate, isEssential, cycleTotal, cycleCurrent, endDate',
+  oneOffExpenses: '++id, date, categoryId, note, amount',
+  recurringTemplates: '++id, name, amount, categoryId, frequency, type',
+  debts: '++id, name, type, apr, creditLimit, currentBalance, promoEndDate, postPromoApr',
+  statements: '++id, debtId, date, amount, interest, fees',
+  assets: '++id, name, type, asOfDate, currentBalance',
+  categories: '++id, name, group',
+  targets: '++id, bucket, amount',
+  netWorthSnapshots: '++id, month, totalAssets, totalDebt, netWorth',
+  categoryMappings: '++id, description, categoryId',
+  childcareAccounts: '++id, childName, targetMonthlySpend, entitlementStart, isDisabled',
+  childcareLedger: '++id, accountId, date, type, amount, runningBalance',
+  balanceSnapshots: '++id, month, openingBalance, closingBalance, incomeTotal, expenseTotal',
+  dailyBalanceSnapshots: '++id, date, openingBalance, closingBalance, incomeTotal, expenseTotal',
+  expectedIncome: '++id, date, source, amount, categoryId, status',
+  bankHolidayOverrides: '++id, date, isOpen'
+}).upgrade(async tx => {
+  // Initialize predictedPaymentDate for existing recurrent expenses
+  await tx.table('recurrentExpenses').toCollection().modify(item => {
+    if (item.predictedPaymentDate === undefined) {
+      item.predictedPaymentDate = item.nextDate || item.date;
+    }
+  });
+});
+
 // Handle schema updates in other tabs
 db.on('versionchange', function() {
   db.close();

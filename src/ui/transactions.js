@@ -281,7 +281,7 @@ export const transactionUI = {
       `));
     }
 
-    body.innerHTML = rows.join('');
+    body.innerHTML = safeHTML`${rows.join('')}`;
     this.updateTotal('income', filteredTotal);
   },
 
