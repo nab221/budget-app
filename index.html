@@ -413,6 +413,26 @@
       </div>
     </div>
 
+    <!-- ════════ FILE SYNC MODAL ════════ -->
+    <div id="fileSyncModal" class="modal-overlay hidden">
+      <div class="modal">
+        <div class="modal-hd">
+          <h2>📂 Select Budget File</h2>
+          <button id="fileSyncModalClose" class="ghost">✖</button>
+        </div>
+        <div class="modal-body">
+          <div class="hint" style="margin-bottom:12px">
+            To sync across devices, choose a file in your <strong>OneDrive</strong>, <strong>Dropbox</strong>, or <strong>Google Drive</strong> folder.
+            Auto-save is only available on desktop Chrome, Edge, and Opera.
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <button id="openFileBtn" class="primary" style="justify-content:center;padding:12px">Open Existing Budget File</button>
+            <button id="createFileBtn" class="ghost" style="justify-content:center;padding:12px">Create New Budget File</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script type="module" src="/src/app.js"></script>
     <!-- Google Identity Services (GIS) — loaded async so it does not block page render.
          This script is intentionally NOT precached by the service worker (external CDN).
