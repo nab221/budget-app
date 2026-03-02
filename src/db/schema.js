@@ -221,6 +221,46 @@ db.version(10).stores({
   });
 });
 
+// Define version 11 schema: Enhanced Debt Management
+// Adds openingBalance, minimumPayment, paymentDueDate, actualPaymentAmount,
+// actualPaymentDate, and linkedExpenseId to statements.
+// Adds isDebtPayment and linkedStatementId to recurrentExpenses.
+db.version(11).stores({
+  income: '++id, date, source, amount, categoryId',
+  recurrentExpenses: '++id, date, categoryId, label, amount, status, frequency, nextDate, predictedPaymentDate, isEssential, cycleTotal, cycleCurrent, endDate, isDebtPayment, linkedStatementId',
+  oneOffExpenses: '++id, date, categoryId, note, amount',
+  recurringTemplates: '++id, name, amount, categoryId, frequency, type',
+  debts: '++id, name, type, apr, creditLimit, currentBalance, promoEndDate, postPromoApr',
+  statements: '++id, debtId, date, amount, interest, fees, actualPaymentDate, linkedExpenseId',
+  assets: '++id, name, type, asOfDate, currentBalance',
+  categories: '++id, name, group',
+  targets: '++id, bucket, amount',
+  netWorthSnapshots: '++id, month, totalAssets, totalDebt, netWorth',
+  categoryMappings: '++id, description, categoryId',
+  childcareAccounts: '++id, childName, targetMonthlySpend, entitlementStart, isDisabled',
+  childcareLedger: '++id, accountId, date, type, amount, runningBalance',
+  balanceSnapshots: '++id, month, openingBalance, closingBalance, incomeTotal, expenseTotal',
+  dailyBalanceSnapshots: '++id, date, openingBalance, closingBalance, incomeTotal, expenseTotal',
+  expectedIncome: '++id, date, source, amount, categoryId, status',
+  bankHolidayOverrides: '++id, date, isOpen'
+}).upgrade(async tx => {
+  // Initialize new fields for existing statements
+  await tx.table('statements').toCollection().modify(statement => {
+    if (statement.openingBalance === undefined) statement.openingBalance = 0;
+    if (statement.minimumPayment === undefined) statement.minimumPayment = 0;
+    if (statement.paymentDueDate === undefined) statement.paymentDueDate = null;
+    if (statement.actualPaymentAmount === undefined) statement.actualPaymentAmount = null;
+    if (statement.actualPaymentDate === undefined) statement.actualPaymentDate = null;
+    if (statement.linkedExpenseId === undefined) statement.linkedExpenseId = null;
+  });
+
+  // Initialize new fields for existing recurrent expenses
+  await tx.table('recurrentExpenses').toCollection().modify(expense => {
+    if (expense.isDebtPayment === undefined) expense.isDebtPayment = false;
+    if (expense.linkedStatementId === undefined) expense.linkedStatementId = null;
+  });
+});
+
 // Handle schema updates in other tabs
 db.on('versionchange', function() {
   db.close();
