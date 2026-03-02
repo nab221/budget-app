@@ -534,7 +534,101 @@ export const recurringTemplateRepository = createBaseRepository(db.recurringTemp
 /**
  * Statement Repository
  */
-export const statementRepository = createBaseRepository(db.statements, ['amount', 'interest', 'fees']);
+export const statementRepository = {
+  ...createBaseRepository(db.statements, ['amount', 'interest', 'fees', 'openingBalance', 'minimumPayment', 'actualPaymentAmount']),
+
+  /**
+   * Add a statement and automatically create a linked minimum payment expense.
+   * @param {Object} statementData 
+   * @param {string} debtName 
+   * @returns {Promise<number>} Statement ID
+   */
+  async addWithExpense(statementData, debtName) {
+    // 1. Convert monetary fields to pence
+    const toSave = { ...statementData };
+    const fields = ['amount', 'interest', 'fees', 'openingBalance', 'minimumPayment'];
+    fields.forEach(f => {
+      if (toSave[f] !== undefined) toSave[f] = toPence(toSave[f]);
+    });
+
+    // 2. Find category for 'Credit Cards & Loans'
+    const category = await db.categories.where('name').equals('Credit Cards & Loans').first();
+    const categoryId = category ? category.id : null;
+
+    let statementId;
+    // 3. Execute transaction
+    await db.transaction('rw', db.statements, db.recurrentExpenses, async () => {
+      // 4. Add statement (linkedExpenseId: null for now)
+      toSave.linkedExpenseId = null;
+      statementId = await db.statements.add(toSave);
+
+      // 5. Add linked expense
+      const expenseId = await db.recurrentExpenses.add({
+        label: `Min Payment: ${debtName}`,
+        amount: toSave.minimumPayment || 0,
+        nextDate: toSave.paymentDueDate || toSave.date,
+        predictedPaymentDate: toSave.paymentDueDate || toSave.date,
+        categoryId: categoryId,
+        status: 'pending',
+        isDebtPayment: true,
+        linkedStatementId: statementId,
+        cycleTotal: 1,
+        cycleCurrent: 0,
+        isEssential: true,
+        frequency: 'monthly' // Most debt payments are monthly cycles
+      });
+
+      // 6. Update statement with linkedExpenseId
+      await db.statements.update(statementId, { linkedExpenseId: expenseId });
+    });
+
+    // 7. Trigger recalcs
+    if (toSave.date) {
+      triggerBalanceRecalc(toSave.date).catch(() => {});
+      triggerDailyForecastRecalc(toSave.date).catch(() => {});
+    }
+
+    return statementId;
+  },
+
+  /**
+   * Record a payment for a statement and update the linked expense.
+   * @param {number} statementId 
+   * @param {number|string} actualAmount 
+   * @param {string} paymentDate 
+   */
+  async recordPayment(statementId, actualAmount, paymentDate) {
+    const amountPence = toPence(actualAmount);
+
+    await db.transaction('rw', db.statements, db.recurrentExpenses, async () => {
+      // 3. Get statement
+      const statement = await db.statements.get(statementId);
+      if (!statement) throw new Error(`Statement ${statementId} not found`);
+
+      // 4. Update statement
+      await db.statements.update(statementId, {
+        actualPaymentAmount: amountPence,
+        actualPaymentDate: paymentDate
+      });
+
+      // 5. Update linked expense if exists
+      if (statement.linkedExpenseId) {
+        await db.recurrentExpenses.update(statement.linkedExpenseId, {
+          status: 'paid',
+          amount: amountPence,
+          cycleCurrent: 1,
+          date: paymentDate
+        });
+      }
+    });
+
+    // 6. Trigger recalcs
+    if (paymentDate) {
+      triggerBalanceRecalc(paymentDate).catch(() => {});
+      triggerDailyForecastRecalc(paymentDate).catch(() => {});
+    }
+  }
+};
 
 /**
  * Target Repository
@@ -1062,6 +1156,14 @@ export const dailyBalanceRepository = {
    */
   async getByDate(date) {
     return await db.dailyBalanceSnapshots.where('date').equals(date).first();
+  },
+
+  /**
+   * Get all daily snapshots.
+   * @returns {Promise<Array>}
+   */
+  async getAll() {
+    return await db.dailyBalanceSnapshots.toArray();
   },
 
   /**
