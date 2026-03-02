@@ -5,7 +5,7 @@ This milestone introduces the Daily Cash Flow Engine, providing a 90-day forward
 
 ## Phases
 
-- [ ] **Phase 17: Schema & UK Bank Holidays** - Data foundation including Schema v10, migrations, and UK Bank Holiday integration.
+- [x] **Phase 17: Schema & UK Bank Holidays** - Data foundation including Schema v10, migrations, and UK Bank Holiday integration.
 - [ ] **Phase 18: Forecast Logic** - The core 90-day day-by-day iteration engine with weekend and holiday adjustment logic.
 - [ ] **Phase 19: Expected Income Integration** - Historical pattern recognition for auto-generating expected income.
 - [ ] **Phase 20: Cash Flow Experience** - User-facing components including the Planner tab, Dashboard chart, and low-balance warnings.
@@ -25,8 +25,8 @@ This milestone introduces the Daily Cash Flow Engine, providing a 90-day forward
   4. Repositories in `src/db/repository.js` support CRUD for new tables.
 
 **Plans**:
-- [ ] 17-01-PLAN.md — Schema v10 & Repositories
-- [ ] 17-02-PLAN.md — UK Bank Holiday Utility & Caching
+- [x] 17-01-PLAN.md — Schema v10 & Repositories
+- [x] 17-02-PLAN.md — UK Bank Holiday Utility & Caching
 
 ### Phase 18: Forecast Logic
 **Goal**: Implement the core engine for calculating daily financial projections.
@@ -36,6 +36,10 @@ This milestone introduces the Daily Cash Flow Engine, providing a 90-day forward
   1. A 90-day daily balance sequence is generated starting from today.
   2. Projected expenses falling on Saturdays, Sundays, or Bank Holidays are shifted to the next working day.
   3. The `src/utils/cashflow.js` utility correctly iterates days using the formula: `opening + income - expenses = closing`.
+
+**Plans**:
+- [ ] 18-01-PLAN.md — Forecast Logic Implementation (TDD)
+- [ ] 18-02-PLAN.md — Repository & Integration
 
 ### Phase 19: Expected Income Integration
 **Goal**: Reduce manual data entry by predicting income based on historical patterns.
@@ -61,8 +65,8 @@ This milestone introduces the Daily Cash Flow Engine, providing a 90-day forward
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 17. Schema & UK Bank Holidays | 0/2 | Not started | — |
-| 18. Forecast Logic | 0/2 | Not started | — |
+| 17. Schema & UK Bank Holidays | 2/2 | Completed | 2026-03-02 |
+| 18. Forecast Logic | 0/2 | In Progress | — |
 | 19. Expected Income Integration | 0/2 | Not started | — |
 | 20. Cash Flow Experience | 0/3 | Not started | — |
 
