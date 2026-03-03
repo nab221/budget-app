@@ -261,6 +261,77 @@ db.version(11).stores({
   });
 });
 
+// Define version 12 schema: Automated Recurring Transactions
+// Transitions recurringTemplates to recurrentExpenses and adds recurrence metadata.
+db.version(12).stores({
+  income: '++id, date, source, amount, categoryId',
+  recurrentExpenses: '++id, date, categoryId, label, amount, status, frequency, nextDate, predictedPaymentDate, isEssential, cycleTotal, cycleCurrent, endDate, isDebtPayment, linkedStatementId, isRecurring, recurrenceId, parentDate',
+  oneOffExpenses: '++id, date, categoryId, note, amount, isRecurring, frequency, recurrenceId, parentDate',
+  recurringTemplates: null, // Mark for deletion
+  debts: '++id, name, type, apr, creditLimit, currentBalance, promoEndDate, postPromoApr',
+  statements: '++id, debtId, date, amount, interest, fees, actualPaymentDate, linkedExpenseId',
+  assets: '++id, name, type, asOfDate, currentBalance',
+  categories: '++id, name, group',
+  targets: '++id, bucket, amount',
+  netWorthSnapshots: '++id, month, totalAssets, totalDebt, netWorth',
+  categoryMappings: '++id, description, categoryId',
+  childcareAccounts: '++id, childName, targetMonthlySpend, entitlementStart, isDisabled',
+  childcareLedger: '++id, accountId, date, type, amount, runningBalance',
+  balanceSnapshots: '++id, month, openingBalance, closingBalance, incomeTotal, expenseTotal',
+  dailyBalanceSnapshots: '++id, date, openingBalance, closingBalance, incomeTotal, expenseTotal',
+  expectedIncome: '++id, date, source, amount, categoryId, status',
+  bankHolidayOverrides: '++id, date, isOpen'
+}).upgrade(async tx => {
+  // 1. Update existing recurrentExpenses with defaults
+  await tx.table('recurrentExpenses').toCollection().modify(item => {
+    if (item.isRecurring === undefined) item.isRecurring = true;
+    if (item.frequency === undefined) item.frequency = 'monthly';
+    if (item.recurrenceId === undefined) item.recurrenceId = crypto.randomUUID();
+    if (item.parentDate === undefined) item.parentDate = item.date || item.nextDate;
+  });
+
+  // 2. Update existing oneOffExpenses with defaults
+  await tx.table('oneOffExpenses').toCollection().modify(item => {
+    if (item.isRecurring === undefined) item.isRecurring = false;
+    if (item.frequency === undefined) item.frequency = null;
+    if (item.recurrenceId === undefined) item.recurrenceId = null;
+    if (item.parentDate === undefined) item.parentDate = null;
+  });
+
+  // 3. Migrate recurringTemplates to recurrentExpenses
+  const templates = await tx.table('recurringTemplates').toArray();
+  const now = new Date();
+  
+  for (const template of templates) {
+    const recurrenceId = crypto.randomUUID();
+    // Start from the current month
+    const firstInstanceDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    const parentDateStr = firstInstanceDate.toISOString().split('T')[0];
+    
+    for (let i = 0; i < 12; i++) {
+      const instanceDate = new Date(now.getFullYear(), now.getMonth() + i, 1);
+      const dateStr = instanceDate.toISOString().split('T')[0];
+      
+      await tx.table('recurrentExpenses').add({
+        date: dateStr,
+        categoryId: template.categoryId,
+        label: template.name,
+        amount: template.amount,
+        status: 'pending',
+        frequency: template.frequency || 'monthly',
+        nextDate: dateStr,
+        predictedPaymentDate: dateStr,
+        isEssential: true,
+        isRecurring: true,
+        recurrenceId: recurrenceId,
+        parentDate: parentDateStr,
+        isDebtPayment: false,
+        linkedStatementId: null
+      });
+    }
+  }
+});
+
 // Handle schema updates in other tabs
 db.on('versionchange', function() {
   db.close();
