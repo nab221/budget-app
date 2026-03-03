@@ -1,24 +1,25 @@
 # Project: Budget App
 
 ## Current State
-- **Latest Version**: v1.3 (Enhanced Debt Management)
-- **Status**: Starting Milestone v1.4: Local File Persistence.
-- **Key Features**: Offline-first, UK Bank PDF Summary Extraction, Automated Debt Payment Tracking, 90-day Daily Cash Flow Forecast, Cloud Backup (GDrive/OneDrive).
+- **Latest Version**: v1.4 (Local File Persistence)
+- **Status**: Milestone v1.4 Complete. Ported File System Access API to modular structure.
+- **Key Features**: Offline-first, Automatic File Sync (OneDrive/Dropbox ready), UK Bank PDF Extraction, 90-day Cash Flow Forecast, Modular ES6 Architecture.
 
-## Next Milestone: v1.4 Local File Persistence
-- **Goal**: Enable direct sync between IndexedDB and a local file via File System Access API.
-- **Status**: Roadmap Created. Ready for Phase 1.
+## Next Milestone: v1.5 [TBD]
+- **Goal**: [Define next major goal]
+- **Status**: Pending Initialization.
 
 ---
 
 <details>
 <summary>Milestone History</summary>
 
-### v1.4: Local File Persistence (Active)
-- Refactoring database mutations to repository.
-- File System Handle utility.
-- Debounced auto-save logic.
-- Cloud-sync folder resilience.
+### v1.4: Local File Persistence (2026-03-02)
+- Ported File System Access API integration from legacy monolith to modular `src/`.
+- Implemented `SyncManager` with 500ms debounce and exponential backoff retry.
+- Standardized all repository mutations (`src/db/repository.js`) to trigger sync.
+- Added persistent `FileSystemFileHandle` storage via native IndexedDB.
+- Archived legacy `budget-app.html` draft.
 
 ### v1.3: Enhanced Debt Management (2026-03-02)
 - Implemented Schema v11 for statement lifecycle.
@@ -61,4 +62,4 @@ A personal budget tracking web app — a full rebuild of a buggy AI-generated pr
 </details>
 
 ---
-*Last updated: 2026-03-02 (v1.4 Initialization)*
+*Last updated: 2026-03-02 (v1.4 Completion)*
