@@ -16,10 +16,12 @@ export const templateUI = {
   },
 
   async init() {
-    this.setupEventListeners();
-    await this.renderTemplates();
-    await this.renderCategoryDropdown();
-    await this.checkStartOfMonth();
+    // legacy templates deprecated in v1.5
+    console.log('templateUI.init(): skipping (deprecated in v1.5)');
+    // this.setupEventListeners();
+    // await this.renderTemplates();
+    // await this.renderCategoryDropdown();
+    // await this.checkStartOfMonth();
   },
 
   setupEventListeners() {

@@ -15,7 +15,6 @@ import { renderPayoffPlanner } from './ui/payoff';
 import { initPWA, installApp, checkExportReminder } from './ui/pwa-ux';
 import { pdfImportUI } from './ui/pdf-import';
 import { initFileSyncUI } from './ui/file-sync';
-import { cloudBackupUI } from './ui/cloud-backup.js';
 import { childcareUI } from './ui/childcare.js';
 import { expectedIncomeUI } from './ui/expected-income.js';
 import { calculateBalanceChain } from './utils/finance.js';
@@ -113,9 +112,9 @@ async function init() {
       if (panelId === 'cashflow') await expectedIncomeUI.render();
       if (panelId === 'settings') {
         await categoryUI.render();
-        await templateUI.renderTemplates();
+        // templateUI.renderTemplates() removed in v1.5
         await targetsUI.renderTargetSettings();
-        cloudBackupUI.render();
+        // cloudBackupUI.render() removed in v1.5
         // Populate balance configuration from localStorage
         const balanceStartInput = document.getElementById('balanceStartDate');
         if (balanceStartInput) {
@@ -164,10 +163,10 @@ async function init() {
   await expensesUI.init();
   await debtUI.init();
   await assetUI.init();
-  await templateUI.init();
+  // templateUI.init() removed in v1.5 - handled by automatic recurrence logic
   await backupUI.init();
   await pdfImportUI.init();
-  await cloudBackupUI.init();
+  // cloudBackupUI.init() removed in v1.5
   await childcareUI.init();
 
   // Milestone v1.4: Initialize File Sync

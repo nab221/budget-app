@@ -2,8 +2,8 @@
 
 ## Active Milestone
 
-- [ ] **v1.5: [Next Milestone Title]** — [ROADMAP](milestones/v1.5-ROADMAP.md) | [REQUIREMENTS](milestones/v1.5-REQUIREMENTS.md)
-  - Goal: [Description]
+- [ ] **v1.5: Automatic Recurring Transactions** — [ROADMAP](milestones/v1.5-ROADMAP.md) | [REQUIREMENTS](milestones/v1.5-REQUIREMENTS.md)
+  - Goal: Replace manual templates with true automatic recurrence and implement per-tab monthly navigation.
 
 ## Completed Milestones
 

@@ -5,9 +5,9 @@
 - **Status**: Milestone v1.4 Complete. Ported File System Access API to modular structure.
 - **Key Features**: Offline-first, Automatic File Sync (OneDrive/Dropbox ready), UK Bank PDF Extraction, 90-day Cash Flow Forecast, Modular ES6 Architecture.
 
-## Next Milestone: v1.5 [TBD]
-- **Goal**: [Define next major goal]
-- **Status**: Pending Initialization.
+## Next Milestone: v1.5 Automatic Recurring Transactions
+- **Goal**: Replace manual templates with true automatic recurrence and implement per-tab monthly navigation.
+- **Status**: Initializing.
 
 ---
 
