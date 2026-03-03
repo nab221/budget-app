@@ -516,6 +516,73 @@ export const recurrentExpenseRepository = {
       triggerDailyForecastRecalc(dateForRecalc).catch(() => {});
     }
     triggerSync();
+  },
+
+  /**
+   * Delete all future instances in a series.
+   * @param {string} recurrenceId 
+   * @param {string} fromDate - ISO date string (YYYY-MM-DD)
+   */
+  async deleteSeries(recurrenceId, fromDate) {
+    if (!recurrenceId) return;
+    const table = db.recurrentExpenses;
+    const affected = await table
+      .where('recurrenceId').equals(recurrenceId)
+      .toArray();
+    
+    // Manual filter for date to handle string comparison safely
+    const toDelete = affected.filter(item => (item.nextDate || item.date) >= fromDate);
+    
+    if (toDelete.length === 0) return;
+    
+    await table.bulkDelete(toDelete.map(i => i.id));
+    
+    triggerBalanceRecalc(fromDate).catch(() => {});
+    triggerDailyForecastRecalc(fromDate).catch(() => {});
+    triggerSync();
+  },
+
+  /**
+   * Update all future instances in a series.
+   * @param {string} recurrenceId 
+   * @param {string} fromDate 
+   * @param {Object} updates 
+   */
+  async updateSeries(recurrenceId, fromDate, updates) {
+    if (!recurrenceId) return;
+    const table = db.recurrentExpenses;
+    const affected = await table
+      .where('recurrenceId').equals(recurrenceId)
+      .toArray();
+    
+    const toUpdate = affected.filter(item => (item.nextDate || item.date) >= fromDate);
+    
+    if (toUpdate.length === 0) return;
+
+    // Convert amounts to pence if provided
+    const formattedUpdates = { ...updates };
+    if (formattedUpdates.amount !== undefined) {
+      formattedUpdates.amount = toPence(formattedUpdates.amount);
+    }
+
+    // CRITICAL: Do NOT overwrite unique instance dates or series anchors when bulk updating a series.
+    // This fixes the bug where all future instances were getting the same date as the edited one.
+    delete formattedUpdates.id;
+    delete formattedUpdates.date;
+    delete formattedUpdates.nextDate;
+    delete formattedUpdates.predictedPaymentDate;
+    delete formattedUpdates.parentDate;
+    delete formattedUpdates.recurrenceId;
+
+    await db.transaction('rw', table, async () => {
+      for (const item of toUpdate) {
+        await table.update(item.id, formattedUpdates);
+      }
+    });
+
+    triggerBalanceRecalc(fromDate).catch(() => {});
+    triggerDailyForecastRecalc(fromDate).catch(() => {});
+    triggerSync();
   }
 };
 
@@ -559,6 +626,47 @@ export const oneOffExpenseRepository = {
       triggerBalanceRecalc(record.date).catch(() => {});
       triggerDailyForecastRecalc(record.date).catch(() => {});
     }
+    triggerSync();
+  },
+
+  /**
+   * Delete all future instances in a series.
+   */
+  async deleteSeries(recurrenceId, fromDate) {
+    if (!recurrenceId) return;
+    const table = db.oneOffExpenses;
+    const affected = await table.where('recurrenceId').equals(recurrenceId).toArray();
+    const toDelete = affected.filter(item => item.date >= fromDate);
+    if (toDelete.length === 0) return;
+    await table.bulkDelete(toDelete.map(i => i.id));
+    triggerBalanceRecalc(fromDate).catch(() => {});
+    triggerDailyForecastRecalc(fromDate).catch(() => {});
+    triggerSync();
+  },
+
+  /**
+   * Update all future instances in a series.
+   */
+  async updateSeries(recurrenceId, fromDate, updates) {
+    if (!recurrenceId) return;
+    const table = db.oneOffExpenses;
+    const affected = await table.where('recurrenceId').equals(recurrenceId).toArray();
+    const toUpdate = affected.filter(item => item.date >= fromDate);
+    if (toUpdate.length === 0) return;
+
+    const formattedUpdates = { ...updates };
+    if (formattedUpdates.amount !== undefined) {
+      formattedUpdates.amount = toPence(formattedUpdates.amount);
+    }
+
+    await db.transaction('rw', table, async () => {
+      for (const item of toUpdate) {
+        await table.update(item.id, formattedUpdates);
+      }
+    });
+
+    triggerBalanceRecalc(fromDate).catch(() => {});
+    triggerDailyForecastRecalc(fromDate).catch(() => {});
     triggerSync();
   },
 

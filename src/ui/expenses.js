@@ -2,20 +2,24 @@ import {
   recurrentExpenseRepository,
   oneOffExpenseRepository,
   categoryRepository,
-  statementRepository
+  statementRepository,
+  triggerBalanceRecalc,
+  triggerDailyForecastRecalc
 } from '../db/repository.js';
 import { formatGBP, toPence, fromPence } from '../utils/currency.js';
 import { safeHTML } from './render.js';
 import { filterTransactions } from '../utils/filtering.js';
 import { templateUI } from './templates.js';
 import { nextWorkingDay } from '../utils/cashflow.js';
+import { generateInstances } from '../utils/recurrence.js';
 
 /**
  * Expenses UI Module
  * Handles the unified "Expenses" tab with "Recurrent" and "One-off" sub-views.
  */
 export const expensesUI = {
-  currentMonth: new Date().toISOString().slice(0, 7), // YYYY-MM
+  recurrentMonth: '',
+  oneOffMonth: '',
   activeSubTab: 'recurrent',
   lastSubTab: 'recurrent',
   editingId: null,
@@ -23,29 +27,105 @@ export const expensesUI = {
   selectedCategories: [],
 
   /**
+   * Helper for UUID generation.
+   */
+  generateUUID() {
+    return (typeof crypto !== 'undefined' && crypto.randomUUID) 
+      ? crypto.randomUUID() 
+      : Math.random().toString(36).substring(2);
+  },
+
+  /**
    * Initialize the Expenses UI — bind events and do first render.
    */
   async init() {
+    this.initMonths();
     this.setupEventListeners();
-    window.addEventListener('app:refresh', () => this.render(this.currentMonth));
-    await this.render(this.currentMonth);
+    window.addEventListener('app:refresh', () => this.render());
+    await this.render();
+  },
+
+  /**
+   * Initialize months from localStorage or current date.
+   */
+  initMonths() {
+    const now = new Date().toISOString().slice(0, 7);
+    this.recurrentMonth = localStorage.getItem('expenses_recurrent_month') || now;
+    this.oneOffMonth = localStorage.getItem('expenses_oneoff_month') || now;
+  },
+
+  /**
+   * Toggle the frequency field based on recurring checkbox.
+   */
+  toggleFrequencyField() {
+    const isRecurring = document.getElementById('expIsRecurring').checked;
+    const freqSelect = document.getElementById('expFreq');
+    if (freqSelect) {
+      freqSelect.disabled = !isRecurring;
+    }
+  },
+
+  /**
+   * Prompt user for choice on recurring item modification.
+   */
+  async promptRecurrenceChoice(title, message) {
+    return new Promise((resolve) => {
+      const content = safeHTML`
+        <p style="margin-bottom:15px">${message}</p>
+        <div style="display:grid; gap:10px">
+          <button class="ghost" id="recurrenceThisBtn" style="text-align:left; padding:12px; border:1px solid var(--border); cursor:pointer">
+            <strong style="display:block; margin-bottom:4px">Only this instance</strong>
+            <span class="hint" style="font-size:0.75rem">Affects only the record for this specific date.</span>
+          </button>
+          <button class="ghost" id="recurrenceFutureBtn" style="text-align:left; padding:12px; border:1px solid var(--border); cursor:pointer">
+            <strong style="display:block; margin-bottom:4px">All future instances</strong>
+            <span class="hint" style="font-size:0.75rem">Affects this and all subsequent records in the series.</span>
+          </button>
+        </div>
+      `;
+
+      const footer = safeHTML`
+        <button class="ghost" id="recurrenceCancelBtn">Cancel</button>
+      `;
+
+      templateUI.showModal(title, content, footer);
+
+      const cleanup = (val) => {
+        templateUI.closeModal();
+        resolve(val);
+      };
+
+      document.getElementById('recurrenceThisBtn').onclick = () => cleanup('this');
+      document.getElementById('recurrenceFutureBtn').onclick = () => cleanup('future');
+      document.getElementById('recurrenceCancelBtn').onclick = () => cleanup(null);
+    });
+  },
+
+  /**
+   * Get the month for the currently active sub-tab.
+   */
+  getCurrentMonth() {
+    return this.activeSubTab === 'recurrent' ? this.recurrentMonth : this.oneOffMonth;
+  },
+
+  /**
+   * Update the month for the active sub-tab and persist to localStorage.
+   */
+  setCurrentMonth(month) {
+    if (this.activeSubTab === 'recurrent') {
+      this.recurrentMonth = month;
+      localStorage.setItem('expenses_recurrent_month', month);
+    } else {
+      this.oneOffMonth = month;
+      localStorage.setItem('expenses_oneoff_month', month);
+    }
   },
 
   /**
    * Wire up all event listeners for forms, sub-tabs, and global action buttons.
    */
   setupEventListeners() {
-    // Month picker sync
-    const monthPicker = document.getElementById('monthPicker');
-    if (monthPicker) {
-      this.currentMonth = monthPicker.value || this.currentMonth;
-      monthPicker.addEventListener('change', async (e) => {
-        this.currentMonth = e.target.value;
-        this.resetFilters();
-        this.toggleForm(false);
-        await this.render(this.currentMonth);
-      });
-    }
+    // Global month picker (Dashboard) sync removed for Expenses in Phase 28
 
     // Sub-tab navigation
     const subTabs = document.getElementById('expenseSubTabs');
@@ -58,7 +138,7 @@ export const expensesUI = {
           b.classList.toggle('active', b === btn)
         );
         this.resetFilters();
-        await this.render(this.currentMonth);
+        await this.render();
       });
     }
 
@@ -68,10 +148,10 @@ export const expensesUI = {
       addExpenseBtn.onclick = () => this.toggleForm();
     }
 
-    // Call Templates Manual Trigger
+    // Call Templates Manual Trigger (v1.5: Recurrence Manual Check)
     const callTemplatesBtn = document.getElementById('callTemplatesBtn');
     if (callTemplatesBtn) {
-      callTemplatesBtn.onclick = () => templateUI.manualTrigger(this.currentMonth);
+      callTemplatesBtn.onclick = () => templateUI.manualTrigger(this.getCurrentMonth());
     }
 
     // Search Input
@@ -79,7 +159,7 @@ export const expensesUI = {
     if (searchInput) {
       searchInput.oninput = (e) => {
         this.searchQuery = e.target.value;
-        this.render(this.currentMonth);
+        this.render();
       };
     }
 
@@ -91,24 +171,66 @@ export const expensesUI = {
 
     // Global delete handlers
     window.deleteRecurrentExpense = async (id) => {
-      if (!confirm('Delete this recurrent expense?')) return;
-      try {
-        await recurrentExpenseRepository.delete(id);
-        await this.render(this.currentMonth);
-      } catch (err) {
-        console.error('Failed to delete recurrent expense:', err);
-        alert('Failed to delete: ' + err.message);
+      const item = await recurrentExpenseRepository.get(id);
+      if (!item) return;
+
+      if (item.isRecurring && item.recurrenceId) {
+        const choice = await this.promptRecurrenceChoice(
+          'Delete Recurring Expense',
+          `"${item.label}" is part of a recurring series. How would you like to delete it?`
+        );
+        if (!choice) return;
+
+        try {
+          if (choice === 'this') {
+            await recurrentExpenseRepository.delete(id);
+          } else {
+            await recurrentExpenseRepository.deleteSeries(item.recurrenceId, item.nextDate || item.date);
+          }
+          await this.render();
+        } catch (err) {
+          alert('Failed to delete: ' + err.message);
+        }
+      } else {
+        if (!confirm(`Delete "${item.label}"?`)) return;
+        try {
+          await recurrentExpenseRepository.delete(id);
+          await this.render();
+        } catch (err) {
+          alert('Failed to delete: ' + err.message);
+        }
       }
     };
 
     window.deleteOneOffExpense = async (id) => {
-      if (!confirm('Delete this one-off expense?')) return;
-      try {
-        await oneOffExpenseRepository.delete(id);
-        await this.render(this.currentMonth);
-      } catch (err) {
-        console.error('Failed to delete one-off expense:', err);
-        alert('Failed to delete: ' + err.message);
+      const item = await oneOffExpenseRepository.get(id);
+      if (!item) return;
+
+      if (item.isRecurring && item.recurrenceId) {
+        const choice = await this.promptRecurrenceChoice(
+          'Delete Recurring Expense',
+          `This expense is part of a recurring series. How would you like to delete it?`
+        );
+        if (!choice) return;
+
+        try {
+          if (choice === 'this') {
+            await oneOffExpenseRepository.delete(id);
+          } else {
+            await oneOffExpenseRepository.deleteSeries(item.recurrenceId, item.date);
+          }
+          await this.render();
+        } catch (err) {
+          alert('Failed to delete: ' + err.message);
+        }
+      } else {
+        if (!confirm('Delete this one-off expense?')) return;
+        try {
+          await oneOffExpenseRepository.delete(id);
+          await this.render();
+        } catch (err) {
+          alert('Failed to delete: ' + err.message);
+        }
       }
     };
 
@@ -125,7 +247,7 @@ export const expensesUI = {
           } else if (currentStatus === 'paid') {
             if (confirm('Un-pay this debt payment? This will reset the linked statement.')) {
               await statementRepository.resetPayment(item.linkedStatementId);
-              await this.render(this.currentMonth);
+              await this.render();
             }
             return;
           }
@@ -137,10 +259,32 @@ export const expensesUI = {
           updates.cycleCurrent = Math.min((item.cycleCurrent || 0) + 1, item.cycleTotal);
         }
         await recurrentExpenseRepository.update(id, updates);
-        await this.render(this.currentMonth);
+        await this.render();
       } catch (err) {
         console.error('Failed to toggle status:', err);
       }
+    };
+
+    // Month Picker Navigation (Phase 28)
+    window.expPrevMonth = () => {
+      const current = this.getCurrentMonth();
+      const [year, month] = current.split('-').map(Number);
+      const d = new Date(Date.UTC(year, month - 2, 1));
+      this.setCurrentMonth(d.toISOString().slice(0, 7));
+      this.render();
+    };
+
+    window.expNextMonth = () => {
+      const current = this.getCurrentMonth();
+      const [year, month] = current.split('-').map(Number);
+      const d = new Date(Date.UTC(year, month, 1));
+      this.setCurrentMonth(d.toISOString().slice(0, 7));
+      this.render();
+    };
+
+    window.handleExpMonthChange = (e) => {
+      this.setCurrentMonth(e.target.value);
+      this.render();
     };
   },
 
@@ -179,6 +323,7 @@ export const expensesUI = {
         categoryId: '',
         label: '',
         amount: '',
+        isRecurring: true,
         frequency: 'monthly',
         nextDate: new Date().toISOString().slice(0, 10),
         isEssential: true,
@@ -194,7 +339,9 @@ export const expensesUI = {
         date: new Date().toISOString().slice(0, 10),
         categoryId: '',
         note: '',
-        amount: ''
+        amount: '',
+        isRecurring: false,
+        frequency: 'monthly'
       };
       if (isUpdate) {
         const item = await oneOffExpenseRepository.get(this.editingId);
@@ -208,6 +355,14 @@ export const expensesUI = {
       .filter(c => c.group === (isRecurrent ? 'fixed' : 'variable'))
       .map(c => `<option value="${c.id}" ${Number(data.categoryId) === c.id ? 'selected' : ''}>${c.name}</option>`)
       .join('');
+
+    const frequencyOptions = `
+      <option value="weekly" ${data.frequency === 'weekly' ? 'selected' : ''}>Weekly</option>
+      <option value="biweekly" ${data.frequency === 'biweekly' ? 'selected' : ''}>Bi-weekly</option>
+      <option value="monthly" ${data.frequency === 'monthly' ? 'selected' : ''}>Monthly</option>
+      <option value="quarterly" ${data.frequency === 'quarterly' ? 'selected' : ''}>Quarterly</option>
+      <option value="annually" ${data.frequency === 'annually' ? 'selected' : ''}>Annually</option>
+    `;
 
     if (isRecurrent) {
       container.innerHTML = safeHTML`
@@ -224,26 +379,28 @@ export const expensesUI = {
           <div><label>Description</label><input id="expLabel" type="text" value="${data.label}" placeholder="e.g. Rent"/></div>
         </div>
         <div class="form-row">
-          <div><label>Amount (£)</label><input id="expAmt" type="number" step="0.01" value="${data.amount}" placeholder="0.00"/></div>
+          <div style="display:flex;align-items:center;gap:6px;padding-top:18px">
+            <input id="expIsRecurring" type="checkbox" ${data.isRecurring !== false ? 'checked' : ''} onchange="expensesUI.toggleFrequencyField()"/>
+            <label for="expIsRecurring" style="margin:0">Recurring</label>
+          </div>
           <div><label>Frequency</label>
-            <select id="expFreq">
-              <option value="monthly" ${data.frequency === 'monthly' ? 'selected' : ''}>Monthly</option>
-              <option value="weekly" ${data.frequency === 'weekly' ? 'selected' : ''}>Weekly</option>
-              <option value="quarterly" ${data.frequency === 'quarterly' ? 'selected' : ''}>Quarterly</option>
-              <option value="annual" ${data.frequency === 'annual' ? 'selected' : ''}>Annual</option>
+            <select id="expFreq" ${data.isRecurring === false ? 'disabled' : ''}>
+              ${frequencyOptions}
             </select>
           </div>
         </div>
         <div class="form-row">
-          <div><label>Next Due Date</label><input id="expNextDate" type="date" value="${data.nextDate}"/></div>
-          <div><label>Total Payments</label><input id="expCycleTotal" type="number" min="0" value="${data.cycleTotal}" placeholder="0 = ongoing"/></div>
-        </div>
-        <div class="form-row">
-          <div><label>End Date</label><input id="expEndDate" type="date" value="${data.endDate || ''}"/></div>
+          <div><label>Amount (£)</label><input id="expAmt" type="number" step="0.01" value="${data.amount}" placeholder="0.00"/></div>
           <div style="display:flex;align-items:center;gap:6px;padding-top:18px">
             <input id="expIsEssential" type="checkbox" ${data.isEssential ? 'checked' : ''}/>
             <label for="expIsEssential" style="margin:0">Essential</label>
           </div>
+        </div>
+        <div class="form-row">
+          <div><label>Total Payments</label><input id="expCycleTotal" type="number" min="0" value="${data.cycleTotal}" placeholder="0 = ongoing"/></div>
+          <div><label>End Date</label><input id="expEndDate" type="date" value="${data.endDate || ''}"/></div>
+        </div>
+        <div class="form-row">
           <div style="display:flex;align-items:flex-end;gap:8px;flex:2">
             <button class="primary" onclick="expensesUI.handleSaveExpense()">${isUpdate ? 'Save Changes' : 'Add Expense'}</button>
             <button class="ghost" onclick="expensesUI.cancelEdit()">${isUpdate ? 'Cancel' : 'Hide'}</button>
@@ -260,8 +417,21 @@ export const expensesUI = {
         <div class="form-row">
           <div><label>Date</label><input id="expDate" type="date" value="${data.date}"/></div>
           <div><label>Category</label><select id="expCat"><option value="">— Category —</option>${categoryOptions}</select></div>
+        </div>
+        <div class="form-row">
           <div><label>Note</label><input id="expNote" type="text" value="${data.note}" placeholder="Optional"/></div>
           <div><label>Amount (£)</label><input id="expAmt" type="number" step="0.01" value="${data.amount}" placeholder="0.00"/></div>
+        </div>
+        <div class="form-row">
+          <div style="display:flex;align-items:center;gap:6px;padding-top:18px">
+            <input id="expIsRecurring" type="checkbox" ${data.isRecurring ? 'checked' : ''} onchange="expensesUI.toggleFrequencyField()"/>
+            <label for="expIsRecurring" style="margin:0">Recurring</label>
+          </div>
+          <div><label>Frequency</label>
+            <select id="expFreq" ${!data.isRecurring ? 'disabled' : ''}>
+              ${frequencyOptions}
+            </select>
+          </div>
           <div style="display:flex;align-items:flex-end;gap:8px">
             <button class="primary" onclick="expensesUI.handleSaveExpense()">${isUpdate ? 'Save Changes' : 'Add Expense'}</button>
             <button class="ghost" onclick="expensesUI.cancelEdit()">${isUpdate ? 'Cancel' : 'Hide'}</button>
@@ -280,6 +450,8 @@ export const expensesUI = {
     const date = document.getElementById('expDate').value;
     const categoryId = document.getElementById('expCat').value;
     const amount = parseFloat(document.getElementById('expAmt').value);
+    const isRecurring = document.getElementById('expIsRecurring').checked;
+    const frequency = document.getElementById('expFreq').value;
 
     if (isNaN(amount) || amount <= 0) {
       alert('Please provide a valid amount.');
@@ -287,6 +459,7 @@ export const expensesUI = {
     }
 
     try {
+      let id;
       if (isRecurrent) {
         const label = document.getElementById('expLabel').value.trim();
         if (!label) { alert('Description is required.'); return; }
@@ -296,17 +469,54 @@ export const expensesUI = {
           categoryId: categoryId ? parseInt(categoryId) : null,
           label,
           amount,
-          frequency: document.getElementById('expFreq').value,
-          nextDate: document.getElementById('expNextDate').value || date,
+          isRecurring,
+          frequency,
+          nextDate: date || new Date().toISOString().slice(0, 10),
           isEssential: document.getElementById('expIsEssential').checked,
           cycleTotal: parseInt(document.getElementById('expCycleTotal').value) || 0,
           endDate: document.getElementById('expEndDate').value || null
         };
 
         if (this.editingId) {
-          await recurrentExpenseRepository.update(this.editingId, payload);
+          const item = await recurrentExpenseRepository.get(this.editingId);
+          let choice = 'this';
+          if (item && item.isRecurring && item.recurrenceId) {
+            choice = await this.promptRecurrenceChoice(
+              'Update Recurring Expense',
+              `"${item.label}" is part of a recurring series. How would you like to apply these changes?`
+            );
+            if (!choice) return;
+          }
+
+          if (choice === 'this') {
+            await recurrentExpenseRepository.update(this.editingId, payload);
+          } else {
+            // Update this and all future records
+            await recurrentExpenseRepository.updateSeries(item.recurrenceId, item.nextDate || item.date, payload);
+          }
+          id = this.editingId;
         } else {
-          await recurrentExpenseRepository.add({ ...payload, status: 'pending', cycleCurrent: 0 });
+          // New recurrent expense
+          if (isRecurring) {
+            payload.recurrenceId = this.generateUUID();
+            payload.parentDate = payload.date;
+          }
+          id = await recurrentExpenseRepository.add({ ...payload, status: 'pending', cycleCurrent: 0 });
+          
+          if (isRecurring) {
+            const savedItem = await recurrentExpenseRepository.get(id);
+            // BUGFIX: Convert back to pounds because bulkAdd will call toPence again.
+            const instances = generateInstances(
+              { ...savedItem, amount: fromPence(savedItem.amount) }, 
+              frequency, 
+              12
+            );
+            await recurrentExpenseRepository.bulkAdd(instances);
+            
+            const lastDate = instances[instances.length - 1].date;
+            triggerBalanceRecalc(lastDate).catch(() => {});
+            triggerDailyForecastRecalc(lastDate).catch(() => {});
+          }
         }
       } else {
         const note = document.getElementById('expNote').value.trim();
@@ -314,22 +524,58 @@ export const expensesUI = {
           date,
           categoryId: categoryId ? parseInt(categoryId) : null,
           note,
-          amount
+          amount,
+          isRecurring,
+          frequency
         };
 
         if (this.editingId) {
-          await oneOffExpenseRepository.update(this.editingId, payload);
+          const item = await oneOffExpenseRepository.get(this.editingId);
+          let choice = 'this';
+          if (item && item.isRecurring && item.recurrenceId) {
+            choice = await this.promptRecurrenceChoice(
+              'Update Recurring Expense',
+              `This expense is part of a recurring series. How would you like to apply these changes?`
+            );
+            if (!choice) return;
+          }
+
+          if (choice === 'this') {
+            await oneOffExpenseRepository.update(this.editingId, payload);
+          } else {
+            await oneOffExpenseRepository.updateSeries(item.recurrenceId, item.date, payload);
+          }
+          id = this.editingId;
         } else {
-          await oneOffExpenseRepository.add(payload);
+          // New one-off expense
+          if (isRecurring) {
+            payload.recurrenceId = this.generateUUID();
+            payload.parentDate = payload.date;
+          }
+          id = await oneOffExpenseRepository.add(payload);
+
+          if (isRecurring) {
+            const savedItem = await oneOffExpenseRepository.get(id);
+            // Convert back to pounds for generator compatibility
+            const instances = generateInstances(
+              { ...savedItem, amount: fromPence(savedItem.amount) }, 
+              frequency, 
+              12
+            );
+            await oneOffExpenseRepository.bulkAdd(instances);
+            
+            const lastDate = instances[instances.length - 1].date;
+            triggerBalanceRecalc(lastDate).catch(() => {});
+            triggerDailyForecastRecalc(lastDate).catch(() => {});
+          }
         }
       }
 
-      const savedId = this.editingId;
       this.toggleForm(false);
-      await this.render(this.currentMonth);
+      await this.render();
 
-      if (savedId) {
-        const row = document.querySelector(`tr[data-id="${savedId}"]`);
+      if (id) {
+        const row = document.querySelector(`tr[data-id="${id}"]`);
         if (row) {
           row.classList.add('row-flash');
           setTimeout(() => row.classList.remove('row-flash'), 1500);
@@ -387,6 +633,42 @@ export const expensesUI = {
     `;
   },
 
+  async renderMonthPicker() {
+    // Find or create the month picker container
+    let container = document.getElementById('expMonthPicker');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'expMonthPicker';
+      container.className = 'month-nav';
+      const subTabs = document.getElementById('expenseSubTabs');
+      if (subTabs) subTabs.insertAdjacentElement('afterend', container);
+    }
+
+    const currentMonth = this.getCurrentMonth();
+    const [year, month] = currentMonth.split('-').map(Number);
+
+    // Generate dropdown options: dynamic range centered around current selected month (Phase 31)
+    const options = [];
+    // month is 1-indexed, so month-1 is 0-indexed for UTC
+    let iter = new Date(Date.UTC(year, month - 1 - 12, 1)); // 12 months before
+    const end = new Date(Date.UTC(year, month - 1 + 24, 1)); // 24 months after
+    
+    while (iter <= end) {
+      const val = iter.toISOString().slice(0, 7);
+      const label = iter.toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+      options.push(`<option value="${val}" ${val === currentMonth ? 'selected' : ''}>${label}</option>`);
+      iter.setUTCMonth(iter.getUTCMonth() + 1);
+    }
+
+    container.innerHTML = safeHTML`
+      <button onclick="expPrevMonth()" title="Previous Month">◄</button>
+      <select onchange="handleExpMonthChange(event)">
+        ${options.join('')}
+      </select>
+      <button onclick="expNextMonth()" title="Next Month">►</button>
+    `;
+  },
+
   toggleCategoryDropdown(show) {
     const dropdown = document.getElementById('catDropdown');
     if (!dropdown) return;
@@ -401,19 +683,19 @@ export const expensesUI = {
     } else {
       this.selectedCategories = this.selectedCategories.filter(cid => cid !== id);
     }
-    this.render(this.currentMonth);
+    this.render();
   },
 
   clearCategoryFilter() {
     this.selectedCategories = [];
-    this.render(this.currentMonth);
+    this.render();
   },
 
   async handleMarkAllPaid() {
     if (!confirm('Mark all pending recurrent items as paid?')) return;
     try {
       await recurrentExpenseRepository.markAllAsPaid();
-      await this.render(this.currentMonth);
+      await this.render();
     } catch (err) {
       console.error('Failed to mark all as paid:', err);
       alert('Failed: ' + err.message);
@@ -439,8 +721,9 @@ export const expensesUI = {
   },
 
   async render(month) {
-    if (month) this.currentMonth = month;
+    if (month) this.setCurrentMonth(month);
     this._syncFormPanels();
+    await this.renderMonthPicker();
     await this.renderCategoryFilter();
 
     if (this.activeSubTab === 'recurrent') {
@@ -454,15 +737,18 @@ export const expensesUI = {
     const container = document.getElementById('recurrentList');
     if (!container) return;
 
-    const allItems = await recurrentExpenseRepository.getByMonth(this.currentMonth);
+    const allItems = await recurrentExpenseRepository.getByMonth(this.recurrentMonth);
     const categories = await categoryRepository.getCategories();
     const catMap = Object.fromEntries(categories.map(c => [c.id, c.name]));
 
-    // Apply Filter using utility
-    const items = filterTransactions(allItems, this.searchQuery, this.selectedCategories, ['label'], catMap);
+    // Apply month filtering (Fixes missing month filter for recurrent items)
+    const monthItems = allItems.filter(item => (item.nextDate || item.date || '').startsWith(this.recurrentMonth));
+
+    // Apply Filter using utility (Search and Categories)
+    const items = filterTransactions(monthItems, this.searchQuery, this.selectedCategories, ['label'], catMap);
 
     if (items.length === 0) {
-      container.innerHTML = '<p class="hint" style="text-align:center;padding:20px">No matching recurrent items found.</p>';
+      container.innerHTML = '<p class="hint" style="text-align:center;padding:20px">No matching recurrent items found for this month.</p>';
       this.updateTotal('recurrent', 0);
       return;
     }
@@ -499,12 +785,17 @@ export const expensesUI = {
         ? `<span class="pill" style="background:var(--accent);color:#fff;font-size:.65rem">💳 Debt</span>`
         : '';
 
+      const recurrenceBadge = item.isRecurring 
+        ? `<span title="Recurring: ${item.frequency || 'monthly'}">🔁</span>` 
+        : '';
+
       return safeHTML`
         <tr class="${isPaid ? 'paid-row' : ''} ${isFinished ? 'finished-row' : ''}" data-id="${item.id}">
           <td>${item.nextDate || item.date}</td>
           <td>${catName}</td>
           <td>
             ${item.label}
+            ${recurrenceBadge}
             ${progressBadge}
             ${cancelBadge}
             ${debtBadge}
@@ -566,7 +857,7 @@ export const expensesUI = {
     const container = document.getElementById('oneOffList');
     if (!container) return;
 
-    const allItems = await oneOffExpenseRepository.getByMonth(this.currentMonth);
+    const allItems = await oneOffExpenseRepository.getByMonth(this.oneOffMonth);
     const categories = await categoryRepository.getCategories();
     const catMap = Object.fromEntries(categories.map(c => [c.id, c.name]));
 
@@ -574,7 +865,7 @@ export const expensesUI = {
     const items = filterTransactions(allItems, this.searchQuery, this.selectedCategories, ['note'], catMap);
 
     if (items.length === 0) {
-      container.innerHTML = '<p class="hint" style="text-align:center;padding:20px">No matching one-off expenses found.</p>';
+      container.innerHTML = '<p class="hint" style="text-align:center;padding:20px">No matching one-off expenses found for this month.</p>';
       this.updateTotal('oneoff', 0);
       return;
     }
@@ -586,10 +877,13 @@ export const expensesUI = {
     const renderNoteCell = (item) => {
       const note = item.note || '—';
       const isTFC = typeof item.note === 'string' && item.note.startsWith('Tax-free Childcare:');
-      const badge = isTFC
+      const tfcBadge = isTFC
         ? `<span class="pill" style="background:var(--info);color:#fff;font-size:.65rem;margin-left:4px">Tax-free Childcare</span>`
         : '';
-      return `${note}${badge}`;
+      const recurrenceBadge = item.isRecurring 
+        ? `<span title="Recurring: ${item.frequency || 'monthly'}" style="margin-left:4px">🔁</span>` 
+        : '';
+      return `${note}${tfcBadge}${recurrenceBadge}`;
     };
 
     container.innerHTML = safeHTML`
@@ -670,7 +964,7 @@ export const expensesUI = {
         try {
           await statementRepository.recordPayment(item.linkedStatementId, actualAmt, paymentDate);
           templateUI.closeModal();
-          await this.render(this.currentMonth);
+          await this.render(this.getCurrentMonth());
           // Broadcast refresh for Debts tab
           window.dispatchEvent(new CustomEvent('app:refresh'));
         } catch (err) {

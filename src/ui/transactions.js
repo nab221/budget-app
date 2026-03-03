@@ -11,32 +11,45 @@ import { filterTransactions } from '../utils/filtering.js';
  * Handles rendering and event handling for Income transactions only.
  */
 export const transactionUI = {
-  currentMonth: new Date().toISOString().slice(0, 7), // YYYY-MM
+  currentMonth: '', // YYYY-MM, set by initMonths
   editingId: null,
   searchQuery: '',
+  selectedCategories: [], // Filter categories
 
   /**
    * Initialize Transaction UI.
    */
   async init() {
+    this.initMonths();
     this.setupEventListeners();
     window.addEventListener('app:refresh', () => this.render());
     await this.render();
   },
 
   /**
+   * Load current month from localStorage or default to current.
+   */
+  initMonths() {
+    const saved = localStorage.getItem('transaction_month');
+    if (saved && /^\d{4}-\d{2}$/.test(saved)) {
+      this.currentMonth = saved;
+    } else {
+      this.currentMonth = new Date().toISOString().slice(0, 7);
+    }
+  },
+
+  /**
+   * Persist current month to localStorage.
+   */
+  setCurrentMonth(month) {
+    this.currentMonth = month;
+    localStorage.setItem('transaction_month', month);
+  },
+
+  /**
    * Set up event listeners for income management.
    */
   setupEventListeners() {
-    const monthPicker = document.getElementById('monthPicker');
-    if (monthPicker) {
-      monthPicker.addEventListener('change', async (e) => {
-        this.currentMonth = e.target.value;
-        this.toggleForm(false); // Hide form on month change
-        await this.render();
-      });
-    }
-
     // Toggle Add Income Form
     const addBtn = document.getElementById('addIncBtn');
     if (addBtn) {
@@ -48,9 +61,48 @@ export const transactionUI = {
     if (searchInput) {
       searchInput.oninput = (e) => {
         this.searchQuery = e.target.value;
-        this.renderIncome(this.currentMonth);
+        this.render();
       };
     }
+
+    // Navigation and Filter handlers
+    window.incPrevMonth = () => {
+      const [y, m] = this.currentMonth.split('-').map(Number);
+      const d = new Date(Date.UTC(y, m - 2, 1));
+      this.setCurrentMonth(d.toISOString().slice(0, 7));
+      this.render();
+    };
+
+    window.incNextMonth = () => {
+      const [y, m] = this.currentMonth.split('-').map(Number);
+      const d = new Date(Date.UTC(y, m, 1));
+      this.setCurrentMonth(d.toISOString().slice(0, 7));
+      this.render();
+    };
+
+    window.handleIncMonthChange = (e) => {
+      this.setCurrentMonth(e.target.value);
+      this.render();
+    };
+
+    // Category Filter handlers
+    window.toggleIncCategoryDropdown = (show) => {
+      const dropdown = document.getElementById('incCategoryDropdown');
+      if (dropdown) {
+        dropdown.style.display = (show === undefined) 
+          ? (dropdown.style.display === 'none' ? 'block' : 'none')
+          : (show ? 'block' : 'none');
+      }
+    };
+
+    // Global click listener to close category dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      const container = document.getElementById('incCategoryFilterContainer');
+      const dropdown = document.getElementById('incCategoryDropdown');
+      if (container && dropdown && !container.contains(e.target)) {
+        dropdown.style.display = 'none';
+      }
+    });
 
     // Global delete handler for income rows
     window.deleteTransaction = async (type, id) => {
@@ -64,6 +116,27 @@ export const transactionUI = {
         alert(`Failed to delete ${type}: ` + error.message);
       }
     };
+  },
+
+  /**
+   * Handles category selection changes.
+   */
+  handleCategoryChange(checkbox) {
+    const cid = parseInt(checkbox.value);
+    if (checkbox.checked) {
+      if (!this.selectedCategories.includes(cid)) this.selectedCategories.push(cid);
+    } else {
+      this.selectedCategories = this.selectedCategories.filter(id => id !== cid);
+    }
+    this.render();
+  },
+
+  /**
+   * Clears the category filter.
+   */
+  clearCategoryFilter() {
+    this.selectedCategories = [];
+    this.render();
   },
 
   /**
@@ -210,78 +283,112 @@ export const transactionUI = {
    * Render income list for the current month.
    */
   async render(month) {
-    if (month) this.currentMonth = month;
+    if (month) this.setCurrentMonth(month);
+    await this.renderMonthPicker();
+    await this.renderCategoryFilter();
     await this.renderIncome(this.currentMonth);
   },
 
+  async renderMonthPicker() {
+    const container = document.getElementById('incMonthPicker');
+    if (!container) return;
+
+    const [year, month] = this.currentMonth.split('-').map(Number);
+    const options = [];
+    
+    // 12 months before to 24 months after current
+    let iter = new Date(Date.UTC(year, month - 1 - 12, 1));
+    const end = new Date(Date.UTC(year, month - 1 + 24, 1));
+
+    while (iter <= end) {
+      const val = iter.toISOString().slice(0, 7);
+      const label = iter.toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+      options.push(`<option value="${val}" ${val === this.currentMonth ? 'selected' : ''}>${label}</option>`);
+      iter.setUTCMonth(iter.getUTCMonth() + 1);
+    }
+
+    container.innerHTML = safeHTML`
+      <button onclick="incPrevMonth()" title="Previous Month">◄</button>
+      <select onchange="handleIncMonthChange(event)">
+        ${options.join('')}
+      </select>
+      <button onclick="incNextMonth()" title="Next Month">►</button>
+    `;
+  },
+
+  async renderCategoryFilter() {
+    const container = document.getElementById('incCategoryFilterContainer');
+    if (!container) return;
+
+    const categories = await categoryRepository.getCategories();
+    // Income usually uses both fixed (Salary) and variable (Gifts) groups depending on setup,
+    // but we'll show all categories for filtering.
+    const incomeCats = categories; 
+
+    container.innerHTML = safeHTML`
+      <div class="custom-select" style="position:relative">
+        <button class="sm ghost" onclick="toggleIncCategoryDropdown()">
+          Categories (${this.selectedCategories.length || 'All'})
+        </button>
+        <div id="incCategoryDropdown" class="card" style="display:none; position:absolute; top:100%; right:0; z-index:100; min-width:200px; padding:12px; margin-top:5px; box-shadow: var(--shadow); border: 1px solid var(--border); background: var(--bg-card)">
+          <div style="max-height: 200px; overflow-y: auto; margin-bottom: 10px">
+            ${incomeCats.map(c => `
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px">
+                <input type="checkbox" id="inc-filter-cat-${c.id}" value="${c.id}" 
+                  ${this.selectedCategories.includes(c.id) ? 'checked' : ''}
+                  onchange="transactionUI.handleCategoryChange(this)"/>
+                <label for="inc-filter-cat-${c.id}" style="font-size:.75rem; margin:0; cursor:pointer; color:var(--text)">${c.name}</label>
+              </div>
+            `).join('')}
+          </div>
+          <div style="border-top:1px solid var(--border); padding-top:8px; display:flex; justify-content:space-between">
+            <button class="sm ghost" onclick="transactionUI.clearCategoryFilter()">Clear</button>
+            <button class="sm primary" onclick="toggleIncCategoryDropdown(false)">Done</button>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
   async renderIncome(month) {
-    const allItems = await incomeRepository.getThreeMonthHistory(month);
+    const allItems = await incomeRepository.getByMonth(month || this.currentMonth);
     const categories = await categoryRepository.getCategories();
     const catMap = Object.fromEntries(categories.map(c => [c.id, c.name]));
     
     const body = document.getElementById('incBody');
     if (!body) return;
 
-    // Apply Filter
-    const items = allItems.filter(item => {
-      const matchesSearch = !this.searchQuery || 
-        item.source.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
-        (catMap[item.categoryId] || '').toLowerCase().includes(this.searchQuery.toLowerCase());
-      return matchesSearch;
-    });
+    // Apply Filter using utility (Search and Categories)
+    const items = filterTransactions(allItems, this.searchQuery, this.selectedCategories, ['source'], catMap);
 
     if (items.length === 0) {
-      body.innerHTML = '<tr><td colspan="4" class="hint" style="text-align:center">No income found matching your search.</td></tr>';
+      body.innerHTML = '<tr><td colspan="4" class="hint" style="text-align:center">No income found matching your search and category selection.</td></tr>';
       this.updateTotal('income', 0);
       return;
     }
 
-    // Group items by YYYY-MM, sorted month descending
-    const grouped = {};
-    for (const item of items) {
-      const monthKey = item.date.slice(0, 7); // YYYY-MM
-      if (!grouped[monthKey]) grouped[monthKey] = [];
-      grouped[monthKey].push(item);
-    }
+    // Sort items by date descending
+    items.sort((a, b) => b.date.localeCompare(a.date));
 
-    const sortedMonths = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
-
-    // Calculate total based on filtered items as per 15.3
+    // Calculate total based on filtered items
     const filteredTotal = items.reduce((sum, i) => sum + i.amount, 0);
-    const rows = [];
+    
+    // Render data rows
+    body.innerHTML = safeHTML`${items.map(item => safeHTML`
+      <tr data-id="${item.id}">
+        <td>${item.date}</td>
+        <td>
+          ${item.source} 
+          ${item.categoryId ? `<span class="tag" style="margin-left:6px">${catMap[item.categoryId]}</span>` : ''}
+        </td>
+        <td class="r">${formatGBP(item.amount)}</td>
+        <td class="r">
+          <button class="sm ghost" onclick="transactionUI.editTransaction(${item.id})">Edit</button>
+          <button class="sm danger" onclick="deleteTransaction('income', ${item.id})">✕</button>
+        </td>
+      </tr>
+    `).join('')}`;
 
-    for (const monthKey of sortedMonths) {
-      const monthItems = grouped[monthKey].sort((a, b) => b.date.localeCompare(a.date));
-      const monthTotal = monthItems.reduce((sum, i) => sum + i.amount, 0);
-
-      // Month header row
-      const monthLabel = new Date(`${monthKey}-01`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
-      rows.push(`
-        <tr>
-          <td colspan="4" style="padding:8px 6px 4px;font-weight:600;font-size:.8rem;color:var(--text-soft);background:var(--bg-alt)">
-            ${monthLabel} — ${formatGBP(monthTotal)}
-          </td>
-        </tr>
-      `);
-
-      // Data rows for this month
-      rows.push(...monthItems.map(item => safeHTML`
-        <tr data-id="${item.id}">
-          <td>${item.date}</td>
-          <td>
-            ${item.source} 
-            ${item.categoryId ? `<span class="tag" style="margin-left:6px">${catMap[item.categoryId]}</span>` : ''}
-          </td>
-          <td class="r">${formatGBP(item.amount)}</td>
-          <td class="r">
-            <button class="sm ghost" onclick="transactionUI.editTransaction(${item.id})">Edit</button>
-            <button class="sm danger" onclick="deleteTransaction('income', ${item.id})">✕</button>
-          </td>
-        </tr>
-      `));
-    }
-
-    body.innerHTML = safeHTML`${rows.join('')}`;
     this.updateTotal('income', filteredTotal);
   },
 

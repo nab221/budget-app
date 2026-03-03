@@ -35,7 +35,7 @@ export function safeHTML(strings, ...values) {
     ],
     ALLOWED_ATTR: [
       'class', 'id', 'data-*', 'type', 'value', 'placeholder', 'step', 'min', 'max',
-      'style', 'for', 'disabled', 'readonly', 'selected', 'checked', 'onclick', 'href'
+      'style', 'for', 'disabled', 'readonly', 'selected', 'checked', 'onclick', 'onchange', 'href'
     ]
   });
 
