@@ -282,11 +282,16 @@ db.version(12).stores({
   expectedIncome: '++id, date, source, amount, categoryId, status',
   bankHolidayOverrides: '++id, date, isOpen'
 }).upgrade(async tx => {
+  // Helper for UUID fallback in non-HTTPS/older environments
+  const generateUUID = () => (typeof crypto !== 'undefined' && crypto.randomUUID) 
+    ? crypto.randomUUID() 
+    : Math.random().toString(36).substring(2);
+
   // 1. Update existing recurrentExpenses with defaults
   await tx.table('recurrentExpenses').toCollection().modify(item => {
     if (item.isRecurring === undefined) item.isRecurring = true;
     if (item.frequency === undefined) item.frequency = 'monthly';
-    if (item.recurrenceId === undefined) item.recurrenceId = crypto.randomUUID();
+    if (item.recurrenceId === undefined) item.recurrenceId = generateUUID();
     if (item.parentDate === undefined) item.parentDate = item.date || item.nextDate;
   });
 
@@ -303,7 +308,7 @@ db.version(12).stores({
   const now = new Date();
   
   for (const template of templates) {
-    const recurrenceId = crypto.randomUUID();
+    const recurrenceId = generateUUID();
     // Start from the current month
     const firstInstanceDate = new Date(now.getFullYear(), now.getMonth(), 1);
     const parentDateStr = firstInstanceDate.toISOString().split('T')[0];

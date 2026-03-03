@@ -303,3 +303,41 @@ input[type="number"] { text-align: right; }
 .update-bar button:hover {
   background: rgba(255, 255, 255, 0.35);
 }
+
+/* ── MONTH NAVIGATION (PHASE 28) ── */
+.month-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: center;
+  margin-bottom: 20px;
+  padding: 10px;
+  background: var(--bg-alt);
+  border-radius: 8px;
+}
+.month-nav button {
+  font-size: 1.1rem;
+  padding: 4px 12px;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+}
+.month-nav button:hover {
+  background: var(--bg);
+  border-color: var(--border);
+  border-radius: 6px;
+}
+.month-nav select {
+  font-size: 0.9rem;
+  padding: 6px 12px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  min-width: 160px;
+  text-align: center;
+  cursor: pointer;
+}
+

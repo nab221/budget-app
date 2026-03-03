@@ -1,18 +1,26 @@
 # Project: Budget App
 
 ## Current State
-- **Latest Version**: v1.4 (Local File Persistence)
-- **Status**: Milestone v1.4 Complete. Ported File System Access API to modular structure.
-- **Key Features**: Offline-first, Automatic File Sync (OneDrive/Dropbox ready), UK Bank PDF Extraction, 90-day Cash Flow Forecast, Modular ES6 Architecture.
+- **Latest Version**: v1.5 (Automatic Recurring Transactions)
+- **Status**: Milestone v1.5 Complete. Replaced manual templates with true automatic recurrence engine.
+- **Key Features**: Automated Recurring Transactions (12-month projection), Independent Monthly Navigation (Income/Expenses), Schema v12 Migration, Smart Month-End Drift Protection.
 
-## Next Milestone: v1.5 Automatic Recurring Transactions
-- **Goal**: Replace manual templates with true automatic recurrence and implement per-tab monthly navigation.
+## Next Milestone: v1.6 Budget Forecasting & Cash Flow Refinement
+- **Goal**: Improve the accuracy of daily balance projections and add more granular budgeting targets.
 - **Status**: Initializing.
 
 ---
 
 <details>
 <summary>Milestone History</summary>
+
+### v1.5: Automatic Recurring Transactions (2026-03-03)
+- Implemented `RecurrenceManager` for automatic series expansion (2-month horizon).
+- Built `generateInstances` utility with `parentDate` anchoring for drift protection.
+- Refactored `src/db/schema.js` to version 12; migrated legacy templates to `recurrentExpenses`.
+- Added independent month navigation pickers to Income and Expenses tabs.
+- Integrated `filterTransactions` for multi-select category filtering in Income tab.
+- Implemented "This vs All Future" edit/delete logic for recurring series.
 
 ### v1.4: Local File Persistence (2026-03-02)
 - Ported File System Access API integration from legacy monolith to modular `src/`.
@@ -62,4 +70,4 @@ A personal budget tracking web app — a full rebuild of a buggy AI-generated pr
 </details>
 
 ---
-*Last updated: 2026-03-02 (v1.4 Completion)*
+*Last updated: 2026-03-03 (v1.5 Completion)*

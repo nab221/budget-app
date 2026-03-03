@@ -20,6 +20,7 @@ import { expectedIncomeUI } from './ui/expected-income.js';
 import { calculateBalanceChain } from './utils/finance.js';
 import { balanceSnapshotRepository } from './db/repository.js';
 import { BALANCE_START_DATE_KEY, BALANCE_OPENING_AMOUNT_KEY } from './utils/storage.js';
+import { RecurrenceManager } from './utils/recurrence.js';
 
 export { BALANCE_START_DATE_KEY };
 
@@ -47,7 +48,15 @@ async function init() {
     });
   }
 
-  // 3. Month Picker, View Select and Tab Navigation
+  // 3. Recurrence: Check and generate instances for the current horizon
+  try {
+    const recResults = await RecurrenceManager.checkAndGenerate();
+    console.log('Recurrence check complete:', recResults);
+  } catch (err) {
+    console.error('Failed to run recurrence check:', err);
+  }
+
+  // 4. Month Picker, View Select and Tab Navigation
   const monthPicker = document.getElementById('monthPicker');
   const viewSelect = document.getElementById('viewSelect');
 
@@ -76,7 +85,7 @@ async function init() {
     monthPicker.addEventListener('change', () => {
       console.log(`Month changed to: ${monthPicker.value}`);
       transactionUI.render(monthPicker.value);
-      expensesUI.render(monthPicker.value);
+      // expensesUI.render removed here in Phase 28 — Expenses manages its own month
       refreshDashboard();
     });
   }
@@ -104,7 +113,7 @@ async function init() {
 
       // Refresh data when switching tabs
       if (panelId === 'income') await transactionUI.render();
-      if (panelId === 'expenses') await expensesUI.render(monthPicker ? monthPicker.value : undefined);
+      if (panelId === 'expenses') await expensesUI.render();
       if (panelId === 'debts') await debtUI.render();
       if (panelId === 'assets') await assetUI.render();
       if (panelId === 'payoff') await renderPayoffPlanner();

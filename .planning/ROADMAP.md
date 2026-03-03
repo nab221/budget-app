@@ -2,11 +2,13 @@
 
 ## Active Milestone
 
-- [ ] **v1.5: Automatic Recurring Transactions** — [ROADMAP](milestones/v1.5-ROADMAP.md) | [REQUIREMENTS](milestones/v1.5-REQUIREMENTS.md)
-  - Goal: Replace manual templates with true automatic recurrence and implement per-tab monthly navigation.
+- [ ] **v1.6: Budget Forecasting & Cash Flow Refinement**
+  - Goal: Improve the accuracy of daily balance projections and add more granular budgeting targets.
 
 ## Completed Milestones
 
+- [x] **v1.5: Automatic Recurring Transactions** — [ARCHIVE](milestones/v1.5-ROADMAP.md) | [REQUIREMENTS](milestones/v1.5-REQUIREMENTS.md)
+  - Goal: Replace manual templates with true automatic recurrence and implement per-tab monthly navigation.
 - [x] **v1.4: Local File Persistence** — [ARCHIVE](milestones/v1.4-ROADMAP.md)
   - Goal: Direct sync between IndexedDB and local files via Browser API.
 - [x] **v1.3: Enhanced Debt Management** — [ROADMAP](milestones/v1.3-ROADMAP.md) | [REQUIREMENTS](milestones/v1.3-REQUIREMENTS.md)
@@ -22,4 +24,4 @@
 - Multi-currency support (GBP/BRL)
 
 ---
-*Last updated: 2026-03-02*
+*Last updated: 2026-03-03*
