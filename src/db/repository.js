@@ -590,9 +590,16 @@ export const debtRepository = createBaseRepository(db.debts, ['currentBalance', 
 export const assetRepository = createBaseRepository(db.assets, ['currentBalance']);
 
 /**
- * Recurring Template Repository
+ * Recurring Template Repository (deprecated — table removed in schema v12)
+ * Kept as a no-op stub so legacy UI and cleanup phases don't throw at load.
  */
-export const recurringTemplateRepository = createBaseRepository(db.recurringTemplates);
+export const recurringTemplateRepository = {
+  get: async () => null,
+  getAll: async () => [],
+  add: async () => {},
+  update: async () => {},
+  delete: async () => {}
+};
 
 /**
  * Statement Repository

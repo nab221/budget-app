@@ -1,11 +1,4 @@
 /**
- * Shared localStorage key for the timestamp of the last successful cloud backup.
- * Imported by google-drive.js, onedrive.js, and cloud-backup.js to ensure a
- * single source of truth — rename here to update all usages.
- */
-export const CLOUD_LAST_BACKUP_KEY = 'cloud_last_backup';
-
-/**
  * localStorage key for the user-configured balance chain start date (YYYY-MM).
  * Shared by app.js (save/load) and the balance UI tests.
  */
