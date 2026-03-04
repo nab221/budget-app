@@ -1,178 +1,214 @@
 import { debtRepository } from '../db/repository.js';
-import { simulatePayoff, modelBalanceTransfer, calcMinPayment } from '../utils/finance.js';
+import { simulatePayoff, simulateLoanPayoff, modelBalanceTransfer } from '../utils/finance.js';
 import { formatGBP, toPence } from '../utils/currency.js';
 import { renderDebtPayoffChart } from './charts.js';
 
 /**
- * Renders the Debt Payoff Planner view.
+ * Renders the dual-section Debt Payoff Planner view.
  */
 export async function renderPayoffPlanner() {
-  const debts = await debtRepository.getAll();
+  const allDebts = await debtRepository.getAll();
   const extraPaymentInput = document.getElementById('payoffExtra');
-  const strategyInput = document.getElementById('payoffStrategy');
-  const comparisonContainer = document.getElementById('payoffComparison');
-  const tableContainer = document.getElementById('payoffTableContainer');
-  const chartTitle = document.getElementById('payoffChartTitle');
+  
+  if (!extraPaymentInput) return;
 
-  if (!debts || debts.length === 0) {
-    comparisonContainer.innerHTML = '<div class="hint">Add some debts in the "Debts" tab to see payoff simulations.</div>';
-    tableContainer.innerHTML = '';
-    document.getElementById('btModelerContainer').innerHTML = '';
-    return;
-  }
-
-  // Load persistence
+  // Load persistent extra payment
   const savedExtra = localStorage.getItem('payoffExtra');
   if (savedExtra !== null) extraPaymentInput.value = savedExtra;
 
-  const savedStrategy = localStorage.getItem('budget_payoff_preference');
-  if (savedStrategy !== null) strategyInput.value = savedStrategy;
+  if (!allDebts || allDebts.length === 0) {
+    document.getElementById('ccPayoffSection').innerHTML = '<div class="hint" style="padding:20px; text-align:center">Add some debts in the "Debts" tab to see payoff simulations.</div>';
+    document.getElementById('loanPayoffSection').classList.add('hidden');
+    document.getElementById('payoffScheduleBody').innerHTML = '<tr><td colspan="6" class="hint" style="text-align:center">No debts to display.</td></tr>';
+    return;
+  }
 
-  /**
-   * Transforms simulation history into the series format expected by charts.js
-   */
-  const getChartDataFromHistory = (history, debtsArr) => {
-    const CHART_MONTHS = 120;
-    const limitedHistory = history.slice(0, CHART_MONTHS);
+  const ccDebts = allDebts.filter(d => (d.debtType || 'credit-card') === 'credit-card');
+  const loanDebts = allDebts.filter(d => d.debtType === 'loan' || d.debtType === 'mortgage');
+
+  const updateAll = () => {
+    const totalExtraPence = toPence(parseFloat(extraPaymentInput.value) || 0);
+    localStorage.setItem('payoffExtra', extraPaymentInput.value);
+
+    // 1. Credit Card Payoff
+    let ccResult = null;
+    if (ccDebts.length > 0) {
+      ccResult = renderCreditCardPayoff(ccDebts, totalExtraPence);
+    } else {
+      document.getElementById('ccPayoffSection').classList.add('hidden');
+    }
+
+    // 2. Loan Payoff
+    let loanResult = null;
+    if (loanDebts.length > 0) {
+      document.getElementById('loanPayoffSection').classList.remove('hidden');
+      loanResult = renderLoanPayoff(loanDebts, totalExtraPence);
+    } else {
+      document.getElementById('loanPayoffSection').classList.add('hidden');
+    }
+
+    // 3. Consolidated Schedule
+    renderConsolidatedSchedule(ccResult, loanResult);
     
-    // Initialize series with starting balances (Month 0)
-    const series = debtsArr.map(d => ({
-      name: d.name,
-      balances: [d.currentBalance]
-    }));
-
-    // Fill in monthly balances
-    limitedHistory.forEach(snapshot => {
-      series.forEach(s => {
-        const debtPayment = snapshot.payments.find(p => p.debtName === s.name);
-        s.balances.push(debtPayment ? debtPayment.remainingBalance : 0);
-      });
-    });
-
-    return series;
+    // 4. BT Modeler (only if CCs exist)
+    renderBTModeler(allDebts);
   };
 
-  // Handle changes
-  const updateSimulations = () => {
-    const extraPounds = parseFloat(extraPaymentInput.value) || 0;
-    const extraPence = toPence(extraPounds);
-    const selectedStrategyId = strategyInput.value;
+  extraPaymentInput.oninput = updateAll;
+  updateAll();
+}
 
-    // Persist
-    localStorage.setItem('payoffExtra', extraPounds);
-    localStorage.setItem('budget_payoff_preference', selectedStrategyId);
+/**
+ * Renders the Credit Card specific payoff section.
+ */
+function renderCreditCardPayoff(debts, extraPence) {
+  const strategyInput = document.getElementById('payoffStrategy');
+  const comparisonContainer = document.getElementById('ccPayoffComparison');
+  const selectedStrategyId = strategyInput.value || 'avalanche';
 
-    const strategies = [
-      { id: 'avalanche', name: 'Debt Avalanche', description: 'Highest interest first' },
-      { id: 'snowball', name: 'Debt Snowball', description: 'Smallest balance first' },
-      { id: 'min', name: 'Minimum Only', description: 'Paying minimums only' }
-    ];
+  localStorage.setItem('budget_payoff_preference', selectedStrategyId);
 
-    const results = strategies.map(strategy => {
-      const simulation = simulatePayoff(debts, strategy.id, extraPence);
-      return {
-        ...strategy,
-        ...simulation
-      };
+  const strategies = [
+    { id: 'avalanche', name: 'Avalanche', description: 'Highest interest first' },
+    { id: 'snowball', name: 'Snowball', description: 'Smallest balance first' },
+    { id: 'min', name: 'Min Only', description: 'Paying minimums only' }
+  ];
+
+  const results = strategies.map(s => ({
+    ...s,
+    ...simulatePayoff(debts, s.id, extraPence)
+  }));
+
+  const minInterest = Math.min(...results.map(r => r.totalInterest));
+  const activeResult = results.find(r => r.id === selectedStrategyId);
+
+  comparisonContainer.innerHTML = results.map(res => `
+    <div class="card ${res.id === selectedStrategyId ? 'border-primary' : ''}" 
+         style="padding:12px; flex:1; cursor:pointer; position:relative; border:1px solid ${res.id === selectedStrategyId ? 'var(--accent)' : 'var(--border-light)'}"
+         onclick="document.getElementById('payoffStrategy').value='${res.id}'; document.getElementById('payoffStrategy').dispatchEvent(new Event('change'))">
+      <h3 style="font-size:.8rem; margin-bottom:4px">${res.name}</h3>
+      <div style="font-size:1.1rem; font-weight:700">${res.monthsToClear >= 600 ? 'Never' : res.monthsToClear + 'm'}</div>
+      <div style="font-size:.8rem; color:${res.totalInterest === minInterest ? 'var(--success)' : 'inherit'}">${formatGBP(res.totalInterest)} int.</div>
+    </div>
+  `).join('');
+
+  strategyInput.onchange = () => renderPayoffPlanner();
+
+  const projectionData = getChartDataFromHistory(activeResult.history, debts);
+  renderDebtPayoffChart('ccPayoffChart', projectionData);
+
+  return activeResult;
+}
+
+/**
+ * Renders the Loan & Mortgage specific payoff section.
+ */
+function renderLoanPayoff(debts, extraPence) {
+  const strategyInput = document.getElementById('loanPayoffStrategy');
+  const comparisonContainer = document.getElementById('loanPayoffComparison');
+  const selectedStrategyId = strategyInput.value || 'term-reduction';
+
+  const strategies = [
+    { id: 'term-reduction', name: 'Term Reduction', description: 'Payment same, term shortens' },
+    { id: 'payment-reduction', name: 'Payment Reduction', description: 'Term same, payment drops' }
+  ];
+
+  const results = strategies.map(s => ({
+    ...s,
+    ...simulateLoanPayoff(debts, s.id, extraPence)
+  }));
+
+  const minInterest = Math.min(...results.map(r => r.totalInterest));
+  const activeResult = results.find(r => r.id === selectedStrategyId);
+
+  comparisonContainer.innerHTML = results.map(res => `
+    <div class="card ${res.id === selectedStrategyId ? 'border-primary' : ''}" 
+         style="padding:12px; flex:1; cursor:pointer; position:relative; border:1px solid ${res.id === selectedStrategyId ? 'var(--accent)' : 'var(--border-light)'}"
+         onclick="document.getElementById('loanPayoffStrategy').value='${res.id}'; document.getElementById('loanPayoffStrategy').dispatchEvent(new Event('change'))">
+      <h3 style="font-size:.8rem; margin-bottom:4px">${res.name}</h3>
+      <div style="font-size:1.1rem; font-weight:700">${res.monthsToClear} months</div>
+      <div style="font-size:.8rem; color:${res.totalInterest === minInterest ? 'var(--success)' : 'inherit'}">
+        ${formatGBP(res.totalInterest)} int. ${res.totalFees > 0 ? `(+ ${formatGBP(res.totalFees)} fees)` : ''}
+      </div>
+    </div>
+  `).join('');
+
+  strategyInput.onchange = () => renderPayoffPlanner();
+
+  const projectionData = getChartDataFromHistory(activeResult.history, debts);
+  renderDebtPayoffChart('loanPayoffChart', projectionData);
+
+  return activeResult;
+}
+
+/**
+ * Helper to transform history into chart series.
+ */
+function getChartDataFromHistory(history, debtsArr) {
+  const CHART_MONTHS = 120;
+  const limitedHistory = history.slice(0, CHART_MONTHS);
+  
+  const series = debtsArr.map(d => ({
+    name: d.name,
+    balances: [d.currentBalance]
+  }));
+
+  limitedHistory.forEach(snapshot => {
+    series.forEach(s => {
+      const debtPayment = snapshot.payments.find(p => p.debtName === s.name);
+      s.balances.push(debtPayment ? debtPayment.remainingBalance : (s.balances[s.balances.length-1] || 0));
     });
+  });
 
-    // Find the fastest and cheapest
-    const minMonths = Math.min(...results.filter(r => r.monthsToClear < 600).map(r => r.monthsToClear));
-    const minInterest = Math.min(...results.map(r => r.totalInterest));
+  return series;
+}
 
-    // Render comparison cards
-    comparisonContainer.innerHTML = results.map(res => `
-      <div class="card ${res.id === selectedStrategyId ? 'border-primary' : ''}" 
-           style="padding:15px; flex:1; cursor:pointer; position:relative"
-           onclick="document.getElementById('payoffStrategy').value='${res.id}'; document.getElementById('payoffStrategy').dispatchEvent(new Event('change'))">
-        ${res.id === selectedStrategyId ? '<div style="position:absolute; top:8px; right:8px; color:var(--primary); font-size:1.2rem">✓</div>' : ''}
-        <h3 style="font-size:.9rem; margin-bottom:4px">${res.name}</h3>
-        <div class="hint" style="margin-bottom:12px">${res.description}</div>
-        
-        <div style="margin-bottom:8px">
-          <span style="font-size:1.4rem; font-weight:700">${res.monthsToClear >= 600 ? 'Never' : res.monthsToClear + ' months'}</span>
-          <div class="hint">Time to clear</div>
-        </div>
+/**
+ * Renders a combined schedule from both CC and Loan results.
+ */
+function renderConsolidatedSchedule(ccResult, loanResult) {
+  const body = document.getElementById('payoffScheduleBody');
+  if (!body) return;
 
-        <div>
-          <span style="font-weight:600; color:${res.totalInterest === minInterest ? 'var(--success)' : 'inherit'}">
-            ${formatGBP(res.totalInterest)}
-          </span>
-          <div class="hint">Total interest paid</div>
-        </div>
-
-        ${res.id !== 'min' && res.monthsToClear === minMonths ? 
-          '<div class="pill" style="margin-top:10px; background:var(--bg-alt); color:var(--primary); font-size:.7rem; text-align:center">FASTEST</div>' : ''}
-      </div>
-    `).join('');
-
-    // Detailed 12-Month Breakdown Table
-    const activeResult = results.find(r => r.id === selectedStrategyId);
-    const snapshot12 = activeResult.history.slice(0, 12);
+  const maxMonths = Math.max(ccResult?.history.length || 0, loanResult?.history.length || 0);
+  const limitedMonths = Math.min(maxMonths, 60); // Show 5 years max
+  
+  let html = '';
+  for (let i = 0; i < limitedMonths; i++) {
+    const ccSnap = ccResult?.history[i];
+    const loanSnap = loanResult?.history[i];
     
-    // Sort debts by name for consistent column ordering
-    const sortedDebts = [...debts].sort((a, b) => a.name.localeCompare(b.name));
+    const date = ccSnap?.date || loanSnap?.date || `Month ${i+1}`;
+    const totalPaid = (ccSnap?.totalPrincipalPaid || 0) + (ccSnap?.totalInterestCharged || 0) + 
+                      (loanSnap?.totalPrincipalPaid || 0) + (loanSnap?.totalInterestCharged || 0);
+    const interest = (ccSnap?.totalInterestCharged || 0) + (loanSnap?.totalInterestCharged || 0);
+    const principal = (ccSnap?.totalPrincipalPaid || 0) + (loanSnap?.totalPrincipalPaid || 0);
+    const fees = (loanSnap?.totalFeesCharged || 0);
+    const balance = (ccSnap?.totalRemainingBalance || 0) + (loanSnap?.totalRemainingBalance || 0);
 
-    tableContainer.innerHTML = `
-      <div style="overflow-x:auto">
-        <table class="tbl" style="font-size:0.85rem; min-width:600px">
-          <thead>
-            <tr>
-              <th>Month</th>
-              <th class="r">Total Paid</th>
-              ${sortedDebts.map(d => `<th class="r" style="border-left:1px solid var(--border-light)">${d.name}<br/><span style="font-size:0.7rem;font-weight:400">P | I</span></th>`).join('')}
-            </tr>
-          </thead>
-          <tbody>
-            ${snapshot12.map(s => {
-              const hasRateJump = s.payments.some(p => p.isRateJump);
-              const totalPaid = s.payments.reduce((sum, p) => sum + p.amount, 0);
-              return `
-                <tr ${hasRateJump ? 'style="background:rgba(213, 94, 0, 0.05)" title="Interest rate jump occurred this month"' : ''}>
-                  <td>${s.date}${hasRateJump ? ' ⚡' : ''}</td>
-                  <td class="r" style="font-weight:600">${formatGBP(totalPaid)}</td>
-                  ${sortedDebts.map(d => {
-                    const p = s.payments.find(pay => pay.debtId === d.id) || { principalPaid: 0, interestCharged: 0 };
-                    return `
-                      <td class="r" style="border-left:1px solid var(--border-light); white-space:nowrap">
-                        <span style="color:var(--text)">${formatGBP(p.principalPaid)}</span> | 
-                        <span style="color:var(--danger); font-size:0.75rem">${formatGBP(p.interestCharged)}</span>
-                      </td>
-                    `;
-                  }).join('')}
-                </tr>
-              `;
-            }).join('')}
-          </tbody>
-        </table>
-      </div>
-      <div class="hint" style="margin-top:10px">P | I = Principal Paid | Interest Charged. Highlighted rows ⚡ indicate a promo interest rate expired.</div>
+    html += `
+      <tr>
+        <td>${date}</td>
+        <td class="r">${formatGBP(totalPaid)}</td>
+        <td class="r">${formatGBP(interest)}</td>
+        <td class="r">${formatGBP(principal)}</td>
+        <td class="r">${formatGBP(fees)}</td>
+        <td class="r" style="font-weight:600">${formatGBP(balance)}</td>
+      </tr>
     `;
+  }
 
-    // Update chart
-    if (chartTitle) chartTitle.textContent = `Debt Payoff Timeline (${activeResult.name})`;
-    const projectionData = getChartDataFromHistory(activeResult.history, debts);
-    renderDebtPayoffChart('payoffChart', projectionData);
-  };
-
-  // Initial render
-  updateSimulations();
-  renderBTModeler(debts);
-
-  // Attach listeners
-  extraPaymentInput.oninput = updateSimulations;
-  strategyInput.onchange = updateSimulations;
+  body.innerHTML = html || '<tr><td colspan="6" class="hint" style="text-align:center">No data.</td></tr>';
 }
 
 /**
  * Renders the Balance Transfer Modeler component.
- * @param {Array} debts - All user debts.
  */
 export function renderBTModeler(debts) {
   const container = document.getElementById('btModelerContainer');
   if (!container) return;
 
-  const cardDebts = debts.filter(d => d.type === 'credit_card' || d.type === 'overdraft' || d.type === 'other');
+  const cardDebts = debts.filter(d => (d.debtType || 'credit-card') === 'credit-card');
   
   if (cardDebts.length === 0) {
     container.innerHTML = '';
@@ -180,9 +216,9 @@ export function renderBTModeler(debts) {
   }
 
   container.innerHTML = `
-    <div class="card" style="padding:20px; border:1px dashed var(--primary); background:var(--bg-alt)">
+    <div class="card" style="padding:20px; border:1px dashed var(--accent); background:var(--bg-alt)">
       <h3 style="margin-bottom:15px">Balance Transfer Modeler</h3>
-      <div class="hint" style="margin-bottom:20px">Thinking of moving a balance? See if the transfer fee is worth the interest savings.</div>
+      <div class="hint" style="margin-bottom:20px">Moving a balance to 0%? See if the transfer fee is worth the interest savings.</div>
 
       <div class="form-row" style="margin-bottom:20px">
         <div style="flex:2">
@@ -213,7 +249,7 @@ export function renderBTModeler(debts) {
   const btResults = document.getElementById('btResults');
 
   const updateBTModel = () => {
-    const debtId = btSourceSelect.value;
+    const debtId = parseInt(btSourceSelect.value);
     const promoMonths = parseInt(btPromoInput.value) || 0;
     const feePercent = parseFloat(btFeeInput.value) || 0;
 
@@ -239,16 +275,16 @@ export function renderBTModeler(debts) {
 
       <div style="margin-top:20px; padding-top:15px; border-top:1px solid var(--border)">
         <div style="font-weight:600; margin-bottom:4px">Target Monthly Payment</div>
-        <div style="font-size:1.4rem; color:var(--primary); font-weight:700">${formatGBP(result.recommendedMonthlyPayment)}</div>
+        <div style="font-size:1.4rem; color:var(--accent); font-weight:700">${formatGBP(result.recommendedMonthlyPayment)}</div>
         <div class="hint">Pay this amount monthly to clear the transferred balance before the 0% period ends.</div>
       </div>
 
       ${savings > 0 ? `
-        <div style="margin-top:15px; color:var(--success); font-weight:600; display:flex; align-items:center; gap:8px">
+        <div style="margin-top:15px; color:var(--success); font-weight:600; display:flex; align-items:center; gap:8px; font-size:0.85rem">
           <span>✅ Recommended: This transfer saves you ${formatGBP(savings)} compared to minimum payments.</span>
         </div>
       ` : `
-        <div style="margin-top:15px; color:var(--danger); font-weight:600; display:flex; align-items:center; gap:8px">
+        <div style="margin-top:15px; color:var(--danger); font-weight:600; display:flex; align-items:center; gap:8px; font-size:0.85rem">
           <span>⚠️ Not Recommended: The transfer fee is higher than the expected interest cost.</span>
         </div>
       `}
@@ -263,4 +299,3 @@ export function renderBTModeler(debts) {
   // Initial update
   updateBTModel();
 }
-

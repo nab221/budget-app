@@ -15,14 +15,12 @@ import { generateInstances } from '../utils/recurrence.js';
 
 /**
  * Expenses UI Module
- * Handles the unified "Expenses" tab with "Recurrent" and "One-off" sub-views.
+ * Handles the unified "Expenses" tab.
  */
 export const expensesUI = {
-  recurrentMonth: '',
-  oneOffMonth: '',
-  activeSubTab: 'recurrent',
-  lastSubTab: 'recurrent',
+  selectedMonth: '',
   editingId: null,
+  editingType: null, // 'recurrent' or 'oneoff'
   searchQuery: '',
   selectedCategories: [],
 
@@ -39,19 +37,18 @@ export const expensesUI = {
    * Initialize the Expenses UI — bind events and do first render.
    */
   async init() {
-    this.initMonths();
+    this.initMonth();
     this.setupEventListeners();
     window.addEventListener('app:refresh', () => this.render());
     await this.render();
   },
 
   /**
-   * Initialize months from localStorage or current date.
+   * Initialize month from localStorage or current date.
    */
-  initMonths() {
+  initMonth() {
     const now = new Date().toISOString().slice(0, 7);
-    this.recurrentMonth = localStorage.getItem('expenses_recurrent_month') || now;
-    this.oneOffMonth = localStorage.getItem('expenses_oneoff_month') || now;
+    this.selectedMonth = localStorage.getItem('expenses_selected_month') || now;
   },
 
   /**
@@ -59,10 +56,10 @@ export const expensesUI = {
    */
   toggleFrequencyField() {
     const isRecurring = document.getElementById('expIsRecurring').checked;
-    const freqSelect = document.getElementById('expFreq');
-    if (freqSelect) {
-      freqSelect.disabled = !isRecurring;
-    }
+    const freqRow = document.getElementById('expFreqRow');
+    const recurringFields = document.getElementById('expRecurringFields');
+    if (freqRow) freqRow.classList.toggle('hidden', !isRecurring);
+    if (recurringFields) recurringFields.classList.toggle('hidden', !isRecurring);
   },
 
   /**
@@ -102,56 +99,21 @@ export const expensesUI = {
   },
 
   /**
-   * Get the month for the currently active sub-tab.
-   */
-  getCurrentMonth() {
-    return this.activeSubTab === 'recurrent' ? this.recurrentMonth : this.oneOffMonth;
-  },
-
-  /**
-   * Update the month for the active sub-tab and persist to localStorage.
+   * Update the month and persist to localStorage.
    */
   setCurrentMonth(month) {
-    if (this.activeSubTab === 'recurrent') {
-      this.recurrentMonth = month;
-      localStorage.setItem('expenses_recurrent_month', month);
-    } else {
-      this.oneOffMonth = month;
-      localStorage.setItem('expenses_oneoff_month', month);
-    }
+    this.selectedMonth = month;
+    localStorage.setItem('expenses_selected_month', month);
   },
 
   /**
-   * Wire up all event listeners for forms, sub-tabs, and global action buttons.
+   * Wire up all event listeners for forms and global action buttons.
    */
   setupEventListeners() {
-    // Global month picker (Dashboard) sync removed for Expenses in Phase 28
-
-    // Sub-tab navigation
-    const subTabs = document.getElementById('expenseSubTabs');
-    if (subTabs) {
-      subTabs.addEventListener('click', async (e) => {
-        const btn = e.target.closest('[data-subtab]');
-        if (!btn) return;
-        this.activeSubTab = btn.dataset.subtab;
-        subTabs.querySelectorAll('[data-subtab]').forEach(b =>
-          b.classList.toggle('active', b === btn)
-        );
-        this.resetFilters();
-        await this.render();
-      });
-    }
-
     // Toggle Expense Form
     const addExpenseBtn = document.getElementById('addExpenseBtn');
     if (addExpenseBtn) {
       addExpenseBtn.onclick = () => this.toggleForm();
-    }
-
-    // Call Templates Manual Trigger (v1.5: Recurrence Manual Check)
-    const callTemplatesBtn = document.getElementById('callTemplatesBtn');
-    if (callTemplatesBtn) {
-      callTemplatesBtn.onclick = () => templateUI.manualTrigger(this.getCurrentMonth());
     }
 
     // Search Input
@@ -169,32 +131,43 @@ export const expensesUI = {
       markAllBtn.addEventListener('click', () => this.handleMarkAllPaid());
     }
 
+    // Set Current Balance
+    const setBalBtn = document.getElementById('setExpBalBtn');
+    if (setBalBtn) {
+      setBalBtn.onclick = () => {
+        if (window.transactionUI) window.transactionUI.showSetBalanceModal();
+      };
+    }
+
     // Global delete handlers
-    window.deleteRecurrentExpense = async (id) => {
-      const item = await recurrentExpenseRepository.get(id);
+    window.deleteExpense = async (id, type) => {
+      const repo = type === 'recurrent' ? recurrentExpenseRepository : oneOffExpenseRepository;
+      const item = await repo.get(id);
       if (!item) return;
+
+      const label = item.label || item.note || 'this expense';
 
       if (item.isRecurring && item.recurrenceId) {
         const choice = await this.promptRecurrenceChoice(
           'Delete Recurring Expense',
-          `"${item.label}" is part of a recurring series. How would you like to delete it?`
+          `"${label}" is part of a recurring series. How would you like to delete it?`
         );
         if (!choice) return;
 
         try {
           if (choice === 'this') {
-            await recurrentExpenseRepository.delete(id);
+            await repo.delete(id);
           } else {
-            await recurrentExpenseRepository.deleteSeries(item.recurrenceId, item.nextDate || item.date);
+            await repo.deleteSeries(item.recurrenceId, item.nextDate || item.date);
           }
           await this.render();
         } catch (err) {
           alert('Failed to delete: ' + err.message);
         }
       } else {
-        if (!confirm(`Delete "${item.label}"?`)) return;
+        if (!confirm(`Delete "${label}"?`)) return;
         try {
-          await recurrentExpenseRepository.delete(id);
+          await repo.delete(id);
           await this.render();
         } catch (err) {
           alert('Failed to delete: ' + err.message);
@@ -202,39 +175,8 @@ export const expensesUI = {
       }
     };
 
-    window.deleteOneOffExpense = async (id) => {
-      const item = await oneOffExpenseRepository.get(id);
-      if (!item) return;
-
-      if (item.isRecurring && item.recurrenceId) {
-        const choice = await this.promptRecurrenceChoice(
-          'Delete Recurring Expense',
-          `This expense is part of a recurring series. How would you like to delete it?`
-        );
-        if (!choice) return;
-
-        try {
-          if (choice === 'this') {
-            await oneOffExpenseRepository.delete(id);
-          } else {
-            await oneOffExpenseRepository.deleteSeries(item.recurrenceId, item.date);
-          }
-          await this.render();
-        } catch (err) {
-          alert('Failed to delete: ' + err.message);
-        }
-      } else {
-        if (!confirm('Delete this one-off expense?')) return;
-        try {
-          await oneOffExpenseRepository.delete(id);
-          await this.render();
-        } catch (err) {
-          alert('Failed to delete: ' + err.message);
-        }
-      }
-    };
-
-    window.toggleRecurrentStatus = async (id, currentStatus) => {
+    window.toggleExpenseStatus = async (id, type, currentStatus) => {
+      if (type !== 'recurrent') return;
       try {
         const item = await recurrentExpenseRepository.get(id);
         if (!item) return;
@@ -265,9 +207,9 @@ export const expensesUI = {
       }
     };
 
-    // Month Picker Navigation (Phase 28)
+    // Month Picker Navigation
     window.expPrevMonth = () => {
-      const current = this.getCurrentMonth();
+      const current = this.selectedMonth;
       const [year, month] = current.split('-').map(Number);
       const d = new Date(Date.UTC(year, month - 2, 1));
       this.setCurrentMonth(d.toISOString().slice(0, 7));
@@ -275,7 +217,7 @@ export const expensesUI = {
     };
 
     window.expNextMonth = () => {
-      const current = this.getCurrentMonth();
+      const current = this.selectedMonth;
       const [year, month] = current.split('-').map(Number);
       const d = new Date(Date.UTC(year, month, 1));
       this.setCurrentMonth(d.toISOString().slice(0, 7));
@@ -288,13 +230,6 @@ export const expensesUI = {
     };
   },
 
-  resetFilters() {
-    this.searchQuery = '';
-    this.selectedCategories = [];
-    const searchInput = document.getElementById('expSearch');
-    if (searchInput) searchInput.value = '';
-  },
-
   toggleForm(show = true) {
     const container = document.getElementById('expenseFormContainer');
     if (!container) return;
@@ -305,6 +240,7 @@ export const expensesUI = {
     } else {
       container.classList.add('hidden');
       this.editingId = null;
+      this.editingType = null;
     }
   },
 
@@ -313,47 +249,37 @@ export const expensesUI = {
     if (!container) return;
 
     const categories = await categoryRepository.getCategories();
-    const isRecurrent = this.activeSubTab === 'recurrent';
     const isUpdate = !!this.editingId;
 
-    let data = {};
-    if (isRecurrent) {
-      data = {
-        date: new Date().toISOString().slice(0, 10),
-        categoryId: '',
-        label: '',
-        amount: '',
-        isRecurring: true,
-        frequency: 'monthly',
-        nextDate: new Date().toISOString().slice(0, 10),
-        isEssential: true,
-        cycleTotal: '',
-        endDate: ''
-      };
-      if (isUpdate) {
-        const item = await recurrentExpenseRepository.get(this.editingId);
-        if (item) data = { ...item, amount: (item.amount / 100).toFixed(2) };
-      }
-    } else {
-      data = {
-        date: new Date().toISOString().slice(0, 10),
-        categoryId: '',
-        note: '',
-        amount: '',
-        isRecurring: false,
-        frequency: 'monthly'
-      };
-      if (isUpdate) {
-        const item = await oneOffExpenseRepository.get(this.editingId);
-        if (item) data = { ...item, amount: (item.amount / 100).toFixed(2) };
+    let data = {
+      date: new Date().toISOString().slice(0, 10),
+      categoryId: '',
+      label: '',
+      amount: '',
+      isRecurring: false,
+      frequency: 'monthly',
+      isEssential: true,
+      cycleTotal: '',
+      endDate: ''
+    };
+
+    if (isUpdate) {
+      const repo = this.editingType === 'recurrent' ? recurrentExpenseRepository : oneOffExpenseRepository;
+      const item = await repo.get(this.editingId);
+      if (item) {
+        data = { 
+          ...item, 
+          label: item.label || item.note || '',
+          amount: (item.amount / 100).toFixed(2),
+          date: item.nextDate || item.date
+        };
       }
     }
 
     container.className = `card ${isUpdate ? 'update-mode' : ''}`;
     
     const categoryOptions = categories
-      .filter(c => c.group === (isRecurrent ? 'fixed' : 'variable'))
-      .map(c => `<option value="${c.id}" ${Number(data.categoryId) === c.id ? 'selected' : ''}>${c.name}</option>`)
+      .map(c => `<option value="${c.id}" ${Number(data.categoryId) === c.id ? 'selected' : ''}>${c.name} (${c.group})</option>`)
       .join('');
 
     const frequencyOptions = `
@@ -364,81 +290,51 @@ export const expensesUI = {
       <option value="annually" ${data.frequency === 'annually' ? 'selected' : ''}>Annually</option>
     `;
 
-    if (isRecurrent) {
-      container.innerHTML = safeHTML`
-        <div class="card-hd">
-          <h2 style="font-size: 0.85rem; color: ${isUpdate ? 'var(--accent)' : 'var(--text-soft)'}">
-            ${isUpdate ? '📝 Update Recurrent Expense' : '➕ Add Recurrent Expense'}
-          </h2>
+    container.innerHTML = safeHTML`
+      <div class="card-hd">
+        <h2 style="font-size: 0.85rem; color: ${isUpdate ? 'var(--accent)' : 'var(--text-soft)'}">
+          ${isUpdate ? '📝 Update Expense' : '➕ Add Expense'}
+        </h2>
+      </div>
+      <div class="form-row">
+        <div><label>Date</label><input id="expDate" type="date" value="${data.date}"/></div>
+        <div><label>Category</label><select id="expCat"><option value="">— Category —</option>${categoryOptions}</select></div>
+      </div>
+      <div class="form-row">
+        <div><label>Description</label><input id="expLabel" type="text" value="${data.label}" placeholder="e.g. Rent or Groceries"/></div>
+      </div>
+      <div class="form-row">
+        <div><label>Amount (£)</label><input id="expAmt" type="number" step="0.01" value="${data.amount}" placeholder="0.00"/></div>
+        <div style="display:flex;align-items:center;gap:6px;padding-top:18px">
+          <input id="expIsRecurring" type="checkbox" ${data.isRecurring ? 'checked' : ''} onchange="expensesUI.toggleFrequencyField()"/>
+          <label for="expIsRecurring" style="margin:0">Recurring</label>
         </div>
-        <div class="form-row">
-          <div><label>Date</label><input id="expDate" type="date" value="${data.date}"/></div>
-          <div><label>Category</label><select id="expCat"><option value="">— Category —</option>${categoryOptions}</select></div>
+      </div>
+      
+      <div id="expFreqRow" class="form-row ${data.isRecurring ? '' : 'hidden'}">
+        <div><label>Frequency</label>
+          <select id="expFreq">
+            ${frequencyOptions}
+          </select>
         </div>
-        <div class="form-row">
-          <div><label>Description</label><input id="expLabel" type="text" value="${data.label}" placeholder="e.g. Rent"/></div>
+        <div style="display:flex;align-items:center;gap:6px;padding-top:18px">
+          <input id="expIsEssential" type="checkbox" ${data.isEssential !== false ? 'checked' : ''}/>
+          <label for="expIsEssential" style="margin:0">Essential</label>
         </div>
-        <div class="form-row">
-          <div style="display:flex;align-items:center;gap:6px;padding-top:18px">
-            <input id="expIsRecurring" type="checkbox" ${data.isRecurring !== false ? 'checked' : ''} onchange="expensesUI.toggleFrequencyField()"/>
-            <label for="expIsRecurring" style="margin:0">Recurring</label>
-          </div>
-          <div><label>Frequency</label>
-            <select id="expFreq" ${data.isRecurring === false ? 'disabled' : ''}>
-              ${frequencyOptions}
-            </select>
-          </div>
+      </div>
+
+      <div id="expRecurringFields" class="form-row ${data.isRecurring ? '' : 'hidden'}">
+        <div><label>Total Payments</label><input id="expCycleTotal" type="number" min="0" value="${data.cycleTotal || ''}" placeholder="0 = ongoing"/></div>
+        <div><label>End Date</label><input id="expEndDate" type="date" value="${data.endDate || ''}"/></div>
+      </div>
+
+      <div class="form-row" style="margin-top:10px">
+        <div style="display:flex;align-items:flex-end;gap:8px;flex:2">
+          <button class="primary" onclick="expensesUI.handleSaveExpense()">${isUpdate ? 'Save Changes' : 'Add Expense'}</button>
+          <button class="ghost" onclick="expensesUI.cancelEdit()">${isUpdate ? 'Cancel' : 'Hide'}</button>
         </div>
-        <div class="form-row">
-          <div><label>Amount (£)</label><input id="expAmt" type="number" step="0.01" value="${data.amount}" placeholder="0.00"/></div>
-          <div style="display:flex;align-items:center;gap:6px;padding-top:18px">
-            <input id="expIsEssential" type="checkbox" ${data.isEssential ? 'checked' : ''}/>
-            <label for="expIsEssential" style="margin:0">Essential</label>
-          </div>
-        </div>
-        <div class="form-row">
-          <div><label>Total Payments</label><input id="expCycleTotal" type="number" min="0" value="${data.cycleTotal}" placeholder="0 = ongoing"/></div>
-          <div><label>End Date</label><input id="expEndDate" type="date" value="${data.endDate || ''}"/></div>
-        </div>
-        <div class="form-row">
-          <div style="display:flex;align-items:flex-end;gap:8px;flex:2">
-            <button class="primary" onclick="expensesUI.handleSaveExpense()">${isUpdate ? 'Save Changes' : 'Add Expense'}</button>
-            <button class="ghost" onclick="expensesUI.cancelEdit()">${isUpdate ? 'Cancel' : 'Hide'}</button>
-          </div>
-        </div>
-      `;
-    } else {
-      container.innerHTML = safeHTML`
-        <div class="card-hd">
-          <h2 style="font-size: 0.85rem; color: ${isUpdate ? 'var(--accent)' : 'var(--text-soft)'}">
-            ${isUpdate ? '📝 Update One-off Expense' : '➕ Add One-off Expense'}
-          </h2>
-        </div>
-        <div class="form-row">
-          <div><label>Date</label><input id="expDate" type="date" value="${data.date}"/></div>
-          <div><label>Category</label><select id="expCat"><option value="">— Category —</option>${categoryOptions}</select></div>
-        </div>
-        <div class="form-row">
-          <div><label>Note</label><input id="expNote" type="text" value="${data.note}" placeholder="Optional"/></div>
-          <div><label>Amount (£)</label><input id="expAmt" type="number" step="0.01" value="${data.amount}" placeholder="0.00"/></div>
-        </div>
-        <div class="form-row">
-          <div style="display:flex;align-items:center;gap:6px;padding-top:18px">
-            <input id="expIsRecurring" type="checkbox" ${data.isRecurring ? 'checked' : ''} onchange="expensesUI.toggleFrequencyField()"/>
-            <label for="expIsRecurring" style="margin:0">Recurring</label>
-          </div>
-          <div><label>Frequency</label>
-            <select id="expFreq" ${!data.isRecurring ? 'disabled' : ''}>
-              ${frequencyOptions}
-            </select>
-          </div>
-          <div style="display:flex;align-items:flex-end;gap:8px">
-            <button class="primary" onclick="expensesUI.handleSaveExpense()">${isUpdate ? 'Save Changes' : 'Add Expense'}</button>
-            <button class="ghost" onclick="expensesUI.cancelEdit()">${isUpdate ? 'Cancel' : 'Hide'}</button>
-          </div>
-        </div>
-      `;
-    }
+      </div>
+    `;
 
     if (isUpdate) {
       container.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -446,9 +342,9 @@ export const expensesUI = {
   },
 
   async handleSaveExpense() {
-    const isRecurrent = this.activeSubTab === 'recurrent';
     const date = document.getElementById('expDate').value;
     const categoryId = document.getElementById('expCat').value;
+    const label = document.getElementById('expLabel').value.trim();
     const amount = parseFloat(document.getElementById('expAmt').value);
     const isRecurring = document.getElementById('expIsRecurring').checked;
     const frequency = document.getElementById('expFreq').value;
@@ -457,117 +353,80 @@ export const expensesUI = {
       alert('Please provide a valid amount.');
       return;
     }
+    if (!label) {
+      alert('Description is required.');
+      return;
+    }
 
     try {
       let id;
-      if (isRecurrent) {
-        const label = document.getElementById('expLabel').value.trim();
-        if (!label) { alert('Description is required.'); return; }
-        
-        const payload = {
-          date: date || new Date().toISOString().slice(0, 10),
-          categoryId: categoryId ? parseInt(categoryId) : null,
-          label,
-          amount,
-          isRecurring,
-          frequency,
-          nextDate: date || new Date().toISOString().slice(0, 10),
-          isEssential: document.getElementById('expIsEssential').checked,
-          cycleTotal: parseInt(document.getElementById('expCycleTotal').value) || 0,
-          endDate: document.getElementById('expEndDate').value || null
-        };
+      const targetType = isRecurring ? 'recurrent' : 'oneoff';
+      const repo = isRecurring ? recurrentExpenseRepository : oneOffExpenseRepository;
 
-        if (this.editingId) {
-          const item = await recurrentExpenseRepository.get(this.editingId);
+      const payload = {
+        date: date || new Date().toISOString().slice(0, 10),
+        categoryId: categoryId ? parseInt(categoryId) : null,
+        amount,
+        isRecurring,
+        frequency: isRecurring ? frequency : 'monthly'
+      };
+
+      if (isRecurring) {
+        payload.label = label;
+        payload.nextDate = payload.date;
+        payload.isEssential = document.getElementById('expIsEssential').checked;
+        payload.cycleTotal = parseInt(document.getElementById('expCycleTotal').value) || 0;
+        payload.endDate = document.getElementById('expEndDate').value || null;
+      } else {
+        payload.note = label;
+      }
+
+      if (this.editingId) {
+        const item = await (this.editingType === 'recurrent' ? recurrentExpenseRepository : oneOffExpenseRepository).get(this.editingId);
+        
+        // If changing type from one-off to recurring or vice versa, we delete and re-add
+        if (this.editingType !== targetType) {
+          await (this.editingType === 'recurrent' ? recurrentExpenseRepository : oneOffExpenseRepository).delete(this.editingId);
+          this.editingId = null; // Forces re-add logic below
+        } else {
           let choice = 'this';
           if (item && item.isRecurring && item.recurrenceId) {
             choice = await this.promptRecurrenceChoice(
               'Update Recurring Expense',
-              `"${item.label}" is part of a recurring series. How would you like to apply these changes?`
+              `"${label}" is part of a recurring series. How would you like to apply these changes?`
             );
             if (!choice) return;
           }
 
           if (choice === 'this') {
-            await recurrentExpenseRepository.update(this.editingId, payload);
+            await repo.update(this.editingId, payload);
           } else {
-            // Update this and all future records
-            await recurrentExpenseRepository.updateSeries(item.recurrenceId, item.nextDate || item.date, payload);
+            await repo.updateSeries(item.recurrenceId, item.nextDate || item.date, payload);
           }
           id = this.editingId;
-        } else {
-          // New recurrent expense
-          if (isRecurring) {
-            payload.recurrenceId = this.generateUUID();
-            payload.parentDate = payload.date;
-          }
+        }
+      }
+
+      if (!this.editingId) {
+        // New or transformed expense
+        if (isRecurring) {
+          payload.recurrenceId = this.generateUUID();
+          payload.parentDate = payload.date;
           id = await recurrentExpenseRepository.add({ ...payload, status: 'pending', cycleCurrent: 0 });
           
-          if (isRecurring) {
-            const savedItem = await recurrentExpenseRepository.get(id);
-            // BUGFIX: Convert back to pounds because bulkAdd will call toPence again.
-            const instances = generateInstances(
-              { ...savedItem, amount: fromPence(savedItem.amount) }, 
-              frequency, 
-              12
-            );
-            await recurrentExpenseRepository.bulkAdd(instances);
-            
-            const lastDate = instances[instances.length - 1].date;
-            triggerBalanceRecalc(lastDate).catch(() => {});
-            triggerDailyForecastRecalc(lastDate).catch(() => {});
-          }
-        }
-      } else {
-        const note = document.getElementById('expNote').value.trim();
-        const payload = {
-          date,
-          categoryId: categoryId ? parseInt(categoryId) : null,
-          note,
-          amount,
-          isRecurring,
-          frequency
-        };
-
-        if (this.editingId) {
-          const item = await oneOffExpenseRepository.get(this.editingId);
-          let choice = 'this';
-          if (item && item.isRecurring && item.recurrenceId) {
-            choice = await this.promptRecurrenceChoice(
-              'Update Recurring Expense',
-              `This expense is part of a recurring series. How would you like to apply these changes?`
-            );
-            if (!choice) return;
-          }
-
-          if (choice === 'this') {
-            await oneOffExpenseRepository.update(this.editingId, payload);
-          } else {
-            await oneOffExpenseRepository.updateSeries(item.recurrenceId, item.date, payload);
-          }
-          id = this.editingId;
+          const savedItem = await recurrentExpenseRepository.get(id);
+          const instances = generateInstances(
+            { ...savedItem, amount: fromPence(savedItem.amount) }, 
+            frequency, 
+            12
+          );
+          await recurrentExpenseRepository.bulkAdd(instances);
+          
+          const lastDate = instances[instances.length - 1].date;
+          triggerBalanceRecalc(lastDate).catch(() => {});
+          triggerDailyForecastRecalc(lastDate).catch(() => {});
         } else {
-          // New one-off expense
-          if (isRecurring) {
-            payload.recurrenceId = this.generateUUID();
-            payload.parentDate = payload.date;
-          }
           id = await oneOffExpenseRepository.add(payload);
-
-          if (isRecurring) {
-            const savedItem = await oneOffExpenseRepository.get(id);
-            // Convert back to pounds for generator compatibility
-            const instances = generateInstances(
-              { ...savedItem, amount: fromPence(savedItem.amount) }, 
-              frequency, 
-              12
-            );
-            await oneOffExpenseRepository.bulkAdd(instances);
-            
-            const lastDate = instances[instances.length - 1].date;
-            triggerBalanceRecalc(lastDate).catch(() => {});
-            triggerDailyForecastRecalc(lastDate).catch(() => {});
-          }
         }
       }
 
@@ -592,11 +451,12 @@ export const expensesUI = {
     this.toggleForm(false);
   },
 
-  async editExpense(id) {
-    if (this.editingId && this.editingId !== id) {
+  async editExpense(id, type) {
+    if (this.editingId && (this.editingId !== id || this.editingType !== type)) {
       if (!confirm('Discard changes to the current item?')) return;
     }
     this.editingId = id;
+    this.editingType = type;
     this.toggleForm(true);
   },
 
@@ -605,9 +465,7 @@ export const expensesUI = {
     if (!container) return;
 
     const categories = await categoryRepository.getCategories();
-    const isRecurrent = this.activeSubTab === 'recurrent';
-    const expenseCats = categories.filter(c => c.group === (isRecurrent ? 'fixed' : 'variable'));
-
+    
     container.innerHTML = safeHTML`
       <div class="custom-select" style="position:relative">
         <button class="sm ghost" onclick="expensesUI.toggleCategoryDropdown()">
@@ -615,7 +473,7 @@ export const expensesUI = {
         </button>
         <div id="catDropdown" class="card hidden" style="position:absolute; top:100%; right:0; z-index:100; min-width:200px; padding:12px; margin-top:5px; box-shadow: var(--shadow); border: 1px solid var(--border)">
           <div style="max-height: 200px; overflow-y: auto; margin-bottom: 10px">
-            ${expenseCats.map(c => `
+            ${categories.map(c => `
               <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px">
                 <input type="checkbox" id="filter-cat-${c.id}" value="${c.id}" 
                   ${this.selectedCategories.includes(c.id) ? 'checked' : ''}
@@ -634,24 +492,21 @@ export const expensesUI = {
   },
 
   async renderMonthPicker() {
-    // Find or create the month picker container
     let container = document.getElementById('expMonthPicker');
     if (!container) {
       container = document.createElement('div');
       container.id = 'expMonthPicker';
       container.className = 'month-nav';
-      const subTabs = document.getElementById('expenseSubTabs');
-      if (subTabs) subTabs.insertAdjacentElement('afterend', container);
+      const formContainer = document.getElementById('expenseFormContainer');
+      if (formContainer) formContainer.insertAdjacentElement('afterend', container);
     }
 
-    const currentMonth = this.getCurrentMonth();
+    const currentMonth = this.selectedMonth;
     const [year, month] = currentMonth.split('-').map(Number);
 
-    // Generate dropdown options: dynamic range centered around current selected month (Phase 31)
     const options = [];
-    // month is 1-indexed, so month-1 is 0-indexed for UTC
-    let iter = new Date(Date.UTC(year, month - 1 - 12, 1)); // 12 months before
-    const end = new Date(Date.UTC(year, month - 1 + 24, 1)); // 24 months after
+    let iter = new Date(Date.UTC(year, month - 1 - 12, 1)); 
+    const end = new Date(Date.UTC(year, month - 1 + 24, 1)); 
     
     while (iter <= end) {
       const val = iter.toISOString().slice(0, 7);
@@ -702,219 +557,96 @@ export const expensesUI = {
     }
   },
 
-  _syncFormPanels() {
-    const markAllRow = document.getElementById('markAllPaidRow');
-    const recurrentList = document.getElementById('recurrentList');
-    const oneOffList = document.getElementById('oneOffList');
-    const container = document.getElementById('expenseFormContainer');
-
-    if (this.lastSubTab !== this.activeSubTab) {
-      this.editingId = null;
-      if (container) container.classList.add('hidden');
-      this.lastSubTab = this.activeSubTab;
-    }
-
-    const isRecurrent = this.activeSubTab === 'recurrent';
-    if (markAllRow) markAllRow.style.display = isRecurrent ? '' : 'none';
-    if (recurrentList) recurrentList.style.display = isRecurrent ? '' : 'none';
-    if (oneOffList) oneOffList.style.display = isRecurrent ? 'none' : '';
-  },
-
   async render(month) {
     if (month) this.setCurrentMonth(month);
-    this._syncFormPanels();
+    
+    const container = document.getElementById('expenseBody');
+    if (!container) return;
+
     await this.renderMonthPicker();
     await this.renderCategoryFilter();
 
-    if (this.activeSubTab === 'recurrent') {
-      await this.renderRecurrent();
-    } else {
-      await this.renderOneOff();
-    }
-  },
+    const [recurrentRaw, oneOffRaw, categories] = await Promise.all([
+      recurrentExpenseRepository.getByMonth(this.selectedMonth),
+      oneOffExpenseRepository.getByMonth(this.selectedMonth),
+      categoryRepository.getCategories()
+    ]);
 
-  async renderRecurrent() {
-    const container = document.getElementById('recurrentList');
-    if (!container) return;
-
-    const allItems = await recurrentExpenseRepository.getByMonth(this.recurrentMonth);
-    const categories = await categoryRepository.getCategories();
     const catMap = Object.fromEntries(categories.map(c => [c.id, c.name]));
 
-    // Apply month filtering (Fixes missing month filter for recurrent items)
-    const monthItems = allItems.filter(item => (item.nextDate || item.date || '').startsWith(this.recurrentMonth));
+    // Normalize and merge
+    const recurrent = recurrentRaw
+      .filter(item => (item.nextDate || item.date || '').startsWith(this.selectedMonth))
+      .map(item => ({ ...item, type: 'recurrent', displayDate: item.nextDate || item.date, displayLabel: item.label }));
+    
+    const oneOff = oneOffRaw.map(item => ({ ...item, type: 'oneoff', displayDate: item.date, displayLabel: item.note }));
 
-    // Apply Filter using utility (Search and Categories)
-    const items = filterTransactions(monthItems, this.searchQuery, this.selectedCategories, ['label'], catMap);
+    const merged = [...recurrent, ...oneOff];
+
+    // Filter using utility
+    const items = filterTransactions(merged, this.searchQuery, this.selectedCategories, ['displayLabel'], catMap);
 
     if (items.length === 0) {
-      container.innerHTML = '<p class="hint" style="text-align:center;padding:20px">No matching recurrent items found for this month.</p>';
-      this.updateTotal('recurrent', 0);
+      container.innerHTML = '<tr><td colspan="6" class="hint" style="text-align:center;padding:20px">No matching expenses found for this month.</td></tr>';
+      this.updateTotal(0);
       return;
     }
 
-    items.sort((a, b) => (a.nextDate || '').localeCompare(b.nextDate || ''));
-
-    const essential = items.filter(i => i.isEssential);
-    const nonEssential = items.filter(i => !i.isEssential);
-
-    const essentialTotal = essential.reduce((s, i) => s + (i.amount || 0), 0);
-    const nonEssentialTotal = nonEssential.reduce((s, i) => s + (i.amount || 0), 0);
-    const filteredTotal = essentialTotal + nonEssentialTotal;
-
-    const renderRow = (item) => {
-      const catName = catMap[item.categoryId] || 'None';
-      const isPaid = item.status === 'paid';
-      const isFinished = item.cycleTotal > 0 && (item.cycleCurrent || 0) >= item.cycleTotal;
-
-      let progressBadge = '';
-      if (item.cycleTotal > 0) {
-        const current = item.cycleCurrent || 0;
-        if (isFinished) {
-          progressBadge = `<span class="pill" style="background:var(--success);color:#fff;font-size:.65rem">Finished</span>`;
-        } else {
-          progressBadge = `<span class="pill" style="background:var(--bg-alt);font-size:.65rem">Payment ${current + 1} of ${item.cycleTotal}</span>`;
-        }
-      }
-
-      const cancelBadge = !item.isEssential && item.endDate
-        ? `<span class="pill" style="background:var(--warn);color:#000;font-size:.65rem" title="Ends ${item.endDate}">Cancelable</span>`
-        : '';
-
-      const debtBadge = item.isDebtPayment 
-        ? `<span class="pill" style="background:var(--accent);color:#fff;font-size:.65rem">💳 Debt</span>`
-        : '';
-
-      const recurrenceBadge = item.isRecurring 
-        ? `<span title="Recurring: ${item.frequency || 'monthly'}">🔁</span>` 
-        : '';
-
-      return safeHTML`
-        <tr class="${isPaid ? 'paid-row' : ''} ${isFinished ? 'finished-row' : ''}" data-id="${item.id}">
-          <td>${item.nextDate || item.date}</td>
-          <td>${catName}</td>
-          <td>
-            ${item.label}
-            ${recurrenceBadge}
-            ${progressBadge}
-            ${cancelBadge}
-            ${debtBadge}
-          </td>
-          <td>${item.frequency || 'monthly'}</td>
-          <td class="r">${formatGBP(item.amount)}</td>
-          <td class="r nw">
-            <button class="sm ${isPaid ? 'success' : 'ghost'}" onclick="toggleRecurrentStatus(${item.id}, '${item.status}')">
-              ${isPaid ? 'Paid' : 'Mark Paid'}
-            </button>
-            <button class="sm ghost" onclick="expensesUI.editExpense(${item.id})">Edit</button>
-            <button class="sm danger" onclick="deleteRecurrentExpense(${item.id})">✕</button>
-          </td>
-        </tr>
-      `;
-    };
-
-    const essentialSection = essential.length > 0 ? `
-      <tr>
-        <td colspan="6" style="padding:8px 6px 4px;font-weight:600;font-size:.8rem;color:var(--text-soft);background:var(--bg-alt)">
-          ESSENTIAL — ${formatGBP(essentialTotal)}
-        </td>
-      </tr>
-      ${essential.map(renderRow).join('')}
-    ` : '';
-
-    const nonEssentialSection = nonEssential.length > 0 ? `
-      <tr>
-        <td colspan="6" style="padding:8px 6px 4px;font-weight:600;font-size:.8rem;color:var(--text-soft);background:var(--bg-alt)">
-          NON-ESSENTIAL — ${formatGBP(nonEssentialTotal)}
-        </td>
-      </tr>
-      ${nonEssential.map(renderRow).join('')}
-    ` : '';
-
-    container.innerHTML = safeHTML`
-      <table class="tbl">
-        <thead>
-          <tr>
-            <th>Due Date</th>
-            <th>Category</th>
-            <th>Description</th>
-            <th>Freq</th>
-            <th class="r">Amount</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          ${essentialSection}
-          ${nonEssentialSection}
-        </tbody>
-      </table>
-    `;
-
-    this.updateTotal('recurrent', filteredTotal);
-  },
-
-  async renderOneOff() {
-    const container = document.getElementById('oneOffList');
-    if (!container) return;
-
-    const allItems = await oneOffExpenseRepository.getByMonth(this.oneOffMonth);
-    const categories = await categoryRepository.getCategories();
-    const catMap = Object.fromEntries(categories.map(c => [c.id, c.name]));
-
-    // Apply Filter using utility
-    const items = filterTransactions(allItems, this.searchQuery, this.selectedCategories, ['note'], catMap);
-
-    if (items.length === 0) {
-      container.innerHTML = '<p class="hint" style="text-align:center;padding:20px">No matching one-off expenses found for this month.</p>';
-      this.updateTotal('oneoff', 0);
-      return;
-    }
-
-    items.sort((a, b) => b.date.localeCompare(a.date));
+    // Sort by date desc
+    items.sort((a, b) => b.displayDate.localeCompare(a.displayDate));
 
     const total = items.reduce((s, i) => s + (i.amount || 0), 0);
 
-    const renderNoteCell = (item) => {
-      const note = item.note || '—';
-      const isTFC = typeof item.note === 'string' && item.note.startsWith('Tax-free Childcare:');
-      const tfcBadge = isTFC
-        ? `<span class="pill" style="background:var(--info);color:#fff;font-size:.65rem;margin-left:4px">Tax-free Childcare</span>`
-        : '';
-      const recurrenceBadge = item.isRecurring 
-        ? `<span title="Recurring: ${item.frequency || 'monthly'}" style="margin-left:4px">🔁</span>` 
-        : '';
-      return `${note}${tfcBadge}${recurrenceBadge}`;
-    };
+    container.innerHTML = items.map(item => {
+      const catName = catMap[item.categoryId] || 'None';
+      const isPaid = item.status === 'paid';
+      const isFinished = item.type === 'recurrent' && item.cycleTotal > 0 && (item.cycleCurrent || 0) >= item.cycleTotal;
 
-    container.innerHTML = safeHTML`
-      <table class="tbl">
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Category</th>
-            <th>Note</th>
-            <th class="r">Amount</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          ${items.map(item => safeHTML`
-            <tr data-id="${item.id}">
-              <td>${item.date}</td>
-              <td>${catMap[item.categoryId] || 'None'}</td>
-              <td>${renderNoteCell(item)}</td>
-              <td class="r">${formatGBP(item.amount)}</td>
-              <td class="r nw">
-                <button class="sm ghost" onclick="expensesUI.editExpense(${item.id})">Edit</button>
-                <button class="sm danger" onclick="deleteOneOffExpense(${item.id})">✕</button>
-              </td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    `;
+      const badgeHTML = [];
+      if (item.type === 'recurrent') {
+        badgeHTML.push(`<span title="Recurring: ${item.frequency || 'monthly'}">🔁</span>`);
+        if (item.isDebtPayment) {
+          let icon = '💳';
+          if (item.debtType === 'mortgage') icon = '🏠';
+          else if (item.debtType === 'loan') icon = '💰';
+          badgeHTML.push(`<span class="pill" style="background:var(--accent);color:#fff;font-size:.65rem">${icon} Debt</span>`);
+        }
+        if (item.cycleTotal > 0) {
+          if (isFinished) badgeHTML.push(`<span class="pill" style="background:var(--success);color:#fff;font-size:.65rem">Finished</span>`);
+          else badgeHTML.push(`<span class="pill" style="background:var(--bg-alt);font-size:.65rem">${(item.cycleCurrent || 0) + 1}/${item.cycleTotal}</span>`);
+        }
+      }
+      if (typeof item.note === 'string' && item.note.startsWith('Tax-free Childcare:')) {
+        badgeHTML.push(`<span class="pill" style="background:var(--info);color:#fff;font-size:.65rem">TFC</span>`);
+      }
 
-    this.updateTotal('oneoff', total);
+      return safeHTML`
+        <tr class="${isPaid ? 'paid-row' : ''} ${isFinished ? 'finished-row' : ''}" data-id="${item.id}">
+          <td class="nw">${item.displayDate}</td>
+          <td>${catName}</td>
+          <td>
+            ${item.displayLabel || '—'}
+            <div style="display:flex; gap:4px; margin-top:2px; flex-wrap:wrap">
+              ${badgeHTML.join('')}
+            </div>
+          </td>
+          <td class="r nw">${formatGBP(item.amount)}</td>
+          <td>
+            ${item.type === 'recurrent' ? `
+              <button class="sm ${isPaid ? 'success' : 'ghost'}" onclick="toggleExpenseStatus(${item.id}, 'recurrent', '${item.status}')">
+                ${isPaid ? 'Paid' : 'Mark Paid'}
+              </button>
+            ` : '<span class="hint">—</span>'}
+          </td>
+          <td class="r nw">
+            <button class="sm ghost" onclick="expensesUI.editExpense(${item.id}, '${item.type}')">Edit</button>
+            <button class="sm danger" onclick="deleteExpense(${item.id}, '${item.type}')">✕</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    this.updateTotal(total);
   },
 
   /**
@@ -964,7 +696,7 @@ export const expensesUI = {
         try {
           await statementRepository.recordPayment(item.linkedStatementId, actualAmt, paymentDate);
           templateUI.closeModal();
-          await this.render(this.getCurrentMonth());
+          await this.render();
           // Broadcast refresh for Debts tab
           window.dispatchEvent(new CustomEvent('app:refresh'));
         } catch (err) {
@@ -975,21 +707,25 @@ export const expensesUI = {
     }
   },
 
-  updateTotal(type, totalPence) {
+  updateTotal(totalPence) {
     const panel = document.querySelector('[data-panel="expenses"]');
     if (!panel) return;
 
-    const totalId = `expenses-total-${type}`;
-    let totalEl = document.getElementById(totalId);
+    let totalEl = document.getElementById('expenses-total-unified');
     if (!totalEl) {
       totalEl = document.createElement('div');
-      totalEl.id = totalId;
+      totalEl.id = 'expenses-total-unified';
       totalEl.style.cssText = 'text-align:right;padding:10px;font-weight:bold;border-top:1px solid var(--border)';
       panel.appendChild(totalEl);
     }
 
-    const label = type === 'recurrent' ? 'Filtered Recurrent' : 'Filtered One-off';
-    totalEl.textContent = `${label}: ${formatGBP(totalPence)}`;
+    // Remove old separate totals if they exist
+    const oldRec = document.getElementById('expenses-total-recurrent');
+    if (oldRec) oldRec.remove();
+    const oldOne = document.getElementById('expenses-total-oneoff');
+    if (oldOne) oldOne.remove();
+
+    totalEl.textContent = `Filtered Total: ${formatGBP(totalPence)}`;
   }
 };
 

@@ -1,5 +1,5 @@
 import { childcareRepository, categoryRepository } from '../db/repository.js';
-import { formatGBP } from '../utils/currency.js';
+import { formatGBP, fromPence } from '../utils/currency.js';
 import { calculateFundingGap, getEntitlementPeriod } from '../utils/childcare.js';
 import { safeHTML, modalUI } from './render.js';
 
@@ -24,19 +24,21 @@ export const childcareUI = {
 
   /**
    * Bind all static event listeners.
-   * Dynamic row-level handlers are attached as window-scoped functions.
    */
   _bindEvents() {
-    // Add Account button
     const addAccountBtn = document.getElementById('childcareAddAccountBtn');
     if (addAccountBtn) {
-      addAccountBtn.addEventListener('click', () => this._showAddAccountModal());
+      addAccountBtn.addEventListener('click', () => this._showAccountModal());
     }
 
-    // Window-scoped handlers for dynamically-rendered rows
     window.childcareViewLedger = (accountId) => {
       this._activeAccountId = accountId;
       this.render();
+    };
+
+    window.childcareEditAccount = async (accountId) => {
+      const account = await childcareRepository.getAccount(accountId);
+      if (account) this._showAccountModal(account);
     };
 
     window.childcareDeleteAccount = async (accountId, childName) => {
@@ -49,7 +51,6 @@ export const childcareUI = {
           this._activeAccountId = null;
         }
         await this.render();
-        // Refresh dashboard so Net Worth updates
         if (window.app) window.app.renderAll();
       } catch (err) {
         console.error('Failed to delete childcare account:', err);
@@ -59,41 +60,42 @@ export const childcareUI = {
   },
 
   /**
-   * Shows the modal to add a new childcare account.
+   * Shows the modal to add or edit a childcare account.
    */
-  _showAddAccountModal() {
+  async _showAccountModal(account = null) {
+    const isEdit = !!account;
     const content = `
       <div class="form-row">
-        <div><label>Child's Name</label><input id="modalChildcareChildName" type="text" placeholder="e.g. Alice"/></div>
+        <div><label>Child's Name</label><input id="modalChildcareChildName" type="text" value="${account?.childName || ''}" placeholder="e.g. Alice"/></div>
       </div>
       <div class="form-row">
-        <div><label>Target Monthly Spend (£)</label><input id="modalChildcareTargetSpend" type="number" step="0.01" placeholder="e.g. 500"/></div>
+        <div><label>Target Monthly Spend (£)</label><input id="modalChildcareTargetSpend" type="number" step="0.01" value="${account ? fromPence(account.targetMonthlySpend) : ''}" placeholder="e.g. 500"/></div>
       </div>
       <div class="form-row">
-        <div><label>Entitlement Start Date</label><input id="modalChildcareEntitlementStart" type="date"/></div>
+        <div><label>Opening Balance (£)</label><input id="modalChildcareOpeningBalance" type="number" step="0.01" value="${account ? fromPence(account.openingBalance || 0) : ''}" placeholder="0.00"/></div>
+      </div>
+      <div class="form-row">
+        <div><label>Entitlement Start Date</label><input id="modalChildcareEntitlementStart" type="date" value="${account?.entitlementStart || ''}"/></div>
       </div>
       <div class="form-row">
         <div style="display:flex;align-items:center;gap:6px;padding-top:10px">
-          <input id="modalChildcareIsDisabled" type="checkbox"/>
+          <input id="modalChildcareIsDisabled" type="checkbox" ${account?.isDisabled ? 'checked' : ''}/>
           <label for="modalChildcareIsDisabled" style="margin:0">Disabled child (£1k cap)</label>
         </div>
       </div>
     `;
     const footer = `
       <button class="ghost" onclick="modalUI.close()">Cancel</button>
-      <button class="primary" id="modalChildcareAddAccountSaveBtn">Save Account</button>
+      <button class="primary" id="modalChildcareSaveAccountBtn">Save Account</button>
     `;
 
-    modalUI.show('Add Childcare Account', content, footer);
+    modalUI.show(isEdit ? 'Edit Childcare Account' : 'Add Childcare Account', content, footer);
 
-    const saveBtn = document.getElementById('modalChildcareAddAccountSaveBtn');
-    if (saveBtn) {
-      saveBtn.onclick = () => this._handleAddAccount();
-    }
+    document.getElementById('modalChildcareSaveAccountBtn').onclick = () => this._handleSaveAccount(account?.id);
   },
 
   /**
-   * Shows the modal to log a deposit to a childcare account.
+   * Shows the modal to log a deposit.
    */
   async _showLogDepositModal(accountId) {
     const categories = await categoryRepository.getCategories();
@@ -121,15 +123,11 @@ export const childcareUI = {
     `;
 
     modalUI.show('Log Childcare Deposit', content, footer);
-
-    const saveBtn = document.getElementById('modalChildcareLogDepositSaveBtn');
-    if (saveBtn) {
-      saveBtn.onclick = () => this._handleLogDeposit(accountId);
-    }
+    document.getElementById('modalChildcareLogDepositSaveBtn').onclick = () => this._handleLogDeposit(accountId);
   },
 
   /**
-   * Shows the modal to log spending from a childcare account.
+   * Shows the modal to log spending.
    */
   _showLogSpendModal(accountId) {
     const today = new Date().toISOString().slice(0, 10);
@@ -150,15 +148,11 @@ export const childcareUI = {
     `;
 
     modalUI.show('Log Childcare Spend', content, footer);
-
-    const saveBtn = document.getElementById('modalChildcareLogSpendSaveBtn');
-    if (saveBtn) {
-      saveBtn.onclick = () => this._handleLogSpend(accountId);
-    }
+    document.getElementById('modalChildcareLogSpendSaveBtn').onclick = () => this._handleLogSpend(accountId);
   },
 
   /**
-   * Main render entry point. Shows account list or ledger view depending on state.
+   * Main render entry point.
    */
   async render() {
     const accountList = document.getElementById('childcareAccountList');
@@ -185,7 +179,6 @@ export const childcareUI = {
 
     const accounts = await childcareRepository.getAccounts();
 
-    // Header always visible
     let headerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
         <h3 style="font-size:.9rem;font-weight:600">Childcare Accounts</h3>
@@ -199,52 +192,49 @@ export const childcareUI = {
       return;
     }
 
-    // Render account cards
     const today = new Date().toISOString().slice(0, 10);
     const cardPromises = accounts.map(async (account) => {
       const balance = await childcareRepository.getBalance(account.id);
       const { gap, suggestedDeposit } = calculateFundingGap(account.targetMonthlySpend || 0, balance);
 
-      // Check for reconfirmation alert (entitlement period ends within 7 days)
       let reconfirmAlert = '';
       if (account.entitlementStart) {
         try {
           const period = getEntitlementPeriod(account.entitlementStart, today);
-          const endDate = period.end;
-          const msUntilEnd = endDate.getTime() - new Date(today).getTime();
+          const msUntilEnd = period.end.getTime() - new Date(today).getTime();
           const daysUntilEnd = Math.ceil(msUntilEnd / (1000 * 60 * 60 * 24));
           if (daysUntilEnd >= 0 && daysUntilEnd <= 7) {
             reconfirmAlert = `
               <div style="background:var(--warn);color:#000;border-radius:6px;padding:8px 12px;font-size:.8rem;margin-top:10px">
-                <strong>Reconfirmation Due:</strong> Your entitlement period ends in ${daysUntilEnd} day${daysUntilEnd !== 1 ? 's' : ''} (${endDate.toISOString().slice(0, 10)}). Log in to GOV.UK to reconfirm eligibility.
+                <strong>Reconfirmation Due:</strong> Period ends in ${daysUntilEnd}d (${period.end.toISOString().slice(0, 10)}).
               </div>`;
           }
-        } catch (e) {
-          // Ignore date calculation errors
-        }
+        } catch (e) {}
       }
 
       const gapSection = gap > 0 ? `
         <div style="background:var(--bg-alt);border-radius:6px;padding:10px 12px;margin-top:10px;font-size:.85rem">
           <div style="color:var(--warn);font-weight:600">Funding Gap: ${formatGBP(gap)}</div>
-          <div style="color:var(--text-soft);margin-top:2px">Deposit <strong>${formatGBP(suggestedDeposit)}</strong> to receive the 20% top-up and cover next month's costs.</div>
         </div>` : `
-        <div style="background:var(--accent-soft);border:1px solid var(--accent-border);border-radius:6px;padding:8px 12px;margin-top:10px;font-size:.85rem;color:var(--accent)">
-          Balance covers target spend
+        <div style="background:var(--accent-soft);border-radius:6px;padding:8px 12px;margin-top:10px;font-size:.85rem;color:var(--accent)">
+          Balance covers target
         </div>`;
 
-      const capText = account.isDisabled ? '£1,000/qtr (disabled)' : '£500/qtr';
-
       return `
-        <div class="card" style="border:1px solid var(--border);padding:16px;margin-bottom:14px">
+        <div class="card clickable-card" onclick="childcareViewLedger(${account.id})" style="border:1px solid var(--border);padding:16px;margin-bottom:14px;cursor:pointer">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
             <div>
-              <h3 style="font-size:1rem;font-weight:700">${account.childName}</h3>
-              <div class="hint" style="font-size:.75rem">Gov cap: ${capText}</div>
+              <h3 style="font-size:1rem;font-weight:700;margin:0">${account.childName}</h3>
+              <div class="hint" style="font-size:.75rem">${account.isDisabled ? '£1,000/qtr' : '£500/qtr'} cap</div>
             </div>
-            <div style="text-align:right">
-              <div style="font-size:1.4rem;font-weight:700;color:var(--accent)">${formatGBP(balance)}</div>
-              <div class="hint" style="font-size:.75rem">Current balance</div>
+            <div style="display:flex; gap:8px">
+              <div style="text-align:right">
+                <div style="font-size:1.4rem;font-weight:700;color:var(--accent)">${formatGBP(balance)}</div>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:4px">
+                <button class="sm ghost" onclick="event.stopPropagation(); childcareEditAccount(${account.id})" title="Edit Account">✏️</button>
+                <button class="sm danger" onclick="event.stopPropagation(); childcareDeleteAccount(${account.id}, '${account.childName.replace(/'/g, "\\'")}')" title="Delete Account">🗑</button>
+              </div>
             </div>
           </div>
           <div style="font-size:.85rem;color:var(--text-soft)">
@@ -252,33 +242,27 @@ export const childcareUI = {
           </div>
           ${gapSection}
           ${reconfirmAlert}
-          <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
-            <button class="ghost sm" onclick="childcareViewLedger(${account.id})">View Ledger</button>
-            <button class="danger sm" onclick="childcareDeleteAccount(${account.id}, '${account.childName.replace(/'/g, "\\'")}')">Delete</button>
-          </div>
+          <div class="hint" style="font-size:.7rem;margin-top:10px;text-align:right">Click card to view history</div>
         </div>
       `;
     });
 
     const cards = await Promise.all(cardPromises);
-
     container.innerHTML = headerHTML + cards.join('');
     this._rebindStaticButtons();
   },
 
   /**
-   * Render the ledger view for a specific account.
-   * @param {number} accountId
+   * Render the ledger view.
    */
   async _renderLedger(accountId) {
     const container = document.getElementById('childcareLedgerSection');
     if (!container) return;
 
-    const accounts = await childcareRepository.getAccounts();
-    const account = accounts.find(a => a.id === accountId);
+    const account = await childcareRepository.getAccount(accountId);
     if (!account) {
       this._activeAccountId = null;
-      await this._renderAccounts();
+      await this.render();
       return;
     }
 
@@ -286,11 +270,7 @@ export const childcareUI = {
     const balance = await childcareRepository.getBalance(accountId);
 
     const typeLabel = { deposit: 'Deposit', 'top-up': 'Gov Top-up', spend: 'Spend' };
-    const typeColor = {
-      deposit: 'var(--accent)',
-      'top-up': 'var(--info)',
-      spend: 'var(--danger)'
-    };
+    const typeColor = { deposit: 'var(--accent)', 'top-up': 'var(--info)', spend: 'var(--danger)' };
 
     const rows = ledger.length > 0
       ? ledger.map(entry => safeHTML`
@@ -307,9 +287,12 @@ export const childcareUI = {
       : '<tr><td colspan="5" class="hint" style="text-align:center;padding:20px">No ledger entries yet.</td></tr>';
 
     container.innerHTML = `
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
-        <button id="childcareBackBtn" class="ghost sm">← Back to Accounts</button>
-        <h3 style="font-size:1rem;font-weight:700">${account.childName} — Childcare Ledger</h3>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <button id="childcareBackBtn" class="ghost sm">← Back</button>
+          <h3 style="font-size:1rem;font-weight:700;margin:0">${account.childName} — Ledger</h3>
+        </div>
+        <button class="sm ghost" onclick="childcareEditAccount(${account.id})">Edit Account</button>
       </div>
 
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
@@ -320,81 +303,52 @@ export const childcareUI = {
         <div style="font-size:1.2rem;font-weight:700;color:var(--accent)">${formatGBP(balance)}</div>
       </div>
 
-      <!-- Ledger table -->
       <table class="tbl">
         <thead>
-          <tr>
-            <th>Date</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th class="r">Amount</th>
-            <th class="r">Balance</th>
-          </tr>
+          <tr><th>Date</th><th>Type</th><th>Description</th><th class="r">Amount</th><th class="r">Balance</th></tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>
     `;
 
-    // Re-bind dynamic buttons rendered inside innerHTML
     this._rebindLedgerButtons(accountId);
   },
 
-  /**
-   * Re-bind static buttons that appear in account list view.
-   */
   _rebindStaticButtons() {
-    const addAccountBtn = document.getElementById('childcareAddAccountBtn');
-    if (addAccountBtn) {
-      addAccountBtn.onclick = () => this._showAddAccountModal();
-    }
+    const btn = document.getElementById('childcareAddAccountBtn');
+    if (btn) btn.onclick = () => this._showAccountModal();
   },
 
-  /**
-   * Re-bind ledger action buttons that were rendered via innerHTML.
-   * @param {number} accountId
-   */
   _rebindLedgerButtons(accountId) {
     const backBtn = document.getElementById('childcareBackBtn');
-    if (backBtn) {
-      backBtn.onclick = () => {
-        this._activeAccountId = null;
-        this.render();
-      };
-    }
-
-    const logDepositBtn = document.getElementById('childcareLogDepositBtn');
-    if (logDepositBtn) {
-      logDepositBtn.onclick = () => this._showLogDepositModal(accountId);
-    }
-
+    if (backBtn) backBtn.onclick = () => { this._activeAccountId = null; this.render(); };
+    const logDepBtn = document.getElementById('childcareLogDepositBtn');
+    if (logDepBtn) logDepBtn.onclick = () => this._showLogDepositModal(accountId);
     const logSpendBtn = document.getElementById('childcareLogSpendBtn');
-    if (logSpendBtn) {
-      logSpendBtn.onclick = () => this._showLogSpendModal(accountId);
-    }
+    if (logSpendBtn) logSpendBtn.onclick = () => this._showLogSpendModal(accountId);
   },
 
   /**
-   * Handle "Add Account" form submission.
+   * Handle account form submission.
    */
-  async _handleAddAccount() {
+  async _handleSaveAccount(existingId) {
     const childName = (document.getElementById('modalChildcareChildName')?.value || '').trim();
     const targetSpend = parseFloat(document.getElementById('modalChildcareTargetSpend')?.value || '0');
+    const openingBalance = parseFloat(document.getElementById('modalChildcareOpeningBalance')?.value || '0');
     const entitlementStart = document.getElementById('modalChildcareEntitlementStart')?.value || '';
     const isDisabled = document.getElementById('modalChildcareIsDisabled')?.checked || false;
 
-    if (!childName) {
-      alert("Please enter the child's name.");
-      return;
-    }
-    if (!entitlementStart) {
-      alert('Please enter the entitlement start date.');
+    if (!childName || !entitlementStart) {
+      alert("Please enter Name and Entitlement Start Date.");
       return;
     }
 
     try {
       await childcareRepository.saveAccount({
+        id: existingId,
         childName,
-        targetMonthlySpend: isNaN(targetSpend) || targetSpend <= 0 ? 0 : targetSpend,
+        targetMonthlySpend: isNaN(targetSpend) ? 0 : targetSpend,
+        openingBalance: isNaN(openingBalance) ? 0 : openingBalance,
         entitlementStart,
         isDisabled
       });
@@ -403,8 +357,8 @@ export const childcareUI = {
       await this.render();
       if (window.app) window.app.renderAll();
     } catch (err) {
-      console.error('Failed to add childcare account:', err);
-      alert('Failed to add account: ' + err.message);
+      console.error('Failed to save childcare account:', err);
+      alert('Error: ' + err.message);
     }
   },
 
@@ -412,38 +366,26 @@ export const childcareUI = {
    * Handle "Log Deposit" form submission.
    */
   async _handleLogDeposit(accountId) {
-    if (!accountId) return;
-
     const date = document.getElementById('modalChildcareDepositDate')?.value;
     const amount = parseFloat(document.getElementById('modalChildcareDepositAmount')?.value || '0');
     const categoryIdRaw = document.getElementById('modalChildcareDepositCategory')?.value;
     const categoryId = categoryIdRaw ? parseInt(categoryIdRaw) : null;
 
-    if (!date) {
-      alert('Please select a date.');
-      return;
-    }
-    if (isNaN(amount) || amount <= 0) {
-      alert('Please enter a valid deposit amount.');
+    if (!date || isNaN(amount) || amount <= 0) {
+      alert('Please enter valid date and amount.');
       return;
     }
 
     try {
       const result = await childcareRepository.addDeposit(accountId, date, amount, categoryId);
-
-      const topUpMsg = result.topUpId
-        ? ` Government top-up of ${formatGBP(result.topUpAmount)} applied.`
-        : ' No top-up available (quarterly cap reached).';
-
+      const topUpMsg = result.topUpId ? ` Government top-up of ${formatGBP(result.topUpAmount)} applied.` : ' No top-up available.';
       modalUI.close();
       await this.render();
-      // Refresh dashboard so Net Worth and expenses update
       if (window.app) window.app.renderAll();
-
-      alert(`Deposit logged successfully.${topUpMsg}`);
+      alert(`Deposit logged.${topUpMsg}`);
     } catch (err) {
       console.error('Failed to log deposit:', err);
-      alert('Failed to log deposit: ' + err.message);
+      alert('Error: ' + err.message);
     }
   },
 
@@ -451,32 +393,23 @@ export const childcareUI = {
    * Handle "Log Spend" form submission.
    */
   async _handleLogSpend(accountId) {
-    if (!accountId) return;
-
     const date = document.getElementById('modalChildcareSpendDate')?.value;
     const amount = parseFloat(document.getElementById('modalChildcareSpendAmount')?.value || '0');
     const description = (document.getElementById('modalChildcareSpendDescription')?.value || '').trim();
 
-    if (!date) {
-      alert('Please select a date.');
-      return;
-    }
-    if (isNaN(amount) || amount <= 0) {
-      alert('Please enter a valid spend amount.');
+    if (!date || isNaN(amount) || amount <= 0) {
+      alert('Please enter valid date and amount.');
       return;
     }
 
     try {
       await childcareRepository.addSpend(accountId, date, amount, description);
-
       modalUI.close();
       await this.render();
-      // Refresh dashboard so Net Worth updates
       if (window.app) window.app.renderAll();
     } catch (err) {
       console.error('Failed to log spend:', err);
-      alert('Failed to log spend: ' + err.message);
+      alert('Error: ' + err.message);
     }
   }
 };
-

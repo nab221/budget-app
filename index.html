@@ -36,7 +36,7 @@
           <label for="importFile" class="ghost" style="cursor:pointer;display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border:1px solid var(--border);border-radius:999px;font-size:inherit">
             ⬆ Import <input id="importFile" type="file" accept="application/json" class="file-input"/>
           </label>
-          <button id="resetBtn" class="danger">✖ Reset</button>
+          <button id="resetBtn" class="danger">🗑 Clear All Data</button>
         </div>
       </header>
 
@@ -53,36 +53,15 @@
             </select>
           </div>
         </div>
-        <!-- Spending Trends Chart -->
-        <div class="chart-container" id="trendsChartContainer">
-          <h3 class="chart-title">12-Month Spending Trends</h3>
-          <canvas id="trendsChart"></canvas>
+
+        <!-- Unified Rolling Financial Overview Chart -->
+        <div class="chart-container" id="rollingOverviewChartContainer">
+          <h3 class="chart-title">Rolling Financial Overview</h3>
+          <canvas id="rollingOverviewChart"></canvas>
         </div>
 
         <div class="sum-grid" id="summaryGrid">
           <!-- Summary items will be rendered here -->
-        </div>
-
-        <!-- Cash Flow Forecast (Critical Alerts & Timeline) -->
-        <div id="cashflowForecastSection" style="margin-top:20px; border-top:1px solid var(--border); padding-top:20px">
-          <!-- Injected by dashboard.js -->
-        </div>
-
-        <!-- Daily Cash Flow Chart -->
-        <div class="chart-container" id="cashflowChartContainer" style="margin-top:20px; border-top:1px solid var(--border); padding-top:20px">
-          <h3 class="chart-title">90-Day Cash Flow Projection</h3>
-          <canvas id="cashflowChart"></canvas>
-        </div>
-
-        <div class="grid2" style="margin-top:20px; gap:20px; border-top:1px solid var(--border); padding-top:20px">
-          <div>
-            <h3 style="font-size:.9rem; margin-bottom:12px">Budget Progress</h3>
-            <div id="dashboardProgress" class="hint">Set targets in Settings to see progress.</div>
-          </div>
-          <div>
-            <h3 style="font-size:.9rem; margin-bottom:12px">Net Worth History</h3>
-            <div id="dashboardSnapshots" class="hint">No snapshots recorded yet.</div>
-          </div>
         </div>
       </section>
 
@@ -95,7 +74,6 @@
           <button class="tab" data-tab="payoff">Payoff Planner</button>
           <button class="tab" data-tab="assets">Assets</button>
           <button class="tab" data-tab="childcare">Childcare</button>
-          <button class="tab" data-tab="cashflow">Cash Flow</button>
           <button class="tab" data-tab="settings">Settings</button>
 
         </div>
@@ -114,6 +92,7 @@
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:10px">
               <div style="display:flex; gap:8px">
                 <button id="addIncBtn" class="primary">+ Add Income</button>
+                <button id="setIncBalBtn" class="ghost sm">💰 Set Current Balance</button>
                 <button class="ghost sm" onclick="document.getElementById('pdfImportFile').click()">📄 Import Bank Statement</button>
               </div>
 
@@ -129,12 +108,6 @@
 
           <!-- EXPENSES -->
           <div class="tab-panel" data-panel="expenses">
-            <!-- Sub-tab navigation -->
-            <div class="tabs" id="expenseSubTabs" style="margin-bottom:16px;border-bottom:1px solid var(--border)">
-              <button class="tab active" data-subtab="recurrent">Recurrent</button>
-              <button class="tab" data-subtab="oneoff">One-off</button>
-            </div>
-
             <!-- Inline Form for Add/Update -->
             <div id="expenseFormContainer" class="card hidden" style="margin-bottom:16px; background:var(--bg-alt);">
               <!-- Form injected by expenses.js -->
@@ -143,6 +116,7 @@
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:10px">
               <div style="display:flex; gap:8px">
                 <button id="addExpenseBtn" class="primary">+ Add Expense</button>
+                <button id="setExpBalBtn" class="ghost sm">💰 Set Current Balance</button>
                 <div id="markAllPaidRow">
                   <button id="markAllPaidBtn" class="ghost sm">✓ Mark all as paid</button>
                 </div>
@@ -157,51 +131,97 @@
               </div>
             </div>
 
-            <!-- List containers -->
-            <div id="recurrentList"></div>
-            <div id="oneOffList" style="display:none"></div>
+            <!-- Unified Expense Table -->
+            <table class="tbl">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Category</th>
+                  <th>Expense</th>
+                  <th class="r">Amount</th>
+                  <th>Status</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="expenseBody"></tbody>
+            </table>
           </div>
 
           <!-- PAYOFF PLANNER -->
           <div class="tab-panel" data-panel="payoff">
-            <div class="form-row" style="margin-bottom:20px; background:var(--bg-alt); padding:15px; border-radius:8px">
-              <div style="flex:1">
-                <label style="font-weight:600; margin-bottom:4px; display:block">Extra Monthly Payment (£)</label>
-                <div class="hint" style="margin-bottom:8px">Funds available each month <strong>on top of</strong> all minimum payments.</div>
-                <input id="payoffExtra" type="number" step="1" value="0" style="font-size:1.1rem; padding:8px; width:100%"/>
+            <div class="card" style="margin-bottom:20px; background:var(--bg-alt);">
+              <div class="card-hd">
+                <h2 style="font-size:1rem">Monthly Extra Payment</h2>
               </div>
-              <div style="flex:1">
-                <label style="font-weight:600; margin-bottom:4px; display:block">Payoff Strategy</label>
-                <div class="hint" style="margin-bottom:8px">Choose how extra funds are allocated.</div>
-                <select id="payoffStrategy" style="font-size:1.1rem; padding:8px; width:100%">
-                  <option value="avalanche">Debt Avalanche (Highest APR)</option>
-                  <option value="snowball">Debt Snowball (Lowest Balance)</option>
-                  <option value="min">Minimum Only</option>
-                </select>
+              <div style="padding:15px">
+                <label style="font-weight:600; margin-bottom:4px; display:block">Extra Monthly Funds (£)</label>
+                <div class="hint" style="margin-bottom:8px">Total funds available each month <strong>on top of</strong> all scheduled payments.</div>
+                <input id="payoffExtra" type="number" step="10" value="0" style="font-size:1.1rem; padding:8px; width:100%; max-width:300px"/>
               </div>
             </div>
 
-            <div id="payoffComparison" class="grid3" style="gap:15px; margin-bottom:20px">
-              <!-- Strategy cards injected here -->
-            </div>
-
-            <!-- Debt Payoff Timeline Chart -->
-            <div class="chart-container" style="margin-bottom:20px">
-              <h3 class="chart-title" id="payoffChartTitle">Debt Payoff Timeline</h3>
-              <canvas id="payoffChart"></canvas>
-            </div>
-
-            <div id="payoffDetails" class="card" style="padding:15px; border:1px solid var(--border)">
-              <h3 style="margin-bottom:10px">Strategy Details</h3>
-              <div id="payoffTableContainer">
-                <!-- Comparison table or list here -->
+            <!-- Credit Card Payoff Section -->
+            <div id="ccPayoffSection" class="card" style="margin-bottom:20px">
+              <div class="card-hd">
+                <h3 style="font-size:0.95rem">Credit Card Payoff</h3>
+                <div style="display:flex; gap:8px; align-items:center">
+                  <span class="hint" style="font-size:0.75rem">Strategy:</span>
+                  <select id="payoffStrategy" style="font-size:0.8rem">
+                    <option value="avalanche">Debt Avalanche (Highest APR)</option>
+                    <option value="snowball">Debt Snowball (Lowest Balance)</option>
+                    <option value="min">Minimum Only</option>
+                  </select>
+                </div>
+              </div>
+              <div style="padding:15px">
+                <div id="ccPayoffComparison" class="grid3" style="gap:15px; margin-bottom:20px"></div>
+                <div class="chart-container" style="height:250px">
+                  <canvas id="ccPayoffChart"></canvas>
+                </div>
               </div>
             </div>
 
-            <!-- Balance Transfer Modeler -->
-            <div id="btModelerContainer" style="margin-top:20px">
-              <!-- Rendered by renderBTModeler in payoff.js -->
+            <!-- Loan & Mortgage Payoff Section -->
+            <div id="loanPayoffSection" class="card" style="margin-bottom:20px">
+              <div class="card-hd">
+                <h3 style="font-size:0.95rem">Loan & Mortgage Payoff</h3>
+                <div style="display:flex; gap:8px; align-items:center">
+                  <span class="hint" style="font-size:0.75rem">Overpayment:</span>
+                  <select id="loanPayoffStrategy" style="font-size:0.8rem">
+                    <option value="term-reduction">Reduce Term (Keep payment same)</option>
+                    <option value="payment-reduction">Reduce Payment (Keep term same)</option>
+                  </select>
+                </div>
+              </div>
+              <div style="padding:15px">
+                <div id="loanPayoffComparison" class="grid2" style="gap:15px; margin-bottom:20px"></div>
+                <div class="chart-container" style="height:250px">
+                  <canvas id="loanPayoffChart"></canvas>
+                </div>
+              </div>
             </div>
+
+            <div class="card" style="padding:15px">
+              <h3 style="font-size:.9rem; margin-bottom:12px">Consolidated Payoff Schedule</h3>
+              <div style="overflow-x:auto">
+                <table class="tbl sm">
+                  <thead>
+                    <tr>
+                      <th>Month</th>
+                      <th class="r">Total Payment</th>
+                      <th class="r">Interest</th>
+                      <th class="r">Principal</th>
+                      <th class="r">Fees</th>
+                      <th class="r">Balance</th>
+                    </tr>
+                  </thead>
+                  <tbody id="payoffScheduleBody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Balance Transfer Modeler (Conditional) -->
+            <div id="btModelerContainer" style="margin-top:20px"></div>
           </div>
 
           <!-- DEBTS -->
@@ -289,11 +309,6 @@
             <div id="childcareLedgerSection" style="display:none"></div>
           </div>
 
-          <!-- CASH FLOW PLANNER -->
-          <div class="tab-panel" data-panel="cashflow">
-            <div id="cashflowPlannerContainer"></div>
-          </div>
-
           <!-- SETTINGS -->
           <div class="tab-panel" data-panel="settings">
             <h3 style="font-size:.9rem;margin-bottom:8px">Manage Categories</h3>
@@ -314,14 +329,6 @@
                 <h4 style="font-size:.8rem;color:var(--text-soft);margin-bottom:4px">Variable Categories</h4>
                 <div id="varCatList"></div>
               </div>
-            </div>
-
-            <!-- Import Bank Statement PDF -->
-            <div style="margin-top:20px; padding-top:20px; border-top:1px solid var(--border)">
-              <h3 style="font-size:.9rem;margin-bottom:8px">Import Bank Statement</h3>
-              <div class="hint" style="margin-bottom:10px">Upload a PDF bank statement to automatically extract and categorise transactions.</div>
-              <input type="file" id="pdfImportFile" accept="application/pdf" style="display:none" />
-              <button class="primary" onclick="document.getElementById('pdfImportFile').click()">Select PDF Statement</button>
             </div>
 
             <div id="targetSettingsContainer">
