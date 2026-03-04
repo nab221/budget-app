@@ -1,18 +1,25 @@
 # Project: Budget App
 
 ## Current State
-- **Latest Version**: v1.5 (Automatic Recurring Transactions)
-- **Status**: Milestone v1.5 Complete. Replaced manual templates with true automatic recurrence engine.
-- **Key Features**: Automated Recurring Transactions (12-month projection), Independent Monthly Navigation (Income/Expenses), Schema v12 Migration, Smart Month-End Drift Protection.
+- **Latest Version**: v2.1 (Advanced Refinements & Security)
+- **Status**: Milestone v2.1 Complete. Shipped advanced debt logic, security fallbacks, and persistence UX refinements.
+- **Key Features**: Interest-Only & ERC Simulation, UUID Fallbacks (non-HTTPS support), Dynamic Persistence Banners, "Trigger Recurrence" Manual Override.
 
-## Next Milestone: v2.0 UI Overhaul & Debt Logic Separation
-- **Goal**: Major UI simplification and logic refactoring. Clean up legacy patterns, merge redundant dashboard charts, separate mortgage/loan logic from credit card logic, simplify expense tracking, and add current-account balance management.
+## Next Milestone: v2.0 UI Overhaul (Core)
+- **Goal**: Implement the core visual and structural changes for the v2.0 dashboard and expense workflows.
 - **Status**: Planning.
 
 ---
 
 <details>
 <summary>Milestone History</summary>
+
+### v2.1: Advanced Refinements & Security (2026-03-04)
+- Implemented robust UUID fallback in `src/utils/security.js` (Crypto -> Math.random).
+- Refined persistence banner and toolbar logic in `src/ui/file-sync.js`.
+- Built `simulateLoanPayoff` with support for interest-only loans and ERC fee calculations.
+- Consolidated balance configuration in Settings and added manual recurrence trigger.
+- Cleaned up redundant v1.x UI elements (Income tab import button).
 
 ### v1.5: Automatic Recurring Transactions (2026-03-03)
 - Implemented `RecurrenceManager` for automatic series expansion (2-month horizon).
