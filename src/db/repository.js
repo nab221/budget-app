@@ -9,7 +9,9 @@ import { calcMinPayment, calculateBalanceChain, simulatePayoff } from '../utils/
 // Sync trigger hook
 // ---------------------------------------------------------------------------
 const triggerSync = () => {
-  if (window.SyncManager) window.SyncManager.triggerAutoSave();
+  if (typeof window !== 'undefined' && window.scheduleAutoSave) {
+    window.scheduleAutoSave();
+  }
 };
 
 /**

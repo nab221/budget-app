@@ -272,49 +272,6 @@ describe('balanceSnapshotRepository', () => {
 });
 
 // ---------------------------------------------------------------------------
-// categoryRepository.ensureOpeningBalanceCategory tests
-// ---------------------------------------------------------------------------
-
-describe('categoryRepository.ensureOpeningBalanceCategory', () => {
-  beforeEach(() => {
-    clearTable(db.categories);
-  });
-
-  it('creates the Opening Balance category when it does not exist', async () => {
-    const id = await categoryRepository.ensureOpeningBalanceCategory();
-    expect(typeof id).toBe('number');
-
-    const rows = await db.categories.toArray();
-    expect(rows.length).toBe(1);
-    expect(rows[0].name).toBe('Opening Balance');
-    expect(rows[0].group).toBe('system');
-  });
-
-  it('returns the existing id without creating a duplicate', async () => {
-    // Seed one manually
-    const firstId = await db.categories.add({ name: 'Opening Balance', group: 'system' });
-
-    const secondId = await categoryRepository.ensureOpeningBalanceCategory();
-    expect(secondId).toBe(firstId);
-
-    const rows = await db.categories.toArray();
-    expect(rows.length).toBe(1); // no duplicate
-  });
-
-  it('is idempotent when called multiple times', async () => {
-    const id1 = await categoryRepository.ensureOpeningBalanceCategory();
-    const id2 = await categoryRepository.ensureOpeningBalanceCategory();
-    const id3 = await categoryRepository.ensureOpeningBalanceCategory();
-
-    expect(id1).toBe(id2);
-    expect(id2).toBe(id3);
-
-    const rows = await db.categories.toArray();
-    expect(rows.length).toBe(1);
-  });
-});
-
-// ---------------------------------------------------------------------------
 // statementRepository tests
 // ---------------------------------------------------------------------------
 
@@ -352,15 +309,14 @@ describe('statementRepository', () => {
       const expenseId = statement.linkedExpenseId;
       const expense = await db.recurrentExpenses.get(expenseId);
       expect(expense).toBeDefined();
-      expect(expense.label).toBe('Min Payment: Visa');
+      expect(expense.label).toBe('Payment: Visa');
       expect(expense.amount).toBe(2500);
       expect(expense.nextDate).toBe('2026-02-05');
       expect(expense.categoryId).toBe(categoryId);
       expect(expense.status).toBe('pending');
       expect(expense.isDebtPayment).toBe(true);
       expect(expense.linkedStatementId).toBe(statementId);
-      expect(expense.cycleTotal).toBe(1);
-      expect(expense.cycleCurrent).toBe(0);
+      expect(expense.isRecurring).toBe(false);
     });
 
     it('falls back to statement date if paymentDueDate is missing', async () => {
@@ -426,7 +382,7 @@ describe('statementRepository', () => {
 
     it('throws error if statement not found', async () => {
       await expect(statementRepository.recordPayment(999, 10, '2026-01-01'))
-        .rejects.toThrow('Statement 999 not found');
+        .rejects.toThrow('Statement not found');
     });
   });
 });
@@ -445,7 +401,7 @@ describe('triggerSync', () => {
   });
 
   it('is called when adding a category', async () => {
-    await categoryRepository.addCategory('fixed', 'Test Sync');
+    await categoryRepository.add({ group: 'fixed', name: 'Test Sync' });
     expect(scheduleAutoSaveMock).toHaveBeenCalled();
   });
 

@@ -22,6 +22,20 @@ export async function initFileSyncUI() {
   // 1. Setup Modal Event Listeners
   setupModalHandlers();
 
+  // 3. Setup Persistence Toggle
+  const enablePersistenceBtn = document.getElementById('enablePersistenceBtn');
+  if (enablePersistenceBtn) {
+    enablePersistenceBtn.onclick = async () => {
+      const isPersisted = await ensurePersistence();
+      if (isPersisted) {
+        await refreshPersistenceWarning();
+        await updateFileSyncToolbar();
+      } else {
+        alert('Browser refused to enable persistence. Try adding the app to your Home Screen or Bookmarks first.');
+      }
+    };
+  }
+
   // 2. Check for saved handle
   try {
     const savedHandle = await HandleStore.get();
@@ -44,7 +58,10 @@ export async function initFileSyncUI() {
  * Shown only if storage is not persistent AND no file-sync is active.
  */
 export async function refreshPersistenceWarning() {
-  const isPersisted = await ensurePersistence();
+  if (!navigator.storage || !navigator.storage.persisted) return false;
+  
+  // Just check, don't request, to avoid console spam or unwanted popups
+  const isPersisted = await navigator.storage.persisted();
   const fileName = SyncManager.getFileName();
   const warning = document.getElementById('persistence-warning');
   if (warning) {
@@ -81,6 +98,9 @@ async function updateFileSyncToolbar(status = 'idle', statusText = '') {
   const existingSelect = toolbar.querySelector('#selectFileBtn');
   if (existingSelect) existingSelect.remove();
 
+  const existingReconnect = toolbar.querySelector('#reconnectFileBtn');
+  if (existingReconnect) existingReconnect.remove();
+
   if (fileName) {
     // Update header hint
     if (headerHint) headerHint.textContent = `Auto-saving to ${fileName}`;
@@ -101,6 +121,19 @@ async function updateFileSyncToolbar(status = 'idle', statusText = '') {
       <span id="saveStatus" class="${statusClass}">${statusText}</span>
     `;
     toolbar.prepend(indicator);
+
+    // If permission is missing, provide a Reconnect button
+    if (status === 'error' && statusText === '⚠ Reconnect Needed') {
+      const reconnectBtn = document.createElement('button');
+      reconnectBtn.id = 'reconnectFileBtn';
+      reconnectBtn.className = 'primary sm';
+      reconnectBtn.textContent = '🔌 Reconnect';
+      reconnectBtn.onclick = async () => {
+        const granted = await SyncManager.requestPermission();
+        if (granted) await updateFileSyncToolbar();
+      };
+      toolbar.appendChild(reconnectBtn);
+    }
 
     const changeBtn = document.createElement('button');
     changeBtn.id = 'changeFileBtn';
