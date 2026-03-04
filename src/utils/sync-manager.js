@@ -96,6 +96,24 @@ export const SyncManager = {
   },
 
   /**
+   * Request readwrite permission for the current file handle.
+   * @returns {Promise<boolean>}
+   */
+  async requestPermission() {
+    if (!fileHandle) return false;
+    try {
+      const perm = await fileHandle.requestPermission({ mode: 'readwrite' });
+      if (perm === 'granted') {
+        await this.saveToFile();
+        return true;
+      }
+    } catch (err) {
+      console.error('[SyncManager] Permission request failed:', err);
+    }
+    return false;
+  },
+
+  /**
    * Get the current file handle name.
    */
   getFileName() {
