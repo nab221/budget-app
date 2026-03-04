@@ -428,6 +428,8 @@ export function simulateLoanPayoff(debts, strategy, extraMonthlyPence = 0, start
     for (const debt of currentDebts) {
       if (debt.balance <= 0) continue;
 
+      const initialBalance = debt.balance;
+
       // 1. Reset ERC allowance every 12 months (simplified to simulation start anniversary)
       if (debt.monthsSinceAllowanceReset >= 12) {
         debt.annualOverpaymentTotal = 0;
@@ -439,7 +441,10 @@ export function simulateLoanPayoff(debts, strategy, extraMonthlyPence = 0, start
       const interestCharged = Math.round((debt.balance * ((debt.interestRate || 0) / 100)) / 12);
       
       // 3. Base scheduled payment
-      let scheduledPayment = Math.min(debt.balance + interestCharged, debt.payment);
+      // Interest-only loans pay only the interest unless overpaying
+      let scheduledPayment = debt.isInterestOnly 
+        ? Math.min(debt.balance + interestCharged, interestCharged)
+        : Math.min(debt.balance + interestCharged, debt.payment);
       
       // 4. Extra payment (overpayment)
       let overpayment = 0;
@@ -467,9 +472,10 @@ export function simulateLoanPayoff(debts, strategy, extraMonthlyPence = 0, start
       }
 
       const totalPaid = scheduledPayment + overpayment;
-      const principalPaid = totalPaid - interestCharged;
+      // ERC Fee reduces the effective principal reduction by increasing the balance
+      debt.balance = Math.max(0, debt.balance + interestCharged + fee - totalPaid);
+      const principalPaid = initialBalance - debt.balance;
       
-      debt.balance = Math.max(0, debt.balance + interestCharged - totalPaid);
       debt.totalInterest += interestCharged;
       debt.totalFees += fee;
       

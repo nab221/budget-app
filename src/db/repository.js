@@ -54,6 +54,30 @@ export const incomeRepository = {
 };
 export const recurrentExpenseRepository = {
   ...createBaseRepository(db.recurrentExpenses, ['amount']),
+  async add(data) {
+    const base = createBaseRepository(db.recurrentExpenses, ['amount']);
+    const id = await base.add(data);
+    const date = data.nextDate || data.date || new Date().toISOString().slice(0, 10);
+    triggerBalanceRecalc(date).catch(() => {});
+    return id;
+  },
+  async update(id, data) {
+    const base = createBaseRepository(db.recurrentExpenses, ['amount']);
+    const existing = await this.get(id);
+    await base.update(id, data);
+    const date = data.nextDate || data.date || (existing ? (existing.nextDate || existing.date) : null) || new Date().toISOString().slice(0, 10);
+    triggerBalanceRecalc(date).catch(() => {});
+    return 1;
+  },
+  async delete(id) {
+    const base = createBaseRepository(db.recurrentExpenses, ['amount']);
+    const existing = await this.get(id);
+    await base.delete(id);
+    if (existing) {
+      const date = existing.nextDate || existing.date || new Date().toISOString().slice(0, 10);
+      triggerBalanceRecalc(date).catch(() => {});
+    }
+  },
   async getByMonth(monthStr) {
     // Basic filter by date prefix
     return await db.recurrentExpenses.where('nextDate').startsWith(monthStr).toArray();
