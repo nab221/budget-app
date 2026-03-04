@@ -103,3 +103,36 @@ export async function decryptData(base64Data, password) {
     throw new Error('Failed to decrypt data. Incorrect password or corrupted data.');
   }
 }
+
+/**
+ * Generates a RFC4122-compliant UUID.
+ * Uses crypto.randomUUID() if available (modern browsers, HTTPS).
+ * Falls back to crypto.getRandomValues() if available.
+ * Falls back to Math.random() as a last resort.
+ * 
+ * @returns {string} UUID
+ */
+export function generateUUID() {
+  // Modern standard (browsers & Node 19+)
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+
+  // Fallback 1: crypto.getRandomValues (RFC4122 v4 compliant)
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    try {
+      return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c) =>
+        (c ^ (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (c / 4)))).toString(16)
+      );
+    } catch (e) {
+      // If getRandomValues fails for some reason, continue to Math.random
+    }
+  }
+
+  // Fallback 2: Math.random (not cryptographically secure, but works in any environment)
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}

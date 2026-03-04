@@ -1,38 +1,20 @@
 # Project State: Budget App
 
-## Milestone: v2.0 UI Overhaul & Debt Logic Separation
+## Milestone: v2.1 Advanced Refinements & Security
 **Status**: PLANNING
-**Objective**: Major UI simplification and logic refactoring to clean up legacy patterns, merge redundant visualizations, and formalize debt types.
+**Objective**: Finalize v2.0 architecture with security fallbacks, persistence UX polish, and advanced debt logic.
 
-## Progress Summary
-- [x] **Milestone Definition**: v2.0 Goal and Context defined.
-- [x] **Requirements Extraction**: 38 core requirements identified across 5 categories.
-- [x] **Roadmap Drafting**: 10-phase delivery structure established.
-- [ ] **Phase 1 Planning**: Done (01-01-PLAN.md)
-- [x] **Phase 6 Planning**: Done (06-01-PLAN.md, 06-02-PLAN.md)
+## Current Progress
+- **Active Milestone**: v2.1
+- **Completed Phases**: v1.0 - v1.5, Phase 2.1.1 (Security & Persistence UX Polish)
+- **Current Position**: Phase 2.1.2 (Advanced Debt & Payoff Logic)
 
-## Current Position
-- **Phase**: Phase 6: Debts Panel UX
-- **Plan**: 06-01-PLAN.md
-- **Status**: Not Started
-- **Progress**: 0% [....................]
+## Recent Activity
+- **2026-03-04**: Completed Phase 2.1.1. Centralized UUID generation and refined persistence UX.
+- **2026-03-04**: Initialized Milestone 2.1. Updated `ROADMAP.md` and created `v2.1-REQUIREMENTS.md`.
 
-## Performance Metrics
-- **Phase Completion**: 0/10
-- **Requirement Coverage**: 100% (38/38)
-- **Code Health**: Stable (v1.5 baseline)
-
-## Accumulated Context
-- **V2.0 Core Value**: Shift from feature-heavy complexity to streamlined, ledger-focused UI.
-- **Decision**: Merge `oneOffExpenses` UI into a single list while keeping the DB table for compatibility.
-- **Decision**: Split Payoff Planner by debt type to handle fixed-term vs revolving credit differently.
-- **Decision**: Use offset transactions for "Set Current Balance" to maintain data integrity.
-
-## Session Continuity
-- **Current Focus**: Planning Phase 6 (jumped ahead per user request).
-- **Last Action**: Created 06-01-PLAN.md and 06-02-PLAN.md.
-- **Next Step**: Execute Phase 6.
-- **Blockers**: None.
+## Next Steps
+1. **Research & Plan**: Phase 2.1.2 (Advanced Debt & Payoff Logic).
 
 ---
-*Last updated: 2026-03-04*
+*Last updated: 2026-03-04 (v2.1 Start)*

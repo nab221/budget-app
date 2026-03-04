@@ -28,14 +28,14 @@ export async function initFileSyncUI() {
     if (savedHandle) {
       // Initialize manager but status will stay 'error' or 'idle' until next mutation or manual trigger
       SyncManager.initialize(savedHandle, updateFileSyncToolbar);
-      updateFileSyncToolbar();
+      await updateFileSyncToolbar();
     } else {
       // First launch or reset: show button to open modal
-      updateFileSyncToolbar();
+      await updateFileSyncToolbar();
     }
   } catch (err) {
     console.error('[FileSyncUI] Init failed:', err);
-    updateFileSyncToolbar();
+    await updateFileSyncToolbar();
   }
 }
 
@@ -54,18 +54,19 @@ export async function refreshPersistenceWarning() {
       warning.classList.add('hidden');
     }
   }
+  return isPersisted;
 }
 
 /**
  * Update the header toolbar based on persistence state.
  */
-function updateFileSyncToolbar(status = 'idle', statusText = '') {
+async function updateFileSyncToolbar(status = 'idle', statusText = '') {
   const toolbar = document.querySelector('.toolbar');
   const fileName = SyncManager.getFileName();
   const headerHint = document.querySelector('header .hint');
 
   // Refresh persistence warning visibility whenever sync status changes
-  refreshPersistenceWarning();
+  const isPersisted = await refreshPersistenceWarning();
 
   // Remove existing file sync elements if any
   const existingSync = toolbar.querySelector('.file-sync-indicator');
@@ -74,8 +75,8 @@ function updateFileSyncToolbar(status = 'idle', statusText = '') {
   const existingBtn = toolbar.querySelector('#changeFileBtn');
   if (existingBtn) existingBtn.remove();
 
-  const existingReset = toolbar.querySelector('#resetPersistenceBtn');
-  if (existingReset) existingReset.remove();
+  const existingDisconnect = toolbar.querySelector('#disconnectFileBtn');
+  if (existingDisconnect) existingDisconnect.remove();
 
   const existingSelect = toolbar.querySelector('#selectFileBtn');
   if (existingSelect) existingSelect.remove();
@@ -108,16 +109,18 @@ function updateFileSyncToolbar(status = 'idle', statusText = '') {
     changeBtn.onclick = () => showFileSyncModal();
     toolbar.appendChild(changeBtn);
 
-    const resetBtn = document.createElement('button');
-    resetBtn.id = 'resetPersistenceBtn';
-    resetBtn.className = 'ghost sm';
-    resetBtn.textContent = '🔗 Disconnect File';
-    resetBtn.onclick = handleResetPersistence;
-    toolbar.appendChild(resetBtn);
+    const disconnectBtn = document.createElement('button');
+    disconnectBtn.id = 'disconnectFileBtn';
+    disconnectBtn.className = 'ghost sm';
+    disconnectBtn.textContent = '🔗 Disconnect File';
+    disconnectBtn.onclick = handleDisconnectFile;
+    toolbar.appendChild(disconnectBtn);
 
   } else {
-    // Restore header hint
-    if (headerHint) headerHint.textContent = 'All data stored locally. Export regularly for backups.';
+    // Restore header hint with detailed status
+    if (headerHint) {
+      headerHint.textContent = `Local Storage (IndexedDB) • Persistence: ${isPersisted ? 'Active' : 'Inactive'}`;
+    }
 
     // No file connected: show "Select Budget File" button and ensure legacy buttons are visible
     document.getElementById('exportBtn')?.classList.remove('hidden');
@@ -162,7 +165,7 @@ function setupModalHandlers() {
       await HandleStore.set(handle);
       await SyncManager.saveToFile();
       modal.classList.add('hidden');
-      updateFileSyncToolbar();
+      await updateFileSyncToolbar();
     } catch (err) {
       if (err.name !== 'AbortError') alert('Error creating file: ' + err.message);
     }
@@ -210,7 +213,7 @@ async function loadFromFile(handle) {
     
     // Refresh the whole app
     window.dispatchEvent(new CustomEvent('app:refresh'));
-    updateFileSyncToolbar();
+    await updateFileSyncToolbar();
     
   } catch (err) {
     console.error('[FileSyncUI] Load failed:', err);
@@ -218,7 +221,7 @@ async function loadFromFile(handle) {
   }
 }
 
-async function handleResetPersistence() {
+async function handleDisconnectFile() {
   if (!confirm('Stop auto-saving to this file? Your data stays in the browser.')) return;
   await HandleStore.clear();
   // We can't easily "un-initialize" SyncManager but we can stop its effect
