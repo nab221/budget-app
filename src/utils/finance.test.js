@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calcMinPayment, simulatePayoff, modelBalanceTransfer, calculateBalanceChain } from './finance';
+import { calcMinPayment, simulatePayoff, modelBalanceTransfer, calculateBalanceChain, simulateLoanPayoff } from './finance';
 
 describe('Finance Utilities', () => {
   describe('calcMinPayment', () => {
@@ -431,6 +431,101 @@ describe('Finance Utilities', () => {
         expect(recurrentExpenseRepository.update.toString()).toContain('triggerBalanceRecalc');
         expect(recurrentExpenseRepository.delete.toString()).toContain('triggerBalanceRecalc');
       });
+    });
+  });
+
+  describe('simulateLoanPayoff', () => {
+    const loan = {
+      id: 1,
+      name: 'Mortgage',
+      currentBalance: 20000000, // £200,000
+      originalPrincipal: 20000000,
+      interestRate: 4.5,
+      fixedMonthlyPayment: 111183, // ~£1111.83 (correct for 300 months at 4.5%)
+      termMonths: 300,
+      earlyRepaymentAllowed: true,
+      earlyRepaymentFee: 1.0, // 1%
+      earlyRepaymentFeeIsPercent: true
+    };
+
+    it('Repayment Loan: Principal reduces over time based on fixed payment', () => {
+      const result = simulateLoanPayoff([loan], 'term-reduction', 0);
+      
+      // After 1 month:
+      // Interest: 200,000 * 0.045 / 12 = 750
+      // Payment: 1111.83
+      // Principal Paid: 1111.83 - 750 = 361.83
+      // New Balance: 199,638.17
+      const firstMonth = result.history[0];
+      expect(firstMonth.payments[0].interestCharged).toBe(75000);
+      expect(firstMonth.payments[0].principalPaid).toBe(111183 - 75000);
+      expect(firstMonth.totalRemainingBalance).toBe(20000000 + 75000 - 111183);
+    });
+
+    it('Interest-Only Loan: Principal stays constant if extra payment is 0', () => {
+      const interestOnlyLoan = { ...loan, isInterestOnly: true };
+      const result = simulateLoanPayoff([interestOnlyLoan], 'term-reduction', 0);
+      
+      // In interest-only, payment should ideally be just the interest (750)
+      // but if fixedMonthlyPayment is set higher, and isInterestOnly is true,
+      // it should only pay interest unless extra is provided?
+      // Actually, standard interest-only loans have a payment = interest.
+      
+      const firstMonth = result.history[0];
+      // Expectation: balance remains 200,000 if it's interest only and we don't overpay
+      expect(firstMonth.totalRemainingBalance).toBe(20000000);
+    });
+
+    it('ERC Fee (Fixed): Fee is charged correctly when overpayment exceeds 10% allowance', () => {
+      const loanWithFixedFee = { 
+        ...loan, 
+        earlyRepaymentFee: 5000, // £50 fixed fee
+        earlyRepaymentFeeIsPercent: false 
+      };
+      
+      // Allowance is 10% of 200,000 = 20,000.
+      // Extra payment 25,000. Excess 5,000.
+      const result = simulateLoanPayoff([loanWithFixedFee], 'term-reduction', 2500000);
+      
+      const firstMonth = result.history[0];
+      expect(firstMonth.payments[0].feeCharged).toBe(5000);
+    });
+
+    it('ERC Fee (Percent): Percentage fee is calculated correctly on the excess amount', () => {
+      // Allowance 20,000. Extra 30,000. Excess 10,000.
+      // Fee 1% of 10,000 = 100.
+      const result = simulateLoanPayoff([loan], 'term-reduction', 3000000);
+      
+      const firstMonth = result.history[0];
+      expect(firstMonth.payments[0].feeCharged).toBe(10000); // 1% of £100 (10000 pence)
+    });
+
+    it('ERC Impact: Verify fee reduces the effective principal reduction (adds to balance)', () => {
+      // Current implementation tracks fee but doesn't add to balance.
+      // This test is expected to FAIL and then pass once we implement it.
+      const result = simulateLoanPayoff([loan], 'term-reduction', 3000000);
+      
+      const firstMonth = result.history[0];
+      const fee = firstMonth.payments[0].feeCharged; // 10000
+      expect(fee).toBeGreaterThan(0);
+      
+      // Balance should be: initial + interest - payment + fee
+      const expectedBalance = 20000000 + 75000 - (111183 + 3000000) + 10000;
+      expect(firstMonth.totalRemainingBalance).toBe(expectedBalance);
+    });
+
+    it('Strategies: Compare term-reduction and payment-reduction results', () => {
+      const termResult = simulateLoanPayoff([loan], 'term-reduction', 50000); // £500 extra
+      const paymentResult = simulateLoanPayoff([loan], 'payment-reduction', 50000);
+      
+      // Term reduction should have fewer months
+      expect(termResult.monthsToClear).toBeLessThan(paymentResult.monthsToClear);
+      
+      // Payment reduction should have lower monthly payments over time
+      const termLastMonthPayment = termResult.history[10].payments[0].amount;
+      const paymentLastMonthPayment = paymentResult.history[10].payments[0].amount;
+      
+      expect(paymentLastMonthPayment).toBeLessThan(termLastMonthPayment);
     });
   });
 });
