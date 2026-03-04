@@ -1,4 +1,5 @@
 import { db } from './schema.js';
+import { generateUUID } from '../utils/security.js';
 import { toPence, fromPence } from '../utils/currency.js';
 import { findBestMatch } from '../utils/string-similarity.js';
 import { calculateTopUp, getEntitlementPeriod, calculateFundingGap } from '../utils/childcare.js';
@@ -43,7 +44,12 @@ function createBaseRepository(table, penceFields = []) {
 // Primary Repositories
 // ---------------------------------------------------------------------------
 
-export const incomeRepository = createBaseRepository(db.income, ['amount']);
+export const incomeRepository = {
+  ...createBaseRepository(db.income, ['amount']),
+  async getByMonth(monthStr) {
+    return await db.income.where('date').startsWith(monthStr).toArray();
+  }
+};
 export const recurrentExpenseRepository = {
   ...createBaseRepository(db.recurrentExpenses, ['amount']),
   async getByMonth(monthStr) {
@@ -183,7 +189,7 @@ export const debtRepository = {
 
     const instances = generateInstances(baseItem, 'monthly', 12);
     // Add recurrence metadata
-    const recurrenceId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : Math.random().toString(36).substring(2);
+    const recurrenceId = generateUUID();
     const instancesToSave = instances.map(inst => ({
       ...inst,
       recurrenceId,
