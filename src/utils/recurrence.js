@@ -1,5 +1,6 @@
 import { addWeeks, addMonths, addYears, parseISO, format, isBefore } from 'date-fns';
 import { db } from '../db/schema.js';
+import { generateUUID } from './security.js';
 
 /**
  * Generates an array of future transaction instances based on frequency and count.
@@ -12,7 +13,7 @@ import { db } from '../db/schema.js';
 export function generateInstances(base, frequency, count) {
   const instances = [];
   const baseDate = parseISO(base.parentDate || base.date);
-  const recurrenceId = base.recurrenceId || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2));
+  const recurrenceId = base.recurrenceId || generateUUID();
 
   for (let i = 0; i < count; i++) {
     let nextInstanceDate;

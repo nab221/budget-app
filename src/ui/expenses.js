@@ -11,7 +11,7 @@ import { safeHTML } from './render.js';
 import { filterTransactions } from '../utils/filtering.js';
 import { templateUI } from './templates.js';
 import { nextWorkingDay } from '../utils/cashflow.js';
-import { generateInstances } from '../utils/recurrence.js';
+import { generateUUID } from '../utils/security.js';
 
 /**
  * Expenses UI Module
@@ -23,15 +23,6 @@ export const expensesUI = {
   editingType: null, // 'recurrent' or 'oneoff'
   searchQuery: '',
   selectedCategories: [],
-
-  /**
-   * Helper for UUID generation.
-   */
-  generateUUID() {
-    return (typeof crypto !== 'undefined' && crypto.randomUUID) 
-      ? crypto.randomUUID() 
-      : Math.random().toString(36).substring(2);
-  },
 
   /**
    * Initialize the Expenses UI — bind events and do first render.
