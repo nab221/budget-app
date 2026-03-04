@@ -73,9 +73,8 @@ export function renderTrendsChart(canvasId, data) {
   }
 
   const labels = data.map(d => d.month);
-  const incomeData   = data.map(d => d.income);
-  const fixedData    = data.map(d => d.fixed);
-  const variableData = data.map(d => d.variable);
+  const incomeData = data.map(d => d.income);
+  const expenseData = data.map(d => (d.fixed || 0) + (d.variable || 0));
 
   const chart = new Chart(canvas, {
     type: 'line',
@@ -86,34 +85,21 @@ export function renderTrendsChart(canvasId, data) {
           label: 'Income',
           data: incomeData,
           borderColor: OKABE_ITO.income,
-          backgroundColor: OKABE_ITO.income + '33', // 20% opacity
+          backgroundColor: OKABE_ITO.income + '33',
           fill: true,
           tension: 0.3,
           pointRadius: 3,
-          pointHoverRadius: 5,
-          order: 3
+          pointHoverRadius: 5
         },
         {
-          label: 'Fixed',
-          data: fixedData,
+          label: 'Expenses',
+          data: expenseData,
           borderColor: OKABE_ITO.fixed,
-          backgroundColor: OKABE_ITO.fixed + '55', // 33% opacity
+          backgroundColor: OKABE_ITO.fixed + '33',
           fill: true,
           tension: 0.3,
           pointRadius: 3,
-          pointHoverRadius: 5,
-          order: 2
-        },
-        {
-          label: 'Variable',
-          data: variableData,
-          borderColor: OKABE_ITO.variable,
-          backgroundColor: OKABE_ITO.variable + '77', // 47% opacity
-          fill: true,
-          tension: 0.3,
-          pointRadius: 3,
-          pointHoverRadius: 5,
-          order: 1
+          pointHoverRadius: 5
         }
       ]
     },
@@ -148,7 +134,6 @@ export function renderTrendsChart(canvasId, data) {
           ticks: { font: { size: 10 } }
         },
         y: {
-          stacked: true,
           beginAtZero: true,
           ticks: {
             font: { size: 10 },
@@ -348,6 +333,110 @@ export function renderDebtPayoffChart(canvasId, projectionData) {
           callbacks: {
             label: (ctx) => {
               return ` ${ctx.dataset.label}: ${formatPence(ctx.parsed.y)}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { font: { size: 10 } }
+        },
+        y: {
+          beginAtZero: true,
+          ticks: {
+            font: { size: 10 },
+            callback: (value) => formatPence(value)
+          },
+          grid: {
+            color: 'rgba(148,163,184,0.15)'
+          }
+        }
+      }
+    }
+  });
+
+  _chartInstances.set(canvasId, chart);
+  return chart;
+}
+
+/**
+ * Render (or re-render) the unified Rolling Financial Overview chart.
+ * Shows 9 months history, 1 current month (hybrid), and 2 months forecast.
+ *
+ * @param {string} canvasId - The id of the <canvas> element.
+ * @param {Object} data - { labels, income, expenses, currentMonthIndex }
+ */
+export function renderRollingOverviewChart(canvasId, data) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+
+  if (_chartInstances.has(canvasId)) {
+    _chartInstances.get(canvasId).destroy();
+    _chartInstances.delete(canvasId);
+  }
+
+  const { labels, income, expenses, currentMonthIndex } = data;
+
+  const incomeColor = '#009E73'; // bluish green
+  const expenseColor = '#D55E00'; // vermilion
+
+  const chart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Income',
+          data: income,
+          borderColor: incomeColor,
+          backgroundColor: incomeColor + '22',
+          fill: true,
+          tension: 0.3,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          segment: {
+            borderDash: ctx => ctx.p0DataIndex >= currentMonthIndex ? [6, 4] : undefined,
+          }
+        },
+        {
+          label: 'Expenses',
+          data: expenses,
+          borderColor: expenseColor,
+          backgroundColor: expenseColor + '22',
+          fill: true,
+          tension: 0.3,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          segment: {
+            borderDash: ctx => ctx.p0DataIndex >= currentMonthIndex ? [6, 4] : undefined,
+          }
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
+      plugins: {
+        legend: {
+          position: 'top',
+          labels: {
+            font: { size: 11 },
+            usePointStyle: true,
+            pointStyleWidth: 10
+          }
+        },
+        tooltip: {
+          position: 'nearest',
+          callbacks: {
+            label: (ctx) => {
+              const isForecast = ctx.dataIndex > currentMonthIndex;
+              const suffix = isForecast ? ' (Forecast)' : '';
+              return ` ${ctx.dataset.label}${suffix}: ${formatPence(ctx.parsed.y)}`;
             }
           }
         }

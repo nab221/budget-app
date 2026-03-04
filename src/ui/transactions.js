@@ -1,9 +1,10 @@
 import {
   incomeRepository,
-  categoryRepository
+  categoryRepository,
+  adjustBalance
 } from '../db/repository.js';
-import { formatGBP } from '../utils/currency.js';
-import { safeHTML } from './render.js';
+import { formatGBP, toPence, fromPence } from '../utils/currency.js';
+import { safeHTML, modalUI } from './render.js';
 import { filterTransactions } from '../utils/filtering.js';
 
 /**
@@ -54,6 +55,12 @@ export const transactionUI = {
     const addBtn = document.getElementById('addIncBtn');
     if (addBtn) {
       addBtn.onclick = () => this.toggleForm();
+    }
+
+    // Set Current Balance
+    const setBalBtn = document.getElementById('setIncBalBtn');
+    if (setBalBtn) {
+      setBalBtn.onclick = () => this.showSetBalanceModal();
     }
 
     // Search Input
@@ -408,6 +415,49 @@ export const transactionUI = {
     }
 
     totalEl.innerHTML = `Filtered Total: ${formatGBP(totalPence)}`;
+  },
+
+  /**
+   * Shows a modal to set the current account balance.
+   */
+  showSetBalanceModal() {
+    const today = new Date().toISOString().slice(0, 10);
+    const content = `
+      <div style="margin-bottom:15px">
+        <p>Enter your <strong>actual bank balance</strong>. The system will create an adjustment transaction to match this value.</p>
+      </div>
+      <div class="form-row">
+        <div><label>Current Balance (£)</label><input id="modalSetBalanceAmount" type="number" step="0.01" placeholder="0.00"/></div>
+        <div><label>As of Date</label><input id="modalSetBalanceDate" type="date" value="${today}"/></div>
+      </div>
+    `;
+    const footer = `
+      <button class="ghost" onclick="modalUI.close()">Cancel</button>
+      <button class="primary" id="modalSetBalanceSaveBtn">Adjust Balance</button>
+    `;
+
+    modalUI.show('💰 Set Current Balance', content, footer);
+
+    document.getElementById('modalSetBalanceSaveBtn').onclick = async () => {
+      const amount = parseFloat(document.getElementById('modalSetBalanceAmount').value);
+      const date = document.getElementById('modalSetBalanceDate').value;
+
+      if (isNaN(amount) || !date) {
+        alert('Please enter a valid amount and date.');
+        return;
+      }
+
+      try {
+        await adjustBalance(toPence(amount), date);
+        modalUI.close();
+        // Refresh all since balance chain affected
+        if (window.app) window.app.renderAll();
+        alert('Balance adjusted successfully.');
+      } catch (err) {
+        console.error('Failed to adjust balance:', err);
+        alert('Error: ' + err.message);
+      }
+    };
   }
 };
 

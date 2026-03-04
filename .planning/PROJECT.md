@@ -5,9 +5,9 @@
 - **Status**: Milestone v1.5 Complete. Replaced manual templates with true automatic recurrence engine.
 - **Key Features**: Automated Recurring Transactions (12-month projection), Independent Monthly Navigation (Income/Expenses), Schema v12 Migration, Smart Month-End Drift Protection.
 
-## Next Milestone: v1.6 Budget Forecasting & Cash Flow Refinement
-- **Goal**: Improve the accuracy of daily balance projections and add more granular budgeting targets.
-- **Status**: Initializing.
+## Next Milestone: v2.0 UI Overhaul & Debt Logic Separation
+- **Goal**: Major UI simplification and logic refactoring. Clean up legacy patterns, merge redundant dashboard charts, separate mortgage/loan logic from credit card logic, simplify expense tracking, and add current-account balance management.
+- **Status**: Planning.
 
 ---
 
@@ -70,4 +70,4 @@ A personal budget tracking web app — a full rebuild of a buggy AI-generated pr
 </details>
 
 ---
-*Last updated: 2026-03-03 (v1.5 Completion)*
+*Last updated: 2026-03-04 (v2.0 Initializing)*

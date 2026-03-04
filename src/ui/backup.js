@@ -3,6 +3,7 @@ import { encryptData, decryptData } from '../utils/security.js';
 import { templateUI } from './templates.js'; // Reuse modal logic
 import { LAST_EXPORT_KEY } from './pwa-ux.js';
 import { importBackupData } from '../db/backup.js';
+import { SyncManager } from '../utils/sync-manager.js';
 
 export const backupUI = {
   elements: {
@@ -168,8 +169,15 @@ export const backupUI = {
   },
 
   async handleReset() {
-    if (confirm('CRITICAL: This will PERMANENTLY DELETE all your data. Are you sure?')) {
-      if (confirm('Final confirmation: Delete EVERYTHING?')) {
+    const isFileSyncActive = !!SyncManager.getFileName();
+    let message = 'This will PERMANENTLY DELETE all data stored in this browser (IndexedDB).';
+    
+    if (isFileSyncActive) {
+      message += '\n\n⚠️ NOTE: Auto-save is active. The connected file will NOT be updated after clearing, effectively disconnecting it from this browser state.';
+    }
+
+    if (confirm(message + '\n\nAre you sure you want to proceed?')) {
+      if (confirm('FINAL CONFIRMATION: Delete EVERYTHING? This cannot be undone.')) {
         await db.transaction('rw', db.tables, async () => {
           for (const table of db.tables) {
             await table.clear();

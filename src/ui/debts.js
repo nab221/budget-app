@@ -10,6 +10,7 @@ import { safeHTML } from './render.js';
 export const debtUI = {
   editingId: null,
   editingStmtId: null,
+  openLedgerId: null,
 
   /**
    * Initialize Debt UI.
@@ -57,7 +58,7 @@ export const debtUI = {
           await statementRepository.delete(s.id);
         }
         await debtRepository.delete(id);
-        document.getElementById('statementSection').classList.add('hidden');
+        if (this.openLedgerId === id) this.openLedgerId = null;
         await this.render();
       } catch (error) {
         console.error('Failed to delete debt:', error);
@@ -65,14 +66,25 @@ export const debtUI = {
       }
     };
 
-    window.showStatements = async (id, name) => {
-      document.getElementById('stmtDebtId').value = id;
-      document.getElementById('statementTitle').innerText = `Statements: ${name}`;
-      document.getElementById('statementSection').classList.remove('hidden');
-      
-      this.toggleStmtForm(false); // Reset form when switching debts
-      await this.renderStatements(id);
-      document.getElementById('statementSection').scrollIntoView({ behavior: 'smooth' });
+    window.toggleLedger = async (id) => {
+      const container = document.getElementById(`ledger-container-${id}`);
+      if (!container) return;
+
+      if (this.openLedgerId === id) {
+        container.classList.add('hidden');
+        this.openLedgerId = null;
+      } else {
+        // Close previously open ledger if any
+        if (this.openLedgerId !== null) {
+          const prev = document.getElementById(`ledger-container-${this.openLedgerId}`);
+          if (prev) prev.classList.add('hidden');
+        }
+        
+        container.classList.remove('hidden');
+        this.openLedgerId = id;
+        await this.renderStatements(id);
+        container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
     };
 
     window.deleteStatement = async (id, debtId) => {
@@ -108,22 +120,60 @@ export const debtUI = {
     }
   },
 
+  /**
+   * Toggle field visibility based on debt type.
+   */
+  toggleDebtTypeFields() {
+    const type = document.getElementById('debtTypeInput').value;
+    const ccFields = document.getElementById('ccOnlyFields');
+    const loanFields = document.getElementById('loanOnlyFields');
+    
+    if (type === 'credit-card') {
+      ccFields?.classList.remove('hidden');
+      loanFields?.classList.add('hidden');
+    } else if (type === 'loan' || type === 'mortgage') {
+      ccFields?.classList.add('hidden');
+      loanFields?.classList.remove('hidden');
+    } else {
+      ccFields?.classList.add('hidden');
+      loanFields?.classList.add('hidden');
+    }
+  },
+
   async renderDebtForm() {
     const container = document.getElementById('debtFormContainer');
     if (!container) return;
 
     let data = {
       name: '',
-      type: 'credit_card',
-      apr: '',
-      creditLimit: '',
+      debtType: 'credit-card',
+      apr: 0,
+      creditLimit: 0,
       promoEndDate: '',
-      postPromoApr: ''
+      postPromoApr: 0,
+      currentBalance: 0,
+      // Loan specific
+      originalPrincipal: 0,
+      termMonths: 0,
+      fixedMonthlyPayment: 0,
+      interestRate: 0,
+      earlyRepaymentFee: 0,
+      earlyRepaymentFeeIsPercent: false,
+      earlyRepaymentAllowed: true
     };
 
     if (this.editingId) {
       const debt = await debtRepository.get(this.editingId);
-      if (debt) data = { ...debt, creditLimit: fromPence(debt.creditLimit) };
+      if (debt) {
+        data = { 
+          ...debt, 
+          creditLimit: fromPence(debt.creditLimit),
+          currentBalance: fromPence(debt.currentBalance),
+          originalPrincipal: fromPence(debt.originalPrincipal),
+          fixedMonthlyPayment: fromPence(debt.fixedMonthlyPayment),
+          earlyRepaymentFee: debt.earlyRepaymentFeeIsPercent ? debt.earlyRepaymentFee : fromPence(debt.earlyRepaymentFee)
+        };
+      }
     }
 
     const isUpdate = !!this.editingId;
@@ -136,25 +186,60 @@ export const debtUI = {
         </h2>
       </div>
       <div class="form-row">
-        <div><label>Name</label><input id="debtNameInput" type="text" value="${data.name}" placeholder="e.g. TSB Anderson"/></div>
+        <div><label>Name</label><input id="debtNameInput" type="text" value="${data.name}" placeholder="e.g. TSB Credit Card"/></div>
         <div>
           <label>Type</label>
-          <select id="debtTypeInput">
-            <option value="credit_card" ${data.type === 'credit_card' ? 'selected' : ''}>Credit Card</option>
-            <option value="loan" ${data.type === 'loan' ? 'selected' : ''}>Loan</option>
-            <option value="overdraft" ${data.type === 'overdraft' ? 'selected' : ''}>Overdraft</option>
-            <option value="mortgage" ${data.type === 'mortgage' ? 'selected' : ''}>Mortgage</option>
-            <option value="other" ${data.type === 'other' ? 'selected' : ''}>Other</option>
+          <select id="debtTypeInput" onchange="debtUI.toggleDebtTypeFields()">
+            <option value="credit-card" ${data.debtType === 'credit-card' ? 'selected' : ''}>Credit Card</option>
+            <option value="loan" ${data.debtType === 'loan' ? 'selected' : ''}>Personal Loan</option>
+            <option value="mortgage" ${data.debtType === 'mortgage' ? 'selected' : ''}>Mortgage</option>
           </select>
         </div>
       </div>
-      <div class="form-row">
-        <div><label>APR (%)</label><input id="debtAprInput" type="number" step="0.1" value="${data.apr}"/></div>
-        <div><label>Limit (£)</label><input id="debtLimitInput" type="number" step="0.01" value="${data.creditLimit}"/></div>
+
+      <!-- Credit Card Specific Fields -->
+      <div id="ccOnlyFields" class="${data.debtType === 'credit-card' ? '' : 'hidden'}">
+        <div class="form-row">
+          <div><label>Current Balance (£)</label><input id="debtBalanceInput" type="number" step="0.01" value="${data.currentBalance}"/></div>
+          <div><label>APR (%)</label><input id="debtAprInput" type="number" step="0.1" value="${data.apr}"/></div>
+          <div><label>Credit Limit (£)</label><input id="debtLimitInput" type="number" step="0.01" value="${data.creditLimit}"/></div>
+        </div>
+        <div class="form-row">
+          <div><label>Promo End</label><input id="debtPromoEndInput" type="date" value="${data.promoEndDate || ''}"/></div>
+          <div><label>Post-Promo APR (%)</label><input id="debtPostAprInput" type="number" step="0.1" value="${data.postPromoApr || data.apr}"/></div>
+        </div>
       </div>
-      <div class="form-row">
-        <div><label>Promo End</label><input id="debtPromoEndInput" type="date" value="${data.promoEndDate || ''}"/></div>
-        <div><label>Post-Promo APR (%)</label><input id="debtPostAprInput" type="number" step="0.1" value="${data.postPromoApr || data.apr}"/></div>
+
+      <!-- Loan/Mortgage Specific Fields -->
+      <div id="loanOnlyFields" class="${(data.debtType === 'loan' || data.debtType === 'mortgage') ? '' : 'hidden'}">
+        <div class="form-row">
+          <div><label>Original Principal (£)</label><input id="loanPrincipalInput" type="number" step="0.01" value="${data.originalPrincipal}"/></div>
+          <div><label>Current Balance (£)</label><input id="loanBalanceInput" type="number" step="0.01" value="${data.currentBalance}"/></div>
+          <div><label>Fixed Monthly Payment (£)</label><input id="loanPaymentInput" type="number" step="0.01" value="${data.fixedMonthlyPayment}"/></div>
+        </div>
+        <div class="form-row">
+          <div><label>Interest Rate (%)</label><input id="loanRateInput" type="number" step="0.1" value="${data.interestRate || data.apr}"/></div>
+          <div><label>Term (Months)</label><input id="loanTermInput" type="number" value="${data.termMonths}"/></div>
+        </div>
+        <div class="form-row">
+          <div>
+            <label>Early Repayment Fee</label>
+            <div style="display:flex; gap:4px">
+              <input id="loanFeeInput" type="number" step="0.01" value="${data.earlyRepaymentFee}" style="flex:1"/>
+              <select id="loanFeeTypeInput" style="width:60px">
+                <option value="pounds" ${!data.earlyRepaymentFeeIsPercent ? 'selected' : ''}>£</option>
+                <option value="percent" ${data.earlyRepaymentFeeIsPercent ? 'selected' : ''}>%</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;padding-top:18px">
+            <input id="loanAllowedInput" type="checkbox" ${data.earlyRepaymentAllowed ? 'checked' : ''}/>
+            <label for="loanAllowedInput" style="margin:0">Overpayment allowed</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-row" style="margin-top:10px">
         <div style="display:flex;align-items:flex-end;gap:8px;flex:1.5">
           <button class="primary" onclick="debtUI.handleSaveDebt()">${isUpdate ? 'Save Changes' : 'Add Account'}</button>
           <button class="ghost" onclick="debtUI.cancelEditDebt()">${isUpdate ? 'Cancel' : 'Hide'}</button>
@@ -169,31 +254,59 @@ export const debtUI = {
 
   async handleSaveDebt() {
     const name = document.getElementById('debtNameInput').value.trim();
-    const type = document.getElementById('debtTypeInput').value;
-    const apr = parseFloat(document.getElementById('debtAprInput').value);
-    const limit = parseFloat(document.getElementById('debtLimitInput').value);
-    const promoEnd = document.getElementById('debtPromoEndInput').value;
-    const postApr = parseFloat(document.getElementById('debtPostAprInput').value);
+    const debtType = document.getElementById('debtTypeInput').value;
 
-    if (!name || isNaN(apr)) {
-      alert('Please fill in Name and APR correctly.');
+    if (!name) {
+      alert('Please provide a name for the debt account.');
       return;
     }
 
     try {
-      const payload = {
-        name,
-        type,
-        apr,
-        creditLimit: isNaN(limit) ? 0 : limit,
-        promoEndDate: promoEnd || null,
-        postPromoApr: isNaN(postApr) ? apr : postApr
-      };
+      let payload = { name, debtType };
+
+      if (debtType === 'credit-card') {
+        const apr = parseFloat(document.getElementById('debtAprInput').value) || 0;
+        const limit = parseFloat(document.getElementById('debtLimitInput').value) || 0;
+        const balance = parseFloat(document.getElementById('debtBalanceInput').value) || 0;
+        const promoEnd = document.getElementById('debtPromoEndInput').value;
+        const postApr = parseFloat(document.getElementById('debtPostAprInput').value);
+
+        payload = {
+          ...payload,
+          apr,
+          creditLimit: limit,
+          currentBalance: balance,
+          promoEndDate: promoEnd || null,
+          postPromoApr: isNaN(postApr) ? apr : postApr
+        };
+      } else {
+        const principal = parseFloat(document.getElementById('loanPrincipalInput').value) || 0;
+        const balance = parseFloat(document.getElementById('loanBalanceInput').value) || 0;
+        const payment = parseFloat(document.getElementById('loanPaymentInput').value) || 0;
+        const rate = parseFloat(document.getElementById('loanRateInput').value) || 0;
+        const term = parseInt(document.getElementById('loanTermInput').value) || 0;
+        const fee = parseFloat(document.getElementById('loanFeeInput').value) || 0;
+        const feeIsPercent = document.getElementById('loanFeeTypeInput').value === 'percent';
+        const allowed = document.getElementById('loanAllowedInput').checked;
+
+        payload = {
+          ...payload,
+          originalPrincipal: principal,
+          currentBalance: balance,
+          fixedMonthlyPayment: payment,
+          interestRate: rate,
+          apr: rate, // Sync for strategy sorting
+          termMonths: term,
+          earlyRepaymentFee: fee,
+          earlyRepaymentFeeIsPercent: feeIsPercent,
+          earlyRepaymentAllowed: allowed
+        };
+      }
 
       if (this.editingId) {
         await debtRepository.update(this.editingId, payload);
       } else {
-        await debtRepository.add({ ...payload, currentBalance: 0 });
+        await debtRepository.add(payload);
       }
 
       this.toggleDebtForm(false);
@@ -404,7 +517,7 @@ async prefillStatementForm(summary) {
 },
 
   /**
-   * Render the list of debts.
+   * Render the list of debts grouped by type.
    */
   async render() {
     const debts = await debtRepository.getAll();
@@ -416,19 +529,44 @@ async prefillStatementForm(summary) {
       return;
     }
 
-    container.innerHTML = `
-      <div class="grid3" style="margin-top:20px">
-        ${debts.map(debt => {
-          const utilization = calcUtilization(debt.currentBalance, debt.creditLimit);
-          const minPay = calcMinPayment(debt.currentBalance, debt.apr);
-          
-          return safeHTML`
-            <div class="card clickable-card" 
-                 onclick="debtUI.editDebt(${debt.id})"
-                 style="border:1px solid var(--border); padding:15px; display:flex; flex-direction:column; gap:8px; cursor:pointer; position:relative">
+    const groups = {
+      'Credit Cards': debts.filter(d => (d.debtType || 'credit-card') === 'credit-card'),
+      'Loans & Mortgages': debts.filter(d => d.debtType === 'loan' || d.debtType === 'mortgage')
+    };
+
+    let html = '';
+    for (const [groupName, groupDebts] of Object.entries(groups)) {
+      if (groupDebts.length === 0) continue;
+
+      html += `<h3 style="font-size:1rem; margin:20px 0 10px; border-bottom:1px solid var(--border-light); padding-bottom:5px">${groupName}</h3>`;
+      html += `<div class="grid3">`;
+      
+      html += groupDebts.map(debt => {
+        const type = debt.debtType || 'credit-card';
+        const utilization = type === 'credit-card' ? calcUtilization(debt.currentBalance, debt.creditLimit) : 0;
+        const minPay = type === 'credit-card' ? calcMinPayment(debt.currentBalance, debt.apr) : (debt.fixedMonthlyPayment || 0);
+        
+        let typeLabel = 'Credit Card';
+        if (type === 'loan') typeLabel = 'Personal Loan';
+        if (type === 'mortgage') typeLabel = 'Mortgage';
+
+        const isLedgerOpen = this.openLedgerId === debt.id;
+
+        return safeHTML`
+          <div style="display:contents">
+            <div class="card clickable-card ${isLedgerOpen ? 'active' : ''}" 
+                 onclick="toggleLedger(${debt.id})"
+                 style="border:1px solid var(--border); padding:15px; display:flex; flex-direction:column; gap:8px; cursor:pointer; position:relative; ${isLedgerOpen ? 'border-color:var(--accent); background:var(--bg-alt);' : ''}">
+              
               <div style="display:flex; justify-content:space-between; align-items:flex-start">
-                <h3 style="margin:0; font-size:1.1rem">${debt.name}</h3>
-                <span class="pill" style="font-size:0.7rem">${debt.type.replace('_', ' ')}</span>
+                <div>
+                  <h3 style="margin:0; font-size:1.1rem">${debt.name}</h3>
+                  <span class="pill" style="font-size:0.7rem">${typeLabel}</span>
+                </div>
+                <div style="display:flex; gap:4px">
+                  <button class="sm ghost" onclick="event.stopPropagation(); debtUI.editDebt(${debt.id})" title="Edit Debt Details">✏️</button>
+                  <button class="sm danger" onclick="event.stopPropagation(); deleteDebt(${debt.id})" title="Delete Debt">🗑</button>
+                </div>
               </div>
               
               <div style="font-size:1.4rem; font-weight:bold; margin:5px 0">
@@ -436,17 +574,17 @@ async prefillStatementForm(summary) {
               </div>
               
               <div class="grid2" style="font-size:0.85rem; color:var(--text-soft)">
-                <div>APR: ${debt.apr}%</div>
-                <div class="r">Limit: ${debt.creditLimit > 0 ? formatGBP(debt.creditLimit) : 'N/A'}</div>
+                <div>${type === 'credit-card' ? 'APR' : 'Rate'}: ${type === 'credit-card' ? debt.apr : debt.interestRate}%</div>
+                <div class="r">${type === 'credit-card' ? `Limit: ${debt.creditLimit > 0 ? formatGBP(debt.creditLimit) : 'N/A'}` : `Term: ${debt.termMonths}mo`}</div>
               </div>
 
-              ${debt.promoEndDate ? `
+              ${type === 'credit-card' && debt.promoEndDate ? `
                 <div style="font-size:0.75rem; color:var(--warn); margin-top:4px">
                   Promo ends: ${debt.promoEndDate} (${debt.postPromoApr}%)
                 </div>
               ` : ''}
               
-              ${debt.creditLimit > 0 ? `
+              ${type === 'credit-card' && debt.creditLimit > 0 ? `
                 <div style="height:6px; background:var(--bg-alt); border-radius:3px; overflow:hidden; margin-top:4px">
                   <div style="height:100%; width:${Math.min(utilization, 100)}%; background:${utilization > 90 ? 'var(--danger)' : utilization > 50 ? 'var(--warn)' : 'var(--success)'}"></div>
                 </div>
@@ -455,18 +593,57 @@ async prefillStatementForm(summary) {
               
               <div style="margin-top:auto; padding-top:10px; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center">
                 <div style="font-size:0.85rem">
-                  Est. Min: <strong>${formatGBP(minPay)}</strong>
+                  ${type === 'credit-card' ? 'Est. Min:' : 'Monthly:'} <strong>${formatGBP(minPay)}</strong>
                 </div>
-                <div style="display:flex; gap:5px">
-                  <button class="sm ghost" onclick="event.stopPropagation(); showStatements(${debt.id}, '${debt.name}')">History</button>
-                  <button class="sm danger" onclick="event.stopPropagation(); deleteDebt(${debt.id})">✕</button>
+                <div class="hint" style="font-size:0.7rem">Click to view history</div>
+              </div>
+            </div>
+
+            <!-- Inline Ledger Container -->
+            <div id="ledger-container-${debt.id}" class="card ${isLedgerOpen ? '' : 'hidden'}" 
+                 onclick="event.stopPropagation()"
+                 style="grid-column: 1 / -1; margin-top:-10px; margin-bottom:20px; border-top:none; border-radius: 0 0 8px 8px; border: 1px solid var(--accent); background:var(--bg);">
+              <div style="padding:15px">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px">
+                  <h4 style="margin:0; font-size:0.9rem">Statement History: ${debt.name}</h4>
+                  ${type === 'credit-card' ? `<button class="sm primary" onclick="document.getElementById('stmtDebtId').value=${debt.id}; debtUI.toggleStmtForm(true)">+ Log Statement</button>` : ''}
+                </div>
+                <div style="overflow-x:auto">
+                  <table class="tbl sm">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th class="r">Opening</th>
+                        <th class="r">Closing</th>
+                        <th class="r">Int</th>
+                        <th class="r">Fees</th>
+                        <th class="r">Min Due</th>
+                        <th>Due Date</th>
+                        <th class="r">Paid</th>
+                        <th>Paid On</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody id="stmtBody-${debt.id}">
+                      <tr><td colspan="10" class="hint" style="text-align:center">Loading history...</td></tr>
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
-          `;
-        }).join('')}
-      </div>
-    `;
+          </div>
+        `;
+      }).join('');
+      
+      html += `</div>`;
+    }
+
+    container.innerHTML = html;
+
+    // If a ledger is open, re-render its content
+    if (this.openLedgerId) {
+      this.renderStatements(this.openLedgerId);
+    }
   },
 
   /**
@@ -475,11 +652,11 @@ async prefillStatementForm(summary) {
   async renderStatements(debtId) {
     const allStmts = await statementRepository.getAll();
     const stmts = allStmts.filter(s => s.debtId === debtId);
-    const body = document.getElementById('stmtBody');
+    const body = document.getElementById(`stmtBody-${debtId}`);
     if (!body) return;
 
     if (stmts.length === 0) {
-      body.innerHTML = '<tr><td colspan="7" class="hint" style="text-align:center">No statements logged yet.</td></tr>';
+      body.innerHTML = '<tr><td colspan="10" class="hint" style="text-align:center">No statements logged yet.</td></tr>';
       return;
     }
 

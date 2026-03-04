@@ -378,6 +378,157 @@ export async function calculateBalanceChain(startDate, horizonMonths = 3, deps =
 }
 
 /**
+ * Simulates a loan or mortgage payoff with overpayments.
+ * Supports term-reduction (payment stays same, term shortens) 
+ * and payment-reduction (term stays same, payment drops).
+ * 
+ * @param {Array} debts - Array of loan/mortgage objects
+ * @param {string} strategy - 'term-reduction' or 'payment-reduction'
+ * @param {number} extraMonthlyPence - Total extra payment available for all loans
+ * @returns {Object} - { totalInterest, monthsToClear, resultsByDebt, history }
+ */
+export function simulateLoanPayoff(debts, strategy, extraMonthlyPence = 0, startDate = new Date()) {
+  const currentDebts = debts.map(d => ({
+    ...d,
+    balance: d.currentBalance,
+    payment: d.fixedMonthlyPayment || 0,
+    totalInterest: 0,
+    totalFees: 0,
+    monthsToClear: 0,
+    isCleared: d.currentBalance <= 0,
+    annualOverpaymentTotal: 0, // Reset every 12 months for ERC allowance
+    monthsSinceAllowanceReset: 0
+  }));
+
+  const start = typeof startDate === 'string' ? parseISO(startDate) : startDate;
+  let months = 0;
+  let totalInterestAccumulated = 0;
+  let totalFeesAccumulated = 0;
+  const maxMonths = 600;
+  const history = [];
+
+  while (currentDebts.some(d => d.balance > 0) && months < maxMonths) {
+    months++;
+    const currentMonthDate = addMonths(start, months - 1);
+    
+    const snapshot = {
+      month: months,
+      date: format(currentMonthDate, 'MMM yyyy'),
+      totalInterestCharged: 0,
+      totalFeesCharged: 0,
+      totalPrincipalPaid: 0,
+      payments: [],
+      totalRemainingBalance: 0
+    };
+
+    // Distribute extra payment across active loans (highest rate first)
+    currentDebts.sort((a, b) => (b.interestRate || 0) - (a.interestRate || 0));
+    let monthlyAvailableExtra = extraMonthlyPence;
+
+    for (const debt of currentDebts) {
+      if (debt.balance <= 0) continue;
+
+      // 1. Reset ERC allowance every 12 months (simplified to simulation start anniversary)
+      if (debt.monthsSinceAllowanceReset >= 12) {
+        debt.annualOverpaymentTotal = 0;
+        debt.monthsSinceAllowanceReset = 0;
+      }
+      debt.monthsSinceAllowanceReset++;
+
+      // 2. Standard monthly interest
+      const interestCharged = Math.round((debt.balance * ((debt.interestRate || 0) / 100)) / 12);
+      
+      // 3. Base scheduled payment
+      let scheduledPayment = Math.min(debt.balance + interestCharged, debt.payment);
+      
+      // 4. Extra payment (overpayment)
+      let overpayment = 0;
+      if (debt.earlyRepaymentAllowed && monthlyAvailableExtra > 0) {
+        overpayment = Math.min(debt.balance + interestCharged - scheduledPayment, monthlyAvailableExtra);
+        monthlyAvailableExtra -= overpayment;
+      }
+
+      // 5. Calculate ERC if overpayment exceeds 10% annual allowance (standard UK rule)
+      let fee = 0;
+      if (overpayment > 0 && debt.earlyRepaymentFee > 0) {
+        const allowance = Math.round(debt.originalPrincipal * 0.1);
+        const remainingAllowance = Math.max(0, allowance - debt.annualOverpaymentTotal);
+        
+        if (overpayment > remainingAllowance) {
+          const taxableAmount = overpayment - remainingAllowance;
+          if (debt.earlyRepaymentFeeIsPercent) {
+            fee = Math.round(taxableAmount * (debt.earlyRepaymentFee / 100));
+          } else {
+            // Flat fee per overpayment (rare but supported)
+            fee = debt.earlyRepaymentFee;
+          }
+        }
+        debt.annualOverpaymentTotal += overpayment;
+      }
+
+      const totalPaid = scheduledPayment + overpayment;
+      const principalPaid = totalPaid - interestCharged;
+      
+      debt.balance = Math.max(0, debt.balance + interestCharged - totalPaid);
+      debt.totalInterest += interestCharged;
+      debt.totalFees += fee;
+      
+      totalInterestAccumulated += interestCharged;
+      totalFeesAccumulated += fee;
+
+      // 6. Strategy: Payment Reduction (recalculate payment for next month)
+      if (strategy === 'payment-reduction' && debt.balance > 0 && overpayment > 0) {
+        // Find remaining term in months
+        const remainingMonths = (debt.termMonths || 300) - months;
+        if (remainingMonths > 0) {
+          const r = (debt.interestRate || 0) / 100 / 12;
+          if (r > 0) {
+            debt.payment = Math.round(debt.balance * (r * Math.pow(1 + r, remainingMonths)) / (Math.pow(1 + r, remainingMonths) - 1));
+          } else {
+            debt.payment = Math.round(debt.balance / remainingMonths);
+          }
+        }
+      }
+
+      if (debt.balance <= 0 && !debt.isCleared) {
+        debt.monthsToClear = months;
+        debt.isCleared = true;
+      }
+
+      snapshot.payments.push({
+        debtId: debt.id,
+        debtName: debt.name,
+        amount: totalPaid,
+        interestCharged,
+        feeCharged: fee,
+        principalPaid,
+        remainingBalance: debt.balance
+      });
+      snapshot.totalInterestCharged += interestCharged;
+      snapshot.totalFeesCharged += fee;
+      snapshot.totalPrincipalPaid += principalPaid;
+      snapshot.totalRemainingBalance += debt.balance;
+    }
+
+    history.push(snapshot);
+  }
+
+  return {
+    totalInterest: totalInterestAccumulated,
+    totalFees: totalFeesAccumulated,
+    monthsToClear: months,
+    resultsByDebt: currentDebts.map(d => ({
+      id: d.id,
+      name: d.name,
+      totalInterest: d.totalInterest,
+      totalFees: d.totalFees,
+      monthsToClear: d.isCleared ? d.monthsToClear : Infinity
+    })),
+    history
+  };
+}
+
+/**
  * Models a balance transfer and compares it to the current situation.
  * 
  * @param {Object} debt - The current debt object

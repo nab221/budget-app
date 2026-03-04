@@ -1,4 +1,4 @@
-import { checkFileSupport, HandleStore } from '../utils/storage.js';
+import { checkFileSupport, HandleStore, ensurePersistence } from '../utils/storage.js';
 import { SyncManager } from '../utils/sync-manager.js';
 import { db } from '../db/schema.js';
 
@@ -40,11 +40,32 @@ export async function initFileSyncUI() {
 }
 
 /**
+ * Refresh the persistence warning banner visibility.
+ * Shown only if storage is not persistent AND no file-sync is active.
+ */
+export async function refreshPersistenceWarning() {
+  const isPersisted = await ensurePersistence();
+  const fileName = SyncManager.getFileName();
+  const warning = document.getElementById('persistence-warning');
+  if (warning) {
+    if (!isPersisted && !fileName) {
+      warning.classList.remove('hidden');
+    } else {
+      warning.classList.add('hidden');
+    }
+  }
+}
+
+/**
  * Update the header toolbar based on persistence state.
  */
 function updateFileSyncToolbar(status = 'idle', statusText = '') {
   const toolbar = document.querySelector('.toolbar');
   const fileName = SyncManager.getFileName();
+  const headerHint = document.querySelector('header .hint');
+
+  // Refresh persistence warning visibility whenever sync status changes
+  refreshPersistenceWarning();
 
   // Remove existing file sync elements if any
   const existingSync = toolbar.querySelector('.file-sync-indicator');
@@ -60,6 +81,9 @@ function updateFileSyncToolbar(status = 'idle', statusText = '') {
   if (existingSelect) existingSelect.remove();
 
   if (fileName) {
+    // Update header hint
+    if (headerHint) headerHint.textContent = `Auto-saving to ${fileName}`;
+
     // Hide standard export/import buttons to reduce clutter in sync mode
     document.getElementById('exportBtn')?.classList.add('hidden');
     document.querySelector('label[for="importFile"]')?.classList.add('hidden');
@@ -73,7 +97,6 @@ function updateFileSyncToolbar(status = 'idle', statusText = '') {
     if (status === 'error') statusClass = 'red';
 
     indicator.innerHTML = `
-      <span>💾 Auto-saving to: <strong>${fileName}</strong></span>
       <span id="saveStatus" class="${statusClass}">${statusText}</span>
     `;
     toolbar.prepend(indicator);
@@ -87,12 +110,15 @@ function updateFileSyncToolbar(status = 'idle', statusText = '') {
 
     const resetBtn = document.createElement('button');
     resetBtn.id = 'resetPersistenceBtn';
-    resetBtn.className = 'danger sm';
-    resetBtn.textContent = '✖ Reset';
+    resetBtn.className = 'ghost sm';
+    resetBtn.textContent = '🔗 Disconnect File';
     resetBtn.onclick = handleResetPersistence;
     toolbar.appendChild(resetBtn);
 
   } else {
+    // Restore header hint
+    if (headerHint) headerHint.textContent = 'All data stored locally. Export regularly for backups.';
+
     // No file connected: show "Select Budget File" button and ensure legacy buttons are visible
     document.getElementById('exportBtn')?.classList.remove('hidden');
     document.querySelector('label[for="importFile"]')?.classList.remove('hidden');
@@ -193,7 +219,7 @@ async function loadFromFile(handle) {
 }
 
 async function handleResetPersistence() {
-  if (!confirm('Clear file connection? Data remains in browser.')) return;
+  if (!confirm('Stop auto-saving to this file? Your data stays in the browser.')) return;
   await HandleStore.clear();
   // We can't easily "un-initialize" SyncManager but we can stop its effect
   location.reload(); 

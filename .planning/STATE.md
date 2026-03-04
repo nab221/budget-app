@@ -1,35 +1,38 @@
 # Project State: Budget App
 
-## Milestone: v1.5 Automatic Recurring Transactions
-**Status**: IN-PROGRESS
-**Objective**: Replace manual templates with automatic recurrence and per-tab monthly navigation.
+## Milestone: v2.0 UI Overhaul & Debt Logic Separation
+**Status**: PLANNING
+**Objective**: Major UI simplification and logic refactoring to clean up legacy patterns, merge redundant visualizations, and formalize debt types.
 
 ## Progress Summary
-- **Planning Complete**: Requirements and Roadmap drafted for v1.5.
-- **Phase 1 Complete**: Schema v12 and Migration implemented in `src/db/schema.js`.
-- **Phase 2 Complete**: Core recurrence utility and manager implemented in `src/utils/recurrence.js`.
-- **Phase 3 Complete**: Independent monthly navigation implemented in `src/ui/expenses.js`.
-- **Phase 4 Complete**: UI Form updates and batch generation implemented in `src/ui/expenses.js`.
-- **Phase 5 Complete**: Edit/Delete series lifecycle implemented in `src/ui/expenses.js` and repositories.
-- **Phase 6 Complete**: Cleanup & Polish finished; legacy templates removed.
-- **Phase 7 Complete**: UI - Income Monthly Navigation & Filtering (Phase 32).
-- **Next Step**: Milestone v1.5 UAT and Sign-off.
+- [x] **Milestone Definition**: v2.0 Goal and Context defined.
+- [x] **Requirements Extraction**: 38 core requirements identified across 5 categories.
+- [x] **Roadmap Drafting**: 10-phase delivery structure established.
+- [ ] **Phase 1 Planning**: Done (01-01-PLAN.md)
+- [x] **Phase 6 Planning**: Done (06-01-PLAN.md, 06-02-PLAN.md)
+
+## Current Position
+- **Phase**: Phase 6: Debts Panel UX
+- **Plan**: 06-01-PLAN.md
+- **Status**: Not Started
+- **Progress**: 0% [....................]
 
 ## Performance Metrics
-- **Phase Completion**: 7/7
-- **Requirement Coverage**: 100%
-- **Code Health**: Stable (Income navigation and recurrence verified)
+- **Phase Completion**: 0/10
+- **Requirement Coverage**: 100% (38/38)
+- **Code Health**: Stable (v1.5 baseline)
 
 ## Accumulated Context
-- **Decision**: Keep `recurrentExpenses` and `oneOffExpenses` as the primary tables.
-- **Tooling**: `date-fns` v4 verified for recurrence math; `parentDate` used as anchor for series.
-- **Migration**: `recurringTemplates` ported to `recurrentExpenses` with 12 months of instances generated.
+- **V2.0 Core Value**: Shift from feature-heavy complexity to streamlined, ledger-focused UI.
+- **Decision**: Merge `oneOffExpenses` UI into a single list while keeping the DB table for compatibility.
+- **Decision**: Split Payoff Planner by debt type to handle fixed-term vs revolving credit differently.
+- **Decision**: Use offset transactions for "Set Current Balance" to maintain data integrity.
 
 ## Session Continuity
-- **Current Focus**: Phase 3 - UI Monthly Navigation.
-- **Last Action**: Implemented and verified `src/utils/recurrence.js`.
-- **Blockers**: None.
+- **Current Focus**: Planning Phase 6 (jumped ahead per user request).
+- **Last Action**: Created 06-01-PLAN.md and 06-02-PLAN.md.
+- **Next Step**: Execute Phase 6.
 - **Blockers**: None.
 
 ---
-*Last updated: 2026-03-03*
+*Last updated: 2026-03-04*

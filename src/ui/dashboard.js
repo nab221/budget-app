@@ -1,6 +1,7 @@
 import { 
   getDashboardData, 
-  getSpendingTrends, 
+  getRollingFinancialData, 
+  getCurrentBalance,
   debtRepository, 
   targetRepository, 
   netWorthRepository, 
@@ -10,12 +11,12 @@ import {
 } from '../db/repository.js';
 import { formatGBP, formatGBPShort } from '../utils/currency.js';
 import { simulatePayoff, calcMinPayment, calculateBalanceChain } from '../utils/finance.js';
-import { renderTrendsChart, renderBalanceChart, renderCashFlowChart } from './charts.js';
+import { renderRollingOverviewChart } from './charts.js';
 import { checkStoragePersistence } from './pwa-ux.js';
 import { getEntitlementPeriod } from '../utils/childcare.js';
 
 /**
- * Render the dashboard summary cards.
+ * Render the dashboard summary cards and the unified rolling chart.
  * @param {string} containerId - The ID of the container element.
  * @param {string} periodType - 'month', 'ytd', or 'all'.
  * @param {string} targetMonth - YYYY-MM string.
@@ -27,10 +28,18 @@ export async function renderDashboard(containerId, periodType, targetMonth) {
   // Map 'current' (from UI) to 'month' (from repository)
   const normalizedPeriod = periodType === 'current' ? 'month' : periodType;
 
-  const [data, isPersisted] = await Promise.all([
+  const [data, rollingData, isPersisted] = await Promise.all([
     getDashboardData(normalizedPeriod, targetMonth),
+    getRollingFinancialData(targetMonth),
     checkStoragePersistence()
   ]);
+
+  // 1. Render Unified Rolling Chart
+  try {
+    renderRollingOverviewChart('rollingOverviewChart', rollingData);
+  } catch (err) {
+    console.warn('Could not render rolling overview chart:', err);
+  }
 
   // Calculate debt-free countdown
   const debts = await debtRepository.getAll();
@@ -57,10 +66,11 @@ export async function renderDashboard(containerId, periodType, targetMonth) {
   const childcareSummary = data.childcareSummary || [];
   const childcareTotalBalance = childcareSummary.reduce((s, c) => s + c.balance, 0);
 
+  const todayBalance = await getCurrentBalance();
+
   const cards = [
     { label: 'Income', value: data.income, color: 'var(--accent)' },
-    { label: 'Recurrent Expenses', value: data.fixed, color: 'var(--danger)' },
-    { label: 'One-off Expenses', value: data.variable, color: 'var(--danger)' },
+    { label: 'Expenses', value: data.totalExpenses, color: 'var(--danger)' },
     { label: 'Net Position', value: data.netPosition, color: data.netPosition >= 0 ? 'var(--accent)' : 'var(--danger)' },
     { label: 'Total Debt', value: data.totalDebt, color: 'var(--danger)' },
     { label: 'Total Assets', value: data.totalAssets, color: 'var(--accent)' },
@@ -72,10 +82,27 @@ export async function renderDashboard(containerId, periodType, targetMonth) {
       color: data.netWorth >= 0 ? 'var(--accent)' : 'var(--danger)'
     },
     { label: 'Recurrent-to-Income', value: `${data.fixedToIncomeRatio}%`, color: data.fixedToIncomeRatio > 50 ? 'var(--warn)' : 'var(--text-soft)', isRaw: true },
-    { label: 'Debt-Free In', value: debtFreeText, color: debtFreeColor, isRaw: true }
+    { label: 'Debt-Free In', value: debtFreeText, color: debtFreeColor, isRaw: true },
+    { 
+      label: 'Credit Card Payments', 
+      value: data.ccPayments + data.extraPayment, 
+      color: 'var(--danger)',
+      percent: data.income > 0 ? Math.round(((data.ccPayments + data.extraPayment) / data.income) * 100) : 0
+    },
+    { 
+      label: 'Loan & Mortgage Payments', 
+      value: data.loanPayments, 
+      color: 'var(--danger)',
+      percent: data.income > 0 ? Math.round((data.loanPayments / data.income) * 100) : 0
+    },
+    { 
+      label: 'Current Balance', 
+      value: todayBalance, 
+      color: todayBalance >= 0 ? 'var(--accent)' : 'var(--danger)' 
+    }
   ];
 
-  // Build cards using safe DOM methods — no innerHTML for dynamic content (FOUND-04)
+  // Build cards using safe DOM methods
   container.textContent = '';
   for (const card of cards) {
     const item = document.createElement('div');
@@ -97,103 +124,127 @@ export async function renderDashboard(containerId, periodType, targetMonth) {
     const valEl = document.createElement('div');
     valEl.className = 'sum-val';
     valEl.style.color = card.color;
+    
     if (card.isRaw) {
       valEl.textContent = card.value;
     } else {
       adjustFontSize(valEl, card.value);
+      if (card.percent !== undefined) {
+        const p = document.createElement('div');
+        p.style.cssText = 'font-size:0.75rem; color:var(--text-soft); font-weight:400; margin-top:2px;';
+        p.textContent = `${card.percent}% of income`;
+        valEl.appendChild(p);
+      }
     }
 
     item.append(labelEl, valEl);
     container.append(item);
   }
 
-  // Render spending trends chart (12 months)
-  try {
-    const trendsData = await getSpendingTrends(targetMonth);
-    renderTrendsChart('trendsChart', trendsData);
-  } catch (err) {
-    console.warn('Could not render trends chart:', err);
-  }
+  // 2. Render Next Negative Alert
+  await renderNextNegativeAlert();
 
-  // Also render progress bars, snapshots, childcare funding card, and balance panel
-  renderProgressBars(data.bucketSpending);
-  renderSnapshots();
+  // Also render progress bars, childcare funding card, and balance panel
+  renderInlineProgressBars(data.bucketSpending);
   renderChildcareFunding(childcareSummary);
   renderDebtRepaymentPanel(debts, data.income);
   renderBalancePanel();
-  renderCashFlowForecast();
 }
 
 /**
- * Renders the Daily Cash Flow Forecast section on the dashboard.
- * Includes critical alerts, 7-day timeline, and the 90-day projection chart.
+ * Renders an alert if a future projected balance is negative within the next 90 days.
  */
-export async function renderCashFlowForecast() {
-  const section = document.getElementById('cashflowForecastSection');
-  if (!section) return;
-
+async function renderNextNegativeAlert() {
   const snapshots = await dailyBalanceRepository.getAll();
-  if (!snapshots || snapshots.length === 0) {
-    section.innerHTML = '<div class="hint">Forecast data unavailable. Recalculating...</div>';
-    // Trigger a recalc if empty
-    const { triggerDailyForecastRecalc } = await import('../db/repository.js');
-    triggerDailyForecastRecalc(new Date().toISOString().split('T')[0]);
+  if (!snapshots || snapshots.length === 0) return;
+
+  const today = new Date().toISOString().split('T')[0];
+  const horizon = new Date();
+  horizon.setDate(horizon.getDate() + 90);
+  const horizonStr = horizon.toISOString().split('T')[0];
+
+  const firstNeg = snapshots
+    .filter(s => s.date >= today && s.date <= horizonStr && s.closingBalance < 0)
+    .sort((a, b) => a.date.localeCompare(b.date))[0];
+
+  const existingAlert = document.getElementById('dashboardNextNegativeAlert');
+  if (existingAlert) existingAlert.remove();
+
+  if (firstNeg) {
+    const container = document.getElementById('summaryGrid').parentNode;
+    const alert = document.createElement('div');
+    alert.id = 'dashboardNextNegativeAlert';
+    alert.style.cssText = 'background:rgba(213, 94, 0, 0.1); border-left:4px solid var(--danger); padding:12px; margin-bottom:15px; border-radius:8px;';
+    
+    const title = document.createElement('div');
+    title.style.cssText = 'font-weight:700; color:var(--danger); margin-bottom:4px; font-size:0.9rem;';
+    title.textContent = '⚠️ Future Deficit Alert';
+    
+    const body = document.createElement('div');
+    body.style.fontSize = '0.85rem';
+    body.innerHTML = `Projected balance: <strong style="color:var(--danger)">${formatGBP(firstNeg.closingBalance)}</strong> on <strong>${firstNeg.date}</strong>.`;
+    
+    alert.append(title, body);
+    container.insertBefore(alert, document.getElementById('rollingOverviewChartContainer').nextSibling);
+  }
+}
+
+/**
+ * Renders minimal bucket budget progress bars inline with the summary grid.
+ * @param {Object} bucketSpending - { recurrent: pence, 'one-off': pence }
+ */
+async function renderInlineProgressBars(bucketSpending) {
+  let container = document.getElementById('dashboardInlineProgress');
+  if (!container) {
+    const sumGrid = document.getElementById('summaryGrid');
+    if (sumGrid) {
+      container = document.createElement('div');
+      container.id = 'dashboardInlineProgress';
+      container.style.cssText = 'grid-column: 1 / -1; margin-top: 10px; display: flex; gap: 20px; flex-wrap: wrap;';
+      sumGrid.parentNode.insertBefore(container, sumGrid.nextSibling);
+    }
+  }
+  if (!container) return;
+
+  const targets = await targetRepository.getAll();
+  const targetMap = new Map(targets.map(t => [t.bucket, t.amount]));
+
+  const buckets = [
+    { key: 'recurrent', label: 'Recurrent' },
+    { key: 'one-off', label: 'One-off' }
+  ];
+
+  const bucketsWithTargets = buckets.filter(b => targetMap.has(b.key));
+
+  if (bucketsWithTargets.length === 0) {
+    container.innerHTML = '';
     return;
   }
 
-  // Sort chronological
-  snapshots.sort((a, b) => a.date.localeCompare(b.date));
+  container.innerHTML = bucketsWithTargets.map(b => {
+    const actual = (bucketSpending && bucketSpending[b.key]) || 0;
+    const target = targetMap.get(b.key);
+    const percent = Math.min(Math.round((actual / target) * 100), 100);
+    const isOver = actual > target;
 
-  // 1. Identify Critical Alert
-  const critical = snapshots.find(s => s.closingBalance < 0);
-  let alertHTML = '';
-  if (critical) {
-    const nextIncome = snapshots.find(s => s.date > critical.date && s.incomeTotal > 0);
-    alertHTML = `
-      <div class="card" style="background:rgba(213, 94, 0, 0.1); border-left:4px solid var(--danger); padding:12px; margin-bottom:15px">
-        <div style="font-weight:700; color:var(--danger); margin-bottom:4px">⚠️ Low Balance Alert</div>
-        <div style="font-size:.9rem">
-          Your balance is predicted to reach <strong style="color:var(--danger)">${formatGBP(critical.closingBalance)}</strong> on ${critical.date}.
-          ${nextIncome ? `<br/>Next income expected on <strong>${nextIncome.date}</strong>.` : ''}
+    let barColor = 'var(--success)';
+    if (percent >= 100) barColor = 'var(--danger)';
+    else if (percent >= 80) barColor = 'var(--warn)';
+
+    return `
+      <div style="flex: 1; min-width: 200px;">
+        <div style="display:flex; justify-content:space-between; font-size:.7rem; margin-bottom:2px">
+          <span style="font-weight:600">${b.label} Target</span>
+          <span style="font-weight:600; color:${isOver ? 'var(--danger)' : 'inherit'}">
+            ${formatGBPShort(actual)} / ${formatGBPShort(target)} (${percent}%)
+          </span>
+        </div>
+        <div style="height:6px; background:var(--bg-alt); border-radius:3px; overflow:hidden">
+          <div style="height:100%; width:${percent}%; background:${barColor}; transition:width 0.3s"></div>
         </div>
       </div>
     `;
-  }
-
-  // 2. Build 7-Day Timeline
-  const today = new Date().toISOString().split('T')[0];
-  const timelineDays = snapshots.filter(s => s.date >= today).slice(0, 7);
-  
-  const timelineHTML = `
-    <div style="display:flex; gap:10px; overflow-x:auto; padding-bottom:10px; margin-bottom:15px">
-      ${timelineDays.map(day => {
-        const bgColor = day.closingBalance < 0 ? 'rgba(213, 94, 0, 0.1)' : 'var(--bg-alt)';
-        const borderColor = day.closingBalance < 0 ? 'var(--danger)' : 'var(--border)';
-        const dayLabel = new Date(day.date).toLocaleDateString('en-GB', { weekday: 'short' });
-        const dateLabel = day.date.split('-').slice(1).reverse().join('/');
-        const debtIcon = day.hasDebtPayment ? '<span title="Debt Payment Due" style="margin-left:4px">💳</span>' : '';
-        
-        return `
-          <div style="min-width:100px; flex:1; padding:10px; background:${bgColor}; border:1px solid ${borderColor}; border-radius:8px; text-align:center">
-            <div style="font-size:.7rem; text-transform:uppercase; color:var(--text-soft)">${dayLabel}</div>
-            <div style="font-weight:700; font-size:.8rem">${dateLabel}${debtIcon}</div>
-            <div style="margin:6px 0; font-weight:800; color:${day.closingBalance < 0 ? 'var(--danger)' : 'var(--accent)'}">${formatGBPShort(day.closingBalance)}</div>
-            ${day.incomeTotal > 0 ? `<div style="font-size:.65rem; color:var(--success)">+${formatGBPShort(day.incomeTotal)}</div>` : ''}
-            ${day.expenseTotal > 0 ? `<div style="font-size:.65rem; color:var(--danger)">-${formatGBPShort(day.expenseTotal)}</div>` : ''}
-          </div>
-        `;
-      }).join('')}
-    </div>
-  `;
-
-  section.innerHTML = `
-    <h3 style="font-size:.9rem; margin-bottom:12px; font-weight:600">Cash Flow Forecast</h3>
-    ${alertHTML}
-    ${timelineHTML}
-  `;
-
-  // Render Chart
-  renderCashFlowChart('cashflowChart', snapshots.slice(0, 90));
+  }).join('');
 }
 
 /**
@@ -205,13 +256,12 @@ export async function renderCashFlowForecast() {
 function renderDebtRepaymentPanel(debts, totalIncomePence) {
   let section = document.getElementById('dashboardDebtRepaymentSection');
   if (!section) {
-    const dashCard = document.querySelector('.card section');
-    const grid2 = document.querySelector('.card .grid2');
-    if (grid2) {
+    const dashCard = document.querySelector('.card');
+    if (dashCard) {
       section = document.createElement('div');
       section.id = 'dashboardDebtRepaymentSection';
       section.style.cssText = 'margin-top:20px; padding-top:20px; border-top:1px solid var(--border)';
-      grid2.parentNode.insertBefore(section, grid2);
+      dashCard.appendChild(section);
     }
   }
   if (!section) return;
@@ -266,75 +316,18 @@ function renderDebtRepaymentPanel(debts, totalIncomePence) {
 }
 
 /**
- * Renders bucket budget progress bars on the dashboard.
- * Displays two bars: Recurrent and One-off, using bucket-based targets.
- * @param {Object} bucketSpending - { recurrent: pence, 'one-off': pence }
- */
-async function renderProgressBars(bucketSpending) {
-  const container = document.getElementById('dashboardProgress');
-  if (!container) return;
-
-  const targets = await targetRepository.getAll();
-  const targetMap = new Map(targets.map(t => [t.bucket, t.amount]));
-
-  const buckets = [
-    { key: 'recurrent', label: 'Recurrent', hint: 'Standing commitments: rent, bills, loans' },
-    { key: 'one-off', label: 'One-off', hint: 'Irregular spending: groceries, clothing, etc.' }
-  ];
-
-  const bucketsWithTargets = buckets.filter(b => targetMap.has(b.key));
-
-  if (bucketsWithTargets.length === 0) {
-    container.innerHTML = '<div class="hint">Set Recurrent and One-off targets in Settings to see progress.</div>';
-    return;
-  }
-
-  container.innerHTML = bucketsWithTargets.map(b => {
-    const actual = (bucketSpending && bucketSpending[b.key]) || 0;
-    const target = targetMap.get(b.key);
-    const percent = Math.min(Math.round((actual / target) * 100), 100);
-    const isOver = actual > target;
-
-    let barColor = 'var(--success)';
-    if (percent >= 100) barColor = 'var(--danger)';
-    else if (percent >= 80) barColor = 'var(--warn)';
-
-    return `
-      <div style="margin-bottom:12px">
-        <div style="display:flex; justify-content:space-between; font-size:.8rem; margin-bottom:2px">
-          <span style="font-weight:600" title="${b.hint}">${b.label}</span>
-          <span style="font-weight:600; color:${isOver ? 'var(--danger)' : 'inherit'}">
-            ${formatGBP(actual)} / ${formatGBP(target)}
-          </span>
-        </div>
-        <div class="hint" style="font-size:.7rem;margin-bottom:4px">${b.hint}</div>
-        <div style="height:8px; background:var(--bg-alt); border-radius:4px; overflow:hidden">
-          <div style="height:100%; width:${percent}%; background:${barColor}; transition:width 0.3s"></div>
-        </div>
-      </div>
-    `;
-  }).join('');
-}
-
-/**
  * Renders the Childcare Funding section on the dashboard.
- * Shows per-account balances, funding gaps, top-up suggestions,
- * and reconfirmation alerts for accounts approaching period end.
- *
  * @param {Array} childcareSummary - Array of { account, balance, gap, suggestedDeposit }
  */
 function renderChildcareFunding(childcareSummary) {
-  // Find or create the childcare section container
   let section = document.getElementById('dashboardChildcareSection');
   if (!section) {
-    // Insert before the grid2 section (Budget Progress / Net Worth History)
-    const dashCard = document.querySelector('.card section');
-    const grid2 = document.querySelector('.card .grid2');
-    if (grid2) {
+    const dashCard = document.querySelector('.card');
+    if (dashCard) {
       section = document.createElement('div');
       section.id = 'dashboardChildcareSection';
       section.style.cssText = 'margin-top:20px; padding-top:20px; border-top:1px solid var(--border)';
-      grid2.parentNode.insertBefore(section, grid2);
+      dashCard.appendChild(section);
     }
   }
   if (!section) return;
@@ -389,19 +382,16 @@ function renderChildcareFunding(childcareSummary) {
 
 /**
  * Renders the Balance Panel on the dashboard.
- * Shows the running balance (today's closing balance) and a 3-month forward forecast.
- * Turns the card background red if any projected snapshot in the next 3 months is < 0.
- * Also renders the 90-day balance trend chart.
  */
 async function renderBalancePanel() {
   let section = document.getElementById('dashboardBalanceSection');
   if (!section) {
-    const grid2 = document.querySelector('.card .grid2');
-    if (grid2) {
+    const dashCard = document.querySelector('.card');
+    if (dashCard) {
       section = document.createElement('div');
       section.id = 'dashboardBalanceSection';
       section.style.cssText = 'margin-top:20px; padding-top:20px; border-top:1px solid var(--border)';
-      grid2.parentNode.insertBefore(section, grid2);
+      dashCard.appendChild(section);
     }
   }
   if (!section) return;
@@ -409,19 +399,13 @@ async function renderBalancePanel() {
   // Load all snapshots
   let snapshots = [];
   try {
-    const allSnaps = await balanceSnapshotRepository.getLatestSnapshot();
-    if (!allSnaps) {
-      const earliest = await (async () => {
-        try {
-          const { db } = await import('../db/schema.js');
-          return db.income.orderBy('date').first();
-        } catch (e) { return null; }
-      })();
+    const { db } = await import('../db/schema.js');
+    const raw = await db.balanceSnapshots.toArray();
+    if (raw.length === 0) {
+      const earliest = await db.income.orderBy('date').first();
       const startDate = earliest ? String(earliest.date).slice(0, 7) : new Date().toISOString().slice(0, 7);
       snapshots = await calculateBalanceChain(startDate, 3);
     } else {
-      const { db } = await import('../db/schema.js');
-      const raw = await db.balanceSnapshots.toArray();
       snapshots = raw.sort((a, b) => a.month.localeCompare(b.month));
     }
   } catch (err) {
@@ -481,22 +465,10 @@ async function renderBalancePanel() {
     el.append(label, val);
     cardGrid.append(el);
   }
-
-  const chartCont = document.createElement('div');
-  chartCont.className = 'chart-container';
-  const canvas = document.createElement('canvas');
-  canvas.id = 'balanceChart';
-  chartCont.append(canvas);
-  section.append(chartCont);
-
-  renderBalanceChart('balanceChart', snapshots);
 }
 
 /**
  * Adjusts the font size of an element based on the length of the currency string.
- * Uses formatGBPShort for extremely large values.
- * @param {HTMLElement} el - The element containing the value.
- * @param {number} pence - The amount in pence.
  */
 function adjustFontSize(el, pence) {
   const amount = Math.abs(pence / 100);
@@ -513,46 +485,4 @@ function adjustFontSize(el, pence) {
 
   el.style.fontSize = fontSize;
   el.textContent = displayValue;
-}
-
-/**
- * Renders historical net worth snapshots on the dashboard.
- */
-async function renderSnapshots() {
-  const container = document.getElementById('dashboardSnapshots');
-  if (!container) return;
-
-  const snapshots = await netWorthRepository.getAll();
-  // Sort by month descending
-  snapshots.sort((a, b) => b.month.localeCompare(a.month));
-
-  if (snapshots.length === 0) {
-    container.innerHTML = '<div class="hint">Waiting for first monthly snapshot...</div>';
-    return;
-  }
-
-  container.innerHTML = `
-    <table class="tbl" style="font-size:.8rem">
-      <thead>
-        <tr>
-          <th>Month</th>
-          <th class="r">Assets</th>
-          <th class="r">Debt</th>
-          <th class="r">Net Worth</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${snapshots.slice(0, 6).map(s => `
-          <tr>
-            <td>${s.month}</td>
-            <td class="r">${formatGBP(s.totalAssets)}</td>
-            <td class="r" style="color:var(--danger)">${formatGBP(s.totalDebt)}</td>
-            <td class="r" style="font-weight:600; color:${s.netWorth >= 0 ? 'var(--success)' : 'var(--danger)'}">
-              ${formatGBP(s.netWorth)}
-            </td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
-  `;
 }

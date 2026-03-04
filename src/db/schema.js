@@ -337,6 +337,87 @@ db.version(12).stores({
   }
 });
 
+// Define version 13 schema: Debt Type Separation
+// Adds debtType, originalPrincipal, termMonths, fixedMonthlyPayment, interestRate,
+// earlyRepaymentFee, earlyRepaymentFeeIsPercent, and earlyRepaymentAllowed to debts.
+db.version(13).stores({
+  income: '++id, date, source, amount, categoryId',
+  recurrentExpenses: '++id, date, categoryId, label, amount, status, frequency, nextDate, predictedPaymentDate, isEssential, cycleTotal, cycleCurrent, endDate, isDebtPayment, linkedStatementId, isRecurring, recurrenceId, parentDate, debtType',
+  oneOffExpenses: '++id, date, categoryId, note, amount, isRecurring, frequency, recurrenceId, parentDate',
+  debts: '++id, name, debtType, apr, creditLimit, currentBalance, promoEndDate, postPromoApr, originalPrincipal, termMonths, fixedMonthlyPayment, interestRate, earlyRepaymentFee, earlyRepaymentFeeIsPercent, earlyRepaymentAllowed',
+  statements: '++id, debtId, date, amount, interest, fees, actualPaymentDate, linkedExpenseId',
+  assets: '++id, name, type, asOfDate, currentBalance',
+  categories: '++id, name, group',
+  targets: '++id, bucket, amount',
+  netWorthSnapshots: '++id, month, totalAssets, totalDebt, netWorth',
+  categoryMappings: '++id, description, categoryId',
+  childcareAccounts: '++id, childName, targetMonthlySpend, entitlementStart, isDisabled',
+  childcareLedger: '++id, accountId, date, type, amount, runningBalance',
+  balanceSnapshots: '++id, month, openingBalance, closingBalance, incomeTotal, expenseTotal',
+  dailyBalanceSnapshots: '++id, date, openingBalance, closingBalance, incomeTotal, expenseTotal',
+  expectedIncome: '++id, date, source, amount, categoryId, status',
+  bankHolidayOverrides: '++id, date, isOpen'
+}).upgrade(async tx => {
+  // 1. Migrate existing debts to new debtType field and initialize new fields
+  await tx.table('debts').toCollection().modify(debt => {
+    // Map old 'type' (often using underscore) to new 'debtType' (hyphenated)
+    if (debt.type) {
+      if (debt.type === 'credit_card') debt.debtType = 'credit-card';
+      else if (debt.type === 'loan') debt.debtType = 'loan';
+      else if (debt.type === 'mortgage') debt.debtType = 'mortgage';
+      else debt.debtType = 'credit-card'; // fallback
+      delete debt.type;
+    } else if (!debt.debtType) {
+      debt.debtType = 'credit-card';
+    }
+
+    // Initialize new loan/mortgage fields if undefined
+    if (debt.originalPrincipal === undefined) debt.originalPrincipal = debt.currentBalance || 0;
+    if (debt.termMonths === undefined) debt.termMonths = 0;
+    if (debt.fixedMonthlyPayment === undefined) debt.fixedMonthlyPayment = 0;
+    if (debt.interestRate === undefined) debt.interestRate = debt.apr || 0;
+    if (debt.earlyRepaymentFee === undefined) debt.earlyRepaymentFee = 0;
+    if (debt.earlyRepaymentFeeIsPercent === undefined) debt.earlyRepaymentFeeIsPercent = false;
+    if (debt.earlyRepaymentAllowed === undefined) debt.earlyRepaymentAllowed = true;
+  });
+
+  // 2. Add debtType to existing recurrentExpenses that are debt payments
+  await tx.table('recurrentExpenses').toCollection().modify(item => {
+    if (item.isDebtPayment && !item.debtType) {
+      // Default to credit-card for legacy items; actual refresh happens on next render/recalc
+      item.debtType = 'credit-card';
+    }
+  });
+});
+
+// Define version 14 schema: Childcare UX Improvements
+// Adds openingBalance to childcareAccounts.
+db.version(14).stores({
+  income: '++id, date, source, amount, categoryId',
+  recurrentExpenses: '++id, date, categoryId, label, amount, status, frequency, nextDate, predictedPaymentDate, isEssential, cycleTotal, cycleCurrent, endDate, isDebtPayment, linkedStatementId, isRecurring, recurrenceId, parentDate, debtType',
+  oneOffExpenses: '++id, date, categoryId, note, amount, isRecurring, frequency, recurrenceId, parentDate',
+  debts: '++id, name, debtType, apr, creditLimit, currentBalance, promoEndDate, postPromoApr, originalPrincipal, termMonths, fixedMonthlyPayment, interestRate, earlyRepaymentFee, earlyRepaymentFeeIsPercent, earlyRepaymentAllowed',
+  statements: '++id, debtId, date, amount, interest, fees, actualPaymentDate, linkedExpenseId',
+  assets: '++id, name, type, asOfDate, currentBalance',
+  categories: '++id, name, group',
+  targets: '++id, bucket, amount',
+  netWorthSnapshots: '++id, month, totalAssets, totalDebt, netWorth',
+  categoryMappings: '++id, description, categoryId',
+  childcareAccounts: '++id, childName, targetMonthlySpend, entitlementStart, isDisabled, openingBalance',
+  childcareLedger: '++id, accountId, date, type, amount, runningBalance',
+  balanceSnapshots: '++id, month, openingBalance, closingBalance, incomeTotal, expenseTotal',
+  dailyBalanceSnapshots: '++id, date, openingBalance, closingBalance, incomeTotal, expenseTotal',
+  expectedIncome: '++id, date, source, amount, categoryId, status',
+  bankHolidayOverrides: '++id, date, isOpen'
+}).upgrade(async tx => {
+  // 1. Initialize openingBalance for existing childcare accounts
+  await tx.table('childcareAccounts').toCollection().modify(account => {
+    if (account.openingBalance === undefined) {
+      account.openingBalance = 0;
+    }
+  });
+});
+
 // Handle schema updates in other tabs
 db.on('versionchange', function() {
   db.close();
