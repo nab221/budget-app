@@ -153,6 +153,7 @@ export const debtUI = {
       postPromoApr: 0,
       currentBalance: 0,
       // Loan specific
+      isInterestOnly: false,
       originalPrincipal: 0,
       termMonths: 0,
       fixedMonthlyPayment: 0,
@@ -232,12 +233,17 @@ export const debtUI = {
               </select>
             </div>
           </div>
-          <div style="display:flex;align-items:center;gap:6px;padding-top:18px">
-            <input id="loanAllowedInput" type="checkbox" ${data.earlyRepaymentAllowed ? 'checked' : ''}/>
-            <label for="loanAllowedInput" style="margin:0">Overpayment allowed</label>
+          <div style="display:flex;align-items:center;gap:12px;padding-top:18px">
+            <div style="display:flex;align-items:center;gap:6px">
+              <input id="loanAllowedInput" type="checkbox" ${data.earlyRepaymentAllowed ? 'checked' : ''}/>
+              <label for="loanAllowedInput" style="margin:0">Overpayment allowed</label>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <input id="loanInterestOnlyInput" type="checkbox" ${data.isInterestOnly ? 'checked' : ''}/>
+              <label for="loanInterestOnlyInput" style="margin:0">Interest-Only</label>
+            </div>
           </div>
         </div>
-      </div>
 
       <div class="form-row" style="margin-top:10px">
         <div style="display:flex;align-items:flex-end;gap:8px;flex:1.5">
@@ -288,6 +294,7 @@ export const debtUI = {
         const fee = parseFloat(document.getElementById('loanFeeInput').value) || 0;
         const feeIsPercent = document.getElementById('loanFeeTypeInput').value === 'percent';
         const allowed = document.getElementById('loanAllowedInput').checked;
+        const isInterestOnly = document.getElementById('loanInterestOnlyInput').checked;
 
         payload = {
           ...payload,
@@ -299,7 +306,8 @@ export const debtUI = {
           termMonths: term,
           earlyRepaymentFee: fee,
           earlyRepaymentFeeIsPercent: feeIsPercent,
-          earlyRepaymentAllowed: allowed
+          earlyRepaymentAllowed: allowed,
+          isInterestOnly: isInterestOnly
         };
       }
 
@@ -561,7 +569,10 @@ async prefillStatementForm(summary) {
               <div style="display:flex; justify-content:space-between; align-items:flex-start">
                 <div>
                   <h3 style="margin:0; font-size:1.1rem">${debt.name}</h3>
-                  <span class="pill" style="font-size:0.7rem">${typeLabel}</span>
+                  <div style="display:flex; gap:4px; align-items:center">
+                    <span class="pill" style="font-size:0.7rem">${typeLabel}</span>
+                    ${debt.isInterestOnly ? '<span class="pill" style="font-size:0.7rem; background:rgba(217,119,6,0.1); color:var(--warn); border-color:rgba(217,119,6,0.2)">Interest-Only</span>' : ''}
+                  </div>
                 </div>
                 <div style="display:flex; gap:4px">
                   <button class="sm ghost" onclick="event.stopPropagation(); debtUI.editDebt(${debt.id})" title="Edit Debt Details">✏️</button>

@@ -122,6 +122,23 @@ export const expensesUI = {
       markAllBtn.addEventListener('click', () => this.handleMarkAllPaid());
     }
 
+    // Manual Recurrence Trigger
+    const triggerBtn = document.getElementById('triggerRecurrenceBtn');
+    if (triggerBtn) {
+      triggerBtn.onclick = async () => {
+        const originalContent = triggerBtn.innerHTML;
+        triggerBtn.disabled = true;
+        triggerBtn.innerHTML = '⌛ Processing...';
+        try {
+          await templateUI.manualTrigger();
+          await this.render();
+        } finally {
+          triggerBtn.disabled = false;
+          triggerBtn.innerHTML = originalContent;
+        }
+      };
+    }
+
     // Set Current Balance
     const setBalBtn = document.getElementById('setExpBalBtn');
     if (setBalBtn) {

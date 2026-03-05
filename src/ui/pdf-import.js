@@ -480,7 +480,7 @@ export const pdfImportUI = {
 
     const footer = `
       <div style="display:flex; justify-content:center; gap:10px; width:100%">
-        <button class="ghost" onclick="document.getElementById('pdfImportFile').click()">Upload Another</button>
+        <button class="ghost" onclick="document.getElementById('stmtPdfFile').click()">Upload Another</button>
         <button class="primary" onclick="window.templateUI.closeModal()">Finish</button>
       </div>
     `;

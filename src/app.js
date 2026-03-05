@@ -1,7 +1,12 @@
 import { initTheme, toggleTheme } from './ui/theme';
 import { modalUI } from './ui/render';
 import { categoryUI } from './ui/categories';
-import { categoryRepository, netWorthRepository } from './db/repository';
+import { 
+  categoryRepository, 
+  netWorthRepository, 
+  balanceSnapshotRepository,
+  triggerBalanceRecalc 
+} from './db/repository.js';
 import { transactionUI } from './ui/transactions';
 import { expensesUI } from './ui/expenses';
 import { debtUI } from './ui/debts';
@@ -15,7 +20,6 @@ import { initPWA, installApp, checkExportReminder } from './ui/pwa-ux';
 import { initFileSyncUI, refreshPersistenceWarning } from './ui/file-sync';
 import { childcareUI } from './ui/childcare.js';
 import { calculateBalanceChain } from './utils/finance.js';
-import { balanceSnapshotRepository } from './db/repository.js';
 import { BALANCE_START_DATE_KEY, BALANCE_OPENING_AMOUNT_KEY } from './utils/storage.js';
 import { RecurrenceManager } from './utils/recurrence.js';
 
@@ -134,6 +138,55 @@ async function init() {
     });
   }
 
+  // Balance Start Configuration Save Logic
+  const saveBalanceBtn = document.getElementById('saveBalanceStartBtn');
+  if (saveBalanceBtn) {
+    saveBalanceBtn.addEventListener('click', async () => {
+      const dateInput = document.getElementById('balanceStartDate');
+      const amountInput = document.getElementById('balanceOpeningAmount');
+      const statusDiv = document.getElementById('balanceStartStatus');
+
+      if (!dateInput || !amountInput) return;
+
+      const date = dateInput.value;
+      const amount = parseFloat(amountInput.value) || 0;
+
+      if (!date) {
+        alert('Please select a start month.');
+        return;
+      }
+
+      if (statusDiv) statusDiv.textContent = 'Saving...';
+
+      try {
+        // Save to localStorage
+        localStorage.setItem(BALANCE_START_DATE_KEY, date);
+        const amountPence = Math.round(amount * 100);
+        localStorage.setItem(BALANCE_OPENING_AMOUNT_KEY, amountPence.toString());
+
+        // Trigger Recalculation
+        // Append -01 to YYYY-MM to create a valid ISO date for the trigger
+        await triggerBalanceRecalc(date + '-01');
+
+        if (statusDiv) statusDiv.textContent = 'Recalculation complete.';
+        
+        // Dispatch refresh
+        if (window.app && window.app.refreshApp) {
+          window.app.refreshApp();
+        }
+        
+        // Clear status after delay
+        setTimeout(() => {
+          if (statusDiv) statusDiv.textContent = '';
+        }, 3000);
+
+      } catch (err) {
+        console.error('Failed to save balance configuration:', err);
+        if (statusDiv) statusDiv.textContent = 'Error: ' + err.message;
+      }
+    });
+  }
+
   // 4. Ensure Storage Persistence (Safari/Mobile mitigation)
   await refreshPersistenceWarning();
 
@@ -148,8 +201,6 @@ async function init() {
   await debtUI.init();
   await assetUI.init();
   await childcareUI.init();
-  // await expectedIncomeUI.init(); // REMOVED in v2.0
-  // await pdfImportUI.init(); // REMOVED in v2.0 - PDF import now triggered from Settings button
 
   await categoryUI.init();
   await targetsUI.init();
