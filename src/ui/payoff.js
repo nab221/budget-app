@@ -121,17 +121,22 @@ function renderLoanPayoff(debts, extraPence) {
   const minInterest = Math.min(...results.map(r => r.totalInterest));
   const activeResult = results.find(r => r.id === selectedStrategyId);
 
+  const hasInterestOnly = debts.some(d => d.isInterestOnly);
+  const interestOnlyHint = hasInterestOnly 
+    ? '<div class="hint" style="margin-top:10px; color:var(--warn); grid-column: 1 / -1">⚠️ Some loans are configured as Interest-Only. Their principal balance will not decrease unless you provide an "Extra Monthly Payment" above.</div>' 
+    : '';
+
   comparisonContainer.innerHTML = results.map(res => `
     <div class="card ${res.id === selectedStrategyId ? 'border-primary' : ''}" 
          style="padding:12px; flex:1; cursor:pointer; position:relative; border:1px solid ${res.id === selectedStrategyId ? 'var(--accent)' : 'var(--border-light)'}"
          onclick="document.getElementById('loanPayoffStrategy').value='${res.id}'; document.getElementById('loanPayoffStrategy').dispatchEvent(new Event('change'))">
       <h3 style="font-size:.8rem; margin-bottom:4px">${res.name}</h3>
-      <div style="font-size:1.1rem; font-weight:700">${res.monthsToClear} months</div>
+      <div style="font-size:1.1rem; font-weight:700">${res.monthsToClear >= 600 ? '50+ years' : res.monthsToClear + ' months'}</div>
       <div style="font-size:.8rem; color:${res.totalInterest === minInterest ? 'var(--success)' : 'inherit'}">
         ${formatGBP(res.totalInterest)} int. ${res.totalFees > 0 ? `(+ ${formatGBP(res.totalFees)} fees)` : ''}
       </div>
     </div>
-  `).join('');
+  `).join('') + interestOnlyHint;
 
   strategyInput.onchange = () => renderPayoffPlanner();
 
