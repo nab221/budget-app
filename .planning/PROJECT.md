@@ -1,18 +1,26 @@
 # Project: Budget App
 
 ## Current State
-- **Latest Version**: v2.1 (Advanced Refinements & Security)
-- **Status**: Milestone v2.1 Complete. Shipped advanced debt logic, security fallbacks, and persistence UX refinements.
-- **Key Features**: Interest-Only & ERC Simulation, UUID Fallbacks (non-HTTPS support), Dynamic Persistence Banners, "Trigger Recurrence" Manual Override.
+- **Latest Version**: v2.2 (Navigation Overhaul & Dashboard Redesign)
+- **Status**: Milestone v2.2 Complete. Shipped Dashboard-as-a-tab, daily balance graph, per-tab summaries, and debt bug fixes.
+- **Key Features**: Daily Balance Graph, Mobile Navigation, Consolidated Dashboard, Debt Statement PDF Import.
 
-## Next Milestone: v2.0 UI Overhaul (Core)
-- **Goal**: Implement the core visual and structural changes for the v2.0 dashboard and expense workflows.
+## Next Milestone: v2.3 — Advanced Analytics & Mobile Polish
+- **Goal**: Implement deeper insights into spending patterns and further refine the mobile experience.
 - **Status**: Planning.
 
 ---
 
 <details>
 <summary>Milestone History</summary>
+
+### v2.2: Navigation Overhaul, Dashboard Redesign, and Debt Bug Fixes (2026-03-05)
+- Transformed Dashboard into a top-level tab and repositioned navigation to the top of the shell.
+- Implemented a 365-day daily granularity balance graph with forecast projections.
+- Reordered and consolidated Dashboard summary boxes (Debt Stats, Childcare, Balance).
+- Added per-tab summary banners using a shared `renderTabSummary` utility.
+- Fixed debt statement rendering regressions and restored the PDF import pipeline.
+- Added a mobile-responsive hamburger menu for navigation.
 
 ### v2.1: Advanced Refinements & Security (2026-03-04)
 - Implemented robust UUID fallback in `src/utils/security.js` (Crypto -> Math.random).
@@ -77,4 +85,4 @@ A personal budget tracking web app — a full rebuild of a buggy AI-generated pr
 </details>
 
 ---
-*Last updated: 2026-03-04 (v2.0 Initializing)*
+*Last updated: 2026-03-05 (v2.2 Complete)*

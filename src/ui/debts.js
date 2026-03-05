@@ -1,7 +1,7 @@
-import { debtRepository, statementRepository } from '../db/repository.js';
-import { formatGBP, toPence, fromPence } from '../utils/currency.js';
-import { calcMinPayment, calcUtilization } from '../utils/finance.js';
-import { safeHTML } from './render.js';
+import { debtRepository, statementRepository, incomeRepository } from '../db/repository.js';
+import { formatGBP, fromPence } from '../utils/currency.js';
+import { calcMinPayment, calcUtilization, simulatePayoff } from '../utils/finance.js';
+import { safeHTML, renderTabSummary } from './render.js';
 
 /**
  * Debt UI Module
@@ -144,6 +144,7 @@ export const debtUI = {
     const container = document.getElementById('debtFormContainer');
     if (!container) return;
 
+    const categories = await categoryRepository.getCategories();
     let data = {
       name: '',
       debtType: 'credit-card',
@@ -355,7 +356,8 @@ export const debtUI = {
     const container = document.getElementById('stmtFormContainer');
     if (!container) return;
 
-    const debtId = parseInt(document.getElementById('stmtDebtId').value);
+    const debtIdInput = document.getElementById('stmtDebtId');
+    const debtId = debtIdInput ? parseInt(debtIdInput.value) : null;
     
     let data = {
       date: new Date().toISOString().slice(0, 10),
@@ -423,7 +425,8 @@ export const debtUI = {
   },
 
   async handleSaveStatement() {
-    const debtId = parseInt(document.getElementById('stmtDebtId').value);
+    const debtIdInput = document.getElementById('stmtDebtId');
+    const debtId = debtIdInput ? parseInt(debtIdInput.value) : null;
     const date = document.getElementById('stmtDateInput').value;
     const openingBalance = parseFloat(document.getElementById('stmtOpeningBalanceInput').value);
     const balance = parseFloat(document.getElementById('stmtBalanceInput').value);
@@ -531,6 +534,44 @@ async prefillStatementForm(summary) {
     const debts = await debtRepository.getAll();
     const container = document.getElementById('debtList');
     if (!container) return;
+
+    // --- Tab Summary Calculation ---
+    const totalDebtPence = debts.reduce((sum, d) => sum + (d.currentBalance || 0), 0);
+    
+    // Recurrent-to-Income Calculation
+    const todayMonth = new Date().toISOString().slice(0, 7);
+    const monthIncome = await incomeRepository.getByMonth(todayMonth);
+    const totalIncomePence = monthIncome.reduce((s, i) => s + (i.amount || 0), 0);
+    
+    const extraMonthlyPounds = parseFloat(localStorage.getItem('payoffExtra')) || 0;
+    const extraMonthlyPence = extraMonthlyPounds * 100;
+    const totalMinPayments = debts.reduce((sum, d) => sum + calcMinPayment(d.currentBalance, d.apr, 0, new Date(), d.promoEndDate), 0);
+    const totalRepayment = totalMinPayments + extraMonthlyPence;
+    const fixedToIncomeRatio = totalIncomePence > 0 ? Math.round((totalRepayment / totalIncomePence) * 100) : 0;
+
+    // Debt-Free Countdown Calculation
+    let debtFreeText = 'No debt';
+    let debtFreeColor = 'var(--accent)';
+    if (debts.length > 0) {
+      const savedStrategy = localStorage.getItem('budget_payoff_preference') || 'avalanche';
+      const simulation = simulatePayoff(debts, savedStrategy, extraMonthlyPence);
+      if (simulation.monthsToClear >= 600) {
+        debtFreeText = 'Never (at min)';
+        debtFreeColor = 'var(--danger)';
+      } else {
+        const years = Math.floor(simulation.monthsToClear / 12);
+        const months = simulation.monthsToClear % 12;
+        debtFreeText = years > 0 ? `${years}y ${months}m` : `${months}mo`;
+        debtFreeColor = 'var(--warn)';
+      }
+    }
+
+    renderTabSummary('debtsSummary', [
+      { label: 'Total Debt', value: totalDebtPence, color: 'var(--danger)' },
+      { label: 'Debt-Free In', value: debtFreeText, color: debtFreeColor, isRaw: true },
+      { label: 'Recurrent-to-Income', value: `${fixedToIncomeRatio}%`, color: fixedToIncomeRatio > 50 ? 'var(--warn)' : 'var(--text-soft)', isRaw: true }
+    ]);
+    // --- End Tab Summary ---
 
     if (debts.length === 0) {
       container.innerHTML = '<div class="hint" style="text-align:center; padding:20px">No debts tracked yet.</div>';

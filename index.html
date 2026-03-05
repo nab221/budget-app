@@ -42,47 +42,54 @@
         </div>
       </header>
 
-      <!-- ════════ DASHBOARD SUMMARY ════════ -->
-      <section class="card" style="margin-bottom:14px">
-        <div class="card-hd">
-          <h2>Dashboard</h2>
-          <div style="display:flex;gap:6px;align-items:center">
-            <input type="month" id="monthPicker" style="font-size:.8rem"/>
-            <select id="viewSelect" style="font-size:.8rem">
-              <option value="current">Month</option>
-              <option value="ytd">YTD</option>
-              <option value="all">All</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Unified Rolling Financial Overview Chart -->
-        <div class="chart-container" id="rollingOverviewChartContainer">
-          <h3 class="chart-title">Rolling Financial Overview</h3>
-          <canvas id="rollingOverviewChart"></canvas>
-        </div>
-
-        <div class="sum-grid" id="summaryGrid">
-          <!-- Summary items will be rendered here -->
-        </div>
-      </section>
-
-      <!-- ════════ MAIN CONTENT / TABS ════════ -->
-      <section class="card">
+      <!-- ════════ MAIN NAVIGATION ════════ -->
+      <nav class="nav-container">
+        <button id="mobileMenuBtn" class="mobile-menu-btn" aria-label="Toggle Menu">☰</button>
         <div class="tabs" id="mainTabs">
-          <button class="tab active" data-tab="income">Income</button>
+          <button class="tab active" data-tab="dashboard">Dashboard</button>
+          <button class="tab" data-tab="income">Income</button>
           <button class="tab" data-tab="expenses">Expenses</button>
           <button class="tab" data-tab="debts">Debts</button>
           <button class="tab" data-tab="payoff">Payoff Planner</button>
           <button class="tab" data-tab="assets">Assets</button>
           <button class="tab" data-tab="childcare">Childcare</button>
           <button class="tab" data-tab="settings">Settings</button>
-
         </div>
+      </nav>
 
+      <!-- ════════ MAIN CONTENT / TABS ════════ -->
+      <section class="card">
         <div id="tab-content">
+          <!-- DASHBOARD -->
+          <div class="tab-panel active" data-panel="dashboard">
+            <div class="card-hd">
+              <h2>Dashboard</h2>
+            </div>
+
+            <!-- Unified Rolling Financial Overview Chart -->
+            <div class="chart-container" id="rollingOverviewChartContainer">
+              <h3 class="chart-title">Rolling Financial Overview</h3>
+              <canvas id="rollingOverviewChart"></canvas>
+            </div>
+
+            <!-- Period Selector (Month Navigator + View Select) -->
+            <div style="display:flex; justify-content:center; align-items:center; gap:12px; margin: 15px 0 20px 0; flex-wrap:wrap">
+              <div id="dashboardMonthPicker" class="month-nav" style="margin-bottom:0; padding:5px"></div>
+              <select id="viewSelect" style="font-size:.9rem; padding:6px 12px; font-weight:600; border-radius:6px">
+                <option value="current">Month View</option>
+                <option value="ytd">Year to Date</option>
+                <option value="all">All Time</option>
+              </select>
+            </div>
+
+            <div class="sum-grid" id="summaryGrid">
+              <!-- Summary items will be rendered here -->
+            </div>
+          </div>
+
           <!-- INCOME -->
-          <div class="tab-panel active" data-panel="income">
+          <div class="tab-panel" data-panel="income">
+            <div id="incomeSummary"></div>
             <!-- Inline Form for Add/Update -->
             <div id="incomeFormContainer" class="card hidden" style="margin-bottom:16px; background:var(--bg-alt);">
               <!-- Form injected by transactions.js -->
@@ -94,7 +101,7 @@
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:10px">
               <div style="display:flex; gap:8px">
                 <button id="addIncBtn" class="primary">+ Add Income</button>
-                <button id="setIncBalBtn" class="ghost sm">💰 Set Current Balance</button>
+                
               </div>
 
               <!-- Search Bar & Category Filter -->
@@ -109,6 +116,7 @@
 
           <!-- EXPENSES -->
           <div class="tab-panel" data-panel="expenses">
+            <div id="expensesSummary"></div>
             <!-- Inline Form for Add/Update -->
             <div id="expenseFormContainer" class="card hidden" style="margin-bottom:16px; background:var(--bg-alt);">
               <!-- Form injected by expenses.js -->
@@ -117,7 +125,7 @@
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:10px">
               <div style="display:flex; gap:8px">
                 <button id="addExpenseBtn" class="primary">+ Add Expense</button>
-                <button id="setExpBalBtn" class="ghost sm">💰 Set Current Balance</button>
+                
                 <div id="markAllPaidRow">
                   <button id="markAllPaidBtn" class="ghost sm">✓ Mark all as paid</button>
                 </div>
@@ -228,6 +236,7 @@
 
           <!-- DEBTS -->
           <div class="tab-panel" data-panel="debts">
+            <div id="debtsSummary"></div>
             <!-- Inline Form for Add/Update Debt Account -->
             <div id="debtFormContainer" class="card hidden" style="margin-bottom:16px; background:var(--bg-alt);">
               <!-- Form injected by debts.js -->
@@ -281,6 +290,7 @@
 
           <!-- ASSETS -->
           <div class="tab-panel" data-panel="assets">
+            <div id="assetsSummary"></div>
             <!-- Inline Form for Add/Update Asset Account -->
             <div id="assetFormContainer" class="card hidden" style="margin-bottom:16px; background:var(--bg-alt);">
               <!-- Form injected by assets.js -->
@@ -305,6 +315,7 @@
 
           <!-- CHILDCARE -->
           <div class="tab-panel" data-panel="childcare">
+            <div id="childcareSummary"></div>
             <!-- Account list (shown when no ledger is active) -->
             <div id="childcareAccountList"></div>
             <!-- Ledger view (shown when an account is selected) -->

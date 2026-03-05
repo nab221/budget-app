@@ -1,23 +1,23 @@
 # Project State: Budget App
 
-## Milestone: v2.0 UI Overhaul (Core)
-**Status**: PLANNING
-**Objective**: Implement core visual and structural changes for dashboard and expense workflows.
+## Milestone: v2.2 — Navigation Overhaul, Dashboard Redesign, and Debt Bug Fixes
+**Status**: COMPLETED
+**Objective**: Transform Dashboard into a tab, implement daily granularity graph, and fix debt statement regressions.
 
 ## Current Progress
-- **Active Milestone**: v2.0 (Core)
-- **Completed Milestones**: v1.0 - v1.5, v2.1
-- **Current Position**: Planning Phase 1 (Header & Banner Cleanup)
+- **Active Milestone**: v2.2 (Navigation & Dashboard) — COMPLETE
+- **Completed Milestones**: v1.0 - v1.5, v2.1, v2.2
+- **Current Position**: Finalizing v2.2 / Preparing for next milestone.
 
 ## Recent Activity
-- **2026-03-04**: Completed Milestone v2.1. Final Audit PASSED (7/7 requirements).
-- **2026-03-04**: Completed Phase 2.1.4. Removed redundant Income tab import button and cleaned up legacy initialization logic.
-- **2026-03-04**: Completed Phase 2.1.3. Added "Trigger Recurrence" button and consolidated balance configuration in Settings.
-- **2026-03-04**: Completed Phase 2.1.2. Implemented interest-only loan logic, ERC fee handling, and UI toggles. Verified with 31 tests.
+- **2026-03-05**: Completed v2.2.
+- **2026-03-05**: Implemented per-tab summary banners and integrated `renderTabSummary` utility.
+- **2026-03-05**: Fixed debt statement rendering and restored PDF import pipeline.
+- **2026-03-05**: Redesigned Dashboard with daily balance graph and consolidated summary boxes.
+- **2026-03-05**: Restructured app navigation to make Dashboard a top-level tab.
 
 ## Next Steps
-1. **Phase 1**: Implement Header & Banner UI updates.
-2. **Phase 2**: Dashboard Chart Merge & Simplification.
+1. **Milestone v2.3**: Planning UI/UX polish and advanced reporting features.
 
 ---
-*Last updated: 2026-03-04 (v2.1 Complete)*
+*Last updated: 2026-03-05 (v2.2 Complete)*
