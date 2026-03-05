@@ -12,9 +12,10 @@ import { expensesUI } from './ui/expenses';
 import { debtUI } from './ui/debts';
 import { assetUI } from './ui/assets';
 import { templateUI } from './ui/templates';
+import { pdfImportUI } from './ui/pdf-import';
 import { targetsUI } from './ui/targets';
 import { backupUI } from './ui/backup';
-import { renderDashboard } from './ui/dashboard';
+import { initDashboard, renderDashboard } from './ui/dashboard';
 import { renderPayoffPlanner } from './ui/payoff';
 import { initPWA, installApp, checkExportReminder } from './ui/pwa-ux';
 import { initFileSyncUI, refreshPersistenceWarning } from './ui/file-sync';
@@ -57,47 +58,40 @@ async function init() {
     console.error('Failed to run recurrence check:', err);
   }
 
-  // 4. Month Picker, View Select and Tab Navigation
-  const monthPicker = document.getElementById('monthPicker');
-  const viewSelect = document.getElementById('viewSelect');
-
-  const refreshDashboard = () => {
-    if (monthPicker && viewSelect) {
-      renderDashboard('summaryGrid', viewSelect.value, monthPicker.value);
-    }
-  };
-
+  // 4. Tab Navigation & Global Refresh
   window.app = { 
-    renderAll: () => {
-      refreshDashboard();
-      window.app.refreshApp();
+    renderAll: async () => {
+      const activeTab = document.querySelector('#mainTabs .tab.active');
+      const panelId = activeTab ? activeTab.dataset.tab : 'dashboard';
+      
+      if (panelId === 'dashboard') await renderDashboard();
+      if (panelId === 'income') await transactionUI.render();
+      if (panelId === 'expenses') await expensesUI.render();
+      if (panelId === 'debts') await debtUI.render();
+      if (panelId === 'assets') await assetUI.render();
+      if (panelId === 'payoff') await renderPayoffPlanner();
+      if (panelId === 'childcare') await childcareUI.render();
+      if (panelId === 'settings') {
+        await categoryUI.render();
+        await targetsUI.renderTargetSettings();
+      }
     },
     refreshApp: () => window.dispatchEvent(new CustomEvent('app:refresh'))
   };
 
-  window.addEventListener('app:refresh', () => {
-    refreshDashboard();
+  window.addEventListener('app:refresh', async () => {
+    await window.app.renderAll();
   });
 
-  if (monthPicker) {
-    if (!monthPicker.value) {
-      monthPicker.value = new Date().toISOString().slice(0, 7);
-    }
-    monthPicker.addEventListener('change', () => {
-      console.log(`Month changed to: ${monthPicker.value}`);
-      transactionUI.render(monthPicker.value);
-      refreshDashboard();
-    });
-  }
-
-  if (viewSelect) {
-    viewSelect.addEventListener('change', () => {
-      console.log(`Period changed to: ${viewSelect.value}`);
-      refreshDashboard();
-    });
-  }
-
   const mainTabs = document.getElementById('mainTabs');
+  const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+
+  if (mobileMenuBtn && mainTabs) {
+    mobileMenuBtn.addEventListener('click', () => {
+      mainTabs.classList.toggle('open');
+    });
+  }
+
   if (mainTabs) {
     mainTabs.addEventListener('click', async (e) => {
       const t = e.target.closest('.tab');
@@ -111,7 +105,11 @@ async function init() {
         p.classList.toggle('active', p.dataset.panel === panelId);
       });
 
+      // Close mobile menu if open
+      mainTabs.classList.remove('open');
+
       // Refresh data when switching tabs
+      if (panelId === 'dashboard') await renderDashboard();
       if (panelId === 'income') await transactionUI.render();
       if (panelId === 'expenses') await expensesUI.render();
       if (panelId === 'debts') await debtUI.render();
@@ -132,9 +130,6 @@ async function init() {
           balanceOpeningInput.value = (savedAmountPence / 100).toFixed(2);
         }
       }
-      
-      // Always refresh dashboard in case totals changed
-      refreshDashboard();
     });
   }
 
@@ -201,13 +196,14 @@ async function init() {
   await debtUI.init();
   await assetUI.init();
   await childcareUI.init();
+  await templateUI.init();
+  await pdfImportUI.init();
 
   await categoryUI.init();
   await targetsUI.init();
   await backupUI.init();
-
-  // 6. First Dashboard Render
-  refreshDashboard();
+  
+  await initDashboard();
 
   console.log('Budget App initialized successfully.');
 }

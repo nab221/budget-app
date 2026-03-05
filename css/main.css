@@ -134,12 +134,85 @@ input[type="number"] { text-align: right; }
 }
 .balance-card .sum-val { font-size: 1.35rem; color: var(--accent); }
 
+/* ── NAVIGATION ── */
+.nav-container {
+  position: relative;
+  margin-bottom: 14px;
+}
+.mobile-menu-btn {
+  display: none;
+  font-size: 1.5rem;
+  background: none;
+  border: none;
+  color: var(--text);
+  padding: 5px 10px;
+  cursor: pointer;
+  z-index: 101;
+}
+
 /* ── TABS ── */
-.tabs { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 8px; -webkit-overflow-scrolling: touch; }
-.tab { padding: 5px 10px; border-radius: 999px; background: var(--card); border: 1px solid var(--border); font-size: .78rem; cursor: pointer; white-space: nowrap; transition: all var(--tr); color: var(--text); }
-.tab.active { background: var(--accent-soft); border-color: var(--accent-border); color: var(--accent); font-weight: 600; }
+.tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 2px;
+  -webkit-overflow-scrolling: touch;
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  font-size: .85rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--tr);
+  color: var(--text-soft);
+  font-weight: 500;
+}
+.tab:hover { border-color: var(--text-dim); color: var(--text); }
+.tab.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 4px 12px var(--accent-soft);
+}
 .tab-panel { display: none; }
 .tab-panel.active { display: block; }
+
+@media (max-width: 768px) {
+  .mobile-menu-btn { display: block; }
+  .tabs {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--card);
+    flex-direction: column;
+    padding: 10px;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    z-index: 100;
+    gap: 4px;
+  }
+  .tabs.open { display: flex; }
+  .tab {
+    width: 100%;
+    text-align: left;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+  }
+  .tab.active {
+    background: var(--accent-soft);
+    color: var(--accent);
+    box-shadow: none;
+  }
+}
 
 /* ── TABLE ── */
 .tbl { width: 100%; border-collapse: collapse; font-size: .85rem; margin-top: 8px; }

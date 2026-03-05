@@ -1,6 +1,6 @@
 import { assetRepository } from '../db/repository.js';
 import { formatGBP, fromPence } from '../utils/currency.js';
-import { safeHTML } from './render.js';
+import { safeHTML, renderTabSummary } from './render.js';
 
 /**
  * Asset UI Module
@@ -159,6 +159,13 @@ export const assetUI = {
     const assets = await assetRepository.getAll();
     const body = document.getElementById('astBody');
     if (!body) return;
+
+    // --- Tab Summary ---
+    const totalAssetsPence = assets.reduce((sum, a) => sum + (a.currentBalance || 0), 0);
+    renderTabSummary('assetsSummary', [
+      { label: 'Total Assets', value: totalAssetsPence, color: 'var(--accent)' }
+    ]);
+    // --- End Summary ---
 
     if (assets.length === 0) {
       body.innerHTML = '<tr><td colspan="5" class="hint" style="text-align:center">No assets tracked yet.</td></tr>';

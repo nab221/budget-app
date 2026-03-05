@@ -362,10 +362,10 @@ export function renderDebtPayoffChart(canvasId, projectionData) {
 
 /**
  * Render (or re-render) the unified Rolling Financial Overview chart.
- * Shows 9 months history, 1 current month (hybrid), and 2 months forecast.
+ * Shows 365 days of history and 60 days of forecast daily balance.
  *
  * @param {string} canvasId - The id of the <canvas> element.
- * @param {Object} data - { labels, income, expenses, currentMonthIndex }
+ * @param {Object} data - { labels, data, todayIndex }
  */
 export function renderRollingOverviewChart(canvasId, data) {
   const canvas = document.getElementById(canvasId);
@@ -376,10 +376,10 @@ export function renderRollingOverviewChart(canvasId, data) {
     _chartInstances.delete(canvasId);
   }
 
-  const { labels, income, expenses, currentMonthIndex } = data;
+  const { labels, data: balanceData, todayIndex } = data;
 
-  const incomeColor = '#009E73'; // bluish green
-  const expenseColor = '#D55E00'; // vermilion
+  const primaryColor = '#0072B2'; // Blue
+  const warnColor = '#D55E00';    // Vermilion
 
   const chart = new Chart(canvas, {
     type: 'line',
@@ -387,29 +387,17 @@ export function renderRollingOverviewChart(canvasId, data) {
       labels,
       datasets: [
         {
-          label: 'Income',
-          data: income,
-          borderColor: incomeColor,
-          backgroundColor: incomeColor + '22',
+          label: 'Account Balance',
+          data: balanceData,
+          borderColor: primaryColor,
+          backgroundColor: primaryColor + '11',
           fill: true,
-          tension: 0.3,
-          pointRadius: 3,
-          pointHoverRadius: 5,
+          tension: 0.2,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          borderWidth: 2,
           segment: {
-            borderDash: ctx => ctx.p0DataIndex >= currentMonthIndex ? [6, 4] : undefined,
-          }
-        },
-        {
-          label: 'Expenses',
-          data: expenses,
-          borderColor: expenseColor,
-          backgroundColor: expenseColor + '22',
-          fill: true,
-          tension: 0.3,
-          pointRadius: 3,
-          pointHoverRadius: 5,
-          segment: {
-            borderDash: ctx => ctx.p0DataIndex >= currentMonthIndex ? [6, 4] : undefined,
+            borderDash: ctx => ctx.p0DataIndex >= todayIndex ? [6, 4] : undefined,
           }
         }
       ]
@@ -423,20 +411,15 @@ export function renderRollingOverviewChart(canvasId, data) {
       },
       plugins: {
         legend: {
-          position: 'top',
-          labels: {
-            font: { size: 11 },
-            usePointStyle: true,
-            pointStyleWidth: 10
-          }
+          display: false
         },
         tooltip: {
           position: 'nearest',
           callbacks: {
             label: (ctx) => {
-              const isForecast = ctx.dataIndex > currentMonthIndex;
+              const isForecast = ctx.dataIndex > todayIndex;
               const suffix = isForecast ? ' (Forecast)' : '';
-              return ` ${ctx.dataset.label}${suffix}: ${formatPence(ctx.parsed.y)}`;
+              return ` Balance${suffix}: ${formatPence(ctx.parsed.y)}`;
             }
           }
         }
@@ -444,10 +427,20 @@ export function renderRollingOverviewChart(canvasId, data) {
       scales: {
         x: {
           grid: { display: false },
-          ticks: { font: { size: 10 } }
+          ticks: {
+            font: { size: 10 },
+            autoSkip: true,
+            maxTicksLimit: 12,
+            callback: function(val, index) {
+              // Show month/year for skipped labels
+              const label = this.getLabelForValue(val);
+              const date = new Date(label);
+              return date.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
+            }
+          }
         },
         y: {
-          beginAtZero: true,
+          beginAtZero: false,
           ticks: {
             font: { size: 10 },
             callback: (value) => formatPence(value)

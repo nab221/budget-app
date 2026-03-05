@@ -1,7 +1,7 @@
 import { childcareRepository, categoryRepository } from '../db/repository.js';
 import { formatGBP, fromPence } from '../utils/currency.js';
 import { calculateFundingGap, getEntitlementPeriod } from '../utils/childcare.js';
-import { safeHTML, modalUI } from './render.js';
+import { safeHTML, modalUI, renderTabSummary } from './render.js';
 
 /**
  * Childcare UI Module
@@ -159,6 +159,22 @@ export const childcareUI = {
     const ledgerSection = document.getElementById('childcareLedgerSection');
     if (!accountList || !ledgerSection) return;
 
+    // --- Tab Summary ---
+    const accounts = await childcareRepository.getAccounts();
+    const summaryCards = [];
+    for (const acc of accounts) {
+      const balance = await childcareRepository.getBalance(acc.id);
+      const { gap } = calculateFundingGap(acc.targetMonthlySpend || 0, balance);
+      summaryCards.push({
+        label: acc.childName,
+        value: balance,
+        color: 'var(--info)',
+        note: gap > 0 ? `Gap: ${formatGBP(gap)}` : 'Funded'
+      });
+    }
+    renderTabSummary('childcareSummary', summaryCards);
+    // --- End Tab Summary ---
+
     if (this._activeAccountId !== null) {
       accountList.style.display = 'none';
       ledgerSection.style.display = '';
@@ -166,18 +182,19 @@ export const childcareUI = {
     } else {
       accountList.style.display = '';
       ledgerSection.style.display = 'none';
-      await this._renderAccounts();
+      await this._renderAccounts(accounts);
     }
   },
 
   /**
    * Render the account cards list.
+   * @param {Array} accounts (optional) - Already fetched accounts
    */
-  async _renderAccounts() {
+  async _renderAccounts(accounts) {
     const container = document.getElementById('childcareAccountList');
     if (!container) return;
 
-    const accounts = await childcareRepository.getAccounts();
+    if (!accounts) accounts = await childcareRepository.getAccounts();
 
     let headerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
@@ -195,7 +212,7 @@ export const childcareUI = {
     const today = new Date().toISOString().slice(0, 10);
     const cardPromises = accounts.map(async (account) => {
       const balance = await childcareRepository.getBalance(account.id);
-      const { gap, suggestedDeposit } = calculateFundingGap(account.targetMonthlySpend || 0, balance);
+      const { gap } = calculateFundingGap(account.targetMonthlySpend || 0, balance);
 
       let reconfirmAlert = '';
       if (account.entitlementStart) {

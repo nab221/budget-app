@@ -3,14 +3,15 @@ import {
   oneOffExpenseRepository,
   categoryRepository,
   statementRepository,
+  targetRepository,
   triggerBalanceRecalc,
   triggerDailyForecastRecalc
 } from '../db/repository.js';
 import { formatGBP, toPence, fromPence } from '../utils/currency.js';
-import { safeHTML } from './render.js';
+import { safeHTML, renderTabSummary } from './render.js';
 import { filterTransactions } from '../utils/filtering.js';
 import { templateUI } from './templates.js';
-import { nextWorkingDay } from '../utils/cashflow.js';
+import { nextWorkingDay, generateInstances } from '../utils/cashflow.js';
 import { generateUUID } from '../utils/security.js';
 
 /**
@@ -136,14 +137,6 @@ export const expensesUI = {
           triggerBtn.disabled = false;
           triggerBtn.innerHTML = originalContent;
         }
-      };
-    }
-
-    // Set Current Balance
-    const setBalBtn = document.getElementById('setExpBalBtn');
-    if (setBalBtn) {
-      setBalBtn.onclick = () => {
-        if (window.transactionUI) window.transactionUI.showSetBalanceModal();
       };
     }
 
@@ -418,7 +411,7 @@ export const expensesUI = {
       if (!this.editingId) {
         // New or transformed expense
         if (isRecurring) {
-          payload.recurrenceId = this.generateUUID();
+          payload.recurrenceId = generateUUID();
           payload.parentDate = payload.date;
           id = await recurrentExpenseRepository.add({ ...payload, status: 'pending', cycleCurrent: 0 });
           
@@ -574,10 +567,11 @@ export const expensesUI = {
     await this.renderMonthPicker();
     await this.renderCategoryFilter();
 
-    const [recurrentRaw, oneOffRaw, categories] = await Promise.all([
+    const [recurrentRaw, oneOffRaw, categories, targets] = await Promise.all([
       recurrentExpenseRepository.getByMonth(this.selectedMonth),
       oneOffExpenseRepository.getByMonth(this.selectedMonth),
-      categoryRepository.getCategories()
+      categoryRepository.getCategories(),
+      targetRepository.getAll()
     ]);
 
     const catMap = Object.fromEntries(categories.map(c => [c.id, c.name]));
@@ -594,6 +588,35 @@ export const expensesUI = {
     // Filter using utility
     const items = filterTransactions(merged, this.searchQuery, this.selectedCategories, ['displayLabel'], catMap);
 
+    // Totals for summary
+    const totalPence = items.reduce((s, i) => s + (i.amount || 0), 0);
+    const recTotal = items.filter(i => i.type === 'recurrent').reduce((s, i) => s + (i.amount || 0), 0);
+    const oneTotal = items.filter(i => i.type === 'oneoff').reduce((s, i) => s + (i.amount || 0), 0);
+
+    // Build progress bars for summary
+    const progressBars = [];
+    const targetMap = new Map(targets.map(t => [t.bucket, t.amount]));
+    
+    if (targetMap.has('recurrent')) {
+      const target = targetMap.get('recurrent');
+      const percent = Math.min(Math.round((recTotal / target) * 100), 100);
+      progressBars.push({ label: 'Recurrent Target', percent, color: percent >= 100 ? 'var(--danger)' : 'var(--accent)' });
+    }
+    if (targetMap.has('one-off')) {
+      const target = targetMap.get('one-off');
+      const percent = Math.min(Math.round((oneTotal / target) * 100), 100);
+      progressBars.push({ label: 'One-off Target', percent, color: percent >= 100 ? 'var(--danger)' : 'var(--warn)' });
+    }
+
+    renderTabSummary('expensesSummary', [
+      { 
+        label: 'Total Expenses', 
+        value: totalPence, 
+        color: 'var(--danger)',
+        progressBars
+      }
+    ]);
+
     if (items.length === 0) {
       container.innerHTML = '<tr><td colspan="6" class="hint" style="text-align:center;padding:20px">No matching expenses found for this month.</td></tr>';
       this.updateTotal(0);
@@ -602,8 +625,6 @@ export const expensesUI = {
 
     // Sort by date desc
     items.sort((a, b) => b.displayDate.localeCompare(a.displayDate));
-
-    const total = items.reduce((s, i) => s + (i.amount || 0), 0);
 
     container.innerHTML = items.map(item => {
       const catName = catMap[item.categoryId] || 'None';
@@ -654,7 +675,7 @@ export const expensesUI = {
       `;
     }).join('');
 
-    this.updateTotal(total);
+    this.updateTotal(totalPence);
   },
 
   /**
@@ -726,12 +747,6 @@ export const expensesUI = {
       totalEl.style.cssText = 'text-align:right;padding:10px;font-weight:bold;border-top:1px solid var(--border)';
       panel.appendChild(totalEl);
     }
-
-    // Remove old separate totals if they exist
-    const oldRec = document.getElementById('expenses-total-recurrent');
-    if (oldRec) oldRec.remove();
-    const oldOne = document.getElementById('expenses-total-oneoff');
-    if (oldOne) oldOne.remove();
 
     totalEl.textContent = `Filtered Total: ${formatGBP(totalPence)}`;
   }

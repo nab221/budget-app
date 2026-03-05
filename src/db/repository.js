@@ -548,6 +548,110 @@ export async function getCurrentBalance() {
 }
 
 /**
+ * Daily Rolling Financial Data Aggregation.
+ * Returns daily balance data for:
+ * - Past 365 days (history)
+ * - Future 60 days (forecast)
+ *
+ * @returns {Promise<Object>} { labels, data, todayIndex }
+ */
+export async function getDailyRollingData() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayStr = today.toISOString().split('T')[0];
+
+  const startDate = new Date(today);
+  startDate.setDate(startDate.getDate() - 365);
+  const startDateStr = startDate.toISOString().split('T')[0];
+
+  const endDate = new Date(today);
+  endDate.setDate(endDate.getDate() + 60);
+  const endDateStr = endDate.toISOString().split('T')[0];
+
+  // 1. Fetch all data needed
+  const [
+    incomeList,
+    recurrentList,
+    oneOffList,
+    expectedIncomeList,
+    initialBalancePence
+  ] = await Promise.all([
+    db.income.where('date').between(startDateStr, endDateStr, true, true).toArray(),
+    db.recurrentExpenses.toArray(), // Need all to check recurrentFallsInMonth
+    db.oneOffExpenses.where('date').between(startDateStr, endDateStr, true, true).toArray(),
+    db.expectedIncome.where('date').between(startDateStr, endDateStr, true, true).toArray(),
+    (async () => {
+      // Get balance just before startDate
+      const startMonth = startDateStr.slice(0, 7);
+      const snapshots = await db.balanceSnapshots.where('month').below(startMonth).reverse().toArray();
+      let bal = parseInt(localStorage.getItem('budget_balance_opening_amount') || '0', 10);
+      
+      if (snapshots.length > 0) {
+        bal = snapshots[0].closingBalance;
+        // Add transactions between snapshot end and startDate
+        const snapEnd = snapshots[0].month + '-31'; // approx
+        const intermediateIncome = await db.income.where('date').between(snapshots[0].month + '-01', startDateStr, false, false).toArray();
+        const intermediateOneOff = await db.oneOffExpenses.where('date').between(snapshots[0].month + '-01', startDateStr, false, false).toArray();
+        // This is a bit complex for a simple chart. 
+        // Let's simplify: find the nearest daily snapshot or monthly snapshot.
+      }
+      
+      // Better: find the latest daily snapshot before startDate
+      const latestDaily = await db.dailyBalanceSnapshots.where('date').below(startDateStr).reverse().first();
+      if (latestDaily) return latestDaily.closingBalance;
+      
+      const latestMonthly = await db.balanceSnapshots.where('month').below(startMonth).reverse().first();
+      if (latestMonthly) return latestMonthly.closingBalance;
+      
+      return bal;
+    })()
+  ]);
+
+  const labels = [];
+  const data = [];
+  let currentBalance = initialBalancePence;
+  let todayIndex = -1;
+
+  let cursor = new Date(startDate);
+  let i = 0;
+
+  // Pre-filter recurrent expenses that might fall in this range
+  const relevantRecurrent = recurrentList.filter(item => {
+    if (item.cycleTotal > 0 && (item.cycleCurrent || 0) >= item.cycleTotal) return false;
+    return true;
+  });
+
+  while (cursor <= endDate) {
+    const dStr = cursor.toISOString().split('T')[0];
+    const mStr = dStr.slice(0, 7);
+    labels.push(dStr);
+    if (dStr === todayStr) todayIndex = i;
+
+    // Sum today's activity
+    let dayIncome = incomeList.filter(inc => inc.date === dStr).reduce((s, r) => s + (r.amount || 0), 0);
+    dayIncome += expectedIncomeList.filter(inc => inc.date === dStr).reduce((s, r) => s + (r.amount || 0), 0);
+
+    let dayExpense = oneOffList.filter(exp => exp.date === dStr).reduce((s, r) => s + (r.amount || 0), 0);
+    
+    // For recurrent, we need to check if it falls on this specific date
+    // This is expensive in a loop. Optimized:
+    const dayRecurrent = relevantRecurrent.filter(item => {
+      const itemDate = item.nextDate || item.date;
+      return itemDate === dStr;
+    });
+    dayExpense += dayRecurrent.reduce((s, r) => s + (r.amount || 0), 0);
+
+    currentBalance += (dayIncome - dayExpense);
+    data.push(currentBalance);
+
+    cursor.setDate(cursor.getDate() + 1);
+    i++;
+  }
+
+  return { labels, data, todayIndex };
+}
+
+/**
  * Rolling Financial Overview Data Aggregation.
  * Returns 12 months of Income and Expense data:
  * - 9 months history (actuals)

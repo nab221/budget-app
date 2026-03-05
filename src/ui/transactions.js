@@ -1,10 +1,9 @@
 import {
   incomeRepository,
-  categoryRepository,
-  adjustBalance
+  categoryRepository
 } from '../db/repository.js';
-import { formatGBP, toPence, fromPence } from '../utils/currency.js';
-import { safeHTML, modalUI } from './render.js';
+import { formatGBP, fromPence } from '../utils/currency.js';
+import { safeHTML, renderTabSummary } from './render.js';
 import { filterTransactions } from '../utils/filtering.js';
 
 /**
@@ -55,12 +54,6 @@ export const transactionUI = {
     const addBtn = document.getElementById('addIncBtn');
     if (addBtn) {
       addBtn.onclick = () => this.toggleForm();
-    }
-
-    // Set Current Balance
-    const setBalBtn = document.getElementById('setIncBalBtn');
-    if (setBalBtn) {
-      setBalBtn.onclick = () => this.showSetBalanceModal();
     }
 
     // Search Input
@@ -368,6 +361,14 @@ export const transactionUI = {
     // Apply Filter using utility (Search and Categories)
     const items = filterTransactions(allItems, this.searchQuery, this.selectedCategories, ['source'], catMap);
 
+    // Calculate total based on filtered items
+    const filteredTotal = items.reduce((sum, i) => sum + i.amount, 0);
+    
+    // Render Tab Summary
+    renderTabSummary('incomeSummary', [
+      { label: 'Total Income', value: filteredTotal, color: 'var(--accent)' }
+    ]);
+
     if (items.length === 0) {
       body.innerHTML = '<tr><td colspan="4" class="hint" style="text-align:center">No income found matching your search and category selection.</td></tr>';
       this.updateTotal('income', 0);
@@ -377,9 +378,6 @@ export const transactionUI = {
     // Sort items by date descending
     items.sort((a, b) => b.date.localeCompare(a.date));
 
-    // Calculate total based on filtered items
-    const filteredTotal = items.reduce((sum, i) => sum + i.amount, 0);
-    
     // Render data rows
     body.innerHTML = safeHTML`${items.map(item => safeHTML`
       <tr data-id="${item.id}">
@@ -415,49 +413,6 @@ export const transactionUI = {
     }
 
     totalEl.innerHTML = `Filtered Total: ${formatGBP(totalPence)}`;
-  },
-
-  /**
-   * Shows a modal to set the current account balance.
-   */
-  showSetBalanceModal() {
-    const today = new Date().toISOString().slice(0, 10);
-    const content = `
-      <div style="margin-bottom:15px">
-        <p>Enter your <strong>actual bank balance</strong>. The system will create an adjustment transaction to match this value.</p>
-      </div>
-      <div class="form-row">
-        <div><label>Current Balance (£)</label><input id="modalSetBalanceAmount" type="number" step="0.01" placeholder="0.00"/></div>
-        <div><label>As of Date</label><input id="modalSetBalanceDate" type="date" value="${today}"/></div>
-      </div>
-    `;
-    const footer = `
-      <button class="ghost" onclick="modalUI.close()">Cancel</button>
-      <button class="primary" id="modalSetBalanceSaveBtn">Adjust Balance</button>
-    `;
-
-    modalUI.show('💰 Set Current Balance', content, footer);
-
-    document.getElementById('modalSetBalanceSaveBtn').onclick = async () => {
-      const amount = parseFloat(document.getElementById('modalSetBalanceAmount').value);
-      const date = document.getElementById('modalSetBalanceDate').value;
-
-      if (isNaN(amount) || !date) {
-        alert('Please enter a valid amount and date.');
-        return;
-      }
-
-      try {
-        await adjustBalance(toPence(amount), date);
-        modalUI.close();
-        // Refresh all since balance chain affected
-        if (window.app) window.app.renderAll();
-        alert('Balance adjusted successfully.');
-      } catch (err) {
-        console.error('Failed to adjust balance:', err);
-        alert('Error: ' + err.message);
-      }
-    };
   }
 };
 
