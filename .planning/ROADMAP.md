@@ -6,7 +6,7 @@
 - [x] **Phase 3: Mobile Polish (UX)** - Refine the PWA experience for thumb-zone navigation, privacy, and tactile interaction.
 - [x] **Phase 4: Privacy Hardening & Dashboard Layout** - Seal privacy leaks in Dashboard/Planner and optimize component layout.
 - [x] **Phase 5: Forecast & Graph Alignment** - Synchronize calculation logic and horizons between charts and tables.
-- [ ] **Phase 6: Rolling Overview - Income/Expense Bars & Binning** - Implement bar chart visualization for income/expenses with configurable time binning.
+- [x] **Phase 6: Rolling Overview - Income/Expense Bars & Binning** - Implement bar chart visualization for income/expenses with configurable time binning.
 
 ## Phase Details
 
@@ -74,14 +74,14 @@
 **Depends on**: Phase 5
 **Requirements**: ANAL-04, DASH-04
 **Plans**: 2 plans
-- [ ] 06-01-PLAN.md — Data Layer & Binning Logic
-- [ ] 06-02-PLAN.md — UI & Mixed Chart
+- [x] 06-01-PLAN.md — Data Layer & Binning Logic
+- [x] 06-02-PLAN.md — UI & Mixed Chart
 **Success Criteria**:
   1. Income (positive green) and Expenses (negative red) are displayed as a bar chart overlaying the balance line.
   2. A modern radio button group allows toggling between Daily (D), Weekly (W), and Monthly (M) binning.
   3. Chart correctly aggregates totals for each bin period.
   4. Balance line remains correct across all binning modes.
-**Status**: NOT STARTED
+**Status**: COMPLETED (2026-03-06)
 
 ## Progress Table
 | Phase | Plans Complete | Status | Completed |
@@ -91,4 +91,4 @@
 | 3. Mobile Polish (UX) | 1/1 | Completed | 2026-03-06 |
 | 4. Privacy Hardening & Dashboard Layout | 2/2 | Completed | 2026-03-06 |
 | 5. Forecast & Graph Alignment | 2/2 | Completed | 2026-03-06 |
-| 6. Rolling Overview - Income/Expense Bars & Binning | 0/2 | Not started | - |
+| 6. Rolling Overview - Income/Expense Bars & Binning | 2/2 | Completed | 2026-03-06 |
