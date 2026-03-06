@@ -1,11 +1,13 @@
 import {
   Chart,
   LineController,
+  BarController,
   DoughnutController,
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
   ArcElement,
   Filler,
   Tooltip,
@@ -15,11 +17,13 @@ import {
 // Register only the components needed for charts
 Chart.register(
   LineController,
+  BarController,
   DoughnutController,
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
   ArcElement,
   Filler,
   Tooltip,
@@ -443,7 +447,7 @@ export function renderDebtPayoffChart(canvasId, projectionData) {
 
 /**
  * Render (or re-render) the unified Rolling Financial Overview chart.
- * Shows 365 days of history and 45 days of forecast daily balance.
+ * Shows history and forecast balance with mixed Line/Bar visualization.
  *
  * @param {string} canvasId - The id of the <canvas> element.
  * @param {Object} data - { labels, data: { balance, income, expenses }, todayIndex }
@@ -461,51 +465,48 @@ export function renderRollingOverviewChart(canvasId, data) {
   const { balance, income, expenses } = components;
 
   const balanceColor = '#000000'; // Black for primary balance line
-  const incomeColor = OKABE_ITO.income; // Blue
-  const expenseColor = OKABE_ITO.fixed; // Vermilion
+  const incomeColor = '#009E73';  // Bluish green (Better for income bars)
+  const expenseColor = '#D55E00'; // Vermilion (Reddish)
 
   const chart = new Chart(canvas, {
-    type: 'line',
     data: {
       labels,
       datasets: [
         {
+          type: 'line',
           label: 'Account Balance',
           data: balance,
           borderColor: balanceColor,
-          backgroundColor: balanceColor + '11',
-          fill: true,
+          backgroundColor: 'transparent',
+          fill: false,
           tension: 0.2,
           pointRadius: 0,
           pointHoverRadius: 4,
           borderWidth: 2.5,
+          order: 1, // Ensure line is on top
           segment: {
-            borderDash: ctx => ctx.p0DataIndex >= todayIndex ? [6, 4] : undefined,
+            borderDash: ctx => todayIndex !== -1 && ctx.p0DataIndex >= todayIndex ? [6, 4] : undefined,
           }
         },
         {
-          label: 'Daily Income',
+          type: 'bar',
+          label: 'Income',
           data: income,
+          backgroundColor: incomeColor,
           borderColor: incomeColor,
-          backgroundColor: 'transparent',
-          fill: false,
-          tension: 0.2,
-          pointRadius: 0,
-          pointHoverRadius: 4,
-          borderWidth: 1.5,
-          hidden: true // Hidden by default to keep chart clean
+          borderWidth: 1,
+          borderRadius: 2,
+          order: 2
         },
         {
-          label: 'Daily Expenses',
-          data: expenses,
+          type: 'bar',
+          label: 'Expenses',
+          data: expenses.map(e => -Math.abs(e)), // Negate expenses for downward bars
+          backgroundColor: expenseColor,
           borderColor: expenseColor,
-          backgroundColor: 'transparent',
-          fill: false,
-          tension: 0.2,
-          pointRadius: 0,
-          pointHoverRadius: 4,
-          borderWidth: 1.5,
-          hidden: true // Hidden by default to keep chart clean
+          borderWidth: 1,
+          borderRadius: 2,
+          order: 2
         }
       ]
     },
@@ -530,9 +531,10 @@ export function renderRollingOverviewChart(canvasId, data) {
           position: 'nearest',
           callbacks: {
             label: (ctx) => {
-              const isForecast = ctx.dataIndex > todayIndex;
+              const isForecast = todayIndex !== -1 && ctx.dataIndex > todayIndex;
               const suffix = (isForecast && ctx.dataset.label === 'Account Balance') ? ' (Forecast)' : '';
-              return ` ${ctx.dataset.label}${suffix}: ${formatPence(ctx.parsed.y)}`;
+              // Use absolute value for labels to avoid showing negative expenses to user
+              return ` ${ctx.dataset.label}${suffix}: ${formatPence(Math.abs(ctx.parsed.y))}`;
             }
           }
         }
@@ -545,9 +547,9 @@ export function renderRollingOverviewChart(canvasId, data) {
             autoSkip: true,
             maxTicksLimit: 12,
             callback: function(val, index) {
-              // Show month/year for skipped labels
               const label = this.getLabelForValue(val);
               const date = new Date(label);
+              if (isNaN(date.getTime())) return label;
               return date.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
             }
           }
