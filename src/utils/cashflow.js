@@ -283,23 +283,33 @@ export async function generateExpectedIncomePredictions() {
 
 /**
  * Daily Rolling Financial Data Aggregation.
- * Returns daily balance data for:
- * - Past 365 days (history)
- * - Future 45 days (forecast)
+ * Returns daily balance data for a ~13-month window:
+ * - 365 days history from the 'anchor' date.
+ * - 45 days forecast from the 'anchor' date.
  *
+ * @param {string} [targetMonth] - Optional YYYY-MM to center the window.
  * @returns {Promise<Object>} { labels, data: { balance, income, expenses }, todayIndex }
  */
-export async function getDailyRollingData() {
+export async function getDailyRollingData(targetMonth) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayStr = today.toISOString().split('T')[0];
 
-  const startDate = new Date(today);
+  let anchorDate;
+  if (targetMonth) {
+    const [y, m] = targetMonth.split('-').map(Number);
+    // Use the middle of the selected month as the anchor for a balanced view
+    anchorDate = new Date(Date.UTC(y, m - 1, 15));
+  } else {
+    anchorDate = today;
+  }
+
+  const startDate = new Date(anchorDate);
   startDate.setDate(startDate.getDate() - 365);
   const startDateStr = startDate.toISOString().split('T')[0];
 
-  const endDate = new Date(today);
-  endDate.setDate(endDate.getDate() + 45); // 45-day forecast
+  const endDate = new Date(anchorDate);
+  endDate.setDate(endDate.getDate() + 45); // 45-day forecast from anchor
   const endDateStr = endDate.toISOString().split('T')[0];
 
   // 1. Fetch all data needed

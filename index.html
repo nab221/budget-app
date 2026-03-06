@@ -63,6 +63,12 @@
         <div id="tab-content">
           <!-- DASHBOARD -->
           <div class="tab-panel active" data-panel="dashboard">
+            <!-- Unified Rolling Financial Overview Chart -->
+            <div class="chart-container" id="rollingOverviewChartContainer" style="margin-bottom: 20px">
+              <h3 class="chart-title">Rolling Financial Overview</h3>
+              <canvas id="rollingOverviewChart"></canvas>
+            </div>
+
             <!-- Period Selector (Month Navigator + View Select) -->
             <div style="display:flex; justify-content:center; align-items:center; gap:12px; margin: 15px 0 20px 0; flex-wrap:wrap">
               <div id="dashboardMonthPicker" class="month-nav" style="margin-bottom:0; padding:5px"></div>
@@ -73,14 +79,8 @@
               </select>
             </div>
 
-            <div class="sum-grid" id="summaryGrid">
+            <div class="sum-grid" id="summaryGrid" style="margin-bottom: 20px">
               <!-- Summary items will be rendered here -->
-            </div>
-
-            <!-- Unified Rolling Financial Overview Chart -->
-            <div class="chart-container" id="rollingOverviewChartContainer">
-              <h3 class="chart-title">Rolling Financial Overview</h3>
-              <canvas id="rollingOverviewChart"></canvas>
             </div>
 
             <!-- Spending Analytics Section -->
@@ -106,7 +106,11 @@
 
           <!-- INCOME -->
           <div class="tab-panel" data-panel="income">
-            <div id="incomeSummary"></div>
+            <!-- Month Picker (Navigation) -->
+            <div id="incMonthPicker" class="month-nav" style="margin-bottom:20px"></div>
+
+            <div id="incomeSummary" style="margin-bottom:20px"></div>
+
             <!-- Reconciliation Header (Hidden by default) -->
             <div id="incReconHeader" class="card hidden" style="margin-bottom:16px; background:var(--bg-alt); border: 2px solid var(--accent);">
               <!-- Injected by transactions.js -->
@@ -116,9 +120,6 @@
             <div id="incomeFormContainer" class="card hidden" style="margin-bottom:16px; background:var(--bg-alt);">
               <!-- Form injected by transactions.js -->
             </div>
-
-            <!-- Month Picker -->
-            <div id="incMonthPicker" class="month-nav"></div>
 
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:10px">
               <div style="display:flex; gap:8px">
@@ -138,7 +139,11 @@
 
           <!-- EXPENSES -->
           <div class="tab-panel" data-panel="expenses">
-            <div id="expensesSummary"></div>
+            <!-- Month Picker (Navigation) -->
+            <div id="expMonthPicker" class="month-nav" style="margin-bottom:20px"></div>
+
+            <div id="expensesSummary" style="margin-bottom:20px"></div>
+
             <!-- Reconciliation Header (Hidden by default) -->
             <div id="expReconHeader" class="card hidden" style="margin-bottom:16px; background:var(--bg-alt); border: 2px solid var(--danger);">
               <!-- Injected by expenses.js -->
