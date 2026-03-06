@@ -63,8 +63,18 @@
         <div id="tab-content">
           <!-- DASHBOARD -->
           <div class="tab-panel active" data-panel="dashboard">
-            <div class="card-hd">
-              <h2>Dashboard</h2>
+            <!-- Period Selector (Month Navigator + View Select) -->
+            <div style="display:flex; justify-content:center; align-items:center; gap:12px; margin: 15px 0 20px 0; flex-wrap:wrap">
+              <div id="dashboardMonthPicker" class="month-nav" style="margin-bottom:0; padding:5px"></div>
+              <select id="viewSelect" style="font-size:.9rem; padding:6px 12px; font-weight:600; border-radius:6px">
+                <option value="current">Month View</option>
+                <option value="ytd">Year to Date</option>
+                <option value="all">All Time</option>
+              </select>
+            </div>
+
+            <div class="sum-grid" id="summaryGrid">
+              <!-- Summary items will be rendered here -->
             </div>
 
             <!-- Unified Rolling Financial Overview Chart -->
@@ -91,20 +101,6 @@
                   <!-- Injected by dashboard.js -->
                 </div>
               </div>
-            </div>
-
-            <!-- Period Selector (Month Navigator + View Select) -->
-            <div style="display:flex; justify-content:center; align-items:center; gap:12px; margin: 15px 0 20px 0; flex-wrap:wrap">
-              <div id="dashboardMonthPicker" class="month-nav" style="margin-bottom:0; padding:5px"></div>
-              <select id="viewSelect" style="font-size:.9rem; padding:6px 12px; font-weight:600; border-radius:6px">
-                <option value="current">Month View</option>
-                <option value="ytd">Year to Date</option>
-                <option value="all">All Time</option>
-              </select>
-            </div>
-
-            <div class="sum-grid" id="summaryGrid">
-              <!-- Summary items will be rendered here -->
             </div>
           </div>
 
