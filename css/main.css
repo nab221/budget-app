@@ -482,3 +482,28 @@ body.privacy-enabled .chart-container:hover canvas {
   cursor: pointer;
 }
 
+/* Segmented Control for Chart Binning */
+.segmented-control {
+  display: flex;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 2px;
+  width: fit-content;
+  margin: 0 auto 10px auto; /* Centered above chart */
+}
+.segmented-control input[type="radio"] { display: none; }
+.segmented-control label {
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-soft);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.segmented-control input[type="radio"]:checked + label {
+  background: var(--card);
+  color: var(--accent);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
