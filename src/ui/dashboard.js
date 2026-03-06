@@ -113,7 +113,7 @@ export async function renderDashboard() {
         const toggleBtn = document.createElement('button');
         toggleBtn.id = 'toggleForecastTableBtn';
         toggleBtn.className = 'ghost sm';
-        toggleBtn.textContent = '📋 Show Detailed 90-Day Forecast';
+        toggleBtn.textContent = '📋 Show Detailed 45-Day Forecast';
         toggleBtn.onclick = () => toggleForecastTable();
         
         forecastActionCont.appendChild(toggleBtn);
@@ -188,7 +188,7 @@ export async function renderDashboard() {
 
   // Next Negative Alert warning
   const horizon = new Date();
-  horizon.setDate(horizon.getDate() + 90);
+  horizon.setDate(horizon.getDate() + 45);
   const horizonStr = horizon.toISOString().split('T')[0];
   const firstNeg = snapshots
     .filter(s => s.date >= today && s.date <= horizonStr && s.closingBalance < 0)
@@ -381,23 +381,23 @@ export async function toggleForecastTable() {
     await renderForecastTable();
   } else {
     tableCont.classList.add('hidden');
-    btn.textContent = '📋 Show Detailed 90-Day Forecast';
+    btn.textContent = '📋 Show Detailed 45-Day Forecast';
   }
 }
 
 /**
- * Renders the 90-day daily forecast table.
+ * Renders the 45-day daily forecast table.
  */
 async function renderForecastTable() {
   const tableCont = document.getElementById('dashboardForecastTableContainer');
   if (!tableCont) return;
 
-  tableCont.innerHTML = '<div class="hint" style="text-align:center; padding:20px">Calculating 90-day forecast...</div>';
+  tableCont.innerHTML = '<div class="hint" style="text-align:center; padding:20px">Calculating 45-day forecast...</div>';
 
   try {
     const { calculateForecast } = await import('../utils/cashflow.js');
     const today = new Date().toISOString().split('T')[0];
-    const snapshots = await calculateForecast(today, 90);
+    const snapshots = await calculateForecast(today, 45);
 
     if (!snapshots || snapshots.length === 0) {
       tableCont.innerHTML = '<div class="hint" style="text-align:center; padding:20px">No forecast data available.</div>';
