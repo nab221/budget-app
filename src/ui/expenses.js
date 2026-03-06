@@ -25,6 +25,7 @@ export const expensesUI = {
   editingType: null, // 'recurrent' or 'oneoff'
   searchQuery: '',
   selectedCategories: [],
+  reconciliationMode: false,
 
   /**
    * Initialize the Expenses UI — bind events and do first render.
@@ -107,6 +108,12 @@ export const expensesUI = {
     const addExpenseBtn = document.getElementById('addExpenseBtn');
     if (addExpenseBtn) {
       addExpenseBtn.onclick = () => this.toggleForm();
+    }
+
+    // Toggle Reconciliation Mode
+    const reconBtn = document.getElementById('toggleExpReconBtn');
+    if (reconBtn) {
+      reconBtn.onclick = () => this.toggleReconciliationMode();
     }
 
     // Search Input
@@ -209,6 +216,16 @@ export const expensesUI = {
       }
     };
 
+    window.toggleExpCleared = async (id, type, currentStatus) => {
+      try {
+        const repo = type === 'recurrent' ? recurrentExpenseRepository : oneOffExpenseRepository;
+        await repo.update(id, { isCleared: !currentStatus });
+        await this.render();
+      } catch (err) {
+        console.error('Failed to toggle cleared status:', err);
+      }
+    };
+
     // Month Picker Navigation
     window.expPrevMonth = () => {
       const current = this.selectedMonth;
@@ -232,6 +249,30 @@ export const expensesUI = {
     };
   },
 
+  /**
+   * Toggles reconciliation mode.
+   */
+  toggleReconciliationMode() {
+    this.reconciliationMode = !this.reconciliationMode;
+    const btn = document.getElementById('toggleExpReconBtn');
+    if (btn) {
+      btn.textContent = this.reconciliationMode ? '✖ Exit Reconciliation' : '🔍 Reconciliation Mode';
+      btn.classList.toggle('primary', this.reconciliationMode);
+      btn.classList.toggle('ghost', !this.reconciliationMode);
+    }
+    
+    const header = document.getElementById('expReconHeader');
+    if (header) {
+      header.classList.toggle('hidden', !this.reconciliationMode);
+    }
+
+    if (this.reconciliationMode) {
+      this.toggleForm(false);
+    }
+
+    this.render();
+  },
+
   toggleForm(show = true) {
     const container = document.getElementById('expenseFormContainer');
     if (!container) return;
@@ -239,6 +280,7 @@ export const expensesUI = {
     if (show) {
       container.classList.remove('hidden');
       this.renderForm();
+      if (this.reconciliationMode) this.toggleReconciliationMode();
     } else {
       container.classList.add('hidden');
       this.editingId = null;
@@ -618,6 +660,10 @@ export const expensesUI = {
       }
     ]);
 
+    if (this.reconciliationMode) {
+      this.renderReconHeader(items);
+    }
+
     if (items.length === 0) {
       container.innerHTML = '<tr><td colspan="6" class="hint" style="text-align:center;padding:20px">No matching expenses found for this month.</td></tr>';
       this.updateTotal(0);
@@ -631,6 +677,8 @@ export const expensesUI = {
       const catName = catMap[item.categoryId] || 'None';
       const isPaid = item.status === 'paid';
       const isFinished = item.type === 'recurrent' && item.cycleTotal > 0 && (item.cycleCurrent || 0) >= item.cycleTotal;
+      const isReconciled = item.isReconciled === true;
+      const isCleared = item.isCleared === true;
 
       const badgeHTML = [];
       if (item.type === 'recurrent') {
@@ -649,9 +697,12 @@ export const expensesUI = {
       if (typeof item.note === 'string' && item.note.startsWith('Tax-free Childcare:')) {
         badgeHTML.push(`<span class="pill" style="background:var(--info);color:#fff;font-size:.65rem">TFC</span>`);
       }
+      if (isReconciled) {
+        badgeHTML.push(`<span class="pill" style="background:var(--success); color:#fff; font-size:0.65rem">✓ Reconciled</span>`);
+      }
 
       return safeHTML`
-        <tr class="${isPaid ? 'paid-row' : ''} ${isFinished ? 'finished-row' : ''}" data-id="${item.id}">
+        <tr class="${isPaid ? 'paid-row' : ''} ${isFinished ? 'finished-row' : ''} ${isReconciled ? 'reconciled-row' : ''} ${isCleared ? 'cleared-row' : ''}" data-id="${item.id}">
           <td class="nw">${item.displayDate}</td>
           <td>${catName}</td>
           <td>
@@ -660,23 +711,98 @@ export const expensesUI = {
               ${badgeHTML.join('')}
             </div>
           </td>
-          <td class="r nw">${formatGBP(item.amount)}</td>
+          <td class="r nw"><span class="privacy-blur">${formatGBP(item.amount)}</span></td>
           <td>
             ${item.type === 'recurrent' ? `
-              <button class="sm ${isPaid ? 'success' : 'ghost'}" onclick="toggleExpenseStatus(${item.id}, 'recurrent', '${item.status}')">
+              <button class="sm ${isPaid ? 'success' : 'ghost'}" ${this.reconciliationMode || isReconciled ? 'disabled' : ''} onclick="toggleExpenseStatus(${item.id}, 'recurrent', '${item.status}')">
                 ${isPaid ? 'Paid' : 'Mark Paid'}
               </button>
             ` : '<span class="hint">—</span>'}
           </td>
           <td class="r nw">
-            <button class="sm ghost" onclick="expensesUI.editExpense(${item.id}, '${item.type}')">Edit</button>
-            <button class="sm danger" onclick="deleteExpense(${item.id}, '${item.type}')">✕</button>
+            ${this.reconciliationMode ? `
+              <div style="display:flex; align-items:center; justify-content:flex-end; gap:8px">
+                <label style="font-size:0.75rem; color:var(--text-soft)">Cleared:</label>
+                <input type="checkbox" ${isCleared ? 'checked' : ''} ${isReconciled ? 'disabled' : ''} 
+                  onclick="toggleExpCleared(${item.id}, '${item.type}', ${isCleared})"/>
+              </div>
+            ` : `
+              <button class="sm ghost" ${isReconciled ? 'disabled title="Reconciled items cannot be edited"' : ''} onclick="expensesUI.editExpense(${item.id}, '${item.type}')">Edit</button>
+              <button class="sm danger" ${isReconciled ? 'disabled title="Reconciled items cannot be deleted"' : ''} onclick="deleteExpense(${item.id}, '${item.type}')">✕</button>
+            `}
           </td>
         </tr>
       `;
     }).join('');
 
     this.updateTotal(totalPence);
+  },
+
+  renderReconHeader(items) {
+    const header = document.getElementById('expReconHeader');
+    if (!header) return;
+
+    const clearedTotal = items.filter(i => i.isCleared).reduce((sum, i) => sum + i.amount, 0);
+    const statementTotal = items.reduce((sum, i) => sum + i.amount, 0);
+    const diff = statementTotal - clearedTotal;
+
+    header.innerHTML = safeHTML`
+      <div class="card-hd" style="display:flex; justify-content:space-between; align-items:center">
+        <h3 style="font-size:0.9rem; color:var(--danger)">🔍 Expenses Reconciliation</h3>
+        <button class="primary sm" onclick="expensesUI.finalizeReconciliation()">Finalize Reconciliation</button>
+      </div>
+      <div class="grid3" style="padding:15px; gap:15px">
+        <div>
+          <div class="sum-label">Cleared Total</div>
+          <div class="sum-val" style="color:var(--danger); font-size:1.1rem">${formatGBP(clearedTotal)}</div>
+        </div>
+        <div>
+          <div class="sum-label">Month Total</div>
+          <div class="sum-val" style="font-size:1.1rem">${formatGBP(statementTotal)}</div>
+        </div>
+        <div>
+          <div class="sum-label">Difference</div>
+          <div class="sum-val" style="color:${diff === 0 ? 'var(--success)' : 'var(--danger)'}; font-size:1.1rem">${formatGBP(diff)}</div>
+        </div>
+      </div>
+      <div style="padding:0 15px 15px 15px" class="hint">
+        Match your bank statement by checking "Cleared" for each expense. 
+        Once the Difference is £0.00, click Finalize to lock the month.
+      </div>
+    `;
+  },
+
+  async finalizeReconciliation() {
+    const monthStr = this.selectedMonth;
+    const [recurrent, oneoff] = await Promise.all([
+      recurrentExpenseRepository.getByMonth(monthStr),
+      oneOffExpenseRepository.getByMonth(monthStr)
+    ]);
+
+    const items = [...recurrent, ...oneoff];
+    const cleared = items.filter(i => i.isCleared && !i.isReconciled);
+
+    if (cleared.length === 0) {
+      alert('No cleared items to reconcile.');
+      return;
+    }
+
+    if (!confirm(`This will mark ${cleared.length} items as Reconciled and lock them from further edits. Continue?`)) {
+      return;
+    }
+
+    try {
+      for (const item of cleared) {
+        const repo = item.frequency ? recurrentExpenseRepository : oneOffExpenseRepository;
+        await repo.update(item.id, { isReconciled: true });
+      }
+      alert('Reconciliation finalized successfully.');
+      this.toggleReconciliationMode();
+      await this.render();
+    } catch (err) {
+      console.error('Failed to finalize reconciliation:', err);
+      alert('Failed: ' + err.message);
+    }
   },
 
   /**

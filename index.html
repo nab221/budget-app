@@ -34,6 +34,7 @@
         </div>
         <div class="toolbar">
           <button id="themeToggle" class="ghost" title="Toggle Light/Dark Mode">🌓 Theme</button>
+          <button id="privacyToggle" class="ghost" title="Toggle Privacy Mode (Blur balances)">👁️ Privacy</button>
           <button id="exportBtn" class="ghost">⬇ Export</button>
           <label for="importFile" class="ghost" style="cursor:pointer;display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border:1px solid var(--border);border-radius:999px;font-size:inherit">
             ⬆ Import <input id="importFile" type="file" accept="application/json" class="file-input"/>
@@ -72,6 +73,26 @@
               <canvas id="rollingOverviewChart"></canvas>
             </div>
 
+            <!-- Spending Analytics Section -->
+            <div class="grid2" style="margin-bottom: 20px">
+              <div class="card">
+                <div class="card-hd">
+                  <h3 class="chart-title">Spending by Category</h3>
+                </div>
+                <div class="chart-container" style="height: 250px; border-bottom: none">
+                  <canvas id="spendingBreakdownChart"></canvas>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-hd">
+                  <h3 class="chart-title">Savings Rate</h3>
+                </div>
+                <div id="savingsRateKPI" class="grid1" style="height: 250px; display: flex; flex-direction: column; justify-content: center; align-items: center">
+                  <!-- Injected by dashboard.js -->
+                </div>
+              </div>
+            </div>
+
             <!-- Period Selector (Month Navigator + View Select) -->
             <div style="display:flex; justify-content:center; align-items:center; gap:12px; margin: 15px 0 20px 0; flex-wrap:wrap">
               <div id="dashboardMonthPicker" class="month-nav" style="margin-bottom:0; padding:5px"></div>
@@ -90,6 +111,11 @@
           <!-- INCOME -->
           <div class="tab-panel" data-panel="income">
             <div id="incomeSummary"></div>
+            <!-- Reconciliation Header (Hidden by default) -->
+            <div id="incReconHeader" class="card hidden" style="margin-bottom:16px; background:var(--bg-alt); border: 2px solid var(--accent);">
+              <!-- Injected by transactions.js -->
+            </div>
+
             <!-- Inline Form for Add/Update -->
             <div id="incomeFormContainer" class="card hidden" style="margin-bottom:16px; background:var(--bg-alt);">
               <!-- Form injected by transactions.js -->
@@ -101,7 +127,7 @@
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:10px">
               <div style="display:flex; gap:8px">
                 <button id="addIncBtn" class="primary">+ Add Income</button>
-                
+                <button id="toggleIncReconBtn" class="ghost sm">🔍 Reconciliation Mode</button>
               </div>
 
               <!-- Search Bar & Category Filter -->
@@ -117,6 +143,11 @@
           <!-- EXPENSES -->
           <div class="tab-panel" data-panel="expenses">
             <div id="expensesSummary"></div>
+            <!-- Reconciliation Header (Hidden by default) -->
+            <div id="expReconHeader" class="card hidden" style="margin-bottom:16px; background:var(--bg-alt); border: 2px solid var(--danger);">
+              <!-- Injected by expenses.js -->
+            </div>
+
             <!-- Inline Form for Add/Update -->
             <div id="expenseFormContainer" class="card hidden" style="margin-bottom:16px; background:var(--bg-alt);">
               <!-- Form injected by expenses.js -->
@@ -125,6 +156,7 @@
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:10px">
               <div style="display:flex; gap:8px">
                 <button id="addExpenseBtn" class="primary">+ Add Expense</button>
+                <button id="toggleExpReconBtn" class="ghost sm">🔍 Reconciliation Mode</button>
                 
                 <div id="markAllPaidRow">
                   <button id="markAllPaidBtn" class="ghost sm">✓ Mark all as paid</button>

@@ -1,22 +1,26 @@
 import {
   Chart,
   LineController,
+  DoughnutController,
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
+  ArcElement,
   Filler,
   Tooltip,
   Legend
 } from 'chart.js';
 
-// Register only the components needed for the stacked area chart
+// Register only the components needed for charts
 Chart.register(
   LineController,
+  DoughnutController,
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
+  ArcElement,
   Filler,
   Tooltip,
   Legend
@@ -30,7 +34,7 @@ export const OKABE_ITO = {
   income:   '#0072B2', // Blue
   fixed:    '#D55E00', // Orange
   variable: '#F0E442', // Yellow
-  // Extended palette for multiple debt lines
+  // Extended palette for multiple debt lines or categories
   debt: [
     '#0072B2', // Blue
     '#D55E00', // Vermilion
@@ -39,6 +43,17 @@ export const OKABE_ITO = {
     '#56B4E9', // Sky blue
     '#E69F00', // Orange
     '#F0E442', // Yellow
+    '#000000', // Black
+  ],
+  palette: [
+    '#0072B2', // Blue
+    '#D55E00', // Vermilion
+    '#009E73', // Bluish green
+    '#CC79A7', // Reddish purple
+    '#56B4E9', // Sky blue
+    '#E69F00', // Orange
+    '#F0E442', // Yellow
+    '#999999', // Grey
     '#000000', // Black
   ]
 };
@@ -53,6 +68,72 @@ const _chartInstances = new Map();
  */
 function formatPence(pence) {
   return '£' + (pence / 100).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+/**
+ * Render (or re-render) a Doughnut chart showing spending breakdown by category.
+ *
+ * @param {string} canvasId - The id of the <canvas> element.
+ * @param {Object} categorySpending - Map of category names to pence amounts.
+ */
+export function renderSpendingBreakdownChart(canvasId, categorySpending) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+
+  if (_chartInstances.has(canvasId)) {
+    _chartInstances.get(canvasId).destroy();
+    _chartInstances.delete(canvasId);
+  }
+
+  const entries = Object.entries(categorySpending)
+    .filter(([_, value]) => value > 0)
+    .sort((a, b) => b[1] - a[1]);
+
+  const labels = entries.map(([name, _]) => name);
+  const data = entries.map(([_, value]) => value);
+  const colors = entries.map((_, idx) => OKABE_ITO.palette[idx % OKABE_ITO.palette.length]);
+
+  const chart = new Chart(canvas, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: colors,
+        borderColor: 'var(--card)',
+        borderWidth: 2,
+        hoverOffset: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '65%',
+      plugins: {
+        legend: {
+          position: 'right',
+          labels: {
+            font: { size: 10 },
+            usePointStyle: true,
+            boxWidth: 8,
+            padding: 10
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const total = ctx.dataset.data.reduce((sum, v) => sum + v, 0);
+              const percentage = ((ctx.parsed / total) * 100).toFixed(1);
+              return ` ${ctx.label}: ${formatPence(ctx.parsed)} (${percentage}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
+
+  _chartInstances.set(canvasId, chart);
+  return chart;
 }
 
 /**

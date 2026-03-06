@@ -184,7 +184,7 @@ export const assetUI = {
         <td>${asset.date}</td>
         <td>${asset.name}</td>
         <td><span class="pill" style="font-size:0.7rem">${asset.type.replace('_', ' ')}</span></td>
-        <td class="r">${formatGBP(asset.currentBalance)}</td>
+        <td class="r"><span class="privacy-blur">${formatGBP(asset.currentBalance)}</span></td>
         <td class="r nw">
           <button class="sm ghost" onclick="assetUI.editAsset(${asset.id})">Edit</button>
           <button class="sm danger" onclick="deleteAsset(${asset.id})">✕</button>

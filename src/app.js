@@ -21,7 +21,7 @@ import { initPWA, installApp, checkExportReminder } from './ui/pwa-ux';
 import { initFileSyncUI, refreshPersistenceWarning } from './ui/file-sync';
 import { childcareUI } from './ui/childcare.js';
 import { calculateBalanceChain } from './utils/finance.js';
-import { BALANCE_START_DATE_KEY, BALANCE_OPENING_AMOUNT_KEY } from './utils/storage.js';
+import { BALANCE_START_DATE_KEY, BALANCE_OPENING_AMOUNT_KEY, PRIVACY_MODE_KEY } from './utils/storage.js';
 import { RecurrenceManager } from './utils/recurrence.js';
 
 export { BALANCE_START_DATE_KEY };
@@ -43,6 +43,13 @@ async function init() {
       const themeToggle = document.getElementById('themeToggle');
       if (themeToggle) {
         themeToggle.addEventListener('click', () => toggleTheme());
+      }
+    })(),
+    (async () => {
+      initPrivacyMode();
+      const privacyToggle = document.getElementById('privacyToggle');
+      if (privacyToggle) {
+        privacyToggle.addEventListener('click', () => togglePrivacyMode());
       }
     })(),
     (async () => {
@@ -191,6 +198,27 @@ async function init() {
   ]);
 
   console.log('Budget App initialized successfully.');
+}
+
+/**
+ * Initialize Privacy Mode from localStorage.
+ */
+function initPrivacyMode() {
+  const isEnabled = localStorage.getItem(PRIVACY_MODE_KEY) === 'true';
+  document.body.classList.toggle('privacy-enabled', isEnabled);
+  const btn = document.getElementById('privacyToggle');
+  if (btn) btn.classList.toggle('active', isEnabled);
+}
+
+/**
+ * Toggle Privacy Mode and persist.
+ */
+function togglePrivacyMode() {
+  const isEnabled = !document.body.classList.contains('privacy-enabled');
+  document.body.classList.toggle('privacy-enabled', isEnabled);
+  localStorage.setItem(PRIVACY_MODE_KEY, isEnabled.toString());
+  const btn = document.getElementById('privacyToggle');
+  if (btn) btn.classList.toggle('active', isEnabled);
 }
 
 // Start the application

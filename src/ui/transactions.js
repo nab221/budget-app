@@ -15,6 +15,7 @@ export const transactionUI = {
   editingId: null,
   searchQuery: '',
   selectedCategories: [], // Filter categories
+  reconciliationMode: false,
 
   /**
    * Initialize Transaction UI.
@@ -54,6 +55,12 @@ export const transactionUI = {
     const addBtn = document.getElementById('addIncBtn');
     if (addBtn) {
       addBtn.onclick = () => this.toggleForm();
+    }
+
+    // Toggle Reconciliation Mode
+    const reconBtn = document.getElementById('toggleIncReconBtn');
+    if (reconBtn) {
+      reconBtn.onclick = () => this.toggleReconciliationMode();
     }
 
     // Search Input
@@ -116,6 +123,39 @@ export const transactionUI = {
         alert(`Failed to delete ${type}: ` + error.message);
       }
     };
+
+    window.toggleIncCleared = async (id, currentStatus) => {
+      try {
+        await incomeRepository.update(id, { isCleared: !currentStatus });
+        await this.render();
+      } catch (err) {
+        console.error('Failed to toggle cleared status:', err);
+      }
+    };
+  },
+
+  /**
+   * Toggles reconciliation mode.
+   */
+  toggleReconciliationMode() {
+    this.reconciliationMode = !this.reconciliationMode;
+    const btn = document.getElementById('toggleIncReconBtn');
+    if (btn) {
+      btn.textContent = this.reconciliationMode ? '✖ Exit Reconciliation' : '🔍 Reconciliation Mode';
+      btn.classList.toggle('primary', this.reconciliationMode);
+      btn.classList.toggle('ghost', !this.reconciliationMode);
+    }
+    
+    const header = document.getElementById('incReconHeader');
+    if (header) {
+      header.classList.toggle('hidden', !this.reconciliationMode);
+    }
+
+    if (this.reconciliationMode) {
+      this.toggleForm(false);
+    }
+
+    this.render();
   },
 
   /**
@@ -149,6 +189,7 @@ export const transactionUI = {
     if (show) {
       container.classList.remove('hidden');
       this.renderForm();
+      if (this.reconciliationMode) this.toggleReconciliationMode();
     } else {
       container.classList.add('hidden');
       this.editingId = null;
@@ -369,6 +410,10 @@ export const transactionUI = {
       { label: 'Total Income', value: filteredTotal, color: 'var(--accent)' }
     ]);
 
+    if (this.reconciliationMode) {
+      this.renderReconHeader(items);
+    }
+
     if (items.length === 0) {
       body.innerHTML = '<tr><td colspan="4" class="hint" style="text-align:center">No income found matching your search and category selection.</td></tr>';
       this.updateTotal('income', 0);
@@ -379,22 +424,97 @@ export const transactionUI = {
     items.sort((a, b) => b.date.localeCompare(a.date));
 
     // Render data rows
-    body.innerHTML = safeHTML`${items.map(item => safeHTML`
-      <tr data-id="${item.id}">
-        <td>${item.date}</td>
-        <td>
-          ${item.source} 
-          ${item.categoryId ? `<span class="tag" style="margin-left:6px">${catMap[item.categoryId]}</span>` : ''}
-        </td>
-        <td class="r">${formatGBP(item.amount)}</td>
-        <td class="r">
-          <button class="sm ghost" onclick="transactionUI.editTransaction(${item.id})">Edit</button>
-          <button class="sm danger" onclick="deleteTransaction('income', ${item.id})">✕</button>
-        </td>
-      </tr>
-    `).join('')}`;
+    body.innerHTML = safeHTML`${items.map(item => {
+      const isReconciled = item.isReconciled === true;
+      const isCleared = item.isCleared === true;
+
+      return safeHTML`
+        <tr data-id="${item.id}" class="${isReconciled ? 'reconciled-row' : ''} ${isCleared ? 'cleared-row' : ''}">
+          <td>${item.date}</td>
+          <td>
+            ${item.source} 
+            ${item.categoryId ? `<span class="tag" style="margin-left:6px">${catMap[item.categoryId]}</span>` : ''}
+            ${isReconciled ? `<span class="pill" style="background:var(--success); color:#fff; font-size:0.65rem; margin-left:6px">✓ Reconciled</span>` : ''}
+          </td>
+          <td class="r"><span class="privacy-blur">${formatGBP(item.amount)}</span></td>
+          <td class="r">
+            ${this.reconciliationMode ? `
+              <div style="display:flex; align-items:center; justify-content:flex-end; gap:8px">
+                <label style="font-size:0.75rem; color:var(--text-soft)">Cleared:</label>
+                <input type="checkbox" ${isCleared ? 'checked' : ''} ${isReconciled ? 'disabled' : ''} 
+                  onclick="toggleIncCleared(${item.id}, ${isCleared})"/>
+              </div>
+            ` : `
+              <button class="sm ghost" ${isReconciled ? 'disabled title="Reconciled items cannot be edited"' : ''} onclick="transactionUI.editTransaction(${item.id})">Edit</button>
+              <button class="sm danger" ${isReconciled ? 'disabled title="Reconciled items cannot be deleted"' : ''} onclick="deleteTransaction('income', ${item.id})">✕</button>
+            `}
+          </td>
+        </tr>
+      `;
+    }).join('')}`;
 
     this.updateTotal('income', filteredTotal);
+  },
+
+  renderReconHeader(items) {
+    const header = document.getElementById('incReconHeader');
+    if (!header) return;
+
+    const clearedTotal = items.filter(i => i.isCleared).reduce((sum, i) => sum + i.amount, 0);
+    const statementTotal = items.reduce((sum, i) => sum + i.amount, 0);
+    const diff = statementTotal - clearedTotal;
+
+    header.innerHTML = safeHTML`
+      <div class="card-hd" style="display:flex; justify-content:space-between; align-items:center">
+        <h3 style="font-size:0.9rem; color:var(--accent)">🔍 Income Reconciliation</h3>
+        <button class="primary sm" onclick="transactionUI.finalizeReconciliation()">Finalize Reconciliation</button>
+      </div>
+      <div class="grid3" style="padding:15px; gap:15px">
+        <div>
+          <div class="sum-label">Cleared Total</div>
+          <div class="sum-val" style="color:var(--success); font-size:1.1rem">${formatGBP(clearedTotal)}</div>
+        </div>
+        <div>
+          <div class="sum-label">Month Total</div>
+          <div class="sum-val" style="font-size:1.1rem">${formatGBP(statementTotal)}</div>
+        </div>
+        <div>
+          <div class="sum-label">Difference</div>
+          <div class="sum-val" style="color:${diff === 0 ? 'var(--success)' : 'var(--danger)'}; font-size:1.1rem">${formatGBP(diff)}</div>
+        </div>
+      </div>
+      <div style="padding:0 15px 15px 15px" class="hint">
+        Match your bank statement by checking "Cleared" for each transaction. 
+        Once the Difference is £0.00, click Finalize to lock the month.
+      </div>
+    `;
+  },
+
+  async finalizeReconciliation() {
+    const monthStr = this.currentMonth;
+    const items = await incomeRepository.getByMonth(monthStr);
+    const cleared = items.filter(i => i.isCleared && !i.isReconciled);
+
+    if (cleared.length === 0) {
+      alert('No cleared items to reconcile.');
+      return;
+    }
+
+    if (!confirm(`This will mark ${cleared.length} items as Reconciled and lock them from further edits. Continue?`)) {
+      return;
+    }
+
+    try {
+      for (const item of cleared) {
+        await incomeRepository.update(item.id, { isReconciled: true });
+      }
+      alert('Reconciliation finalized successfully.');
+      this.toggleReconciliationMode();
+      await this.render();
+    } catch (err) {
+      console.error('Failed to finalize reconciliation:', err);
+      alert('Failed: ' + err.message);
+    }
   },
 
   updateTotal(type, totalPence) {

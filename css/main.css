@@ -183,34 +183,76 @@ input[type="number"] { text-align: right; }
 .tab-panel.active { display: block; }
 
 @media (max-width: 768px) {
-  .mobile-menu-btn { display: block; }
-  .tabs {
-    display: none;
-    position: absolute;
-    top: 100%;
+  .mobile-menu-btn { display: none; } /* Replaced by bottom nav */
+  .shell { padding-bottom: 80px; } /* Space for bottom nav */
+  
+  .nav-container {
+    position: fixed;
+    bottom: 0;
     left: 0;
     right: 0;
     background: var(--card);
-    flex-direction: column;
-    padding: 10px;
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-    border: 1px solid var(--border);
-    z-index: 100;
-    gap: 4px;
+    border-top: 1px solid var(--border);
+    margin-bottom: 0;
+    z-index: 1000;
+    box-shadow: 0 -4px 12px rgba(0,0,0,0.05);
+    backdrop-filter: blur(10px);
   }
-  .tabs.open { display: flex; }
+
+  .tabs {
+    display: flex;
+    justify-content: space-around;
+    padding: 8px 0;
+    gap: 0;
+    overflow: hidden;
+  }
+
   .tab {
-    width: 100%;
-    text-align: left;
-    border-radius: 8px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 0;
+    background: none;
     border: none;
-    background: transparent;
+    border-radius: 0;
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    box-shadow: none !important;
   }
+
+  .tab:hover { background: none; }
+  
   .tab.active {
-    background: var(--accent-soft);
+    background: none;
     color: var(--accent);
-    box-shadow: none;
+  }
+
+  .tab::before {
+    font-size: 1.2rem;
+    margin-bottom: 2px;
+  }
+
+  /* Assign icons via pseudo-elements based on data-tab */
+  .tab[data-tab="dashboard"]::before { content: "🏠"; }
+  .tab[data-tab="income"]::before { content: "💰"; }
+  .tab[data-tab="expenses"]::before { content: "💸"; }
+  .tab[data-tab="debts"]::before { content: "💳"; }
+  .tab[data-tab="payoff"]::before { content: "📈"; }
+  .tab[data-tab="assets"]::before { content: "🏦"; }
+  .tab[data-tab="childcare"]::before { content: "👶"; }
+  .tab[data-tab="settings"]::before { content: "⚙️"; }
+
+  /* Hide tabs that don't fit well or are secondary if needed, or allow horizontal scroll if many */
+  .tabs {
+    overflow-x: auto;
+    justify-content: flex-start;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  .tab {
+    min-width: 70px;
   }
 }
 
@@ -233,6 +275,9 @@ input[type="number"] { text-align: right; }
 /* ── EXPENSE ROWS ── */
 .paid-row td { opacity: 0.6; }
 .finished-row td { opacity: 0.5; text-decoration: line-through; }
+.cleared-row { background-color: var(--accent-soft) !important; }
+.reconciled-row { background-color: var(--border-light) !important; }
+.reconciled-row td { opacity: 0.7; }
 .badge-essential { background: rgba(22,163,74,0.12); color: #166534; border: 1px solid rgba(22,163,74,0.35); border-radius: 999px; font-size: .65rem; padding: 2px 7px; }
 [data-theme='dark'] .badge-essential { color: #bbf7d0; }
 .badge-non-essential { background: rgba(217,119,6,0.12); color: #92400e; border: 1px solid rgba(217,119,6,0.35); border-radius: 999px; font-size: .65rem; padding: 2px 7px; }
@@ -347,6 +392,22 @@ input[type="number"] { text-align: right; }
 .update-mode label {
   color: var(--accent) !important;
   font-weight: 600;
+}
+
+/* ── PRIVACY MODE (PHASE 32+) ── */
+body.privacy-enabled .privacy-blur {
+  filter: blur(10px);
+  user-select: none;
+  pointer-events: none;
+  transition: filter 0.3s ease;
+}
+body.privacy-enabled .privacy-blur:hover {
+  filter: blur(0);
+}
+#privacyToggle.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
 }
 
 /* ── PWA UPDATE BAR ── */

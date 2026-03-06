@@ -442,6 +442,45 @@ db.version(15).stores({
   });
 });
 
+// Define version 16 schema: Integrity (Reconciliation)
+// Adds isCleared and isReconciled to income and expenses.
+db.version(16).stores({
+  income: '++id, date, source, amount, categoryId, isCleared, isReconciled',
+  recurrentExpenses: '++id, date, categoryId, label, amount, status, frequency, nextDate, predictedPaymentDate, isEssential, cycleTotal, cycleCurrent, endDate, isDebtPayment, linkedStatementId, isRecurring, recurrenceId, parentDate, debtType, isCleared, isReconciled',
+  oneOffExpenses: '++id, date, categoryId, note, amount, isRecurring, frequency, recurrenceId, parentDate, isCleared, isReconciled',
+  debts: '++id, name, debtType, apr, creditLimit, currentBalance, promoEndDate, postPromoApr, originalPrincipal, termMonths, fixedMonthlyPayment, interestRate, earlyRepaymentFee, earlyRepaymentFeeIsPercent, earlyRepaymentAllowed, isInterestOnly',
+  statements: '++id, debtId, date, amount, interest, fees, actualPaymentDate, linkedExpenseId',
+  assets: '++id, name, type, asOfDate, currentBalance',
+  categories: '++id, name, group',
+  targets: '++id, bucket, amount',
+  netWorthSnapshots: '++id, month, totalAssets, totalDebt, netWorth',
+  categoryMappings: '++id, description, categoryId',
+  childcareAccounts: '++id, childName, targetMonthlySpend, entitlementStart, isDisabled, openingBalance',
+  childcareLedger: '++id, accountId, date, type, amount, runningBalance',
+  balanceSnapshots: '++id, month, openingBalance, closingBalance, incomeTotal, expenseTotal',
+  dailyBalanceSnapshots: '++id, date, openingBalance, closingBalance, incomeTotal, expenseTotal',
+  expectedIncome: '++id, date, source, amount, categoryId, status',
+  bankHolidayOverrides: '++id, date, isOpen'
+}).upgrade(async tx => {
+  // 1. Initialize isCleared and isReconciled for existing income
+  await tx.table('income').toCollection().modify(item => {
+    if (item.isCleared === undefined) item.isCleared = false;
+    if (item.isReconciled === undefined) item.isReconciled = false;
+  });
+
+  // 2. Initialize isCleared and isReconciled for existing recurrentExpenses
+  await tx.table('recurrentExpenses').toCollection().modify(item => {
+    if (item.isCleared === undefined) item.isCleared = false;
+    if (item.isReconciled === undefined) item.isReconciled = false;
+  });
+
+  // 3. Initialize isCleared and isReconciled for existing oneOffExpenses
+  await tx.table('oneOffExpenses').toCollection().modify(item => {
+    if (item.isCleared === undefined) item.isCleared = false;
+    if (item.isReconciled === undefined) item.isReconciled = false;
+  });
+});
+
 // Handle schema updates in other tabs
 db.on('versionchange', function() {
   db.close();

@@ -264,5 +264,5 @@ export function adjustFontSize(el, pence) {
   }
 
   el.style.fontSize = fontSize;
-  el.textContent = displayValue;
+  el.innerHTML = `<span class="privacy-blur">${displayValue}</span>`;
 }
