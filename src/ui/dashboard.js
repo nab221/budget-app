@@ -92,7 +92,7 @@ export async function renderDashboard() {
 
   const [data, rollingData, isPersisted, categories] = await Promise.all([
     getDashboardData(normalizedPeriod, _selectedMonth),
-    getDailyRollingData(),
+    getDailyRollingData(_selectedMonth),
     checkStoragePersistence(),
     categoryRepository.getCategories()
   ]);
