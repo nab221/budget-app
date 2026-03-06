@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { isWorkingDay, isBankHoliday, nextWorkingDay, calculateForecast, generateExpectedIncomePredictions } from './cashflow.js';
+import { isWorkingDay, isBankHoliday, nextWorkingDay, calculateForecast, generateExpectedIncomePredictions, aggregateRollingOverview } from './cashflow.js';
 import { 
   bankHolidayRepository,
   incomeRepository,
@@ -151,6 +151,54 @@ describe('cashflow utilities', () => {
       expect(new Date(predictions[0].date).getMonth()).toBe(expectedMonths[0]);
       expect(predictions[0].date.endsWith('-28')).toBe(true);
       expect(predictions[0].status).toBe('predicted');
+    });
+  });
+
+  describe('aggregateRollingOverview', () => {
+    const dailyData = {
+      labels: ['2026-03-01', '2026-03-02', '2026-03-03', '2026-03-04', '2026-03-05', '2026-03-06', '2026-03-07', '2026-03-08', '2026-03-09', '2026-03-10'],
+      data: {
+        balance: [1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900],
+        income: [100, 100, 100, 100, 100, 100, 100, 100, 100, 100],
+        expenses: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      },
+      todayIndex: 1 // 2026-03-02
+    };
+
+    it('returns data unchanged for mode D', () => {
+      const result = aggregateRollingOverview(dailyData, 'D');
+      expect(result).toEqual(dailyData);
+    });
+
+    it('bins by week for mode W', () => {
+      // 2026-03-01 is Sunday (last day of its week)
+      // 2026-03-02 is Monday (first day of its week)
+      // 2026-03-09 is Monday (first day of its week)
+      
+      const result = aggregateRollingOverview(dailyData, 'W');
+      
+      // We expect 3 bins:
+      // Bin 1: 2026-03-01 (Sunday)
+      // Bin 2: 2026-03-02 to 2026-03-08 (Mon to Sun)
+      // Bin 3: 2026-03-09 to 2026-03-10 (Mon to Tue)
+      
+      expect(result.labels.length).toBe(3);
+      // Income: Bin 1: 100, Bin 2: 700, Bin 3: 200
+      expect(result.data.income).toEqual([100, 700, 200]);
+      // Balance: Bin 1: 1000, Bin 2: 1700, Bin 3: 1900 (last in bin)
+      expect(result.data.balance).toEqual([1000, 1700, 1900]);
+      
+      // todayIndex was 1 (2026-03-02), which is in Bin 2.
+      expect(result.todayIndex).toBe(1);
+    });
+
+    it('bins by month for mode M', () => {
+      const result = aggregateRollingOverview(dailyData, 'M');
+      // All 10 days are in March 2026.
+      expect(result.labels.length).toBe(1);
+      expect(result.data.income).toEqual([1000]);
+      expect(result.data.balance).toEqual([1900]);
+      expect(result.todayIndex).toBe(0);
     });
   });
 });

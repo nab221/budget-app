@@ -9,6 +9,12 @@ import {
 } from '../db/repository.js';
 import { db } from '../db/schema.js';
 import { calcMinPayment } from './finance.js';
+import { 
+  startOfWeek, 
+  startOfMonth, 
+  format, 
+  parseISO 
+} from 'date-fns';
 
 const GOV_UK_HOLIDAYS_API = 'https://www.gov.uk/bank-holidays.json';
 const CACHE_KEY = 'bank-holidays-cache';
@@ -288,9 +294,10 @@ export async function generateExpectedIncomePredictions() {
  * - 45 days forecast from the 'anchor' date.
  *
  * @param {string} [targetMonth] - Optional YYYY-MM to center the window.
+ * @param {string} [binning='D'] - 'D' (Daily), 'W' (Weekly), 'M' (Monthly)
  * @returns {Promise<Object>} { labels, data: { balance, income, expenses }, todayIndex }
  */
-export async function getDailyRollingData(targetMonth) {
+export async function getDailyRollingData(targetMonth, binning = 'D') {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayStr = today.toISOString().split('T')[0];
@@ -386,7 +393,13 @@ export async function getDailyRollingData(targetMonth) {
     i++;
   }
 
-  return { labels, data: { balance, income, expenses }, todayIndex };
+  const result = { labels, data: { balance, income, expenses }, todayIndex };
+
+  if (binning !== 'D') {
+    return aggregateRollingOverview(result, binning);
+  }
+
+  return result;
 }
 
 /**
@@ -519,4 +532,82 @@ export async function getSpendingTrends(targetMonth) {
     });
   }
   return results;
+}
+
+/**
+ * Aggregates daily rolling overview data into larger time bins (Weekly, Monthly).
+ * 
+ * @param {Object} dailyData - Result from getDailyRollingData
+ * @param {string} binning - 'D' (Daily), 'W' (Weekly), 'M' (Monthly)
+ * @returns {Object} Binned data in the same format
+ */
+export function aggregateRollingOverview(dailyData, binning = 'D') {
+  if (binning === 'D' || !['W', 'M'].includes(binning)) {
+    return dailyData;
+  }
+
+  const { labels, data, todayIndex } = dailyData;
+  const { balance, income, expenses } = data;
+  const todayStr = todayIndex !== -1 ? labels[todayIndex] : null;
+
+  const newLabels = [];
+  const newBalance = [];
+  const newIncome = [];
+  const newExpenses = [];
+  let newTodayIndex = -1;
+
+  let currentBinLabel = null;
+  let currentBinIncome = 0;
+  let currentBinExpenses = 0;
+
+  for (let i = 0; i < labels.length; i++) {
+    const d = parseISO(labels[i]);
+    let binLabel;
+    
+    if (binning === 'W') {
+      // ISO week starts on Monday
+      binLabel = format(startOfWeek(d, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+    } else if (binning === 'M') {
+      binLabel = format(startOfMonth(d), 'yyyy-MM-dd');
+    }
+
+    if (currentBinLabel !== null && currentBinLabel !== binLabel) {
+      // Close current bin
+      newLabels.push(currentBinLabel);
+      newIncome.push(currentBinIncome);
+      newExpenses.push(currentBinExpenses);
+      // Balance is the closing balance of the bin (last day's balance)
+      newBalance.push(balance[i - 1]);
+      
+      // Reset for next bin
+      currentBinIncome = 0;
+      currentBinExpenses = 0;
+    }
+
+    currentBinLabel = binLabel;
+    currentBinIncome += income[i];
+    currentBinExpenses += expenses[i];
+
+    if (labels[i] === todayStr) {
+      newTodayIndex = newLabels.length; // The index of the bin we are currently building
+    }
+  }
+
+  // Push last bin
+  if (currentBinLabel !== null) {
+    newLabels.push(currentBinLabel);
+    newIncome.push(currentBinIncome);
+    newExpenses.push(currentBinExpenses);
+    newBalance.push(balance[balance.length - 1]);
+  }
+
+  return {
+    labels: newLabels,
+    data: {
+      balance: newBalance,
+      income: newIncome,
+      expenses: newExpenses
+    },
+    todayIndex: newTodayIndex
+  };
 }
