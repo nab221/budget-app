@@ -88,7 +88,7 @@ function renderCreditCardPayoff(debts, extraPence) {
          onclick="document.getElementById('payoffStrategy').value='${res.id}'; document.getElementById('payoffStrategy').dispatchEvent(new Event('change'))">
       <h3 style="font-size:.8rem; margin-bottom:4px">${res.name}</h3>
       <div style="font-size:1.1rem; font-weight:700">${res.monthsToClear >= 600 ? 'Never' : res.monthsToClear + 'm'}</div>
-      <div style="font-size:.8rem; color:${res.totalInterest === minInterest ? 'var(--success)' : 'inherit'}">${formatGBP(res.totalInterest)} int.</div>
+      <div style="font-size:.8rem; color:${res.totalInterest === minInterest ? 'var(--success)' : 'inherit'}"><span class="privacy-blur">${formatGBP(res.totalInterest)}</span> int.</div>
     </div>
   `).join('');
 
@@ -133,7 +133,7 @@ function renderLoanPayoff(debts, extraPence) {
       <h3 style="font-size:.8rem; margin-bottom:4px">${res.name}</h3>
       <div style="font-size:1.1rem; font-weight:700">${res.monthsToClear >= 600 ? '50+ years' : res.monthsToClear + ' months'}</div>
       <div style="font-size:.8rem; color:${res.totalInterest === minInterest ? 'var(--success)' : 'inherit'}">
-        ${formatGBP(res.totalInterest)} int. ${res.totalFees > 0 ? `(+ ${formatGBP(res.totalFees)} fees)` : ''}
+        <span class="privacy-blur">${formatGBP(res.totalInterest)}</span> int. ${res.totalFees > 0 ? `(+ <span class="privacy-blur">${formatGBP(res.totalFees)}</span> fees)` : ''}
       </div>
     </div>
   `).join('') + interestOnlyHint;
@@ -222,21 +222,21 @@ function renderConsolidatedSchedule(ccResult, loanResult) {
     html += `
       <tr>
         <td class="nw">${date}</td>
-        <td class="r" style="font-weight:600">${formatGBP(totalPaid)}</td>
+        <td class="r" style="font-weight:600"><span class="privacy-blur">${formatGBP(totalPaid)}</span></td>
         ${allDebts.map(d => {
           const snap = d.type === 'cc' ? ccSnap : loanSnap;
           const p = snap?.payments.find(pay => pay.debtId === d.id) || { amount: 0, principalPaid: 0, interestCharged: 0 };
           const interest = p.interestCharged || p.feeCharged || 0;
           return `
             <td class="r nw" style="border-left:1px solid var(--border-light)">
-              <div style="font-weight:600">${formatGBP(p.amount)}</div>
+              <div style="font-weight:600"><span class="privacy-blur">${formatGBP(p.amount)}</span></div>
               <div class="hint" style="font-size:0.65rem">
-                ${formatGBP(p.principalPaid)} P | ${formatGBP(interest)} I
+                <span class="privacy-blur">${formatGBP(p.principalPaid)}</span> P | <span class="privacy-blur">${formatGBP(interest)}</span> I
               </div>
             </td>
           `;
         }).join('')}
-        <td class="r nw" style="font-weight:600; border-left:2px solid var(--border-light)">${formatGBP(balance)}</td>
+        <td class="r nw" style="font-weight:600; border-left:2px solid var(--border-light)"><span class="privacy-blur">${formatGBP(balance)}</span></td>
       </tr>
     `;
   }
@@ -306,25 +306,25 @@ export function renderBTModeler(debts) {
       <div class="grid2" style="gap:20px">
         <div>
           <div style="font-size:.8rem; color:var(--text-soft)">Upfront Transfer Fee</div>
-          <div style="font-size:1.2rem; font-weight:600">${formatGBP(result.transferFeePence)}</div>
+          <div style="font-size:1.2rem; font-weight:600"><span class="privacy-blur">${formatGBP(result.transferFeePence)}</span></div>
         </div>
         <div>
           <div style="font-size:.8rem; color:var(--text-soft)">Potential Savings</div>
           <div style="font-size:1.2rem; font-weight:600; color:${savings > 0 ? 'var(--success)' : 'var(--danger)'}">
-            ${savings > 0 ? 'Save ' : 'Costs '}${formatGBP(Math.abs(savings))}
+            ${savings > 0 ? 'Save ' : 'Costs '}<span class="privacy-blur">${formatGBP(Math.abs(savings))}</span>
           </div>
         </div>
       </div>
 
       <div style="margin-top:20px; padding-top:15px; border-top:1px solid var(--border)">
         <div style="font-weight:600; margin-bottom:4px">Target Monthly Payment</div>
-        <div style="font-size:1.4rem; color:var(--accent); font-weight:700">${formatGBP(result.recommendedMonthlyPayment)}</div>
+        <div style="font-size:1.4rem; color:var(--accent); font-weight:700"><span class="privacy-blur">${formatGBP(result.recommendedMonthlyPayment)}</span></div>
         <div class="hint">Pay this amount monthly to clear the transferred balance before the 0% period ends.</div>
       </div>
 
       ${savings > 0 ? `
         <div style="margin-top:15px; color:var(--success); font-weight:600; display:flex; align-items:center; gap:8px; font-size:0.85rem">
-          <span>✅ Recommended: This transfer saves you ${formatGBP(savings)} compared to minimum payments.</span>
+          <span>✅ Recommended: This transfer saves you <span class="privacy-blur">${formatGBP(savings)}</span> compared to minimum payments.</span>
         </div>
       ` : `
         <div style="margin-top:15px; color:var(--danger); font-weight:600; display:flex; align-items:center; gap:8px; font-size:0.85rem">

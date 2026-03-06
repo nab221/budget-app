@@ -398,10 +398,17 @@ input[type="number"] { text-align: right; }
 body.privacy-enabled .privacy-blur {
   filter: blur(10px);
   user-select: none;
-  pointer-events: none;
   transition: filter 0.3s ease;
 }
 body.privacy-enabled .privacy-blur:hover {
+  filter: blur(0);
+  cursor: help;
+}
+body.privacy-enabled canvas {
+  filter: blur(15px);
+  transition: filter 0.3s ease;
+}
+body.privacy-enabled .chart-container:hover canvas {
   filter: blur(0);
 }
 #privacyToggle.active {
