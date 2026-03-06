@@ -4,6 +4,8 @@
 - [x] **Phase 1: Integrity (Reconciliation)** - Implement the "Cleared" vs "Reconciled" lifecycle for matching digital ledger to bank reality.
 - [x] **Phase 2: Insights (Analytics)** - Build the "Insights" engine on the Dashboard with category breakdowns and net worth trends.
 - [x] **Phase 3: Mobile Polish (UX)** - Refine the PWA experience for thumb-zone navigation, privacy, and tactile interaction.
+- [x] **Phase 4: Privacy Hardening & Dashboard Layout** - Seal privacy leaks in Dashboard/Planner and optimize component layout.
+- [x] **Phase 5: Forecast & Graph Alignment** - Synchronize calculation logic and horizons between charts and tables.
 
 ## Phase Details
 
@@ -39,9 +41,38 @@
   3. Users can see icons and labels in the bottom navigation.
 **Status**: COMPLETED (2026-03-06)
 
+### Phase 4: Privacy Hardening & Dashboard Layout
+**Goal**: Ensure zero information leakage when Privacy Mode is active and polish the Dashboard UX.
+**Depends on**: Phase 3
+**Requirements**: DASH-01, DASH-02, UX-01
+**Plans**: 2 plans
+- [x] 04-01-PLAN.md — Privacy Hardening for Dashboard and Payoff Planner
+- [x] 04-02-PLAN.md — Dashboard Layout reordering and title cleanup
+**Success Criteria**:
+  1. Dashboard Summary Cards and Savings KPI are blurred in Privacy Mode.
+  2. Payoff Planner tab content is entirely blurred or restricted in Privacy Mode.
+  3. Duplicate "Dashboard" title is removed.
+  4. Period selector and navigation are moved above the analytics/summary components.
+**Status**: COMPLETED (2026-03-06)
+
+### Phase 5: Forecast & Graph Alignment
+**Goal**: Resolve data discrepancies between visual charts and detailed forecast tables.
+**Depends on**: Phase 4
+**Requirements**: DASH-03, FORC-01
+**Plans**: 2 plans
+- [x] 05-01-PLAN.md — Data Layer & Chart Core
+- [x] 05-02-PLAN.md — Dashboard Integration & Alignment
+**Success Criteria**:
+  1. 'Rolling Financial Overview' chart includes Income and Expenses lines.
+  2. Both chart and 'Detailed Forecast' table use a unified 45-day horizon.
+  3. Balance calculations are identical between the chart and the table.
+**Status**: COMPLETED (2026-03-06)
+
 ## Progress Table
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Integrity (Reconciliation) | 1/1 | Completed | 2026-03-06 |
 | 2. Insights (Analytics) | 1/1 | Completed | 2026-03-06 |
 | 3. Mobile Polish (UX) | 1/1 | Completed | 2026-03-06 |
+| 4. Privacy Hardening & Dashboard Layout | 2/2 | Completed | 2026-03-06 |
+| 5. Forecast & Graph Alignment | 2/2 | Completed | 2026-03-06 |
