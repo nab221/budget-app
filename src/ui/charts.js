@@ -443,10 +443,10 @@ export function renderDebtPayoffChart(canvasId, projectionData) {
 
 /**
  * Render (or re-render) the unified Rolling Financial Overview chart.
- * Shows 365 days of history and 60 days of forecast daily balance.
+ * Shows 365 days of history and 45 days of forecast daily balance.
  *
  * @param {string} canvasId - The id of the <canvas> element.
- * @param {Object} data - { labels, data, todayIndex }
+ * @param {Object} data - { labels, data: { balance, income, expenses }, todayIndex }
  */
 export function renderRollingOverviewChart(canvasId, data) {
   const canvas = document.getElementById(canvasId);
@@ -457,10 +457,12 @@ export function renderRollingOverviewChart(canvasId, data) {
     _chartInstances.delete(canvasId);
   }
 
-  const { labels, data: balanceData, todayIndex } = data;
+  const { labels, data: components, todayIndex } = data;
+  const { balance, income, expenses } = components;
 
-  const primaryColor = '#0072B2'; // Blue
-  const warnColor = '#D55E00';    // Vermilion
+  const balanceColor = '#000000'; // Black for primary balance line
+  const incomeColor = OKABE_ITO.income; // Blue
+  const expenseColor = OKABE_ITO.fixed; // Vermilion
 
   const chart = new Chart(canvas, {
     type: 'line',
@@ -469,17 +471,41 @@ export function renderRollingOverviewChart(canvasId, data) {
       datasets: [
         {
           label: 'Account Balance',
-          data: balanceData,
-          borderColor: primaryColor,
-          backgroundColor: primaryColor + '11',
+          data: balance,
+          borderColor: balanceColor,
+          backgroundColor: balanceColor + '11',
           fill: true,
           tension: 0.2,
           pointRadius: 0,
           pointHoverRadius: 4,
-          borderWidth: 2,
+          borderWidth: 2.5,
           segment: {
             borderDash: ctx => ctx.p0DataIndex >= todayIndex ? [6, 4] : undefined,
           }
+        },
+        {
+          label: 'Daily Income',
+          data: income,
+          borderColor: incomeColor,
+          backgroundColor: 'transparent',
+          fill: false,
+          tension: 0.2,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          borderWidth: 1.5,
+          hidden: true // Hidden by default to keep chart clean
+        },
+        {
+          label: 'Daily Expenses',
+          data: expenses,
+          borderColor: expenseColor,
+          backgroundColor: 'transparent',
+          fill: false,
+          tension: 0.2,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          borderWidth: 1.5,
+          hidden: true // Hidden by default to keep chart clean
         }
       ]
     },
@@ -492,15 +518,21 @@ export function renderRollingOverviewChart(canvasId, data) {
       },
       plugins: {
         legend: {
-          display: false
+          display: true,
+          position: 'top',
+          labels: {
+            font: { size: 10 },
+            usePointStyle: true,
+            boxWidth: 8
+          }
         },
         tooltip: {
           position: 'nearest',
           callbacks: {
             label: (ctx) => {
               const isForecast = ctx.dataIndex > todayIndex;
-              const suffix = isForecast ? ' (Forecast)' : '';
-              return ` Balance${suffix}: ${formatPence(ctx.parsed.y)}`;
+              const suffix = (isForecast && ctx.dataset.label === 'Account Balance') ? ' (Forecast)' : '';
+              return ` ${ctx.dataset.label}${suffix}: ${formatPence(ctx.parsed.y)}`;
             }
           }
         }
