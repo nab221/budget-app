@@ -32,63 +32,73 @@ export { BALANCE_START_DATE_KEY };
 async function init() {
   console.log('Budget App initializing...');
 
-  // 0. Initialize PWA (service worker registration + install prompt interception)
-  initPWA();
+  // 0. Initializations that can run in parallel
+  await Promise.all([
+    (async () => {
+      initPWA();
+      checkExportReminder();
+    })(),
+    (async () => {
+      initTheme();
+      const themeToggle = document.getElementById('themeToggle');
+      if (themeToggle) {
+        themeToggle.addEventListener('click', () => toggleTheme());
+      }
+    })(),
+    (async () => {
+      try {
+        await RecurrenceManager.checkAndGenerate();
+      } catch (err) {
+        console.error('Failed to run recurrence check:', err);
+      }
+    })(),
+    refreshPersistenceWarning()
+  ]);
 
-  // Check export reminder (shows banner if last backup was > 7 days ago)
-  checkExportReminder();
-
-  // 1. Initialize Theme
-  initTheme();
-  
-  // 2. Bind Global UI elements
-  const themeToggle = document.getElementById('themeToggle');
-  if (themeToggle) {
-    themeToggle.addEventListener('click', () => {
-      const newTheme = toggleTheme();
-      console.log(`Theme changed to: ${newTheme}`);
-    });
-  }
-
-  // 3. Recurrence: Check and generate instances for the current horizon
-  try {
-    const recResults = await RecurrenceManager.checkAndGenerate();
-    console.log('Recurrence check complete:', recResults);
-  } catch (err) {
-    console.error('Failed to run recurrence check:', err);
-  }
-
-  // 4. Tab Navigation & Global Refresh
+  // 1. Define Global App Object
   window.app = { 
     renderAll: async () => {
       const activeTab = document.querySelector('#mainTabs .tab.active');
       const panelId = activeTab ? activeTab.dataset.tab : 'dashboard';
       
-      if (panelId === 'dashboard') await renderDashboard();
-      if (panelId === 'income') await transactionUI.render();
-      if (panelId === 'expenses') await expensesUI.render();
-      if (panelId === 'debts') await debtUI.render();
-      if (panelId === 'assets') await assetUI.render();
-      if (panelId === 'payoff') await renderPayoffPlanner();
-      if (panelId === 'childcare') await childcareUI.render();
+      console.log(`[app] Rendering active panel: ${panelId}`);
+
+      const renderTasks = [];
+      
+      if (panelId === 'dashboard') renderTasks.push(renderDashboard());
+      if (panelId === 'income') renderTasks.push(transactionUI.render());
+      if (panelId === 'expenses') renderTasks.push(expensesUI.render());
+      if (panelId === 'debts') renderTasks.push(debtUI.render());
+      if (panelId === 'assets') renderTasks.push(assetUI.render());
+      if (panelId === 'payoff') renderTasks.push(renderPayoffPlanner());
+      if (panelId === 'childcare') renderTasks.push(childcareUI.render());
       if (panelId === 'settings') {
-        await categoryUI.render();
-        await targetsUI.renderTargetSettings();
+        renderTasks.push(categoryUI.render());
+        renderTasks.push(targetsUI.renderTargetSettings());
       }
+
+      await Promise.all(renderTasks);
     },
     refreshApp: () => window.dispatchEvent(new CustomEvent('app:refresh'))
   };
 
-  window.addEventListener('app:refresh', async () => {
-    await window.app.renderAll();
-  });
+  window.addEventListener('app:refresh', () => window.app.renderAll());
 
+  // 2. Tab Navigation & Mobile Menu
   const mainTabs = document.getElementById('mainTabs');
   const mobileMenuBtn = document.getElementById('mobileMenuBtn');
 
   if (mobileMenuBtn && mainTabs) {
-    mobileMenuBtn.addEventListener('click', () => {
+    mobileMenuBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
       mainTabs.classList.toggle('open');
+    });
+
+    // Close menu when clicking outside
+    document.addEventListener('click', (e) => {
+      if (mainTabs.classList.contains('open') && !mainTabs.contains(e.target) && e.target !== mobileMenuBtn) {
+        mainTabs.classList.remove('open');
+      }
     });
   }
 
@@ -105,21 +115,11 @@ async function init() {
         p.classList.toggle('active', p.dataset.panel === panelId);
       });
 
-      // Close mobile menu if open
+      // Close mobile menu
       mainTabs.classList.remove('open');
 
-      // Refresh data when switching tabs
-      if (panelId === 'dashboard') await renderDashboard();
-      if (panelId === 'income') await transactionUI.render();
-      if (panelId === 'expenses') await expensesUI.render();
-      if (panelId === 'debts') await debtUI.render();
-      if (panelId === 'assets') await assetUI.render();
-      if (panelId === 'payoff') await renderPayoffPlanner();
-      if (panelId === 'childcare') await childcareUI.render();
+      // Special handling for settings population
       if (panelId === 'settings') {
-        await categoryUI.render();
-        await targetsUI.renderTargetSettings();
-        // Populate balance configuration from localStorage
         const balanceStartInput = document.getElementById('balanceStartDate');
         if (balanceStartInput) {
           balanceStartInput.value = localStorage.getItem(BALANCE_START_DATE_KEY) || '';
@@ -130,10 +130,12 @@ async function init() {
           balanceOpeningInput.value = (savedAmountPence / 100).toFixed(2);
         }
       }
+
+      await window.app.renderAll();
     });
   }
 
-  // Balance Start Configuration Save Logic
+  // 3. Settings Save Handlers
   const saveBalanceBtn = document.getElementById('saveBalanceStartBtn');
   if (saveBalanceBtn) {
     saveBalanceBtn.addEventListener('click', async () => {
@@ -154,27 +156,15 @@ async function init() {
       if (statusDiv) statusDiv.textContent = 'Saving...';
 
       try {
-        // Save to localStorage
         localStorage.setItem(BALANCE_START_DATE_KEY, date);
         const amountPence = Math.round(amount * 100);
         localStorage.setItem(BALANCE_OPENING_AMOUNT_KEY, amountPence.toString());
 
-        // Trigger Recalculation
-        // Append -01 to YYYY-MM to create a valid ISO date for the trigger
         await triggerBalanceRecalc(date + '-01');
-
         if (statusDiv) statusDiv.textContent = 'Recalculation complete.';
+        window.app.refreshApp();
         
-        // Dispatch refresh
-        if (window.app && window.app.refreshApp) {
-          window.app.refreshApp();
-        }
-        
-        // Clear status after delay
-        setTimeout(() => {
-          if (statusDiv) statusDiv.textContent = '';
-        }, 3000);
-
+        setTimeout(() => { if (statusDiv) statusDiv.textContent = ''; }, 3000);
       } catch (err) {
         console.error('Failed to save balance configuration:', err);
         if (statusDiv) statusDiv.textContent = 'Error: ' + err.message;
@@ -182,28 +172,23 @@ async function init() {
     });
   }
 
-  // 4. Ensure Storage Persistence (Safari/Mobile mitigation)
-  await refreshPersistenceWarning();
-
-  // 5. Initialize UI Modules
-  await categoryRepository.seedDefaultCategories();
-  await netWorthRepository.checkAndTakeSnapshot();
-
-  // Initialize UI components
-  await initFileSyncUI();
-  await transactionUI.init();
-  await expensesUI.init();
-  await debtUI.init();
-  await assetUI.init();
-  await childcareUI.init();
-  await templateUI.init();
-  await pdfImportUI.init();
-
-  await categoryUI.init();
-  await targetsUI.init();
-  await backupUI.init();
-  
-  await initDashboard();
+  // 4. Parallel Module Initialization
+  await Promise.all([
+    categoryRepository.seedDefaultCategories(),
+    netWorthRepository.checkAndTakeSnapshot(),
+    initFileSyncUI(),
+    transactionUI.init(),
+    expensesUI.init(),
+    debtUI.init(),
+    assetUI.init(),
+    childcareUI.init(),
+    templateUI.init(),
+    pdfImportUI.init(),
+    categoryUI.init(),
+    targetsUI.init(),
+    backupUI.init(),
+    initDashboard()
+  ]);
 
   console.log('Budget App initialized successfully.');
 }

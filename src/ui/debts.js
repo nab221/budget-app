@@ -1,4 +1,4 @@
-import { debtRepository, statementRepository, incomeRepository } from '../db/repository.js';
+import { debtRepository, statementRepository, incomeRepository, categoryRepository } from '../db/repository.js';
 import { formatGBP, fromPence } from '../utils/currency.js';
 import { calcMinPayment, calcUtilization, simulatePayoff } from '../utils/finance.js';
 import { safeHTML, renderTabSummary } from './render.js';
@@ -11,6 +11,7 @@ export const debtUI = {
   editingId: null,
   editingStmtId: null,
   openLedgerId: null,
+  activeStmtDebtId: null,
 
   /**
    * Initialize Debt UI.
@@ -30,15 +31,8 @@ export const debtUI = {
       addDebtBtn.onclick = () => this.toggleDebtForm();
     }
 
-    const addStmtBtn = document.getElementById('addStmtBtn');
-    if (addStmtBtn) {
-      addStmtBtn.onclick = () => this.toggleStmtForm();
-    }
-
-    const importStmtPdfBtn = document.getElementById('importStmtPdfBtn');
     const stmtPdfFile = document.getElementById('stmtPdfFile');
-    if (importStmtPdfBtn && stmtPdfFile) {
-      importStmtPdfBtn.onclick = () => stmtPdfFile.click();
+    if (stmtPdfFile) {
       stmtPdfFile.onchange = async (e) => {
         const file = e.target.files[0];
         if (file && window.pdfImportUI) {
@@ -53,12 +47,13 @@ export const debtUI = {
       if (!confirm('Are you sure you want to delete this debt? All statements will be lost.')) return;
       try {
         const stmts = await statementRepository.getAll();
-        const debtStmts = stmts.filter(s => s.debtId === id);
+        const debtStmts = stmts.filter(s => Number(s.debtId) === Number(id));
         for (const s of debtStmts) {
           await statementRepository.delete(s.id);
         }
         await debtRepository.delete(id);
         if (this.openLedgerId === id) this.openLedgerId = null;
+        if (this.activeStmtDebtId === id) this.activeStmtDebtId = null;
         await this.render();
       } catch (error) {
         console.error('Failed to delete debt:', error);
@@ -340,24 +335,33 @@ export const debtUI = {
     this.toggleDebtForm(true);
   },
 
-  async toggleStmtForm(show = true) {
-    const container = document.getElementById('stmtFormContainer');
+  async toggleStmtForm(debtId, show = true) {
+    if (!debtId && this.activeStmtDebtId) debtId = this.activeStmtDebtId;
+    if (!debtId) return;
+
+    const container = document.getElementById(`stmtFormContainer-${debtId}`);
     if (!container) return;
+
     if (show) {
+      // Close other open statement form if any
+      if (this.activeStmtDebtId && this.activeStmtDebtId !== debtId) {
+        const prev = document.getElementById(`stmtFormContainer-${this.activeStmtDebtId}`);
+        if (prev) prev.classList.add('hidden');
+      }
+
+      this.activeStmtDebtId = debtId;
       container.classList.remove('hidden');
-      return await this.renderStmtForm();
+      return await this.renderStmtForm(debtId);
     } else {
       container.classList.add('hidden');
       this.editingStmtId = null;
+      this.activeStmtDebtId = null;
     }
   },
 
-  async renderStmtForm() {
-    const container = document.getElementById('stmtFormContainer');
+  async renderStmtForm(debtId) {
+    const container = document.getElementById(`stmtFormContainer-${debtId}`);
     if (!container) return;
-
-    const debtIdInput = document.getElementById('stmtDebtId');
-    const debtId = debtIdInput ? parseInt(debtIdInput.value) : null;
     
     let data = {
       date: new Date().toISOString().slice(0, 10),
@@ -384,7 +388,7 @@ export const debtUI = {
     } else if (debtId) {
       // Suggest opening balance from the latest statement's closing balance
       const allStmts = await statementRepository.getAll();
-      const debtStmts = allStmts.filter(s => s.debtId === debtId).sort((a,b) => b.date.localeCompare(a.date));
+      const debtStmts = allStmts.filter(s => Number(s.debtId) === Number(debtId)).sort((a,b) => b.date.localeCompare(a.date));
       if (debtStmts.length > 0) {
         data.openingBalance = fromPence(debtStmts[0].amount).toFixed(2);
       }
@@ -401,20 +405,24 @@ export const debtUI = {
         </h3>
       </div>
       <div class="form-row">
-        <div><label>Statement Date</label><input id="stmtDateInput" type="date" value="${data.date}"/></div>
-        <div><label>Opening Balance (£)</label><input id="stmtOpeningBalanceInput" type="number" step="0.01" value="${data.openingBalance}" placeholder="0.00"/></div>
-        <div><label>New Balance (£)</label><input id="stmtBalanceInput" type="number" step="0.01" value="${data.amount}" placeholder="0.00"/></div>
+        <div><label>Statement Date</label><input id="stmtDateInput-${debtId}" type="date" value="${data.date}"/></div>
+        <div><label>Opening Balance (£)</label><input id="stmtOpeningBalanceInput-${debtId}" type="number" step="0.01" value="${data.openingBalance}" placeholder="0.00"/></div>
+        <div><label>New Balance (£)</label><input id="stmtBalanceInput-${debtId}" type="number" step="0.01" value="${data.amount}" placeholder="0.00"/></div>
       </div>
       <div class="form-row">
-        <div><label>Interest (£)</label><input id="stmtInterestInput" type="number" step="0.01" value="${data.interest}"/></div>
-        <div><label>Fees (£)</label><input id="stmtFeesInput" type="number" step="0.01" value="${data.fees}"/></div>
+        <div><label>Interest (£)</label><input id="stmtInterestInput-${debtId}" type="number" step="0.01" value="${data.interest}"/></div>
+        <div><label>Fees (£)</label><input id="stmtFeesInput-${debtId}" type="number" step="0.01" value="${data.fees}"/></div>
       </div>
       <div class="form-row">
-        <div><label>Min Payment Due (£)</label><input id="stmtMinPaymentInput" type="number" step="0.01" value="${data.minimumPayment}" placeholder="0.00"/></div>
-        <div><label>Payment Due Date</label><input id="stmtDueDateInput" type="date" value="${data.paymentDueDate || ''}"/></div>
+        <div><label>Min Payment Due (£)</label><input id="stmtMinPaymentInput-${debtId}" type="number" step="0.01" value="${data.minimumPayment}" placeholder="0.00"/></div>
+        <div><label>Payment Due Date</label><input id="stmtDueDateInput-${debtId}" type="date" value="${data.paymentDueDate || ''}"/></div>
         <div style="display:flex;align-items:flex-end;gap:8px">
-          <button class="primary sm" onclick="debtUI.handleSaveStatement()">${isUpdate ? 'Save Changes' : 'Log Statement'}</button>
-          <button class="ghost sm" onclick="debtUI.cancelEditStmt()">${isUpdate ? 'Cancel' : 'Hide'}</button>
+          <button class="primary sm" onclick="debtUI.handleSaveStatement()">
+            ${isUpdate ? 'Save Changes' : 'Log Statement'}
+          </button>
+          <button class="ghost sm" onclick="debtUI.cancelEditStmt()">
+            ${isUpdate ? 'Cancel' : 'Hide'}
+          </button>
         </div>
       </div>
     `;
@@ -425,17 +433,18 @@ export const debtUI = {
   },
 
   async handleSaveStatement() {
-    const debtIdInput = document.getElementById('stmtDebtId');
-    const debtId = debtIdInput ? parseInt(debtIdInput.value) : null;
-    const date = document.getElementById('stmtDateInput').value;
-    const openingBalance = parseFloat(document.getElementById('stmtOpeningBalanceInput').value);
-    const balance = parseFloat(document.getElementById('stmtBalanceInput').value);
-    const interest = parseFloat(document.getElementById('stmtInterestInput').value);
-    const fees = parseFloat(document.getElementById('stmtFeesInput').value);
-    const minPayment = parseFloat(document.getElementById('stmtMinPaymentInput').value);
-    const dueDate = document.getElementById('stmtDueDateInput').value;
+    const debtId = this.activeStmtDebtId;
+    if (!debtId) return;
 
-    if (!debtId || !date || isNaN(balance) || isNaN(openingBalance)) {
+    const date = document.getElementById(`stmtDateInput-${debtId}`).value;
+    const openingBalance = parseFloat(document.getElementById(`stmtOpeningBalanceInput-${debtId}`).value);
+    const balance = parseFloat(document.getElementById(`stmtBalanceInput-${debtId}`).value);
+    const interest = parseFloat(document.getElementById(`stmtInterestInput-${debtId}`).value);
+    const fees = parseFloat(document.getElementById(`stmtFeesInput-${debtId}`).value);
+    const minPayment = parseFloat(document.getElementById(`stmtMinPaymentInput-${debtId}`).value);
+    const dueDate = document.getElementById(`stmtDueDateInput-${debtId}`).value;
+
+    if (!date || isNaN(balance) || isNaN(openingBalance)) {
       alert('Please fill in Date, Opening Balance, and New Balance.');
       return;
     }
@@ -443,7 +452,7 @@ export const debtUI = {
     // Continuity Validation
     if (!this.editingStmtId) {
       const allStmts = await statementRepository.getAll();
-      const debtStmts = allStmts.filter(s => s.debtId === debtId).sort((a,b) => b.date.localeCompare(a.date));
+      const debtStmts = allStmts.filter(s => Number(s.debtId) === Number(debtId)).sort((a,b) => b.date.localeCompare(a.date));
       if (debtStmts.length > 0) {
         const prevClosing = fromPence(debtStmts[0].amount);
         if (Math.abs(openingBalance - prevClosing) > 0.01) {
@@ -456,7 +465,7 @@ export const debtUI = {
 
     try {
       const payload = {
-        debtId,
+        debtId: Number(debtId),
         date,
         openingBalance,
         amount: balance,
@@ -475,12 +484,12 @@ export const debtUI = {
 
       // Update the main debt record's currentBalance to reflect the latest statement
       const allStmts = await statementRepository.getAll();
-      const debtStmts = allStmts.filter(s => s.debtId === debtId).sort((a,b) => b.date.localeCompare(a.date));
+      const debtStmts = allStmts.filter(s => Number(s.debtId) === Number(debtId)).sort((a,b) => b.date.localeCompare(a.date));
       if (debtStmts.length > 0) {
         await debtRepository.update(debtId, { currentBalance: fromPence(debtStmts[0].amount) });
       }
 
-      this.toggleStmtForm(false);
+      this.toggleStmtForm(debtId, false);
       await this.renderStatements(debtId);
       await this.render();
       if (window.app) window.app.renderAll();
@@ -492,40 +501,52 @@ export const debtUI = {
 
   cancelEditStmt() {
     if (this.editingStmtId && !confirm('Discard changes?')) return;
-    this.toggleStmtForm(false);
+    this.toggleStmtForm(this.activeStmtDebtId, false);
   },
 
-  async editStatement(id) {
+  async editStatement(id, debtId) {
     if (this.editingStmtId && this.editingStmtId !== id) {
       if (!confirm('Discard changes to the current item?')) return;
     }
     this.editingStmtId = id;
-    this.toggleStmtForm(true);
+    this.toggleStmtForm(debtId, true);
   },
 
   /**
- * Pre-fills the statement form with extracted PDF data
- */
-async prefillStatementForm(summary) {
-  await this.toggleStmtForm(true);
-  
-  if (summary.statementDate) document.getElementById('stmtDateInput').value = summary.statementDate;
-  if (summary.openingBalance !== null) document.getElementById('stmtOpeningBalanceInput').value = (summary.openingBalance / 100).toFixed(2);
-  if (summary.newBalance !== null) document.getElementById('stmtBalanceInput').value = (summary.newBalance / 100).toFixed(2);
-  if (summary.minimumPayment !== null) document.getElementById('stmtMinPaymentInput').value = (summary.minimumPayment / 100).toFixed(2);
-  if (summary.paymentDueDate) document.getElementById('stmtDueDateInput').value = summary.paymentDueDate;
-
-  // Pulse effect to show what was filled
-  const fields = ['stmtDateInput', 'stmtOpeningBalanceInput', 'stmtBalanceInput', 'stmtMinPaymentInput', 'stmtDueDateInput'];
-  fields.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) {
-      el.style.transition = 'background-color 0.5s';
-      el.style.backgroundColor = 'var(--accent-light)';
-      setTimeout(() => el.style.backgroundColor = '', 1500);
+   * Pre-fills the statement form with extracted PDF data
+   */
+  async prefillStatementForm(summary) {
+    // pdfImport sets activeStmtDebtId before triggering file input
+    const debtId = this.activeStmtDebtId;
+    if (!debtId) {
+       alert('No active debt selected for import.');
+       return;
     }
-  });
-},
+
+    await this.toggleStmtForm(debtId, true);
+    
+    const dateInput = document.getElementById(`stmtDateInput-${debtId}`);
+    const openInput = document.getElementById(`stmtOpeningBalanceInput-${debtId}`);
+    const balanceInput = document.getElementById(`stmtBalanceInput-${debtId}`);
+    const minInput = document.getElementById(`stmtMinPaymentInput-${debtId}`);
+    const dueInput = document.getElementById(`stmtDueDateInput-${debtId}`);
+
+    if (summary.statementDate && dateInput) dateInput.value = summary.statementDate;
+    if (summary.openingBalance !== null && openInput) openInput.value = (summary.openingBalance / 100).toFixed(2);
+    if (summary.newBalance !== null && balanceInput) balanceInput.value = (summary.newBalance / 100).toFixed(2);
+    if (summary.minimumPayment !== null && minInput) minInput.value = (summary.minimumPayment / 100).toFixed(2);
+    if (summary.paymentDueDate && dueInput) dueInput.value = summary.paymentDueDate;
+
+    // Pulse effect to show what was filled
+    const fields = [dateInput, openInput, balanceInput, minInput, dueInput];
+    fields.forEach(el => {
+      if (el) {
+        el.style.transition = 'background-color 0.5s';
+        el.style.backgroundColor = 'var(--accent-light)';
+        setTimeout(() => el.style.backgroundColor = '', 1500);
+      }
+    });
+  },
 
   /**
    * Render the list of debts grouped by type.
@@ -658,8 +679,15 @@ async prefillStatementForm(summary) {
               <div style="padding:15px">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px">
                   <h4 style="margin:0; font-size:0.9rem">Statement History: ${debt.name}</h4>
-                  ${type === 'credit-card' ? `<button class="sm primary" onclick="document.getElementById('stmtDebtId').value=${debt.id}; debtUI.toggleStmtForm(true)">+ Log Statement</button>` : ''}
+                  <div style="display:flex; gap:8px">
+                    <button class="sm primary" onclick="debtUI.toggleStmtForm(${debt.id}, true)">+ Log Statement</button>
+                    ${type === 'credit-card' ? `<button class="sm ghost" onclick="debtUI.activeStmtDebtId=${debt.id}; document.getElementById('stmtPdfFile').click()">📄 Import PDF</button>` : ''}
+                  </div>
                 </div>
+
+                <!-- Statement Form Placeholder -->
+                <div id="stmtFormContainer-${debt.id}" class="card hidden" style="margin-bottom:16px; background:var(--bg-alt); border: 1px solid var(--border-light);"></div>
+
                 <div style="overflow-x:auto">
                   <table class="tbl sm">
                     <thead>
@@ -703,38 +731,41 @@ async prefillStatementForm(summary) {
    */
   async renderStatements(debtId) {
     const allStmts = await statementRepository.getAll();
-    const stmts = allStmts.filter(s => s.debtId === debtId);
-    const body = document.getElementById(`stmtBody-${debtId}`);
-    if (!body) return;
+    const stmts = allStmts.filter(s => Number(s.debtId) === Number(debtId));
+    
+    const renderTo = (container) => {
+      if (!container) return;
+      if (stmts.length === 0) {
+        container.innerHTML = '<tr><td colspan="10" class="hint" style="text-align:center">No statements logged yet.</td></tr>';
+        return;
+      }
 
-    if (stmts.length === 0) {
-      body.innerHTML = '<tr><td colspan="10" class="hint" style="text-align:center">No statements logged yet.</td></tr>';
-      return;
-    }
+      stmts.sort((a, b) => b.date.localeCompare(a.date));
 
-    stmts.sort((a, b) => b.date.localeCompare(a.date));
+      container.innerHTML = stmts.map(s => safeHTML`
+        <tr>
+          <td>${s.date}</td>
+          <td class="r">${formatGBP(s.openingBalance)}</td>
+          <td class="r">${formatGBP(s.amount)}</td>
+          <td class="r">${formatGBP(s.interest)}</td>
+          <td class="r">${formatGBP(s.fees)}</td>
+          <td class="r">${formatGBP(s.minimumPayment)}</td>
+          <td>${s.paymentDueDate || '—'}</td>
+          <td class="r" style="color:${s.actualPaymentAmount ? 'var(--success)' : 'inherit'}">
+            ${s.actualPaymentAmount ? formatGBP(s.actualPaymentAmount) : '—'}
+          </td>
+          <td style="color:${s.actualPaymentDate ? 'var(--success)' : 'inherit'}">
+            ${s.actualPaymentDate || '—'}
+          </td>
+          <td class="r nw">
+            <button class="sm ghost" onclick="debtUI.editStatement(${s.id}, ${debtId})">Edit</button>
+            <button class="sm danger" onclick="deleteStatement(${s.id}, ${debtId})">✕</button>
+          </td>
+        </tr>
+      `).join('');
+    };
 
-    body.innerHTML = stmts.map(s => safeHTML`
-      <tr>
-        <td>${s.date}</td>
-        <td class="r">${formatGBP(s.openingBalance)}</td>
-        <td class="r">${formatGBP(s.amount)}</td>
-        <td class="r">${formatGBP(s.interest)}</td>
-        <td class="r">${formatGBP(s.fees)}</td>
-        <td class="r">${formatGBP(s.minimumPayment)}</td>
-        <td>${s.paymentDueDate || '—'}</td>
-        <td class="r" style="color:${s.actualPaymentAmount ? 'var(--success)' : 'inherit'}">
-          ${s.actualPaymentAmount ? formatGBP(s.actualPaymentAmount) : '—'}
-        </td>
-        <td style="color:${s.actualPaymentDate ? 'var(--success)' : 'inherit'}">
-          ${s.actualPaymentDate || '—'}
-        </td>
-        <td class="r nw">
-          <button class="sm ghost" onclick="debtUI.editStatement(${s.id})">Edit</button>
-          <button class="sm danger" onclick="deleteStatement(${s.id}, ${debtId})">✕</button>
-        </td>
-      </tr>
-    `).join('');
+    renderTo(document.getElementById(`stmtBody-${debtId}`));
   }
 };
 

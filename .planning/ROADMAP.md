@@ -42,6 +42,27 @@ Navigation overhaul, Dashboard redesign, and critical Debt management bug fixes.
 - [x] TEST-01: Verify all 31 finance tests pass.
 - [x] UAT-01: Full manual walkthrough.
 
+## Milestone v2.2 Stabilization — Stabilization & Gaps
+**Goal**: Restore accuracy, fix regressions, and cleanup initialization logic.
+
+### Phase 7: Restore Cashflow Core
+**Goal**: Re-implement deleted utility functions and fix the test suite.
+- [x] TECH-01: Restore `fetchHolidays`, `isWorkingDay`, `nextWorkingDay` to `src/utils/cashflow.js`.
+- [x] TECH-02: Restore `calculateForecast` and `generateExpectedIncomePredictions`.
+- [x] TEST-02: Fix `src/utils/cashflow.test.js` and verify all 140+ tests pass.
+
+### Phase 8: Forecast Accuracy
+**Goal**: Inject holiday/weekend awareness into the new Rolling Data aggregator.
+- [x] ACC-01: Update `getDailyRollingData` to use `nextWorkingDay` for projected recurrent items.
+- [x] ACC-02: Ensure consistent balance logic between `calculateBalanceChain` and the Rolling graph.
+
+### Phase 9: UI Restoration & Initialization Cleanup
+**Goal**: Bring back missing UI features and refactor app.js.
+- [x] UI-03: Restore 90-day daily forecast table as a toggle on the Dashboard tab.
+- [x] CLEAN-01: Consolidate rendering logic in `src/app.js` and parallelize `init()` sequence.
+- [x] CLEAN-02: Improve mobile navigation menu UX and robustness.
+- [x] UI-04: Restore Payoff Planner per-card breakdown and fix chart scaling.
+
 ## Completed Milestones
 - [x] v2.2: Navigation Overhaul, Dashboard Redesign, and Debt Bug Fixes (2026-03-05)
 - [x] v2.1: Advanced Refinements & Security (2026-03-04)

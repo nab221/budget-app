@@ -150,7 +150,7 @@ function renderLoanPayoff(debts, extraPence) {
  * Helper to transform history into chart series.
  */
 function getChartDataFromHistory(history, debtsArr) {
-  const CHART_MONTHS = 120;
+  const CHART_MONTHS = 24; // Focus on next 2 years
   const limitedHistory = history.slice(0, CHART_MONTHS);
   
   const series = debtsArr.map(d => ({
@@ -175,35 +175,73 @@ function renderConsolidatedSchedule(ccResult, loanResult) {
   const body = document.getElementById('payoffScheduleBody');
   if (!body) return;
 
-  const maxMonths = Math.max(ccResult?.history.length || 0, loanResult?.history.length || 0);
-  const limitedMonths = Math.min(maxMonths, 60); // Show 5 years max
-  
+  const ccHistory = ccResult?.history || [];
+  const loanHistory = loanResult?.history || [];
+  const maxMonths = Math.max(ccHistory.length, loanHistory.length);
+  const limitedMonths = Math.min(maxMonths, 24); // Show 2 years max for the detailed breakdown
+
+  // Collect all unique debts from both results to build columns
+  const allDebts = [];
+  if (ccResult) {
+    const firstSnap = ccResult.history[0];
+    if (firstSnap) firstSnap.payments.forEach(p => allDebts.push({ id: p.debtId, name: p.debtName, type: 'cc' }));
+  }
+  if (loanResult) {
+    const firstSnap = loanResult.history[0];
+    if (firstSnap) firstSnap.payments.forEach(p => allDebts.push({ id: p.debtId, name: p.debtName, type: 'loan' }));
+  }
+
+  // Update Table Header
+  const table = body.closest('table');
+  if (table) {
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>Month</th>
+          <th class="r">Total Paid</th>
+          ${allDebts.map(d => `<th class="r" style="border-left:1px solid var(--border-light)">${d.name}<br/><span style="font-size:0.65rem; font-weight:400">Payment</span></th>`).join('')}
+          <th class="r" style="border-left:2px solid var(--border-light)">Balance</th>
+        </tr>
+      </thead>
+      <tbody id="payoffScheduleBody"></tbody>
+    `;
+  }
+
+  const newBody = document.getElementById('payoffScheduleBody');
   let html = '';
+
   for (let i = 0; i < limitedMonths; i++) {
-    const ccSnap = ccResult?.history[i];
-    const loanSnap = loanResult?.history[i];
+    const ccSnap = ccHistory[i];
+    const loanSnap = loanHistory[i];
     
     const date = ccSnap?.date || loanSnap?.date || `Month ${i+1}`;
     const totalPaid = (ccSnap?.totalPrincipalPaid || 0) + (ccSnap?.totalInterestCharged || 0) + 
                       (loanSnap?.totalPrincipalPaid || 0) + (loanSnap?.totalInterestCharged || 0);
-    const interest = (ccSnap?.totalInterestCharged || 0) + (loanSnap?.totalInterestCharged || 0);
-    const principal = (ccSnap?.totalPrincipalPaid || 0) + (loanSnap?.totalPrincipalPaid || 0);
-    const fees = (loanSnap?.totalFeesCharged || 0);
     const balance = (ccSnap?.totalRemainingBalance || 0) + (loanSnap?.totalRemainingBalance || 0);
 
     html += `
       <tr>
-        <td>${date}</td>
-        <td class="r">${formatGBP(totalPaid)}</td>
-        <td class="r">${formatGBP(interest)}</td>
-        <td class="r">${formatGBP(principal)}</td>
-        <td class="r">${formatGBP(fees)}</td>
-        <td class="r" style="font-weight:600">${formatGBP(balance)}</td>
+        <td class="nw">${date}</td>
+        <td class="r" style="font-weight:600">${formatGBP(totalPaid)}</td>
+        ${allDebts.map(d => {
+          const snap = d.type === 'cc' ? ccSnap : loanSnap;
+          const p = snap?.payments.find(pay => pay.debtId === d.id) || { amount: 0, principalPaid: 0, interestCharged: 0 };
+          const interest = p.interestCharged || p.feeCharged || 0;
+          return `
+            <td class="r nw" style="border-left:1px solid var(--border-light)">
+              <div style="font-weight:600">${formatGBP(p.amount)}</div>
+              <div class="hint" style="font-size:0.65rem">
+                ${formatGBP(p.principalPaid)} P | ${formatGBP(interest)} I
+              </div>
+            </td>
+          `;
+        }).join('')}
+        <td class="r nw" style="font-weight:600; border-left:2px solid var(--border-light)">${formatGBP(balance)}</td>
       </tr>
     `;
   }
 
-  body.innerHTML = html || '<tr><td colspan="6" class="hint" style="text-align:center">No data.</td></tr>';
+  newBody.innerHTML = html || '<tr><td colspan="6" class="hint" style="text-align:center">No data.</td></tr>';
 }
 
 /**

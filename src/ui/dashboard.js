@@ -1,6 +1,5 @@
 import { 
   getDashboardData, 
-  getDailyRollingData, 
   getCurrentBalance,
   debtRepository, 
   targetRepository, 
@@ -10,6 +9,7 @@ import {
   expectedIncomeRepository,
   childcareRepository
 } from '../db/repository.js';
+import { getDailyRollingData } from '../utils/cashflow.js';
 import { formatGBP, formatGBPShort, toPence, fromPence } from '../utils/currency.js';
 import { simulatePayoff, calcMinPayment, calculateBalanceChain } from '../utils/finance.js';
 import { renderRollingOverviewChart } from './charts.js';
@@ -46,12 +46,12 @@ function renderMonthNavigator(containerId) {
 
   const [year, month] = _selectedMonth.split('-').map(Number);
   
-  // Create select options for +/- 12 months
+  // Create select options for +/- 24 months
   let options = '';
-  for (let i = -12; i <= 12; i++) {
-    const d = new Date(year, month - 1 + i, 1);
+  for (let i = -24; i <= 24; i++) {
+    const d = new Date(Date.UTC(year, month - 1 + i, 1));
     const val = d.toISOString().slice(0, 7);
-    const label = d.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
+    const label = d.toLocaleDateString('en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' });
     options += `<option value="${val}" ${val === _selectedMonth ? 'selected' : ''}>${label}</option>`;
   }
 
@@ -62,12 +62,12 @@ function renderMonthNavigator(containerId) {
   `;
 
   container.querySelector('.prev-month').onclick = () => {
-    const d = new Date(year, month - 2, 1);
+    const d = new Date(Date.UTC(year, month - 2, 1));
     _selectedMonth = d.toISOString().slice(0, 7);
     renderDashboard();
   };
   container.querySelector('.next-month').onclick = () => {
-    const d = new Date(year, month, 1);
+    const d = new Date(Date.UTC(year, month, 1));
     _selectedMonth = d.toISOString().slice(0, 7);
     renderDashboard();
   };
@@ -98,6 +98,39 @@ export async function renderDashboard() {
   // 1. Render Rolling Chart (365 Days Daily)
   try {
     renderRollingOverviewChart('rollingOverviewChart', rollingData);
+    
+    // Add Forecast Table Toggle and Container if not present
+    let forecastActionCont = document.getElementById('dashboardForecastActions');
+    if (!forecastActionCont) {
+      const chartCont = document.getElementById('rollingOverviewChartContainer');
+      if (chartCont) {
+        forecastActionCont = document.createElement('div');
+        forecastActionCont.id = 'dashboardForecastActions';
+        forecastActionCont.style.cssText = 'display:flex; justify-content:center; margin-top:10px; margin-bottom:15px;';
+        
+        const toggleBtn = document.createElement('button');
+        toggleBtn.id = 'toggleForecastTableBtn';
+        toggleBtn.className = 'ghost sm';
+        toggleBtn.textContent = '📋 Show Detailed 90-Day Forecast';
+        toggleBtn.onclick = () => toggleForecastTable();
+        
+        forecastActionCont.appendChild(toggleBtn);
+        chartCont.parentNode.insertBefore(forecastActionCont, chartCont.nextSibling);
+
+        const tableCont = document.createElement('div');
+        tableCont.id = 'dashboardForecastTableContainer';
+        tableCont.className = 'hidden';
+        tableCont.style.cssText = 'margin-top:15px; overflow-x:auto; max-height:400px; border-top:1px solid var(--border-light);';
+        chartCont.parentNode.insertBefore(tableCont, forecastActionCont.nextSibling);
+      }
+    }
+    
+    // If table is visible, re-render it
+    const tableCont = document.getElementById('dashboardForecastTableContainer');
+    if (tableCont && !tableCont.classList.contains('hidden')) {
+      await renderForecastTable();
+    }
+
   } catch (err) {
     console.warn('Could not render rolling overview chart:', err);
   }
@@ -297,4 +330,82 @@ function adjustFontSize(el, pence) {
 
   el.style.fontSize = fontSize;
   el.textContent = displayValue;
+}
+
+/**
+ * Toggles the visibility of the 90-day forecast table.
+ */
+export async function toggleForecastTable() {
+  const tableCont = document.getElementById('dashboardForecastTableContainer');
+  const btn = document.getElementById('toggleForecastTableBtn');
+  if (!tableCont || !btn) return;
+
+  const isHidden = tableCont.classList.contains('hidden');
+  if (isHidden) {
+    tableCont.classList.remove('hidden');
+    btn.textContent = '✖ Hide Detailed Forecast';
+    await renderForecastTable();
+  } else {
+    tableCont.classList.add('hidden');
+    btn.textContent = '📋 Show Detailed 90-Day Forecast';
+  }
+}
+
+/**
+ * Renders the 90-day daily forecast table.
+ */
+async function renderForecastTable() {
+  const tableCont = document.getElementById('dashboardForecastTableContainer');
+  if (!tableCont) return;
+
+  tableCont.innerHTML = '<div class="hint" style="text-align:center; padding:20px">Calculating 90-day forecast...</div>';
+
+  try {
+    const { calculateForecast } = await import('../utils/cashflow.js');
+    const today = new Date().toISOString().split('T')[0];
+    const snapshots = await calculateForecast(today, 90);
+
+    if (!snapshots || snapshots.length === 0) {
+      tableCont.innerHTML = '<div class="hint" style="text-align:center; padding:20px">No forecast data available.</div>';
+      return;
+    }
+
+    tableCont.innerHTML = `
+      <table class="tbl sm">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th class="r">In</th>
+            <th class="r">Out</th>
+            <th class="r">Balance</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${snapshots.map(s => {
+            const dateObj = new Date(s.date);
+            const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
+            const rowStyle = s.closingBalance < 0 ? 'background:rgba(239,68,68,0.1)' : '';
+            const dateStyle = isWeekend ? 'color:var(--text-dim)' : '';
+            
+            return `
+              <tr style="${rowStyle}">
+                <td style="${dateStyle}">
+                  ${s.date} <span style="font-size:0.6rem; opacity:0.7">${dateObj.toLocaleDateString('en-GB', {weekday:'short'})}</span>
+                  ${s.hasDebtPayment ? ' 💳' : ''}
+                </td>
+                <td class="r" style="color:var(--success)">${s.incomeTotal > 0 ? formatGBPShort(s.incomeTotal) : '—'}</td>
+                <td class="r" style="color:var(--danger)">${s.expenseTotal > 0 ? formatGBPShort(s.expenseTotal) : '—'}</td>
+                <td class="r" style="font-weight:600; color:${s.closingBalance < 0 ? 'var(--danger)' : 'inherit'}">
+                  ${formatGBPShort(s.closingBalance)}
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch (err) {
+    console.error('Failed to render forecast table:', err);
+    tableCont.innerHTML = '<div class="hint" style="text-align:center; padding:20px; color:var(--danger)">Failed to calculate forecast.</div>';
+  }
 }

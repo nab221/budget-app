@@ -105,7 +105,7 @@ export function renderTrendsChart(canvasId, data) {
     },
     options: {
       responsive: true,
-      maintainAspectRatio: true,
+      maintainAspectRatio: false,
       interaction: {
         mode: 'index',
         intersect: false
@@ -216,7 +216,7 @@ export function renderBalanceChart(canvasId, snapshots) {
     },
     options: {
       responsive: true,
-      maintainAspectRatio: true,
+      maintainAspectRatio: false,
       interaction: {
         mode: 'index',
         intersect: false
@@ -314,7 +314,7 @@ export function renderDebtPayoffChart(canvasId, projectionData) {
     data: { labels, datasets },
     options: {
       responsive: true,
-      maintainAspectRatio: true,
+      maintainAspectRatio: false,
       interaction: {
         mode: 'index',
         intersect: false
@@ -404,7 +404,7 @@ export function renderRollingOverviewChart(canvasId, data) {
     },
     options: {
       responsive: true,
-      maintainAspectRatio: true,
+      maintainAspectRatio: false,
       interaction: {
         mode: 'index',
         intersect: false
@@ -502,7 +502,7 @@ export function renderCashFlowChart(canvasId, snapshots) {
     },
     options: {
       responsive: true,
-      maintainAspectRatio: true,
+      maintainAspectRatio: false,
       interaction: {
         mode: 'index',
         intersect: false

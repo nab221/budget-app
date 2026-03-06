@@ -1,16 +1,17 @@
 # Project State: Budget App
 
-## Milestone: v2.2 — Navigation Overhaul, Dashboard Redesign, and Debt Bug Fixes
+## Milestone: v2.2 Stabilization — Restoring Accuracy & Quality
 **Status**: COMPLETED
-**Objective**: Transform Dashboard into a tab, implement daily granularity graph, and fix debt statement regressions.
+**Objective**: Fix regressions introduced in v2.2 overhaul, restore test health, and polish app initialization.
 
 ## Current Progress
-- **Active Milestone**: v2.2 (Navigation & Dashboard) — COMPLETE
-- **Completed Milestones**: v1.0 - v1.5, v2.1, v2.2
-- **Current Position**: Finalizing v2.2 / Preparing for next milestone.
+- **Active Milestone**: v2.2 Stabilization — COMPLETE
+- **Completed Milestones**: v1.0 - v1.5, v2.1, v2.2-stab
+- **Current Position**: Finalizing stabilization / Ready for next milestone.
 
 ## Recent Activity
-- **2026-03-05**: Completed v2.2.
+- **2026-03-05**: Performed Audit of v2.2 implementation; identified broken tests and accuracy regressions.
+- **2026-03-05**: Completed v2.2 overhaul (initial phase).
 - **2026-03-05**: Implemented per-tab summary banners and integrated `renderTabSummary` utility.
 - **2026-03-05**: Fixed debt statement rendering and restored PDF import pipeline.
 - **2026-03-05**: Redesigned Dashboard with daily balance graph and consolidated summary boxes.

@@ -7,6 +7,8 @@ import {
   balanceSnapshotRepository,
   dailyBalanceRepository
 } from '../db/repository.js';
+import { db } from '../db/schema.js';
+import { calcMinPayment } from './finance.js';
 
 const GOV_UK_HOLIDAYS_API = 'https://www.gov.uk/bank-holidays.json';
 const CACHE_KEY = 'bank-holidays-cache';
@@ -34,19 +36,19 @@ export async function fetchHolidays(force = false) {
   try {
     const response = await fetch(GOV_UK_HOLIDAYS_API);
     if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
-    
+
     const data = await response.json();
     const dates = data['england-and-wales'].events.map(e => e.date);
-    
+
     localStorage.setItem(CACHE_KEY, JSON.stringify({
       timestamp: Date.now(),
       dates
     }));
-    
+
     return dates;
   } catch (err) {
     console.error('[cashflow] Failed to fetch UK bank holidays:', err);
-    
+
     // Fallback: use expired cache if available
     if (cached) {
       try {
@@ -181,7 +183,7 @@ export async function calculateForecast(startDate, horizonDays = 90) {
 
   for (let i = 0; i < horizonDays; i++) {
     const dateStr = currentDay.toISOString().split('T')[0];
-    
+
     // Sum income for today
     const dayIncome = incomeList
       .filter(inc => inc.date === dateStr)
@@ -197,7 +199,7 @@ export async function calculateForecast(startDate, horizonDays = 90) {
 
     const dayRecurrentExpenses = recurrentWithEffective
       .filter(exp => exp.effectiveDate === dateStr);
-    
+
     const dayRecurrentTotal = dayRecurrentExpenses.reduce((sum, exp) => sum + exp.amount, 0);
     const hasDebtPayment = dayRecurrentExpenses.some(exp => exp.isDebtPayment);
 
@@ -222,7 +224,7 @@ export async function calculateForecast(startDate, horizonDays = 90) {
 
 /**
  * Calculate the median value of an array of numbers.
- * @param {number[]} values 
+ * @param {number[]} values
  * @returns {number}
  */
 function calculateMedian(values) {
@@ -240,7 +242,7 @@ function calculateMedian(values) {
 export async function generateExpectedIncomePredictions() {
   const today = new Date();
   const currentMonthStr = today.toISOString().slice(0, 7);
-  
+
   // Get history from the last 3 months
   const history = await incomeRepository.getThreeMonthHistory(currentMonthStr);
   if (history.length === 0) return [];
@@ -257,7 +259,7 @@ export async function generateExpectedIncomePredictions() {
   for (const [source, records] of Object.entries(groups)) {
     // Only predict if we have at least 2 occurrences? No, 1 is enough if user wants automation.
     // But 3 months is better for stability.
-    
+
     const amounts = records.map(r => r.amount);
     const days = records.map(r => parseInt(r.date.split('-')[2], 10));
 
@@ -269,7 +271,7 @@ export async function generateExpectedIncomePredictions() {
     for (let i = 1; i <= 3; i++) {
       let predYear = today.getFullYear();
       let predMonth = today.getMonth() + i;
-      
+
       // Normalize year/month
       while (predMonth > 11) {
         predMonth -= 12;
@@ -280,7 +282,7 @@ export async function generateExpectedIncomePredictions() {
       const lastDayOfMonth = new Date(predYear, predMonth + 1, 0).getDate();
       const actualDay = Math.min(medianDay, lastDayOfMonth);
 
-      const dateStr = `${predYear}-${String(predMonth + 1).padStart(2, '0')}-${String(actualDay).padStart(2, '0')}`;
+      const dateStr = `${predYear}-${String(predMonth + 1).padStart(2, '0')}-${String(actualDay).padStart(2, '0')}`;  
 
       predictions.push({
         source,
@@ -293,4 +295,203 @@ export async function generateExpectedIncomePredictions() {
   }
 
   return predictions;
+}
+
+/**
+ * Daily Rolling Financial Data Aggregation.
+ * Returns daily balance data for:
+ * - Past 365 days (history)
+ * - Future 60 days (forecast)
+ *
+ * @returns {Promise<Object>} { labels, data, todayIndex }
+ */
+export async function getDailyRollingData() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayStr = today.toISOString().split('T')[0];
+
+  const startDate = new Date(today);
+  startDate.setDate(startDate.getDate() - 365);
+  const startDateStr = startDate.toISOString().split('T')[0];
+
+  const endDate = new Date(today);
+  endDate.setDate(endDate.getDate() + 60);
+  const endDateStr = endDate.toISOString().split('T')[0];
+
+  // 1. Fetch all data needed
+  const [
+    incomeList,
+    recurrentList,
+    oneOffList,
+    expectedIncomeList,
+    initialBalancePence
+  ] = await Promise.all([
+    db.income.where('date').between(startDateStr, endDateStr, true, true).toArray(),
+    db.recurrentExpenses.toArray(), 
+    db.oneOffExpenses.where('date').between(startDateStr, endDateStr, true, true).toArray(),
+    db.expectedIncome.where('date').between(startDateStr, endDateStr, true, true).toArray(),
+    (async () => {
+      const startMonth = startDateStr.slice(0, 7);
+      
+      const latestDaily = await db.dailyBalanceSnapshots.where('date').below(startDateStr).reverse().first();
+      if (latestDaily) return latestDaily.closingBalance;
+      
+      const latestMonthly = await db.balanceSnapshots.where('month').below(startMonth).reverse().first();
+      if (latestMonthly) return latestMonthly.closingBalance;
+      
+      return parseInt(localStorage.getItem('budget_balance_opening_amount') || '0', 10);
+    })()
+  ]);
+
+  const labels = [];
+  const data = [];
+  let currentBalance = initialBalancePence;
+  let todayIndex = -1;
+
+  let cursor = new Date(startDate);
+  let i = 0;
+
+  // Pre-filter recurrent expenses that might fall in this range
+  const relevantRecurrent = recurrentList.filter(item => {
+    if (item.cycleTotal > 0 && (item.cycleCurrent || 0) >= item.cycleTotal) return false;
+    return true;
+  });
+
+  // Pre-calculate effective dates for recurrent expenses (projections)
+  const recurrentWithEffective = await Promise.all(relevantRecurrent.map(async item => {
+    const nextDate = item.nextDate || item.date;
+    if (!nextDate) return { ...item, effectiveDate: null };
+    
+    // For historical items (before today), we use the date as is.
+    // For future items (today or after), we apply nextWorkingDay logic.
+    if (nextDate < todayStr) {
+      return { ...item, effectiveDate: nextDate };
+    } else {
+      const effectiveDate = await nextWorkingDay(nextDate, true);
+      return { ...item, effectiveDate };
+    }
+  }));
+
+  while (cursor <= endDate) {
+    const dStr = cursor.toISOString().split('T')[0];
+    labels.push(dStr);
+    if (dStr === todayStr) todayIndex = i;
+
+    // Sum today's activity
+    let dayIncome = incomeList.filter(inc => inc.date === dStr).reduce((s, r) => s + (r.amount || 0), 0);
+    dayIncome += expectedIncomeList.filter(inc => inc.date === dStr).reduce((s, r) => s + (r.amount || 0), 0);
+
+    let dayExpense = oneOffList.filter(exp => exp.date === dStr).reduce((s, r) => s + (r.amount || 0), 0);
+    
+    const dayRecurrent = recurrentWithEffective.filter(item => item.effectiveDate === dStr);
+    dayExpense += dayRecurrent.reduce((s, r) => s + (r.amount || 0), 0);
+
+    currentBalance += (dayIncome - dayExpense);
+    data.push(currentBalance);
+
+    cursor.setDate(cursor.getDate() + 1);
+    i++;
+  }
+
+  return { labels, data, todayIndex };
+}
+
+/**
+ * Rolling Financial Overview Data Aggregation.
+ * Returns 12 months of Income and Expense data:
+ * - 9 months history (actuals)
+ * - Current month (actuals so far + projected remainder)
+ * - 2 months forecast (recurring income + recurring expenses)
+ *
+ * @param {string} targetMonth - YYYY-MM string of the current month
+ * @returns {Promise<Object>} { labels, income, expenses, currentMonthIndex }
+ */
+export async function getRollingFinancialData(targetMonth) {
+  const [year, month] = targetMonth.split('-').map(Number);
+  const today = new Date().toISOString().split('T')[0];
+  const labels = [];
+  const income = [];
+  const expenses = [];
+  
+  // Calculate the 12-month window: 9 before, 1 current, 2 after
+  for (let i = -9; i <= 2; i++) {
+    const d = new Date(year, month - 1 + i, 1);
+    const monthStr = d.toISOString().slice(0, 7);
+    labels.push(monthStr);
+  }
+
+  const sum = (arr) => arr.reduce((acc, r) => acc + (r.amount || 0), 0);
+
+  for (const monthStr of labels) {
+    let incTotal = 0;
+    let expTotal = 0;
+
+    if (monthStr < targetMonth) {
+      // Past: Actuals only
+      const [incList, recurrentList, oneOffList] = await Promise.all([
+        db.income.where('date').startsWith(monthStr).toArray(),
+        db.recurrentExpenses.where('nextDate').startsWith(monthStr).toArray(),
+        db.oneOffExpenses.where('date').startsWith(monthStr).toArray()
+      ]);
+      incTotal = sum(incList);
+      expTotal = sum(recurrentList) + sum(oneOffList);
+    } else if (monthStr === targetMonth) {
+      // Current: Hybrid
+      const [actualInc, expectedIncRemainder] = await Promise.all([
+        db.income.where('date').between(`${monthStr}-01`, today, true, true).toArray(),
+        db.expectedIncome.where('date').between(today, `${monthStr}-31`, false, true).toArray()
+      ]);
+      
+      const [recurrentList, oneOffList] = await Promise.all([
+        db.recurrentExpenses.where('nextDate').startsWith(monthStr).toArray(),
+        db.oneOffExpenses.where('date').startsWith(monthStr).toArray()
+      ]);
+      
+      incTotal = sum(actualInc) + sum(expectedIncRemainder);
+      expTotal = sum(recurrentList) + sum(oneOffList);
+    } else {
+      // Future: Forecast
+      const [expectedInc, recurrentList, oneOffList] = await Promise.all([
+        db.expectedIncome.where('date').startsWith(monthStr).toArray(),
+        db.recurrentExpenses.where('nextDate').startsWith(monthStr).toArray(),
+        db.oneOffExpenses.where('date').startsWith(monthStr).toArray()
+      ]);
+      
+      incTotal = sum(expectedInc);
+      expTotal = sum(recurrentList) + sum(oneOffList);
+    }
+
+    income.push(incTotal);
+    expenses.push(expTotal);
+  }
+
+  return { labels, income, expenses, currentMonthIndex: 9 };
+}
+
+/**
+ * Spending Trends Aggregation - last 12 months from targetMonth.
+ * @param {string} targetMonth - YYYY-MM
+ */
+export async function getSpendingTrends(targetMonth) {
+  const [year, month] = targetMonth.split('-').map(Number);
+  const results = [];
+
+  for (let i = -11; i <= 0; i++) {
+    const d = new Date(year, month - 1 + i, 1);
+    const monthStr = d.toISOString().slice(0, 7);
+
+    const [incList, recurrentList, oneOffList] = await Promise.all([
+      db.income.where('date').startsWith(monthStr).toArray(),
+      db.recurrentExpenses.where('nextDate').startsWith(monthStr).toArray(),
+      db.oneOffExpenses.where('date').startsWith(monthStr).toArray()
+    ]);
+
+    results.push({
+      month: monthStr,
+      income: incList.reduce((sum, r) => sum + (r.amount || 0), 0),
+      fixed: recurrentList.reduce((sum, r) => sum + (r.amount || 0), 0),
+      variable: oneOffList.reduce((sum, r) => sum + (r.amount || 0), 0)
+    });
+  }
+  return results;
 }
