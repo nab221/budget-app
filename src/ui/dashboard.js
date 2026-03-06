@@ -157,11 +157,11 @@ export async function renderDashboard() {
       else if (rate >= 10) rateColor = 'var(--warn)';
 
       savingsRateKPI.innerHTML = `
-        <div style="font-size: 3rem; font-weight: 800; color: ${rateColor}">${rate}%</div>
+        <div style="font-size: 3rem; font-weight: 800; color: ${rateColor}"><span class="privacy-blur">${rate}%</span></div>
         <div class="sum-label" style="margin-top: 5px">Monthly Savings Rate</div>
         <div class="hint" style="margin-top: 10px; text-align: center">
           Target: 20%+<br/>
-          Current Savings: ${formatGBP(savings)}
+          Current Savings: <span class="privacy-blur">${formatGBP(savings)}</span>
         </div>
       `;
     }
@@ -299,7 +299,7 @@ export async function renderDashboard() {
     if (card.warning) {
       const warn = document.createElement('div');
       warn.style.cssText = 'font-size:0.65rem; color:var(--danger); font-weight:600; margin-top:4px;';
-      warn.innerHTML = `⚠️ ${card.warning.title}: ${card.warning.text}`;
+      warn.innerHTML = `⚠️ ${card.warning.title}: <span class="privacy-blur">${card.warning.text}</span>`;
       item.appendChild(warn);
     }
 
@@ -309,7 +309,7 @@ export async function renderDashboard() {
       card.childcare.forEach(c => {
         const row = document.createElement('div');
         row.style.cssText = 'font-size:0.7rem; display:flex; justify-content:space-between; border-top:1px solid var(--border-light); padding:2px 0';
-        row.innerHTML = `<span>${c.account.childName}</span> <span>${formatGBPShort(c.balance)}</span>`;
+        row.innerHTML = `<span>${c.account.childName}</span> <span class="privacy-blur">${formatGBPShort(c.balance)}</span>`;
         list.appendChild(row);
       });
       item.appendChild(list);
@@ -363,7 +363,7 @@ function adjustFontSize(el, pence) {
   }
 
   el.style.fontSize = fontSize;
-  el.textContent = displayValue;
+  el.innerHTML = `<span class="privacy-blur">${displayValue}</span>`;
 }
 
 /**
@@ -427,10 +427,10 @@ async function renderForecastTable() {
                   ${s.date} <span style="font-size:0.6rem; opacity:0.7">${dateObj.toLocaleDateString('en-GB', {weekday:'short'})}</span>
                   ${s.hasDebtPayment ? ' 💳' : ''}
                 </td>
-                <td class="r" style="color:var(--success)">${s.incomeTotal > 0 ? formatGBPShort(s.incomeTotal) : '—'}</td>
-                <td class="r" style="color:var(--danger)">${s.expenseTotal > 0 ? formatGBPShort(s.expenseTotal) : '—'}</td>
+                <td class="r" style="color:var(--success)"><span class="privacy-blur">${s.incomeTotal > 0 ? formatGBPShort(s.incomeTotal) : '—'}</span></td>
+                <td class="r" style="color:var(--danger)"><span class="privacy-blur">${s.expenseTotal > 0 ? formatGBPShort(s.expenseTotal) : '—'}</span></td>
                 <td class="r" style="font-weight:600; color:${s.closingBalance < 0 ? 'var(--danger)' : 'inherit'}">
-                  ${formatGBPShort(s.closingBalance)}
+                  <span class="privacy-blur">${formatGBPShort(s.closingBalance)}</span>
                 </td>
               </tr>
             `;
