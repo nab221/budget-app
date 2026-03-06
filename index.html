@@ -63,20 +63,20 @@
         <div id="tab-content">
           <!-- DASHBOARD -->
           <div class="tab-panel active" data-panel="dashboard">
-            <!-- Unified Rolling Financial Overview Chart -->
-            <div class="chart-container" id="rollingOverviewChartContainer" style="margin-bottom: 20px">
-              <h3 class="chart-title">Rolling Financial Overview</h3>
-              <canvas id="rollingOverviewChart"></canvas>
-            </div>
-
             <!-- Period Selector (Month Navigator + View Select) -->
-            <div style="display:flex; justify-content:center; align-items:center; gap:12px; margin: 15px 0 20px 0; flex-wrap:wrap">
+            <div style="display:flex; justify-content:center; align-items:center; gap:12px; margin: 0 0 20px 0; flex-wrap:wrap">
               <div id="dashboardMonthPicker" class="month-nav" style="margin-bottom:0; padding:5px"></div>
               <select id="viewSelect" style="font-size:.9rem; padding:6px 12px; font-weight:600; border-radius:6px">
                 <option value="current">Month View</option>
                 <option value="ytd">Year to Date</option>
                 <option value="all">All Time</option>
               </select>
+            </div>
+
+            <!-- Unified Rolling Financial Overview Chart -->
+            <div class="chart-container" id="rollingOverviewChartContainer" style="margin-bottom: 20px">
+              <h3 class="chart-title">Rolling Financial Overview</h3>
+              <canvas id="rollingOverviewChart"></canvas>
             </div>
 
             <div class="sum-grid" id="summaryGrid" style="margin-bottom: 20px">
