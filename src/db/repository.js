@@ -79,7 +79,6 @@ export const recurrentExpenseRepository = {
     }
   },
   async getByMonth(monthStr) {
-    // Basic filter by date prefix
     return await db.recurrentExpenses.where('nextDate').startsWith(monthStr).toArray();
   },
   async deleteSeries(recurrenceId, fromDate) {
@@ -166,7 +165,6 @@ export const debtRepository = {
     await db.debts.update(id, toUpdate);
     const updated = await db.debts.get(id);
 
-    // If type changed or payment changed, refresh linked expenses
     if (existing.debtType !== updated.debtType || 
         existing.fixedMonthlyPayment !== updated.fixedMonthlyPayment ||
         existing.name !== updated.name) {
@@ -198,7 +196,6 @@ export const debtRepository = {
     const startDate = new Date().toISOString().slice(0, 10);
     const label = `${debt.debtType === 'mortgage' ? 'Mortgage' : 'Loan'} Payment: ${debt.name}`;
     
-    // Generate 12 months of payments as recurrent expenses
     const baseItem = {
       label,
       amount: fromPence(debt.fixedMonthlyPayment || 0),
@@ -214,7 +211,6 @@ export const debtRepository = {
     };
 
     const instances = generateInstances(baseItem, 'monthly', 12);
-    // Add recurrence metadata
     const recurrenceId = generateUUID();
     const instancesToSave = instances.map(inst => ({
       ...inst,
@@ -245,19 +241,14 @@ export const debtRepository = {
 export const statementRepository = {
   ...createBaseRepository(db.statements, ['amount', 'interest', 'fees', 'openingBalance', 'minimumPayment', 'actualPaymentAmount']),
   
-  /**
-   * Adds a statement and creates a corresponding recurrent expense record.
-   */
   async addWithExpense(data, debtName) {
     const penceFields = ['amount', 'interest', 'fees', 'openingBalance', 'minimumPayment'];
     const toSave = { ...data };
     penceFields.forEach(f => { if (toSave[f] !== undefined) toSave[f] = toPence(toSave[f]); });
 
-    return await db.transaction('rw', [db.statements, db.recurrentExpenses], async () => {
-      // 1. Create the statement record
+    return await db.transaction('rw', [db.statements, db.recurrentExpenses, db.categories], async () => {
       const stmtId = await db.statements.add(toSave);
 
-      // 2. Create a linked pending expense for the minimum payment
       const category = await db.categories.where('name').equals('Credit Cards & Loans').first();
       const expenseId = await db.recurrentExpenses.add({
         date: toSave.date,
@@ -275,7 +266,6 @@ export const statementRepository = {
         parentDate: null
       });
 
-      // 3. Update statement with the linked expense ID
       await db.statements.update(stmtId, { linkedExpenseId: expenseId });
       
       triggerSync();
@@ -283,9 +273,6 @@ export const statementRepository = {
     });
   },
 
-  /**
-   * Deletes a statement and its linked expense record.
-   */
   async deleteWithExpense(id) {
     const stmt = await db.statements.get(id);
     return await db.transaction('rw', [db.statements, db.recurrentExpenses], async () => {
@@ -297,22 +284,17 @@ export const statementRepository = {
     });
   },
 
-  /**
-   * Records an actual payment against a statement.
-   */
   async recordPayment(stmtId, amountPounds, paymentDate) {
     const amountPence = toPence(amountPounds);
     const statement = await db.statements.get(stmtId);
     if (!statement) throw new Error('Statement not found');
 
     return await db.transaction('rw', [db.statements, db.recurrentExpenses], async () => {
-      // Update statement
       await db.statements.update(stmtId, {
         actualPaymentAmount: amountPence,
         actualPaymentDate: paymentDate
       });
 
-      // Update linked expense if it exists
       if (statement.linkedExpenseId) {
         await db.recurrentExpenses.update(statement.linkedExpenseId, {
           status: 'paid',
@@ -326,9 +308,6 @@ export const statementRepository = {
     });
   },
 
-  /**
-   * Resets a payment on a statement.
-   */
   async resetPayment(stmtId) {
     const statement = await db.statements.get(stmtId);
     if (!statement) return;
@@ -351,6 +330,86 @@ export const statementRepository = {
     });
   }
 };
+
+/**
+ * PDF Import Repository Functions
+ */
+
+/**
+ * Finds potential duplicate transactions across income, recurrentExpenses, and oneOffExpenses.
+ * Matches by exact Date and Amount (in pence).
+ * @param {Array<{date: string, amount: number|string}>} transactions 
+ * @returns {Promise<Array<Object>>} transactions with `isDuplicate: true` flag and `duplicateOf` original record    
+ */
+export async function findDuplicates(transactions) {
+  const [incomes, recurrent, oneOff] = await Promise.all([
+    db.income.toArray(),
+    db.recurrentExpenses.toArray(),
+    db.oneOffExpenses.toArray()
+  ]);
+
+  const existing = [...incomes, ...recurrent, ...oneOff];
+  
+  return transactions.map(tx => {
+    const txAmount = typeof tx.amount === 'number' ? tx.amount : toPence(tx.amount);
+    
+    const duplicate = existing.find(ex => {
+      // Allow loose matching on amount in case it's stored differently, but exact date
+      return ex.date === tx.date && Math.abs(ex.amount) === Math.abs(txAmount);
+    });
+
+    if (duplicate) {
+      return { ...tx, isDuplicate: true, duplicateOf: duplicate };
+    }
+    return { ...tx, isDuplicate: false };
+  });
+}
+
+/**
+ * Suggests a category based on the description using fuzzy matching against learned mappings.
+ * @param {string} description 
+ * @returns {Promise<number|null>} suggested category ID, or null if no good match
+ */
+export async function suggestCategory(description) {
+  if (!description) return null;
+
+  const mappings = await db.categoryMappings.toArray();
+  if (mappings.length === 0) return null;
+
+  const targetStrings = mappings.map(m => m.description);
+  const match = findBestMatch(description, targetStrings);
+
+  // Use a 0.85 confidence threshold
+  if (match && match.rating >= 0.85) {
+    const matchedMapping = mappings.find(m => m.description === match.target);
+    return matchedMapping ? matchedMapping.categoryId : null;
+  }
+
+  return null;
+}
+
+/**
+ * Updates the internal mapping of descriptions to categories after a successful import.
+ * @param {Array<{description: string, categoryId: number|string}>} transactions 
+ */
+export async function updateCategorizationLearningRule(transactions) {
+  for (const tx of transactions) {
+    if (!tx.description || !tx.categoryId) continue;
+
+    const existing = await db.categoryMappings.where('description').equals(tx.description).first();
+    
+    if (existing) {
+      if (existing.categoryId !== Number(tx.categoryId)) {
+        await db.categoryMappings.update(existing.id, { categoryId: Number(tx.categoryId) });
+      }
+    } else {
+      await db.categoryMappings.add({
+        description: tx.description,
+        categoryId: Number(tx.categoryId)
+      });
+    }
+  }
+}
 
 export const assetRepository = createBaseRepository(db.assets, ['currentBalance']);
 
@@ -437,7 +496,6 @@ export async function triggerBalanceRecalc(fromDate) {
  * Global daily forecast trigger.
  */
 export async function triggerDailyForecastRecalc(toDate) {
-  // Implementation in finance.js
   triggerSync();
 }
 
@@ -485,14 +543,12 @@ export async function getDashboardData(periodType = 'month', targetMonth) {
   manualAssets = manualAssets.reduce((sum, a) => sum + (a.currentBalance || 0), 0);
   const totalDebt = debts.reduce((sum, d) => sum + (d.currentBalance || 0), 0);
 
-  // Group by category for breakdown
   const categorySpending = {};
   [...recurrentList, ...oneOffList].forEach(r => {
     const catId = r.categoryId || 0;
     categorySpending[catId] = (categorySpending[catId] || 0) + (r.amount || 0);
   });
 
-  // TFC summary
   const accounts = await db.childcareAccounts.toArray();
   const childcareSummary = await Promise.all(accounts.map(async account => {
     const balance = await childcareRepository.getBalance(account.id);
@@ -509,20 +565,17 @@ export async function getDashboardData(periodType = 'month', targetMonth) {
     variable: oneOffTotal,
     totalExpenses: recurrentTotal + oneOffTotal,
     netPosition: incomeTotal - (recurrentTotal + oneOffTotal),
-    totalSubscriptions: 0, // Subscriptions are now part of recurrentExpenses
+    totalSubscriptions: 0, 
     totalDebt,
     totalAssets,
     netWorth: totalAssets - totalDebt,
     fixedToIncomeRatio: incomeTotal > 0 ? Math.round((recurrentTotal / incomeTotal) * 100) : 0,
     categorySpending,
-    // Bucket-based spending for progress bar display
     bucketSpending: {
       recurrent: recurrentTotal,
       'one-off': oneOffTotal
     },
-    // Childcare summary for dashboard card
     childcareSummary,
-    // Debt payments for Phase 3
     ccPayments: debts
       .filter(d => d.type === 'credit-card' || !d.type)
       .reduce((sum, d) => sum + calcMinPayment(d.currentBalance, d.apr, 0, new Date(), d.promoEndDate), 0),
@@ -542,243 +595,17 @@ export async function getCurrentBalance() {
   const snap = await db.dailyBalanceSnapshots.where('date').equals(today).first();
   if (snap) return snap.closingBalance;
   
-  // Fallback: get latest snapshot
   const latest = await db.dailyBalanceSnapshots.orderBy('date').last();
   return latest ? latest.closingBalance : 0;
 }
 
 /**
- * Daily Rolling Financial Data Aggregation.
- * Returns daily balance data for:
- * - Past 365 days (history)
- * - Future 60 days (forecast)
- *
- * @returns {Promise<Object>} { labels, data, todayIndex }
- */
-export async function getDailyRollingData() {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayStr = today.toISOString().split('T')[0];
-
-  const startDate = new Date(today);
-  startDate.setDate(startDate.getDate() - 365);
-  const startDateStr = startDate.toISOString().split('T')[0];
-
-  const endDate = new Date(today);
-  endDate.setDate(endDate.getDate() + 60);
-  const endDateStr = endDate.toISOString().split('T')[0];
-
-  // 1. Fetch all data needed
-  const [
-    incomeList,
-    recurrentList,
-    oneOffList,
-    expectedIncomeList,
-    initialBalancePence
-  ] = await Promise.all([
-    db.income.where('date').between(startDateStr, endDateStr, true, true).toArray(),
-    db.recurrentExpenses.toArray(), // Need all to check recurrentFallsInMonth
-    db.oneOffExpenses.where('date').between(startDateStr, endDateStr, true, true).toArray(),
-    db.expectedIncome.where('date').between(startDateStr, endDateStr, true, true).toArray(),
-    (async () => {
-      // Get balance just before startDate
-      const startMonth = startDateStr.slice(0, 7);
-      const snapshots = await db.balanceSnapshots.where('month').below(startMonth).reverse().toArray();
-      let bal = parseInt(localStorage.getItem('budget_balance_opening_amount') || '0', 10);
-      
-      if (snapshots.length > 0) {
-        bal = snapshots[0].closingBalance;
-        // Add transactions between snapshot end and startDate
-        const snapEnd = snapshots[0].month + '-31'; // approx
-        const intermediateIncome = await db.income.where('date').between(snapshots[0].month + '-01', startDateStr, false, false).toArray();
-        const intermediateOneOff = await db.oneOffExpenses.where('date').between(snapshots[0].month + '-01', startDateStr, false, false).toArray();
-        // This is a bit complex for a simple chart. 
-        // Let's simplify: find the nearest daily snapshot or monthly snapshot.
-      }
-      
-      // Better: find the latest daily snapshot before startDate
-      const latestDaily = await db.dailyBalanceSnapshots.where('date').below(startDateStr).reverse().first();
-      if (latestDaily) return latestDaily.closingBalance;
-      
-      const latestMonthly = await db.balanceSnapshots.where('month').below(startMonth).reverse().first();
-      if (latestMonthly) return latestMonthly.closingBalance;
-      
-      return bal;
-    })()
-  ]);
-
-  const labels = [];
-  const data = [];
-  let currentBalance = initialBalancePence;
-  let todayIndex = -1;
-
-  let cursor = new Date(startDate);
-  let i = 0;
-
-  // Pre-filter recurrent expenses that might fall in this range
-  const relevantRecurrent = recurrentList.filter(item => {
-    if (item.cycleTotal > 0 && (item.cycleCurrent || 0) >= item.cycleTotal) return false;
-    return true;
-  });
-
-  while (cursor <= endDate) {
-    const dStr = cursor.toISOString().split('T')[0];
-    const mStr = dStr.slice(0, 7);
-    labels.push(dStr);
-    if (dStr === todayStr) todayIndex = i;
-
-    // Sum today's activity
-    let dayIncome = incomeList.filter(inc => inc.date === dStr).reduce((s, r) => s + (r.amount || 0), 0);
-    dayIncome += expectedIncomeList.filter(inc => inc.date === dStr).reduce((s, r) => s + (r.amount || 0), 0);
-
-    let dayExpense = oneOffList.filter(exp => exp.date === dStr).reduce((s, r) => s + (r.amount || 0), 0);
-    
-    // For recurrent, we need to check if it falls on this specific date
-    // This is expensive in a loop. Optimized:
-    const dayRecurrent = relevantRecurrent.filter(item => {
-      const itemDate = item.nextDate || item.date;
-      return itemDate === dStr;
-    });
-    dayExpense += dayRecurrent.reduce((s, r) => s + (r.amount || 0), 0);
-
-    currentBalance += (dayIncome - dayExpense);
-    data.push(currentBalance);
-
-    cursor.setDate(cursor.getDate() + 1);
-    i++;
-  }
-
-  return { labels, data, todayIndex };
-}
-
-/**
- * Rolling Financial Overview Data Aggregation.
- * Returns 12 months of Income and Expense data:
- * - 9 months history (actuals)
- * - Current month (actuals so far + projected remainder)
- * - 2 months forecast (recurring income + recurring expenses)
- *
- * @param {string} targetMonth - YYYY-MM string of the current month
- * @returns {Promise<Object>} { labels, income, expenses, currentMonthIndex }
- */
-export async function getRollingFinancialData(targetMonth) {
-  const [year, month] = targetMonth.split('-').map(Number);
-  const today = new Date().toISOString().split('T')[0];
-  const labels = [];
-  const income = [];
-  const expenses = [];
-  
-  // Calculate the 12-month window: 9 before, 1 current, 2 after
-  for (let i = -9; i <= 2; i++) {
-    const d = new Date(year, month - 1 + i, 1);
-    const monthStr = d.toISOString().slice(0, 7);
-    labels.push(monthStr);
-  }
-
-  const sum = (arr) => arr.reduce((acc, r) => acc + (r.amount || 0), 0);
-
-  for (const monthStr of labels) {
-    let incTotal = 0;
-    let expTotal = 0;
-
-    if (monthStr < targetMonth) {
-      // Past: Actuals only
-      const [incList, recurrentList, oneOffList] = await Promise.all([
-        db.income.where('date').startsWith(monthStr).toArray(),
-        db.recurrentExpenses.where('nextDate').startsWith(monthStr).toArray(),
-        db.oneOffExpenses.where('date').startsWith(monthStr).toArray()
-      ]);
-      incTotal = sum(incList);
-      expTotal = sum(recurrentList) + sum(oneOffList);
-    } else if (monthStr === targetMonth) {
-      // Current: Hybrid
-      // Income: Actuals so far + Expected Income for remainder of month
-      const [actualInc, expectedIncRemainder] = await Promise.all([
-        db.income.where('date').between(`${monthStr}-01`, today, true, true).toArray(),
-        db.expectedIncome.where('date').between(today, `${monthStr}-31`, false, true).toArray()
-      ]);
-      
-      // Expenses: All recurrent for this month + all one-offs for this month
-      // (Since RecurrenceManager ensures current month is populated)
-      const [recurrentList, oneOffList] = await Promise.all([
-        db.recurrentExpenses.where('nextDate').startsWith(monthStr).toArray(),
-        db.oneOffExpenses.where('date').startsWith(monthStr).toArray()
-      ]);
-      
-      incTotal = sum(actualInc) + sum(expectedIncRemainder);
-      expTotal = sum(recurrentList) + sum(oneOffList);
-    } else {
-      // Future: Forecast
-      const [expectedInc, recurrentList, oneOffList] = await Promise.all([
-        db.expectedIncome.where('date').startsWith(monthStr).toArray(),
-        db.recurrentExpenses.where('nextDate').startsWith(monthStr).toArray(),
-        db.oneOffExpenses.where('date').startsWith(monthStr).toArray()
-      ]);
-      
-      incTotal = sum(expectedInc);
-      expTotal = sum(recurrentList) + sum(oneOffList);
-    }
-
-    income.push(incTotal);
-    expenses.push(expTotal);
-  }
-
-  return { labels, income, expenses, currentMonthIndex: 9 };
-}
-
-/**
- * Spending Trends Aggregation - last 12 months from targetMonth.
- * @param {string} targetMonth - YYYY-MM
- */
-export async function getSpendingTrends(targetMonth) {
-  const [year, month] = targetMonth.split('-').map(Number);
-  const results = [];
-
-  for (let i = -11; i <= 0; i++) {
-    const d = new Date(year, month - 1 + i, 1);
-    const monthStr = d.toISOString().slice(0, 7);
-
-    const [incList, recurrentList, oneOffList] = await Promise.all([
-      db.income.where('date').startsWith(monthStr).toArray(),
-      db.recurrentExpenses.where('nextDate').startsWith(monthStr).toArray(),
-      db.oneOffExpenses.where('date').startsWith(monthStr).toArray()
-    ]);
-
-    results.push({
-      month: monthStr,
-      income: incList.reduce((sum, r) => sum + (r.amount || 0), 0),
-      fixed: recurrentList.reduce((sum, r) => sum + (r.amount || 0), 0),
-      variable: oneOffList.reduce((sum, r) => sum + (r.amount || 0), 0)
-    });
-  }
-  return results;
-}
-
-/**
  * Balance Snapshot Repository
- *
- * Stores monthly opening/closing balance snapshots for the carry-forward system.
- * Each snapshot captures the income, expense, opening, and closing balance for
- * a calendar month (keyed by YYYY-MM string).
- *
- * All monetary values are stored as integer pence.
  */
 export const balanceSnapshotRepository = {
-  /**
-   * Get the snapshot for a specific month.
-   * @param {string} monthStr - YYYY-MM string (e.g. "2026-01")
-   * @returns {Promise<Object|undefined>}
-   */
   async getByMonth(monthStr) {
     return await db.balanceSnapshots.where('month').equals(monthStr).first();
   },
-
-  /**
-   * Save (upsert) a balance snapshot for a month.
-   * If a snapshot already exists for the month it is overwritten.
-   * @param {Object} snapshot - { month, openingBalance, closingBalance, incomeTotal, expenseTotal }
-   * @returns {Promise<number>} The record id.
-   */
   async save(snapshot) {
     const existing = await db.balanceSnapshots.where('month').equals(snapshot.month).first();
     let id;
@@ -791,13 +618,6 @@ export const balanceSnapshotRepository = {
     triggerSync();
     return id;
   },
-
-  /**
-   * Delete all snapshots from a given month onwards (inclusive).
-   * Used to invalidate stale snapshots when historical data changes.
-   * @param {string} fromMonthStr - YYYY-MM string.
-   * @returns {Promise<void>}
-   */
   async deleteFrom(fromMonthStr) {
     const all = await db.balanceSnapshots.toArray();
     const toDelete = all
@@ -808,16 +628,8 @@ export const balanceSnapshotRepository = {
       triggerSync();
     }
   },
-
-  /**
-   * Get the most recent snapshot (highest month value).
-   * Returns undefined if no snapshots exist.
-   * @returns {Promise<Object|undefined>}
-   */
   async getLatestSnapshot() {
-    const all = await db.balanceSnapshots.toArray();
-    if (all.length === 0) return undefined;
-    return all.reduce((latest, s) => (s.month > latest.month ? s : latest), all[0]);
+    return await db.balanceSnapshots.orderBy('month').last();
   }
 };
 
@@ -835,6 +647,9 @@ export const dailyBalanceRepository = {
       await db.dailyBalanceSnapshots.add(snapshot);
     }
     triggerSync();
+  },
+  async getLatestSnapshot() {
+    return await db.dailyBalanceSnapshots.orderBy('date').last();
   }
 };
 
@@ -857,11 +672,6 @@ export const bankHolidayRepository = {
   async getOverride(date) {
     return await db.bankHolidayOverrides.where('date').equals(date).first();
   },
-  /**
-   * Returns true/false if explicitly overridden, otherwise null.
-   * @param {string} date - YYYY-MM-DD
-   * @returns {Promise<boolean|null>} null if no override, otherwise the isOpen value.
-   */
   async isOverrideActive(date) {
     const override = await this.getOverride(date);
     return override ? !!override.isOpen : null;
@@ -870,10 +680,6 @@ export const bankHolidayRepository = {
 
 /**
  * Adjust the account balance by creating a balancing transaction.
- * Calculates delta between enteredAmountPence and currently projected balance for date.
- *
- * @param {number} enteredAmountPence
- * @param {string} date - YYYY-MM-DD
  */
 export async function adjustBalance(enteredAmountPence, date) {
   const snapshots = await dailyBalanceRepository.getAll();
@@ -881,7 +687,7 @@ export async function adjustBalance(enteredAmountPence, date) {
   const currentBalance = snap ? snap.closingBalance : 0;
   
   const diff = enteredAmountPence - currentBalance;
-  if (Math.abs(diff) < 1) return; // No change needed
+  if (Math.abs(diff) < 1) return; 
 
   const category = await db.categories.where('name').equals('Opening Balance').first();
   const categoryId = category ? category.id : null;
@@ -907,41 +713,14 @@ export async function adjustBalance(enteredAmountPence, date) {
 
 /**
  * Childcare Repository
- *
- * Manages Tax-Free Childcare accounts and their associated ledger entries.
- * Handles the "£8 for £2" government top-up, quarterly cap enforcement,
- * running balance recalculation, and budget expense integration.
- *
- * All monetary amounts are stored in integer pence.
  */
 export const childcareRepository = {
-
-  // ---------------------------------------------------------------------------
-  // Account management
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Get all childcare accounts.
-   * @returns {Promise<Array>}
-   */
   async getAccounts() {
     return await db.childcareAccounts.toArray();
   },
-
-  /**
-   * Get a specific childcare account by ID.
-   * @param {number} id
-   * @returns {Promise<Object|undefined>}
-   */
   async getAccount(id) {
     return await db.childcareAccounts.get(id);
   },
-
-  /**
-   * Add or update a childcare account.
-   * @param {Object} account - { id?, childName, targetMonthlySpend, entitlementStart, openingBalance }
-   * @returns {Promise<number>} The record id.
-   */
   async saveAccount(account) {
     const toSave = {
       ...account,
@@ -960,16 +739,10 @@ export const childcareRepository = {
       });
     }
 
-    // Always trigger a balance recalc to ensure openingBalance is respected
     await this._recalculateBalances(id);
     triggerSync();
     return id;
   },
-
-  /**
-   * Delete a childcare account and all its ledger history.
-   * @param {number} id - Account ID.
-   */
   async deleteAccount(id) {
     await db.transaction('rw', [db.childcareAccounts, db.childcareLedger], async () => {
       await db.childcareLedger.where('accountId').equals(id).delete();
@@ -977,23 +750,11 @@ export const childcareRepository = {
     });
     triggerSync();
   },
-
-  // ---------------------------------------------------------------------------
-  // Ledger operations
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Get the full ledger for an account, sorted by date.
-   */
   async getLedger(accountId) {
     return await db.childcareLedger
       .where('accountId').equals(accountId)
       .sortBy('date');
   },
-
-  /**
-   * Get the current running balance for an account.
-   */
   async getBalance(accountId) {
     const account = await db.childcareAccounts.get(accountId);
     const lastEntry = await db.childcareLedger
@@ -1004,10 +765,6 @@ export const childcareRepository = {
     
     return lastEntry ? lastEntry.runningBalance : (account?.openingBalance || 0);
   },
-
-  /**
-   * Adds a ledger entry and recalculates subsequent balances.
-   */
   async addLedgerEntry(entry) {
     const id = await db.childcareLedger.add({
       ...entry,
@@ -1017,20 +774,11 @@ export const childcareRepository = {
     triggerSync();
     return id;
   },
-
-  /**
-   * Removes a ledger entry and recalculates subsequent balances.
-   */
   async deleteLedgerEntry(id, accountId) {
     await db.childcareLedger.delete(id);
     await this._recalculateBalances(accountId);
     triggerSync();
   },
-
-  /**
-   * Internal helper to re-compute the running balance chain for an account.
-   * Starts from the account's openingBalance.
-   */
   async _recalculateBalances(accountId) {
     const account = await db.childcareAccounts.get(accountId);
     const entries = await db.childcareLedger

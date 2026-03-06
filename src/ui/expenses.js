@@ -11,7 +11,8 @@ import { formatGBP, toPence, fromPence } from '../utils/currency.js';
 import { safeHTML, renderTabSummary } from './render.js';
 import { filterTransactions } from '../utils/filtering.js';
 import { templateUI } from './templates.js';
-import { nextWorkingDay, generateInstances } from '../utils/cashflow.js';
+import { nextWorkingDay } from '../utils/cashflow.js';
+import { generateInstances } from '../utils/recurrence.js';
 import { generateUUID } from '../utils/security.js';
 
 /**

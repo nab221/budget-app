@@ -357,7 +357,7 @@ export function extractStatementSummary(rows) {
                     else if (item.text.includes('Repayment')) lType = 'min';
                     else if (item.text.includes('Due Date')) lType = 'due';
                     else lType = masterMatch.type;
-                    allRelevantLabelsInRow.push({ text: item.text, x: item.x, idx, type: labelType });
+                    allRelevantLabelsInRow.push({ text: item.text, x: item.x, idx, type: lType });
                   }
                });
 

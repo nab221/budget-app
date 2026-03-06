@@ -250,42 +250,8 @@
               <!-- Debt cards will be rendered here -->
             </div>
 
-            <!-- Statement Modal/Section (Hidden by default) -->
-            <div id="statementSection" class="hidden card" style="margin-top:20px; border:1px solid var(--border); padding:15px">
-              <!-- Inline Form for Add/Update Statement -->
-              <div id="stmtFormContainer" class="card hidden" style="margin-bottom:16px; background:var(--bg-alt); border: 1px solid var(--border-light);">
-                <!-- Form injected by debts.js -->
-              </div>
-
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px">
-                <h3 id="statementTitle">Statements: </h3>
-                <div style="display:flex; gap:8px;">
-                  <button id="addStmtBtn" class="primary sm">Log Statement</button>
-                  <button id="importStmtPdfBtn" class="ghost sm">📄 Import PDF</button>
-                  <input type="file" id="stmtPdfFile" accept="application/pdf" style="display:none" />
-                  <button class="ghost sm" onclick="document.getElementById('statementSection').classList.add('hidden')">Close</button>
-                </div>
-              </div>
-              
-              <input type="hidden" id="stmtDebtId"/>
-
-              <table class="tbl">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th class="r">Opening</th>
-                    <th class="r">Closing</th>
-                    <th class="r">Interest</th>
-                    <th class="r">Fees</th>
-                    <th class="r">Min Pay</th>
-                    <th>Due Date</th>
-                    <th class="r">Actual Paid</th>
-                    <th>Paid Date</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody id="stmtBody"></tbody>
-              </table>            </div>
+            <!-- Global Hidden Helpers -->
+            <input type="file" id="stmtPdfFile" accept="application/pdf" style="display:none" />
           </div>
 
           <!-- ASSETS -->
