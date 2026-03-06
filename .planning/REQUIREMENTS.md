@@ -22,6 +22,7 @@ Provide deep financial clarity through interactive visualizations.
 - **ANAL-03**: Dashboard: Add a **Net Worth Trend Chart** (12-month historical) combining Assets - Debts + current Account Balances.
 - **ANAL-04**: Implement interactive tooltips for all charts showing exact monetary values on hover/touch.
 - **ANAL-05**: Dashboard: Add a "Monthly Spending Heatmap" or Year-over-Year comparison widget for total monthly spend.
+- **DASH-04**: Enhanced Rolling Financial Overview: Replace income/expense lines with a bar chart (green/red) and add Daily/Weekly/Monthly binning via a modern radio button group.
 
 ## 3. Mobile Polish: UX
 Refine the PWA experience for thumb-zone navigation and private public use.
@@ -44,20 +45,21 @@ Refine the PWA experience for thumb-zone navigation and private public use.
 ## Traceability
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| RECO-01 | 1 | Pending |
-| RECO-02 | 1 | Pending |
-| RECO-03 | 1 | Pending |
-| RECO-04 | 1 | Pending |
-| RECO-05 | 1 | Pending |
-| RECO-06 | 1 | Pending |
-| RECO-07 | 1 | Pending |
-| ANAL-01 | 2 | Pending |
-| ANAL-02 | 2 | Pending |
-| ANAL-03 | 2 | Pending |
-| ANAL-04 | 2 | Pending |
+| RECO-01 | 1 | Completed |
+| RECO-02 | 1 | Completed |
+| RECO-03 | 1 | Completed |
+| RECO-04 | 1 | Completed |
+| RECO-05 | 1 | Completed |
+| RECO-06 | 1 | Completed |
+| RECO-07 | 1 | Completed |
+| ANAL-01 | 2 | Completed |
+| ANAL-02 | 2 | Completed |
+| ANAL-03 | 2 | Completed |
+| ANAL-04 | 2, 6 | Completed |
 | ANAL-05 | 2 | Pending |
-| UX-01 | 3 | Pending |
-| UX-02 | 3 | Pending |
+| UX-01 | 3, 4 | Completed |
+| UX-02 | 3 | Completed |
 | UX-03 | 3 | Pending |
 | UX-04 | 3 | Pending |
-| UX-05 | 3 | Pending |
+| UX-05 | 3 | Completed |
+| DASH-04 | 6 | Pending |
