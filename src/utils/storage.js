@@ -10,6 +10,11 @@ export const BALANCE_START_DATE_KEY = 'budget_balance_start_date';
 export const BALANCE_OPENING_AMOUNT_KEY = 'budget_balance_opening_amount';
 
 /**
+ * localStorage key for Privacy Mode status.
+ */
+export const PRIVACY_MODE_KEY = 'budget_privacy_mode';
+
+/**
  * Checks if the File System Access API is supported by the current browser.
  * @returns {boolean}
  */

@@ -1,74 +1,47 @@
-# Roadmap: Budget App v2.2
-
-## Goal
-Navigation overhaul, Dashboard redesign, and critical Debt management bug fixes.
+# Roadmap: Milestone v2.3 — Advanced Analytics & Mobile Polish
 
 ## Phases
+- [x] **Phase 1: Integrity (Reconciliation)** - Implement the "Cleared" vs "Reconciled" lifecycle for matching digital ledger to bank reality.
+- [x] **Phase 2: Insights (Analytics)** - Build the "Insights" engine on the Dashboard with category breakdowns and net worth trends.
+- [x] **Phase 3: Mobile Polish (UX)** - Refine the PWA experience for thumb-zone navigation, privacy, and tactile interaction.
 
-### Phase 1: Navigation Restructure
-**Goal**: Move Dashboard to a tab and update the layout/shell structure.
-- [x] NAV-01: Restructure `index.html` (move Dashboard HTML, update tabs).
-- [x] NAV-02: Update `src/app.js` (tab logic, default active state).
-- [x] NAV-03: Update `css/main.css` (tab styling, mobile menu).
+## Phase Details
 
-### Phase 2: Graph — Daily Granularity
-**Goal**: Update the Rolling Overview chart to show 365 days of daily balance data.
-- [x] DASH-01: Implement `getDailyRollingData` in `src/db/repository.js`.
-- [x] DASH-02: Update `renderRollingOverviewChart` in `src/ui/charts.js`.
-- [x] DASH-03: Ensure cumulative running total and forecast/historical distinction.
+### Phase 1: Integrity (Reconciliation)
+**Goal**: Users can trust that their app ledger perfectly matches their bank statements through a formal reconciliation workflow.
+**Depends on**: Nothing
+**Requirements**: RECO-01, RECO-02, RECO-03, RECO-04, RECO-05, RECO-06, RECO-07
+**Success Criteria** (what must be TRUE):
+  1. Transaction lists (Income/Expenses) have a "Reconciliation Mode" that exposes clearing controls.
+  2. Users can see a real-time "Cleared Balance" as they toggle individual transactions.
+  3. "Finalize Reconciliation" successfully marks items as reconciled and visually locks them.
+  4. Reconciled items cannot be edited or deleted.
+**Status**: COMPLETED (2026-03-06)
 
-### Phase 3: Period Selector & Summary Boxes
-**Goal**: Redesign the summary grid and integrate banners.
-- [x] DASH-04: Implement new Month Navigator widget.
-- [x] DASH-05: Update `renderDashboard` in `src/ui/dashboard.js` with new order and consolidated data.
-- [x] DASH-06: Remove standalone banner functions.
-- [x] DASH-07: Implement "Next Negative" warning on Balance box.
+### Phase 2: Insights (Analytics)
+**Goal**: Users gain actionable understanding of spending patterns and long-term financial trajectory.
+**Depends on**: Phase 1
+**Requirements**: ANAL-01, ANAL-02, ANAL-03, ANAL-04, ANAL-05
+**Success Criteria** (what must be TRUE):
+  1. Dashboard displays a Doughnut Chart showing spending by category (Top 5 + Other).
+  2. Dashboard shows a "Savings Rate" KPI calculated from actual income and expenses.
+  3. Dashboard includes a Net Worth trend chart spanning the last 12 months.
+  4. Users can interact with charts (touch/hover) to see precise values and category details.
+**Status**: COMPLETED (2026-03-06)
 
-### Phase 4: Set Current Balance & Per-Tab Summaries
-**Goal**: Implement the reconciliation edit button and tab-specific banners.
-- [x] NAV-08: Add balance edit icon to Dashboard.
-- [x] TAB-04: Implement `renderTabSummary` utility.
-- [x] TAB-05: Integrate summaries into Income, Expenses, Debts, Assets, Childcare tabs.
+### Phase 3: Mobile Polish (UX)
+**Goal**: The app provides a "pro-tier" mobile experience that is easy to navigate one-handed and safe to use in public.
+**Depends on**: Phase 1, Phase 2
+**Requirements**: UX-01, UX-02, UX-03, UX-04, UX-05
+**Success Criteria** (what must be TRUE):
+  1. Primary navigation moves to a bottom bar on screens smaller than 768px.
+  2. "Privacy Mode" toggle blurs all sensitive monetary values across the entire application.
+  3. Users can see icons and labels in the bottom navigation.
+**Status**: COMPLETED (2026-03-06)
 
-### Phase 5: Debts Tab — Statement & PDF Bug Fixes
-**Goal**: Fix regressions in debt statement management.
-- [x] FIX-01: Fix statement history rendering and visibility.
-- [x] FIX-02: Fix "Log Statement" form handler.
-- [x] FIX-03: Restore PDF import pipeline for debt statements.
-
-### Phase 6: Polish & Verification
-**Goal**: Final styling and cross-browser/mobile verification.
-- [x] UI-01: Spacing and CSS polish.
-- [x] TEST-01: Verify all 31 finance tests pass.
-- [x] UAT-01: Full manual walkthrough.
-
-## Milestone v2.2 Stabilization — Stabilization & Gaps
-**Goal**: Restore accuracy, fix regressions, and cleanup initialization logic.
-
-### Phase 7: Restore Cashflow Core
-**Goal**: Re-implement deleted utility functions and fix the test suite.
-- [x] TECH-01: Restore `fetchHolidays`, `isWorkingDay`, `nextWorkingDay` to `src/utils/cashflow.js`.
-- [x] TECH-02: Restore `calculateForecast` and `generateExpectedIncomePredictions`.
-- [x] TEST-02: Fix `src/utils/cashflow.test.js` and verify all 140+ tests pass.
-
-### Phase 8: Forecast Accuracy
-**Goal**: Inject holiday/weekend awareness into the new Rolling Data aggregator.
-- [x] ACC-01: Update `getDailyRollingData` to use `nextWorkingDay` for projected recurrent items.
-- [x] ACC-02: Ensure consistent balance logic between `calculateBalanceChain` and the Rolling graph.
-
-### Phase 9: UI Restoration & Initialization Cleanup
-**Goal**: Bring back missing UI features and refactor app.js.
-- [x] UI-03: Restore 90-day daily forecast table as a toggle on the Dashboard tab.
-- [x] CLEAN-01: Consolidate rendering logic in `src/app.js` and parallelize `init()` sequence.
-- [x] CLEAN-02: Improve mobile navigation menu UX and robustness.
-- [x] UI-04: Restore Payoff Planner per-card breakdown and fix chart scaling.
-
-## Completed Milestones
-- [x] v2.2: Navigation Overhaul, Dashboard Redesign, and Debt Bug Fixes (2026-03-05)
-- [x] v2.1: Advanced Refinements & Security (2026-03-04)
-- [x] v1.5: Automatic Recurring Transactions (2026-03-03)
-- [x] v1.4: Local File Persistence (2026-03-02)
-- [x] v1.3: Enhanced Debt Management (2026-03-02)
-- [x] v1.2: Daily Cash Flow Engine (2026-03-02)
-- [x] v1.1: UX Refinement & CRUD Hardening (2026-03-02)
-- [x] v1.0: Modular Rebuild & Foundation (2026-03-01)
+## Progress Table
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 1. Integrity (Reconciliation) | 1/1 | Completed | 2026-03-06 |
+| 2. Insights (Analytics) | 1/1 | Completed | 2026-03-06 |
+| 3. Mobile Polish (UX) | 1/1 | Completed | 2026-03-06 |

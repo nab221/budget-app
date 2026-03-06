@@ -1,75 +1,69 @@
-# Architecture Patterns: Data & File Synchronization
+# Architecture Patterns: Milestone v2.3 — Advanced Analytics & Mobile Polish
 
-**Domain:** Persistence Layer
+**Domain:** Personal Finance UX, Data Integrity, and Predictive Insights
 **Researched:** 2024-05-24
 
 ## Recommended Architecture
 
-A repository-based architecture for all database operations, combined with a dedicated "File Sync Manager" that observes mutations.
+### Reconciliation State Machine
+The reconciliation process transforms a transaction from `pending` (manual or imported) to `cleared` (bank verified) and finally `reconciled` (locked).
+
+| State | Flag | Description | UI Action |
+|-------|------|-------------|-----------|
+| **Pending** | `isCleared: false` | Transaction exists in app but not yet verified against bank. | Toggle 'Clear' (Checkmark) |
+| **Cleared** | `isCleared: true` | Transaction verified against bank; part of 'Cleared Balance'. | Toggle 'Unclear' (Lock) |
+| **Reconciled** | `isReconciled: true` | Transaction locked; matches statement balance. | Read-Only |
 
 ### Component Boundaries
 
 | Component | Responsibility | Communicates With |
 |-----------|---------------|-------------------|
-| `Repository` | Low-level IndexedDB CRUD operations. | `Dexie.js` |
-| `SyncManager` | Watches for repository mutations and schedules file writes. | `FileSystemAccess API`, `Repository` |
-| `PermissionManager` | Handles `queryPermission` and `requestPermission` lifecycle. | `IndexedDB` (Handle storage), `UI` |
-
-### Data Flow
-
-```
-User Action → Repository Mutation → (Event/Observable) → SyncManager → FileSystemHandle.createWritable() → Disk
-```
-
-## Database Mutation Audit
-
-The following mutation points were identified in the existing codebase:
-
-### `src/db/repository.js`
-- **Balance Snapshots:** `triggerBalanceRecalc`, `balanceSnapshotRepository.deleteFrom`, `save`
-- **Daily Forecast:** `triggerDailyForecastRecalc`, `dailyBalanceRepository.bulkSave`, `save`, `deleteFrom`
-- **Categories:** `categoryRepository.addCategory`, `deleteCategory`, `seedDefaultCategories`, `ensureOpeningBalanceCategory`, `updateCategorizationLearningRule`
-- **Income/Expenses:** `incomeRepository`, `recurrentExpenseRepository`, `oneOffExpenseRepository` (all have `add`, `update`, `delete` wrappers with recalc triggers)
-- **Debts/Assets/Statements:** Standard CRUD via `createBaseRepository`, plus specialized methods in `statementRepository` (`addWithExpense`, `recordPayment`, `resetPayment`, `deleteWithExpense`)
-- **Childcare:** `childcareRepository` (`saveAccount`, `deleteAccount`, `addDeposit`, `addSpend`, `_recalculateBalances`)
-
-### `budget-app.html` (Legacy Inline Mutations)
-- **Categories:** `db.categories.bulkAdd`, `add`, `delete`
-- **Income/Expenses:** `db.income.add`, `db.fixedSpends.add`, `db.variableSpends.add`
-- **Subscriptions:** `db.subscriptions.add`
-- **Debts/Statements:** `db.debts.add`, `db.statements.add`, `db.statements.delete`
-- **Assets:** `db.assets.add`
-- **Global Operations:** `importFile` (Bulk adds to all tables), `resetBtn` (Clears all tables)
-
-**Refactoring Recommendation:** Consolidate all `budget-app.html` inline Dexie calls into `src/db/repository.js` to ensure sync triggers and recalculation logic are consistently applied.
+| `ReconciliationManager` | Handles the reconcile workflow (Start, Match, Finish). | `Repository`, `UI/ReconcilePanel` |
+| `AnalyticsEngine` | Computes Category Spending, Savings Rate, and Trends. | `Repository`, `UI/Charts` |
+| `MobileNavShell` | Manages Bottom Navigation and "More" menu. | `Router`, `UI/AppShell` |
 
 ## Patterns to Follow
 
-### Handle Persistence Pattern
-Store the handle in IndexedDB immediately after picking it.
-```javascript
-const handle = await window.showSaveFilePicker();
-await set('file-handle', handle); // Using idb-keyval
-```
+### Pattern 1: Ledger-Based Integrity
+Current balance should NOT be an stored number; it MUST be a derived sum of:
+`Starting Balance + Sum(Income) - Sum(Expenses)`.
+The `balanceSnapshots` and `dailyBalanceSnapshots` tables are the cache of this derived sum.
 
-### Permission Lifecycle Pattern
-Check permissions on page load or before any file operation.
-```javascript
-async function verifyPermission(handle) {
-  if ((await handle.queryPermission({ mode: 'readwrite' })) === 'granted') return true;
-  // requestPermission MUST be triggered by user gesture
-  if ((await handle.requestPermission({ mode: 'readwrite' })) === 'granted') return true;
-  return false;
+### Pattern 2: Immutable Reconciled Transactions
+Once `isReconciled` is set to `true`, the `Repository` should throw an error on `update()` or `delete()` unless a specific `force` flag is passed.
+
+```typescript
+// Proposed Repository Guard
+async function updateTransaction(id, updates) {
+  const existing = await db.oneOffExpenses.get(id);
+  if (existing.isReconciled && !updates.force) {
+    throw new Error('Cannot edit reconciled transaction.');
+  }
+  return await db.oneOffExpenses.update(id, updates);
 }
 ```
 
 ## Anti-Patterns to Avoid
 
-### Syncing Every Field Change
-Writing to disk for every single keyup event can trigger excessive cloud sync activity.
-Instead: Debounce file writes (e.g., 5 seconds of inactivity) or write only on explicit save/mutation completion.
+### Anti-Pattern 1: Floating Point Currency
+**What:** Storing currency as `12.50`.
+**Why bad:** IEEE 754 precision errors (e.g. `0.1 + 0.2 != 0.3`).
+**Instead:** ALWAYS store in **integer pence** (`1250`). *The app already follows this.*
+
+### Anti-Pattern 2: Global Tab Redraw on Navigation
+**What:** Re-rendering the entire DOM when switching from 'Dashboard' to 'Income'.
+**Why bad:** Loss of scroll position, input focus, and perceived lag on mobile.
+**Instead:** Use `display: hidden` on inactive panels and only trigger `render()` on the active panel if data is stale.
+
+## Scalability Considerations
+
+| Concern | At 100 users | At 10K users | At 1M users |
+|---------|--------------|--------------|-------------|
+| **Analytics** | On-the-fly calculation. | On-the-fly calculation. | Background worker or cached snapshots. |
+| **Data Size** | IndexedDB local storage. | IndexedDB local storage. | No change (data is local). |
+| **Sync Debounce** | 500ms debounce. | 500ms debounce. | No change (local sync). |
 
 ## Sources
 
-- [V8: Serializing FileHandles](https://v8.dev/blog/serializable-objects)
-- [IndexedDB Best Practices](https://web.dev/indexeddb-best-practices/)
+- [Double-Entry Bookkeeping in Modern Budget Apps](https://medium.com/@accounting-software/double-entry-bookkeeping-101)
+- [IndexedDB Performance Best Practices](https://web.dev/indexeddb-performance/)

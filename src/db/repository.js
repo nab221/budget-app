@@ -17,12 +17,12 @@ const triggerSync = () => {
 /**
  * Common base repository operations.
  */
-function createBaseRepository(table, penceFields = []) {
+function createBaseRepository(table, penceFields = [], defaults = {}) {
   return {
     async getAll() { return await table.toArray(); },
     async get(id) { return await table.get(id); },
     async add(data) {
-      const toSave = { ...data };
+      const toSave = { ...defaults, ...data };
       penceFields.forEach(f => { if (toSave[f] !== undefined) toSave[f] = toPence(toSave[f]); });
       const id = await table.add(toSave);
       triggerSync();
@@ -46,23 +46,25 @@ function createBaseRepository(table, penceFields = []) {
 // Primary Repositories
 // ---------------------------------------------------------------------------
 
+const integrityDefaults = { isCleared: false, isReconciled: false };
+
 export const incomeRepository = {
-  ...createBaseRepository(db.income, ['amount']),
+  ...createBaseRepository(db.income, ['amount'], integrityDefaults),
   async getByMonth(monthStr) {
     return await db.income.where('date').startsWith(monthStr).toArray();
   }
 };
 export const recurrentExpenseRepository = {
-  ...createBaseRepository(db.recurrentExpenses, ['amount']),
+  ...createBaseRepository(db.recurrentExpenses, ['amount'], integrityDefaults),
   async add(data) {
-    const base = createBaseRepository(db.recurrentExpenses, ['amount']);
+    const base = createBaseRepository(db.recurrentExpenses, ['amount'], integrityDefaults);
     const id = await base.add(data);
     const date = data.nextDate || data.date || new Date().toISOString().slice(0, 10);
     triggerBalanceRecalc(date).catch(() => {});
     return id;
   },
   async update(id, data) {
-    const base = createBaseRepository(db.recurrentExpenses, ['amount']);
+    const base = createBaseRepository(db.recurrentExpenses, ['amount'], integrityDefaults);
     const existing = await this.get(id);
     await base.update(id, data);
     const date = data.nextDate || data.date || (existing ? (existing.nextDate || existing.date) : null) || new Date().toISOString().slice(0, 10);
@@ -70,7 +72,7 @@ export const recurrentExpenseRepository = {
     return 1;
   },
   async delete(id) {
-    const base = createBaseRepository(db.recurrentExpenses, ['amount']);
+    const base = createBaseRepository(db.recurrentExpenses, ['amount'], integrityDefaults);
     const existing = await this.get(id);
     await base.delete(id);
     if (existing) {
@@ -120,6 +122,7 @@ export const recurrentExpenseRepository = {
   },
   async bulkAdd(items) {
     const toSave = items.map(i => ({
+      ...integrityDefaults,
       ...i,
       amount: toPence(i.amount)
     }));
@@ -129,7 +132,7 @@ export const recurrentExpenseRepository = {
 };
 
 export const oneOffExpenseRepository = {
-  ...createBaseRepository(db.oneOffExpenses, ['amount']),
+  ...createBaseRepository(db.oneOffExpenses, ['amount'], integrityDefaults),
   async getByMonth(monthStr) {
     return await db.oneOffExpenses.where('date').startsWith(monthStr).toArray();
   }

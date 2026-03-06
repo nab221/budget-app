@@ -1,61 +1,63 @@
-# Milestone v2.2 Requirements: Navigation, Dashboard & Bug Fixes
+# Milestone v2.3 Requirements: Advanced Analytics & Mobile Polish
 
 ## Goal
-Implement a major navigation overhaul with the Dashboard as a top-level tab, a redesigned daily-granularity graph, consolidated summary boxes, and critical bug fixes for the Debts tab statement history and PDF import.
+Transform the app from a tracking tool to a proactive financial partner through formal reconciliation (Integrity), advanced visualizations (Insights), and a thumb-friendly mobile interface (Mobile Polish).
 
-## 1. Navigation & Layout
+## 1. Integrity: Reconciliation
+Maintain a perfect match between digital records and bank statements.
 
-### 1a. Dashboard as a Tab
-- **NAV-01**: Remove the fixed Dashboard section from the top of the shell.
-- **NAV-02**: Add "Dashboard" as the FIRST tab in `#mainTabs` (active by default).
-- **NAV-03**: Create a corresponding `#dashboard-panel` (active by default) in `#tab-content`.
-- **NAV-04**: Move all Dashboard HTML (Chart, Summary Grid) into the new panel.
-- **NAV-05**: Ensure `#mainTabs` sits at the very top of the `.shell` container.
+- **RECO-01**: Schema Migration: Add `isCleared` (boolean) and `isReconciled` (boolean) fields to Income and Expenses repositories.
+- **RECO-02**: Provide a "Reconciliation Mode" toggle in Income and Expenses transaction lists.
+- **RECO-03**: In Reconciliation Mode, each transaction shows a "Clear" checkbox or icon for quick toggling.
+- **RECO-04**: Display a reconciliation header showing: "Cleared Balance" (sum of all cleared) vs. "Statement Balance" (sum of all).
+- **RECO-05**: Implement a "Finalize Reconciliation" workflow that marks all cleared items as `isReconciled`.
+- **RECO-06**: Prevent editing or deletion of items marked `isReconciled` (require unlocking).
+- **RECO-07**: Visually lock reconciled items in the transaction table with a padlock icon.
 
-### 1b. Mobile Navigation
-- **NAV-06**: Implement a horizontally scrollable tab bar for tablet/mobile.
-- **NAV-07**: For screens < 768px, provide a mobile-responsive "hamburger" menu (☰) to navigate tabs.
+## 2. Insights: Analytics
+Provide deep financial clarity through interactive visualizations.
 
-## 2. Dashboard Redesign
+- **ANAL-01**: Dashboard: Add an **Expenses Breakdown Doughnut Chart** showing top 5 categories + "Other".
+- **ANAL-02**: Dashboard: Add a **Savings Rate KPI** (Total Income - Total Expenses / Total Income) as a prominent metric.
+- **ANAL-03**: Dashboard: Add a **Net Worth Trend Chart** (12-month historical) combining Assets - Debts + current Account Balances.
+- **ANAL-04**: Implement interactive tooltips for all charts showing exact monetary values on hover/touch.
+- **ANAL-05**: Dashboard: Add a "Monthly Spending Heatmap" or Year-over-Year comparison widget for total monthly spend.
 
-### 2a. Daily Granularity Graph
-- **DASH-01**: The "Rolling Financial Overview" chart MUST show daily data points for the past 365 days.
-- **DASH-02**: Use a cumulative running total (account balance) for the Y-axis.
-- **DASH-03**: Distinct visual styles for Historical (solid) vs. Forecast (dashed) data.
-- **DASH-04**: Forecast data is driven by the `RecurrenceManager` engine.
-- **DASH-05**: Fix current-month duplication bug.
+## 3. Mobile Polish: UX
+Refine the PWA experience for thumb-zone navigation and private public use.
 
-### 2b. Period Selector & Reordering
-- **DASH-06**: Move Period Selector (Month Navigator + View Select) below the graph and above the summary grid.
-- **DASH-07**: Period Selector ONLY affects the summary boxes, NOT the graph.
-- **DASH-08**: Replace `<input type="month">` with a dropdown + ◀▶ navigation widget.
-- **DASH-09**: Reorder summary boxes: Balance → Income → Expenses → Net Position → Debt → Debt Stats → Assets → Childcare → Net Worth.
-
-### 2c. Consolidated Banners
-- **DASH-10**: Integrate "Debt Repayment Impact" data into the "Debt Repayment Statistics" summary box.
-- **DASH-11**: Integrate "Childcare Funding" data (per account) into the "Childcare" summary box.
-- **DASH-12**: Integrate "Account Balance" data into the "Current Balance" box.
-- **DASH-13**: **Fix**: Use `calculateBalanceChain()` logic for accurate "Current Balance" values.
-- **DASH-14**: "Next Negative" alert appears as a warning state (red border + ⚠️) on the Balance box.
-- **DASH-15**: Move "Set Current Balance" from Income/Expenses tabs to an edit icon (✏️) on the Balance box.
-
-## 3. Tab-Specific Summaries
-- **TAB-01**: Add a summary banner at the top of Income, Expenses, Debts, Assets, and Childcare tabs.
-- **TAB-02**: Move budget target progress bars from the Dashboard to the Expenses tab banner.
-- **TAB-03**: Move "Debt-Free In" and "Recurrent-to-Income" ratio from the Dashboard to the Debts tab banner.
-- **TAB-04**: Implement via a shared `renderTabSummary` utility to ensure visual consistency.
-
-## 4. Debts Tab Bug Fixes
-- **FIX-01**: Restore statement history rendering. Clicking a debt card MUST reveal `#statementSection` and populate `#stmtBody`.
-- **FIX-02**: Fix `#addStmtBtn` ("Log Statement") handler to show the manual entry form.
-- **FIX-03**: Restore the PDF statement import pipeline specifically for debt accounts.
+- **UX-01**: Bottom Navigation Bar: Move primary tab navigation (Dashboard, Income, Expenses, Debts, Assets, Settings) to the bottom of the viewport on mobile screens (< 768px).
+- **UX-02**: Privacy Mode: Implement a "Privacy Toggle" (eye icon) in the header that blurs or masks all sensitive currency values.
+- **UX-03**: Gesture Support: Implement swipe-to-clear or swipe-to-delete interactions for transaction list rows.
+- **UX-04**: Interaction Haptics: Trigger tactile feedback (`navigator.vibrate`) on key actions like clearing a transaction or successfully saving a form.
+- **UX-05**: PWA Installation: Ensure high-resolution icons (192, 512) and splash screens are correctly configured for iOS/Android install prompts.
 
 ## Success Criteria
-- [ ] Dashboard is the default active tab.
-- [ ] Graph shows 365 days of daily balance progression (no duplication).
-- [ ] Period selector (dropdown + buttons) correctly filters summary boxes below.
-- [ ] "Current Balance" box accurately reflects the bank balance (calculated via balance chain).
-- [ ] All standalone dashboard banners are gone (integrated into boxes).
-- [ ] Each primary tab has a relevant summary banner at the top.
-- [ ] Debt statement history and PDF import are fully functional.
-- [ ] App is responsive with a mobile menu on small screens.
+- [ ] Users can toggle "Reconciliation Mode" and clear transactions to match their bank statement.
+- [ ] Users can "Finalize Reconciliation" to lock items from accidental changes.
+- [ ] The Dashboard includes a Doughnut Chart of category spending and a Net Worth trend chart.
+- [ ] Savings Rate is displayed as a percentage of income.
+- [ ] On mobile devices, navigation is easily accessible at the bottom of the screen.
+- [ ] Users can mask sensitive financial data with one tap (Privacy Mode).
+- [ ] Transaction rows support swipe actions on touch devices.
+
+## Traceability
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| RECO-01 | 1 | Pending |
+| RECO-02 | 1 | Pending |
+| RECO-03 | 1 | Pending |
+| RECO-04 | 1 | Pending |
+| RECO-05 | 1 | Pending |
+| RECO-06 | 1 | Pending |
+| RECO-07 | 1 | Pending |
+| ANAL-01 | 2 | Pending |
+| ANAL-02 | 2 | Pending |
+| ANAL-03 | 2 | Pending |
+| ANAL-04 | 2 | Pending |
+| ANAL-05 | 2 | Pending |
+| UX-01 | 3 | Pending |
+| UX-02 | 3 | Pending |
+| UX-03 | 3 | Pending |
+| UX-04 | 3 | Pending |
+| UX-05 | 3 | Pending |

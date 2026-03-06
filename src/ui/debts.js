@@ -643,12 +643,12 @@ export const debtUI = {
               </div>
               
               <div style="font-size:1.4rem; font-weight:bold; margin:5px 0">
-                ${formatGBP(debt.currentBalance)}
+                <span class="privacy-blur">${formatGBP(debt.currentBalance)}</span>
               </div>
               
               <div class="grid2" style="font-size:0.85rem; color:var(--text-soft)">
                 <div>${type === 'credit-card' ? 'APR' : 'Rate'}: ${type === 'credit-card' ? debt.apr : debt.interestRate}%</div>
-                <div class="r">${type === 'credit-card' ? `Limit: ${debt.creditLimit > 0 ? formatGBP(debt.creditLimit) : 'N/A'}` : `Term: ${debt.termMonths}mo`}</div>
+                <div class="r">${type === 'credit-card' ? `Limit: ${debt.creditLimit > 0 ? `<span class="privacy-blur">${formatGBP(debt.creditLimit)}</span>` : 'N/A'}` : `Term: ${debt.termMonths}mo`}</div>
               </div>
 
               ${type === 'credit-card' && debt.promoEndDate ? `
@@ -666,7 +666,7 @@ export const debtUI = {
               
               <div style="margin-top:auto; padding-top:10px; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center">
                 <div style="font-size:0.85rem">
-                  ${type === 'credit-card' ? 'Est. Min:' : 'Monthly:'} <strong>${formatGBP(minPay)}</strong>
+                  ${type === 'credit-card' ? 'Est. Min:' : 'Monthly:'} <strong><span class="privacy-blur">${formatGBP(minPay)}</span></strong>
                 </div>
                 <div class="hint" style="font-size:0.7rem">Click to view history</div>
               </div>

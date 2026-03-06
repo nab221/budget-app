@@ -1,51 +1,63 @@
-# Feature Landscape: File & Data Operations
+# Feature Landscape: Milestone v2.3 — Advanced Analytics & Mobile Polish
 
-**Domain:** Local Data Management
+**Domain:** Personal Finance UX, Data Integrity, and Predictive Insights
 **Researched:** 2024-05-24
 
-## Table Stakes
+## Table Stakes (Reconciliation & Integrity)
 
-Features users expect in a local-first application.
+Features users expect for basic trust in their financial data.
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| Automatic Backup | Prevents data loss if IDB is cleared by browser. | Med | Requires persisting a FileHandle. |
-| Persistent Handle | Avoids picking file on every page reload. | Med | Use IndexedDB to store the handle. |
-| Sync Status | User needs to know if the file is in sync. | Low | Visual indicator of last write success. |
+| **Cleared Status** | Track which transactions have hit the bank. | Low | Add `isCleared` boolean to transaction entities. |
+| **Reconcile Tool** | Match app balance to actual bank balance. | Med | YNAB-style workflow: Enter balance → Clear → Finish. |
+| **Transaction Locking** | Prevent accidental edits to reconciled data. | Low | Disable edit/delete for locked transactions. |
+| **Duplicate Solver** | Resolve potential duplicates during import. | Med | UI to "Merge", "Keep Both", or "Ignore" duplicates. |
 
-## Differentiators
+## Differentiators (Advanced Analytics)
 
-Features that set the app apart in terms of UX.
+Features that provide deeper insight into financial health.
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| Cloud-Sync Warning | Notifies user if OneDrive/Dropbox has locked the file. | Med | Catch `NoModificationAllowedError`. |
-| PWA Persistence | No permission prompt on every visit (Chrome 122+). | Low | Requires "Installed" PWA state. |
-| Conflict Detection | Detects if the file was modified elsewhere. | High | Requires ETag or modification time check. |
+| **Category Breakdown** | Visualize where money goes (Doughnut). | Low | Aggregates monthly spend by category. |
+| **Savings Rate KPI** | Track the most important finance number. | Low | (Income - Expense) / Income % trend. |
+| **Net Worth Trend** | Visualize long-term asset/debt trajectory. | Med | Line chart showing Assets vs Debts vs Net Worth. |
+| **Spending Velocity** | "Am I spending faster than usual this month?" | High | Comparison of current cumulative spend vs avg. |
+
+## Mobile UX Enhancements
+
+| Feature | Why Valuable | Complexity | Notes |
+|---------|--------------|------------|-------|
+| **Bottom Navigation** | Better ergonomics for one-handed use. | Med | Core tabs at bottom; secondary items in "More". |
+| **Privacy Mode** | Use the app in public without stress. | Low | CSS toggle to blur sensitive balance numbers. |
+| **Swipe-to-Action** | Reduce friction for management tasks. | Med | Swipe-left to Delete; Swipe-right to Edit. |
+| **Haptic Feedback** | Tactile confirmation of app state. | Low | `navigator.vibrate` on Success/Error/Done. |
 
 ## Anti-Features
 
-Features to explicitly NOT build.
-
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| Direct Dropbox API | Requires server/OAuth management. | Use File System Access API on the Dropbox sync folder. |
-| Proprietary Backup Format | Locks user in. | Stick to standard JSON. |
+| **Direct Bank API** | High cost, complex OAuth, privacy concerns. | Stick to PDF/CSV imports + Manual reconciliation. |
+| **Full AI Coaching** | High complexity, LLM cost, hallucination risk. | Rule-based "Spending Insights" (e.g. "20% higher than avg"). |
 
 ## Feature Dependencies
 
 ```
-Handle Persistence → Automatic Backup → Conflict Detection
+isCleared Field → Reconcile Tool → Transaction Locking
 ```
 
-## MVP Recommendation
+## MVP Recommendation (Milestone v2.3 Scope)
 
 Prioritize:
-1.  **Persistent Handle Persistence**: Store the FileSystemHandle in IndexedDB.
-2.  **Explicit "Authorize" UI**: A simple button to request permissions if `queryPermission` returns `prompt`.
-3.  **Basic Sync Error Handling**: Retry logic (1s delay) for `NoModificationAllowedError`.
+1.  **Formal Reconciliation**: `isCleared` field + Basic Reconcile UI.
+2.  **Category Insight**: Doughnut chart on Dashboard + Savings Rate KPI.
+3.  **Mobile Foundation**: Bottom Navigation Bar + Privacy Mode toggle.
+
+Defer: **Spending Velocity** and **Full AI Coaching** to a later "v3.x" milestone.
 
 ## Sources
 
-- [Google Chrome Developers - Persistent Permissions](https://developer.chrome.com/blog/persistent-permissions-for-file-system-access/)
-- [Web.dev - Storage for the Web](https://web.dev/storage-for-the-web/)
+- [YNAB: Reconciling Accounts](https://docs.youneedabudget.com/article/166-reconciling-accounts)
+- [Monzo: Trends & Categorization](https://monzo.com/features/trends/)
+- [Revolut: Budgeting & Analytics](https://www.revolut.com/budgeting-and-analytics/)

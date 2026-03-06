@@ -7,12 +7,13 @@ import {
   balanceSnapshotRepository,
   dailyBalanceRepository,
   expectedIncomeRepository,
-  childcareRepository
+  childcareRepository,
+  categoryRepository
 } from '../db/repository.js';
 import { getDailyRollingData } from '../utils/cashflow.js';
 import { formatGBP, formatGBPShort, toPence, fromPence } from '../utils/currency.js';
 import { simulatePayoff, calcMinPayment, calculateBalanceChain } from '../utils/finance.js';
-import { renderRollingOverviewChart } from './charts.js';
+import { renderRollingOverviewChart, renderSpendingBreakdownChart } from './charts.js';
 import { checkStoragePersistence } from './pwa-ux.js';
 import { getEntitlementPeriod, calculateFundingGap } from '../utils/childcare.js';
 import { modalUI } from './render.js';
@@ -89,10 +90,11 @@ export async function renderDashboard() {
   // Map 'current' (from UI) to 'month' (from repository)
   const normalizedPeriod = _selectedView === 'current' ? 'month' : _selectedView;
 
-  const [data, rollingData, isPersisted] = await Promise.all([
+  const [data, rollingData, isPersisted, categories] = await Promise.all([
     getDashboardData(normalizedPeriod, _selectedMonth),
     getDailyRollingData(),
-    checkStoragePersistence()
+    checkStoragePersistence(),
+    categoryRepository.getCategories()
   ]);
 
   // 1. Render Rolling Chart (365 Days Daily)
@@ -135,7 +137,39 @@ export async function renderDashboard() {
     console.warn('Could not render rolling overview chart:', err);
   }
 
-  // 2. Fetch/Calculate Consolidated Data
+  // 2. Render Spending Breakdown & Savings Rate
+  try {
+    const catMap = Object.fromEntries(categories.map(c => [c.id, c.name]));
+    const namedSpending = {};
+    Object.entries(data.categorySpending).forEach(([id, amt]) => {
+      const name = catMap[id] || 'Other';
+      namedSpending[name] = (namedSpending[name] || 0) + amt;
+    });
+    renderSpendingBreakdownChart('spendingBreakdownChart', namedSpending);
+
+    const savingsRateKPI = document.getElementById('savingsRateKPI');
+    if (savingsRateKPI) {
+      const savings = data.income - data.totalExpenses;
+      const rate = data.income > 0 ? Math.max(0, Math.round((savings / data.income) * 100)) : 0;
+      
+      let rateColor = 'var(--danger)';
+      if (rate >= 20) rateColor = 'var(--accent)';
+      else if (rate >= 10) rateColor = 'var(--warn)';
+
+      savingsRateKPI.innerHTML = `
+        <div style="font-size: 3rem; font-weight: 800; color: ${rateColor}">${rate}%</div>
+        <div class="sum-label" style="margin-top: 5px">Monthly Savings Rate</div>
+        <div class="hint" style="margin-top: 10px; text-align: center">
+          Target: 20%+<br/>
+          Current Savings: ${formatGBP(savings)}
+        </div>
+      `;
+    }
+  } catch (err) {
+    console.warn('Could not render spending breakdown or savings KPI:', err);
+  }
+
+  // 3. Fetch/Calculate Consolidated Data
   const debts = await debtRepository.getAll();
   const today = new Date().toISOString().split('T')[0];
   const snapshots = await dailyBalanceRepository.getAll();
@@ -171,7 +205,7 @@ export async function renderDashboard() {
   sixtyDaysFromNow.setDate(sixtyDaysFromNow.getDate() + 60);
   const hasExpiringPromo = debts.some(d => d.promoEndDate && new Date(d.promoEndDate) <= sixtyDaysFromNow && new Date(d.promoEndDate) >= new Date());
 
-  // 3. Define the new card order
+  // 4. Define the new card order
   const cards = [
     { 
       id: 'balance-card',

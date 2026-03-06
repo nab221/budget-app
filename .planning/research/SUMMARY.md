@@ -1,50 +1,52 @@
-# Research Summary: File System Access API & Database Mutations
+# Research Summary: Milestone v2.3 — Advanced Analytics & Mobile Polish
 
-**Domain:** Browser File System API and Budget App Data Layer
-**Researched:** 2024-05-24 (Simulated)
+**Domain:** Personal Finance UX, Data Integrity, and Predictive Insights
+**Researched:** 2024-05-24
 **Overall confidence:** HIGH
 
 ## Executive Summary
 
-The research focused on two main areas: best practices for the File System Access API (specifically handle persistence and cloud sync compatibility) and a comprehensive audit of database mutation points in the `budget-app` project.
+Milestone v2.3 marks the transition of the Budget App from a robust tracking tool to an intelligent financial partner. Research into 2024/2025 fintech trends (Monzo, Revolut, YNAB) highlights a shift toward **proactive reconciliation** and **predictive insights**. 
 
-The File System Access API provides a powerful way to interact with local files, but requires careful handle management in IndexedDB and proactive error handling for cloud-synced folders (OneDrive/Dropbox). Persisting handles is straightforward as they are serializable, but permission management remains a session-based or PWA-specific hurdle.
+The two pillars of this milestone are **Trust** and **Insight**. Trust is built through a formal reconciliation workflow that ensures the app's ledger perfectly matches bank reality. Insight is provided through advanced visualizations like Category Breakdowns, Savings Rate tracking, and Net Worth trajectories. 
 
-The `budget-app` database audit revealed a dual-layer mutation pattern: a modern repository-based layer in `src/db/repository.js` and a legacy inline Dexie layer in `budget-app.html`. Future refactoring should consolidate these into the repository layer to ensure consistent trigger logic (like balance recalculations).
+Mobile UX will be refined to follow modern "thumb-zone" patterns, moving primary navigation to the bottom and adding gesture-based interactions (swipes) to reduce friction in high-frequency tasks like expense logging.
 
 ## Key Findings
 
-**Stack:** Browser File System Access API + Dexie.js (IndexedDB).
-**Architecture:** Repository pattern used in `src/db/` but inconsistent usage in `budget-app.html`.
-**Critical pitfall:** Cloud sync providers (OneDrive/Dropbox) frequently lock files or use "online-only" placeholders, causing `NoModificationAllowedError` or `NotFoundError` if not handled.
+**Stack:** Chart.js (already in use) is sufficient for new doughnut and trend charts. No new core libraries are required.
+**Architecture:** Reconciliation requires a new `reconciliationStatus` field across all transaction tables (Income, Expenses).
+**Critical pitfall:** Mobile users often experience "financial anxiety" when viewing large negative balances in public; a "Privacy Mode" is a table-stakes feature for modern mobile budget apps.
 
 ## Implications for Roadmap
 
-Based on research, suggested phase structure for File Sync/System Access integration:
+Based on research, suggested phase structure for v2.3:
 
-1. **Handle Persistence Layer** - Implement IndexedDB storage for file handles using `idb-keyval` or similar.
-   - Addresses: User session persistence.
-   - Avoids: Needing to pick the file on every reload.
+1. **Reconciliation & Integrity** - Implement the "Cleared" vs "Reconciled" lifecycle.
+   - Addresses: User trust, data accuracy, ledger-to-bank matching.
+   - Includes: New `isCleared` field, Reconciliation UI tool.
 
-2. **Permission Lifecycle UI** - Create a "Re-connect" or "Authorize" UI flow to handle the `queryPermission` and `requestPermission` lifecycle.
-   - Addresses: Browser security constraints.
+2. **Advanced Analytics** - Build the "Insights" engine.
+   - Addresses: Spending awareness, long-term goals.
+   - Includes: Category Doughnut Chart, Savings Rate KPI, Net Worth Trend Chart.
 
-3. **Cloud-Sync Resilience** - Implement retry logic with exponential backoff and "Offline-only" detection/warnings for OneDrive/Dropbox users.
-   - Avoids: Crashing or failing silently during sync locks.
+3. **Mobile Polish & UX** - Refine the PWA experience.
+   - Addresses: Thumb-friendly navigation, public privacy, interaction friction.
+   - Includes: Bottom Navigation Bar, Swipe actions, Privacy Mode toggle.
 
 **Phase ordering rationale:**
-- Persistence and basic UI must come before advanced error handling to provide a baseline functional experience.
+- Integrity (Phase 1) is the foundation. Analytics (Phase 2) are only useful if the data is accurate. UX Polish (Phase 3) provides the final "pro" feel to the new features.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | API is well-documented; Dexie usage is standard. |
-| Features | MEDIUM | Cloud sync behavior varies slightly by provider/OS. |
-| Architecture | HIGH | Codebase audit was comprehensive. |
-| Pitfalls | HIGH | Common errors (Locks, Placeholders) are well-known in community. |
+| Stack | HIGH | Existing stack (Dexie, Chart.js) is perfectly suited. |
+| Features | HIGH | Based on industry leaders (YNAB, Monzo). |
+| Architecture | MEDIUM | Requires careful schema migration for `isCleared`. |
+| Pitfalls | HIGH | Well-documented mobile UX patterns for finance. |
 
 ## Gaps to Address
 
-- **PWA Specifics:** Deep-dive into Chrome's persistent permissions for installed PWAs (Chrome 122+) to see if `requestPermission` can be bypassed entirely after initial setup.
-- **Atomic Writes:** Further testing on how `createWritable` swap files interact with OneDrive versioning.
+- **PWA Haptics:** Investigate `navigator.vibrate` compatibility across iOS/Android PWA shells.
+- **Biometrics:** Research `WebAuthn` feasibility for a simple "Unlock App" feature in a local-only PWA.
