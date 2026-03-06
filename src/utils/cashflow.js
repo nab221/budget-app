@@ -131,10 +131,10 @@ export async function nextWorkingDay(dateStr, includeToday = false) {
 /**
  * Calculate the daily balance forecast for a set number of days.
  * @param {string} startDate - YYYY-MM-DD
- * @param {number} horizonDays - Number of days to forecast (default 90)
+ * @param {number} horizonDays - Number of days to forecast (default 45)
  * @returns {Promise<Array>} List of daily snapshots
  */
-export async function calculateForecast(startDate, horizonDays = 90) {
+export async function calculateForecast(startDate, horizonDays = 45) {
   // Use UTC to avoid timezone shifts during day increments
   let currentDay = new Date(`${startDate}T00:00:00Z`);
 
@@ -181,38 +181,22 @@ export async function calculateForecast(startDate, horizonDays = 90) {
       return { ...item, effectiveDate };
     }));
 
+  const datasets = { incomeList, expectedIncomeList, oneOffList, recurrentWithEffective };
+
   for (let i = 0; i < horizonDays; i++) {
     const dateStr = currentDay.toISOString().split('T')[0];
 
-    // Sum income for today
-    const dayIncome = incomeList
-      .filter(inc => inc.date === dateStr)
-      .reduce((sum, inc) => sum + inc.amount, 0) +
-      expectedIncomeList
-      .filter(inc => inc.date === dateStr)
-      .reduce((sum, inc) => sum + inc.amount, 0);
+    const { dayIncome, dayExpense, hasDebtPayment } = _calculateDailyMetrics(dateStr, datasets);
 
-    // Sum expenses for today
-    const dayOneOff = oneOffList
-      .filter(exp => exp.date === dateStr)
-      .reduce((sum, exp) => sum + exp.amount, 0);
-
-    const dayRecurrentExpenses = recurrentWithEffective
-      .filter(exp => exp.effectiveDate === dateStr);
-
-    const dayRecurrentTotal = dayRecurrentExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-    const hasDebtPayment = dayRecurrentExpenses.some(exp => exp.isDebtPayment);
-
-    const totalExpenses = dayOneOff + dayRecurrentTotal;
     const openingBalance = currentBalance;
-    currentBalance = openingBalance + dayIncome - totalExpenses;
+    currentBalance = openingBalance + dayIncome - dayExpense;
 
     snapshots.push({
       date: dateStr,
       openingBalance,
       closingBalance: currentBalance,
       incomeTotal: dayIncome,
-      expenseTotal: totalExpenses,
+      expenseTotal: dayExpense,
       hasDebtPayment
     });
 
@@ -301,9 +285,9 @@ export async function generateExpectedIncomePredictions() {
  * Daily Rolling Financial Data Aggregation.
  * Returns daily balance data for:
  * - Past 365 days (history)
- * - Future 60 days (forecast)
+ * - Future 45 days (forecast)
  *
- * @returns {Promise<Object>} { labels, data, todayIndex }
+ * @returns {Promise<Object>} { labels, data: { balance, income, expenses }, todayIndex }
  */
 export async function getDailyRollingData() {
   const today = new Date();
@@ -315,7 +299,7 @@ export async function getDailyRollingData() {
   const startDateStr = startDate.toISOString().split('T')[0];
 
   const endDate = new Date(today);
-  endDate.setDate(endDate.getDate() + 60);
+  endDate.setDate(endDate.getDate() + 45); // 45-day forecast
   const endDateStr = endDate.toISOString().split('T')[0];
 
   // 1. Fetch all data needed
@@ -344,7 +328,9 @@ export async function getDailyRollingData() {
   ]);
 
   const labels = [];
-  const data = [];
+  const balance = [];
+  const income = [];
+  const expenses = [];
   let currentBalance = initialBalancePence;
   let todayIndex = -1;
 
@@ -372,28 +358,57 @@ export async function getDailyRollingData() {
     }
   }));
 
+  const datasets = { incomeList, expectedIncomeList, oneOffList, recurrentWithEffective };
+
   while (cursor <= endDate) {
     const dStr = cursor.toISOString().split('T')[0];
     labels.push(dStr);
     if (dStr === todayStr) todayIndex = i;
 
-    // Sum today's activity
-    let dayIncome = incomeList.filter(inc => inc.date === dStr).reduce((s, r) => s + (r.amount || 0), 0);
-    dayIncome += expectedIncomeList.filter(inc => inc.date === dStr).reduce((s, r) => s + (r.amount || 0), 0);
-
-    let dayExpense = oneOffList.filter(exp => exp.date === dStr).reduce((s, r) => s + (r.amount || 0), 0);
-    
-    const dayRecurrent = recurrentWithEffective.filter(item => item.effectiveDate === dStr);
-    dayExpense += dayRecurrent.reduce((s, r) => s + (r.amount || 0), 0);
+    const { dayIncome, dayExpense } = _calculateDailyMetrics(dStr, datasets);
 
     currentBalance += (dayIncome - dayExpense);
-    data.push(currentBalance);
+    balance.push(currentBalance);
+    income.push(dayIncome);
+    expenses.push(dayExpense);
 
     cursor.setDate(cursor.getDate() + 1);
     i++;
   }
 
-  return { labels, data, todayIndex };
+  return { labels, data: { balance, income, expenses }, todayIndex };
+}
+
+/**
+ * Internal helper to process daily activity for a given date.
+ * Shared between getDailyRollingData and calculateForecast.
+ * @private
+ */
+function _calculateDailyMetrics(dateStr, datasets) {
+  const { incomeList, expectedIncomeList, oneOffList, recurrentWithEffective } = datasets;
+
+  const dayIncome = incomeList
+    .filter(inc => inc.date === dateStr)
+    .reduce((s, r) => s + (r.amount || 0), 0) +
+    expectedIncomeList
+    .filter(inc => inc.date === dateStr)
+    .reduce((s, r) => s + (r.amount || 0), 0);
+
+  const dayOneOff = oneOffList
+    .filter(exp => exp.date === dateStr)
+    .reduce((s, r) => s + (r.amount || 0), 0);
+  
+  const dayRecurrentExpenses = recurrentWithEffective
+    .filter(item => item.effectiveDate === dateStr);
+  
+  const dayRecurrentTotal = dayRecurrentExpenses.reduce((s, r) => s + (r.amount || 0), 0);
+  const hasDebtPayment = dayRecurrentExpenses.some(exp => exp.isDebtPayment);
+
+  return { 
+    dayIncome, 
+    dayExpense: dayOneOff + dayRecurrentTotal, 
+    hasDebtPayment 
+  };
 }
 
 /**
