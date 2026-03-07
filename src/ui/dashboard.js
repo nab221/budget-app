@@ -322,9 +322,41 @@ export async function renderDashboard() {
 
   // 5. Render Spending Heatmap
   try {
-    const year = _selectedMonth.slice(0, 4);
-    const yearlySpending = await getYearlyDailySpending(year);
-    renderSpendingHeatmap('spendingHeatmapContainer', year, yearlySpending);
+    const year = parseInt(_selectedMonth.slice(0, 4));
+    const prevYear = year - 1;
+    
+    const [currentYearData, prevYearData] = await Promise.all([
+      getYearlyDailySpending(year),
+      getYearlyDailySpending(prevYear)
+    ]);
+
+    const hasPrevYearData = Object.values(prevYearData).some(d => d.total > 0);
+    
+    // Combine data for shared scaling across both years
+    const allData = { ...currentYearData, ...prevYearData };
+    
+    renderSpendingHeatmap('spendingHeatmapContainer', year, currentYearData, { 
+      allYearsData: allData 
+    });
+
+    if (hasPrevYearData) {
+      const container = document.getElementById('spendingHeatmapContainer');
+      
+      const spacer = document.createElement('div');
+      spacer.style.height = '20px';
+      container.appendChild(spacer);
+      
+      const prevLabel = document.createElement('div');
+      prevLabel.className = 'chart-title';
+      prevLabel.style.textAlign = 'center';
+      prevLabel.textContent = `Prior Year (${prevYear})`;
+      container.appendChild(prevLabel);
+
+      renderSpendingHeatmap('spendingHeatmapContainer', prevYear, prevYearData, { 
+        clear: false,
+        allYearsData: allData
+      });
+    }
   } catch (err) {
     console.warn('Could not render spending heatmap:', err);
   }

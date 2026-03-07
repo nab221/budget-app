@@ -1,5 +1,6 @@
 import { categoryRepository } from '../db/repository.js';
 import { safeHTML } from './render.js';
+import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
 
 /**
  * Category UI Module
@@ -29,17 +30,18 @@ export const categoryUI = {
         const name = nameInput.value.trim();
 
         if (!name) {
-          alert('Please enter a category name.');
+          alertWithHaptic('Please enter a category name.');
           return;
         }
 
         try {
           await categoryRepository.addCategory(group, name);
+          triggerHaptic('success');
           nameInput.value = '';
           await this.render();
         } catch (error) {
           console.error('Failed to add category:', error);
-          alert('Failed to add category: ' + error.message);
+          alertWithHaptic('Failed to add category: ' + error.message);
         }
       });
     }
@@ -51,13 +53,14 @@ export const categoryUI = {
         try {
           const seeded = await categoryRepository.seedDefaultCategories();
           if (seeded) {
+            triggerHaptic('success');
             await this.render();
           } else {
-            alert('Categories already seeded or database not empty.');
+            alertWithHaptic('Categories already seeded or database not empty.');
           }
         } catch (error) {
           console.error('Failed to seed categories:', error);
-          alert('Failed to seed categories: ' + error.message);
+          alertWithHaptic('Failed to seed categories: ' + error.message);
         }
       });
     }
@@ -79,10 +82,11 @@ export const categoryUI = {
 
       try {
         await categoryRepository.deleteCategory(id);
+        triggerHaptic('delete');
         await this.render();
       } catch (error) {
         console.error('Failed to delete category:', error);
-        alert('Failed to delete category: ' + error.message);
+        alertWithHaptic('Failed to delete category: ' + error.message);
       }
     };
   },

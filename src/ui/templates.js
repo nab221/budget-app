@@ -1,5 +1,6 @@
 import { modalUI, showModal, closeModal } from './render.js';
 import { RecurrenceManager } from '../utils/recurrence.js';
+import { alertWithHaptic } from '../utils/haptics.js';
 
 // Re-export for components that expect them in templates.js
 export { showModal, closeModal };
@@ -23,14 +24,14 @@ export const templateUI = {
       const total = results.recurrentExpenses + results.oneOffExpenses;
       
       if (total > 0) {
-        alert(`Recurrence check complete. Generated ${total} new instances.`);
+        alertWithHaptic(`Recurrence check complete. Generated ${total} new instances.`, 'success');
         window.dispatchEvent(new CustomEvent('app:refresh'));
       } else {
-        alert('Recurrence check complete. No new instances needed at this time.');
+        alertWithHaptic('Recurrence check complete. No new instances needed at this time.', 'success');
       }
     } catch (err) {
       console.error('Recurrence trigger failed:', err);
-      alert('Recurrence check failed: ' + err.message);
+      alertWithHaptic('Recurrence check failed: ' + err.message);
     }
   },
 
