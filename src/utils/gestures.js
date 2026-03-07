@@ -11,6 +11,7 @@ export class SwipeHandler {
       threshold: options.threshold || 60,
       deadZone: options.deadZone || 10,
       edgeThreshold: options.edgeThreshold || 20,
+      onStart: options.onStart || (() => {}),
       onSwipe: options.onSwipe || (() => {}),
       onEnd: options.onEnd || (() => {}),
       onThresholdCross: options.onThresholdCross || (() => {}),
@@ -56,6 +57,8 @@ export class SwipeHandler {
     this.isSwiping = true;
     this.isConfirmedSwipe = false;
     this.isThresholdMet = false;
+
+    this.options.onStart();
   }
 
   handleTouchMove(e) {
