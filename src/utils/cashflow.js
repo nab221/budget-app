@@ -145,6 +145,7 @@ export async function nextWorkingDay(dateStr, includeToday = false, holidaySet =
 /**
  * Project recurrent item occurrences over a date range.
  * Generates all instances that would fall within [startDate, endDate].
+ * If item has no frequency, returns single occurrence at nextDate (if in range).
  * @param {Object} item - Recurrent expense/income with nextDate, frequency, cycleTotal, cycleCurrent
  * @param {string} startDate - YYYY-MM-DD
  * @param {string} endDate - YYYY-MM-DD
@@ -152,12 +153,23 @@ export async function nextWorkingDay(dateStr, includeToday = false, holidaySet =
  * @returns {Promise<Array<{date: string, item: Object}>>} Projected occurrences
  */
 async function _projectRecurrentOccurrences(item, startDate, endDate, holidaySet = null) {
-  if (!item.nextDate || !item.frequency) return [];
+  if (!item.nextDate) return [];
   
   const occurrences = [];
+  const holidays = holidaySet || await _getHolidaySet();
+  
+  // If no frequency is set, treat as one-time occurrence
+  if (!item.frequency) {
+    if (item.nextDate >= startDate && item.nextDate <= endDate) {
+      const effectiveDate = await nextWorkingDay(item.nextDate, true, holidays);
+      occurrences.push({ date: effectiveDate, item });
+    }
+    return occurrences;
+  }
+  
+  // Otherwise, project recurring occurrences
   let currentDate = item.nextDate;
   let currentCycle = item.cycleCurrent || 0;
-  const holidays = holidaySet || await _getHolidaySet();
   
   while (currentDate <= endDate) {
     // Check cycle limit
@@ -299,9 +311,11 @@ export async function generateExpectedIncomePredictions() {
   const threeMonthsAgoStr = threeMonthsAgo.toISOString().slice(0, 10);
 
   // Get history from the last 3 months
+  // Use above() instead of aboveOrEqual() for Dexie compatibility
   const history = await db.income
     .where('date')
-    .aboveOrEqual(threeMonthsAgoStr)
+    .above(threeMonthsAgoStr)
+    .or('date').equals(threeMonthsAgoStr)
     .toArray();
 
   if (history.length === 0) return [];
