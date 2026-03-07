@@ -181,7 +181,7 @@ async function _projectRecurrentOccurrences(item, startDate, endDate, holidaySet
     }
     
     // Advance to next occurrence
-    currentDate = advanceNextDate(currentDate, item.frequency);
+    currentDate = advanceNextDate({ nextDate: currentDate, frequency: item.frequency }).nextDate;
     currentCycle++;
   }
   
