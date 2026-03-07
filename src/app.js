@@ -42,7 +42,11 @@ async function init() {
       initTheme();
       const themeToggle = document.getElementById('themeToggle');
       if (themeToggle) {
-        themeToggle.addEventListener('click', () => toggleTheme());
+        themeToggle.addEventListener('click', () => {
+          toggleTheme();
+          // Re-render so chart colors (computed from data-theme at render time) update immediately.
+          if (window.app) window.app.renderAll();
+        });
       }
     })(),
     (async () => {
