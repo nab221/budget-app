@@ -1,18 +1,27 @@
 # Project: Budget App
 
 ## Current State
-- **Latest Version**: v2.2 (Navigation Overhaul & Dashboard Redesign)
-- **Status**: Milestone v2.2 Complete. Shipped Dashboard-as-a-tab, daily balance graph, per-tab summaries, and debt bug fixes.
-- **Key Features**: Daily Balance Graph, Mobile Navigation, Consolidated Dashboard, Debt Statement PDF Import.
+- **Latest Version**: v2.3 (Advanced Analytics & Mobile Polish)
+- **Status**: Milestone v2.3 Complete. Shipped Reconciliation workflow, Analytics suite, mobile PWA polish, Privacy Mode hardening, unified forecast engine, and code quality fixes.
+- **Key Features**: Reconciliation Mode, Expenses Doughnut Chart, Savings Rate KPI, Net Worth Trend, Privacy Mode, Bottom Navigation, Unified 45-day Forecast, advanceNextDate bug fix.
+- **Codebase**: ~12,191 JS LOC | Vanilla JS + Dexie.js + Chart.js v4 + date-fns
 
-## Next Milestone: v2.3 — Advanced Analytics & Mobile Polish
-- **Goal**: Implement deeper insights into spending patterns and further refine the mobile experience.
-- **Status**: Planning.
+## Next Milestone: v2.4 (TBD)
+- **Goal**: To be defined. Known candidates: Multi-currency support, Advanced Childcare tracking, Swipe gestures (UX-03), Haptics (UX-04), Spending Heatmap (ANAL-05).
+- **Status**: Planning. Run `/gsd:new-milestone` to begin.
 
 ---
 
 <details>
 <summary>Milestone History</summary>
+
+### v2.3: Advanced Analytics & Mobile Polish (2026-03-07)
+- Implemented full Reconciliation workflow (cleared/reconciled lifecycle, padlock UI).
+- Built Analytics suite: Expenses Doughnut Chart, Savings Rate KPI, 12-month Net Worth Trend.
+- Delivered mobile PWA polish: bottom navigation bar, Privacy Mode blur, PWA install icons.
+- Hardened Privacy Mode for Dashboard Summary Cards and Payoff Planner.
+- Unified forecast engine: chart and table aligned to 45-day horizon with identical balance calculations.
+- Fixed advanceNextDate bug in recurrence lifecycle; removed dead bar chart code.
 
 ### v2.2: Navigation Overhaul, Dashboard Redesign, and Debt Bug Fixes (2026-03-05)
 - Transformed Dashboard into a top-level tab and repositioned navigation to the top of the shell.
@@ -85,4 +94,4 @@ A personal budget tracking web app — a full rebuild of a buggy AI-generated pr
 </details>
 
 ---
-*Last updated: 2026-03-05 (v2.2 Complete)*
+*Last updated: 2026-03-07 after v2.3 milestone*
