@@ -74,6 +74,12 @@ async function init() {
       }
     })(),
     (async () => {
+      const installAppBtn = document.getElementById('installAppBtn');
+      if (installAppBtn) {
+        installAppBtn.addEventListener('click', () => installApp());
+      }
+    })(),
+    (async () => {
       try {
         await RecurrenceManager.checkAndGenerate();
       } catch (err) {
