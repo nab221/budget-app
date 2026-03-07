@@ -1,8 +1,8 @@
 ---
 gsd_state_version: 1.0
 milestone: v2.4
-milestone_name: TBD
-status: planning
+milestone_name: UX Polish & Spending Insights
+status: defining requirements
 last_updated: "2026-03-07"
 ---
 
@@ -13,7 +13,14 @@ last_updated: "2026-03-07"
 See: .planning/PROJECT.md (updated 2026-03-07)
 
 **Core value:** A personal budget tracker that helps a UK household track income, expenses, debts, assets, and forecast cash flow — fully offline, PWA-ready, no server required.
-**Current focus:** Planning next milestone (v2.4)
+**Current focus:** Defining requirements for v2.4
+
+## Current Position
+
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-07 — Milestone v2.4 started
 
 ## Completed Milestones
 
@@ -27,16 +34,13 @@ See: .planning/PROJECT.md (updated 2026-03-07)
 - v2.2 — Navigation Overhaul & Dashboard Redesign
 - v2.3 — Advanced Analytics & Mobile Polish (SHIPPED 2026-03-07)
 
-## Next Steps
+## Accumulated Context
 
-Run `/gsd:new-milestone` to define v2.4 requirements.
-
-Known v2.4 candidates (deferred from v2.3):
-- ANAL-05: Monthly Spending Heatmap / Year-over-Year comparison
-- UX-03: Swipe-to-clear / swipe-to-delete gesture support
-- UX-04: Haptic feedback on key actions
-- Multi-currency support
-- Advanced Childcare tracking enhancements
+- App is Vanilla JS + Dexie.js + Chart.js v4, fully client-side PWA
+- ~12,191 JS LOC, modular ES6 structure
+- v2.3 shipped: Reconciliation, Analytics suite (doughnut, savings rate, net worth trend), bottom nav, Privacy Mode, unified 45-day forecast
+- Chart.js uses CategoryScale only (no TimeScale/adapter)
+- Mobile-first PWA on iOS/Android — haptics via `navigator.vibrate`
 
 ---
-*Last updated: 2026-03-07 (v2.3 milestone archived)*
+*Last updated: 2026-03-07 — Milestone v2.4 started*
