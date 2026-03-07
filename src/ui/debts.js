@@ -2,6 +2,7 @@ import { debtRepository, statementRepository, incomeRepository, categoryReposito
 import { formatGBP, fromPence } from '../utils/currency.js';
 import { calcMinPayment, calcUtilization, simulatePayoff } from '../utils/finance.js';
 import { safeHTML, renderTabSummary } from './render.js';
+import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
 
 /**
  * Debt UI Module
@@ -52,12 +53,13 @@ export const debtUI = {
           await statementRepository.delete(s.id);
         }
         await debtRepository.delete(id);
+        triggerHaptic('delete');
         if (this.openLedgerId === id) this.openLedgerId = null;
         if (this.activeStmtDebtId === id) this.activeStmtDebtId = null;
         await this.render();
       } catch (error) {
         console.error('Failed to delete debt:', error);
-        alert('Failed to delete debt: ' + error.message);
+        alertWithHaptic('Failed to delete debt: ' + error.message, 'error');
       }
     };
 
@@ -86,6 +88,7 @@ export const debtUI = {
       if (!confirm('Are you sure you want to delete this statement? The linked payment expense will also be removed.')) return;
       try {
         await statementRepository.deleteWithExpense(id);
+        triggerHaptic('delete');
         
         // Update debt balance to the latest remaining statement
         const allStmts = await statementRepository.getAll();
@@ -259,7 +262,7 @@ export const debtUI = {
     const debtType = document.getElementById('debtTypeInput').value;
 
     if (!name) {
-      alert('Please provide a name for the debt account.');
+      alertWithHaptic('Please provide a name for the debt account.', 'error');
       return;
     }
 
@@ -313,12 +316,13 @@ export const debtUI = {
         await debtRepository.add(payload);
       }
 
+      triggerHaptic('success');
       this.toggleDebtForm(false);
       await this.render();
       if (window.app) window.app.renderAll();
     } catch (error) {
       console.error('Failed to save debt:', error);
-      alert('Failed to save debt: ' + error.message);
+      alertWithHaptic('Failed to save debt: ' + error.message, 'error');
     }
   },
 
@@ -445,7 +449,7 @@ export const debtUI = {
     const dueDate = document.getElementById(`stmtDueDateInput-${debtId}`).value;
 
     if (!date || isNaN(balance) || isNaN(openingBalance)) {
-      alert('Please fill in Date, Opening Balance, and New Balance.');
+      alertWithHaptic('Please fill in Date, Opening Balance, and New Balance.', 'error');
       return;
     }
 
@@ -489,13 +493,14 @@ export const debtUI = {
         await debtRepository.update(debtId, { currentBalance: fromPence(debtStmts[0].amount) });
       }
 
+      triggerHaptic('success');
       this.toggleStmtForm(debtId, false);
       await this.renderStatements(debtId);
       await this.render();
       if (window.app) window.app.renderAll();
     } catch (error) {
       console.error('Failed to save statement:', error);
-      alert('Failed to save statement: ' + error.message);
+      alertWithHaptic('Failed to save statement: ' + error.message, 'error');
     }
   },
 
@@ -519,7 +524,7 @@ export const debtUI = {
     // pdfImport sets activeStmtDebtId before triggering file input
     const debtId = this.activeStmtDebtId;
     if (!debtId) {
-       alert('No active debt selected for import.');
+       alertWithHaptic('No active debt selected for import.', 'error');
        return;
     }
 

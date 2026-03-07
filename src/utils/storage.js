@@ -15,6 +15,11 @@ export const BALANCE_OPENING_AMOUNT_KEY = 'budget_balance_opening_amount';
 export const PRIVACY_MODE_KEY = 'budget_privacy_mode';
 
 /**
+ * localStorage key for Haptic Feedback status.
+ */
+export const HAPTICS_ENABLED_KEY = 'budget_haptics_enabled';
+
+/**
  * Checks if the File System Access API is supported by the current browser.
  * @returns {boolean}
  */

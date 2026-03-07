@@ -1,6 +1,7 @@
 import { assetRepository } from '../db/repository.js';
 import { formatGBP, fromPence } from '../utils/currency.js';
 import { safeHTML, renderTabSummary } from './render.js';
+import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
 
 /**
  * Asset UI Module
@@ -32,10 +33,11 @@ export const assetUI = {
       if (!confirm('Are you sure you want to delete this asset?')) return;
       try {
         await assetRepository.delete(id);
+        triggerHaptic('delete');
         await this.render();
       } catch (error) {
         console.error('Failed to delete asset:', error);
-        alert('Failed to delete asset: ' + error.message);
+        alertWithHaptic('Failed to delete asset: ' + error.message, 'error');
       }
     };
   },
@@ -112,7 +114,7 @@ export const assetUI = {
     const value = parseFloat(document.getElementById('astValueInput').value);
 
     if (!name || !date || isNaN(value)) {
-      alert('Please fill in Name, Date, and Value correctly.');
+      alertWithHaptic('Please fill in Name, Date, and Value correctly.', 'error');
       return;
     }
 
@@ -130,12 +132,13 @@ export const assetUI = {
         await assetRepository.add(payload);
       }
 
+      triggerHaptic('success');
       this.toggleForm(false);
       await this.render();
       if (window.app) window.app.renderAll();
     } catch (error) {
       console.error('Failed to save asset:', error);
-      alert('Failed to save asset: ' + error.message);
+      alertWithHaptic('Failed to save asset: ' + error.message, 'error');
     }
   },
 
