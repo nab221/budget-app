@@ -493,16 +493,17 @@ export function renderRollingOverviewChart(canvasId, data) {
   const { labels, data: components, todayIndex } = data;
   const { balance, income, expenses } = components;
 
-  const balanceColor = '#000000'; // Black for primary balance line
+  const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark';
+  const balanceColor = isDarkMode ? '#E2E8F0' : '#000000';
   const incomeColor = '#009E73';  // Bluish green (Better for income bars)
   const expenseColor = '#D55E00'; // Vermilion (Reddish)
 
   const chart = new Chart(canvas, {
+    type: 'line',
     data: {
       labels,
       datasets: [
         {
-          type: 'line',
           label: 'Account Balance',
           data: balance,
           borderColor: balanceColor,
@@ -512,38 +513,9 @@ export function renderRollingOverviewChart(canvasId, data) {
           pointRadius: 0,
           pointHoverRadius: 4,
           borderWidth: 2.5,
-          order: 1, // Ensure line is on top
           segment: {
             borderDash: ctx => todayIndex !== -1 && ctx.p0DataIndex >= todayIndex ? [6, 4] : undefined,
           }
-        },
-        {
-          type: 'bar',
-          label: 'Income',
-          data: income,
-          backgroundColor: (ctx) => {
-            const val = ctx.dataset.data[ctx.dataIndex];
-            return val?.isForecast ? incomeColor + '80' : incomeColor;
-          },
-          borderColor: incomeColor,
-          borderWidth: 1,
-          barPercentage: 1.0,
-          categoryPercentage: 1.0,
-          order: 2
-        },
-        {
-          type: 'bar',
-          label: 'Expenses',
-          data: expenses.map(e => ({ ...e, y: -Math.abs(e.y) })), // Negate for downward bars
-          backgroundColor: (ctx) => {
-            const val = ctx.dataset.data[ctx.dataIndex];
-            return val?.isForecast ? expenseColor + '80' : expenseColor;
-          },
-          borderColor: expenseColor,
-          borderWidth: 1,
-          barPercentage: 1.0,
-          categoryPercentage: 1.0,
-          order: 2
         }
       ]
     },
@@ -568,27 +540,9 @@ export function renderRollingOverviewChart(canvasId, data) {
           position: 'nearest',
           callbacks: {
             label: (ctx) => {
-              const datasetLabel = ctx.dataset.label;
-              const raw = ctx.dataset.data[ctx.dataIndex];
-              const isLine = ctx.dataset.type === 'line';
-              
-              if (isLine) {
-                const isForecast = todayIndex !== -1 && ctx.dataIndex > todayIndex;
-                const suffix = isForecast ? ' (Forecast)' : '';
-                return ` ${datasetLabel}${suffix}: ${formatPence(Math.abs(ctx.parsed.y))}`;
-              } else {
-                // Bar tooltip: show bin total and daily contribution
-                if (!raw || typeof raw !== 'object') return ` ${datasetLabel}: ${formatPence(Math.abs(ctx.parsed.y))}`;
-                const binTotal = Math.abs(raw.y);
-                const dailyContrib = Math.abs(raw.daily);
-                const isForecast = raw.isForecast;
-                const suffix = isForecast ? ' (Forecast)' : '';
-                
-                return [
-                  ` ${datasetLabel}${suffix}: ${formatPence(binTotal)} (Total)`,
-                  ` Daily: ${formatPence(dailyContrib)}`
-                ];
-              }
+              const isForecast = todayIndex !== -1 && ctx.dataIndex > todayIndex;
+              const suffix = isForecast ? ' (Forecast)' : '';
+              return ` ${ctx.dataset.label}${suffix}: ${formatPence(Math.abs(ctx.parsed.y))}`;
             }
           }
         }
@@ -604,11 +558,10 @@ export function renderRollingOverviewChart(canvasId, data) {
               const label = this.getLabelForValue(val);
               const date = new Date(label);
               if (isNaN(date.getTime())) return label;
-              
-              const day = date.getDay(); // 0 = Sun, 1 = Mon
+
+              const day = date.getDay();
               const dayOfMonth = date.getDate();
-              
-              // Only show labels on Mondays or 1st of month
+
               if (dayOfMonth === 1 || day === 1) {
                 return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
               }
@@ -617,6 +570,7 @@ export function renderRollingOverviewChart(canvasId, data) {
           }
         },
         y: {
+          position: 'left',
           beginAtZero: false,
           ticks: {
             font: { size: 10 },

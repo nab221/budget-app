@@ -551,7 +551,7 @@ export function aggregateRollingOverview(dailyData, binning = 'D') {
   const { balance, income, expenses } = data;
   const todayStr = new Date().toISOString().split('T')[0];
 
-  // 1. Group daily income/expenses into bins
+  // 1. Group daily data into bins to calculate totals and forecast status
   const bins = new Map();
 
   for (let i = 0; i < labels.length; i++) {
@@ -564,17 +564,23 @@ export function aggregateRollingOverview(dailyData, binning = 'D') {
     }
 
     if (!bins.has(binKey)) {
-      bins.set(binKey, { totalIncome: 0, totalExpenses: 0, isForecast: false });
+      bins.set(binKey, { 
+        totalIncome: 0, 
+        totalExpenses: 0, 
+        isForecast: false 
+      });
     }
     const bin = bins.get(binKey);
     bin.totalIncome += income[i];
     bin.totalExpenses += expenses[i];
+    
+    // If any day in the bin is after today, the whole bin is a forecast.
     if (labels[i] > todayStr) {
       bin.isForecast = true;
     }
   }
 
-  // 2. Map daily indices back to their bin totals
+  // 2. Map daily indices back to their bin totals (Distribution)
   const newIncome = [];
   const newExpenses = [];
 
@@ -588,8 +594,16 @@ export function aggregateRollingOverview(dailyData, binning = 'D') {
     }
 
     const bin = bins.get(binKey);
-    newIncome.push({ y: bin.totalIncome, daily: income[i], isForecast: bin.isForecast });
-    newExpenses.push({ y: bin.totalExpenses, daily: expenses[i], isForecast: bin.isForecast });
+    newIncome.push({ 
+      y: bin.totalIncome, 
+      daily: income[i], 
+      isForecast: bin.isForecast 
+    });
+    newExpenses.push({ 
+      y: bin.totalExpenses, 
+      daily: expenses[i], 
+      isForecast: bin.isForecast 
+    });
   }
 
   return {

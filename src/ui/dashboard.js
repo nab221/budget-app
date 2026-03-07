@@ -34,7 +34,7 @@ export async function initDashboard() {
       renderDashboard();
     });
   }
-  
+
   // First render
   await renderDashboard();
 }
@@ -47,7 +47,7 @@ function renderMonthNavigator(containerId) {
   if (!container) return;
 
   const [year, month] = _selectedMonth.split('-').map(Number);
-  
+
   // Create select options for +/- 24 months
   let options = '';
   for (let i = -24; i <= 24; i++) {
@@ -80,7 +80,7 @@ function renderMonthNavigator(containerId) {
 }
 
 /**
- * Renders a segmented control for selecting chart binning (Daily, Weekly, Monthly).
+ * Renders a segmented control for selecting chart binning (Weekly, Monthly).
  */
 function renderBinningSelector(containerId) {
   const container = document.getElementById(containerId);
@@ -100,15 +100,16 @@ function renderBinningSelector(containerId) {
       container.prepend(selector);
     }
   }
-const options = [
-  { val: 'W', label: 'Weekly' },
-  { val: 'M', label: 'Monthly' }
-];
 
-selector.innerHTML = options.map(opt => `
-  <input type="radio" name="binning" id="bin-${opt.val}" value="${opt.val}" ${opt.val === _selectedBinning ? 'checked' : ''}>
-  <label for="bin-${opt.val}">${opt.label}</label>
-`).join('');
+  const options = [
+    { val: 'W', label: 'Weekly' },
+    { val: 'M', label: 'Monthly' }
+  ];
+
+  selector.innerHTML = options.map(opt => `
+    <input type="radio" name="binning" id="bin-${opt.val}" value="${opt.val}" ${opt.val === _selectedBinning ? 'checked' : ''}>
+    <label for="bin-${opt.val}">${opt.label}</label>
+  `).join('');
 
 
   selector.querySelectorAll('input').forEach(input => {

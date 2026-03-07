@@ -36,6 +36,22 @@ function createMockTable(initialRows = []) {
       delete: async () => {
         rows = rows.filter(r => r[field] !== value);
       }
+    }),
+    startsWith: (value) => ({
+      toArray: async () => rows.filter(r => r[field].startsWith(value))
+    }),
+    below: (value) => ({
+      reverse: () => ({
+        first: async () => [...rows].filter(r => r[field] < value).sort((a, b) => b[field].localeCompare(a[field]))[0]
+      })
+    }),
+    between: (start, end, inclStart, inclEnd) => ({
+      toArray: async () => rows.filter(r => {
+        const v = r[field];
+        const isAfterStart = inclStart ? v >= start : v > start;
+        const isBeforeEnd = inclEnd ? v <= end : v < end;
+        return isAfterStart && isBeforeEnd;
+      })
     })
   });
 
@@ -56,7 +72,7 @@ function createMockTable(initialRows = []) {
       return items.length;
     },
     clear: async () => {
-      rows = [];
+      rows.splice(0, rows.length);
       return 0;
     },
     update: async (id, changes) => {
@@ -65,13 +81,34 @@ function createMockTable(initialRows = []) {
       return 1;
     },
     delete: async (id) => {
-      rows = rows.filter(r => r.id !== id);
+      const idx = rows.findIndex(r => r.id === id);
+      if (idx !== -1) rows.splice(idx, 1);
     },
     bulkDelete: async (ids) => {
       rows = rows.filter(r => !ids.includes(r.id));
     },
     where,
-    count: async () => rows.length
+    count: async () => rows.length,
+    orderBy: (field) => ({
+      reverse: () => ({
+        first: async () => {
+          if (rows.length === 0) return undefined;
+          return [...rows].sort((a, b) => b[field].localeCompare(a[field]))[0];
+        },
+        last: async () => {
+          if (rows.length === 0) return undefined;
+          return [...rows].sort((a, b) => b[field].localeCompare(a[field]))[rows.length - 1];
+        }
+      }),
+      last: async () => {
+        if (rows.length === 0) return undefined;
+        return [...rows].sort((a, b) => a[field].localeCompare(b[field]))[rows.length - 1];
+      },
+      first: async () => {
+        if (rows.length === 0) return undefined;
+        return [...rows].sort((a, b) => a[field].localeCompare(b[field]))[0];
+      }
+    })
   };
 }
 

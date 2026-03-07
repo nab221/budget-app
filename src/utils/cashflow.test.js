@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { isWorkingDay, isBankHoliday, nextWorkingDay, calculateForecast, generateExpectedIncomePredictions, aggregateRollingOverview } from './cashflow.js';
 import { 
   bankHolidayRepository,
@@ -155,6 +155,15 @@ describe('cashflow utilities', () => {
   });
 
   describe('aggregateRollingOverview', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-03-02'));
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
     const dailyData = {
       labels: ['2026-03-01', '2026-03-02', '2026-03-03', '2026-03-04', '2026-03-05', '2026-03-06', '2026-03-07', '2026-03-08', '2026-03-09', '2026-03-10'],
       data: {
@@ -170,35 +179,49 @@ describe('cashflow utilities', () => {
       expect(result).toEqual(dailyData);
     });
 
-    it('bins by week for mode W', () => {
-      // 2026-03-01 is Sunday (last day of its week)
-      // 2026-03-02 is Monday (first day of its week)
-      // 2026-03-09 is Monday (first day of its week)
+    it('bins by week for mode W (Mixed Resolution)', () => {
+      // 2026-03-01 is Sunday (Bin 1)
+      // 2026-03-02 to 2026-03-08 (Mon to Sun - Bin 2)
+      // 2026-03-09 to 2026-03-10 (Mon to Tue - Bin 3)
       
       const result = aggregateRollingOverview(dailyData, 'W');
       
-      // We expect 3 bins:
-      // Bin 1: 2026-03-01 (Sunday)
-      // Bin 2: 2026-03-02 to 2026-03-08 (Mon to Sun)
-      // Bin 3: 2026-03-09 to 2026-03-10 (Mon to Tue)
+      // Labels and balance should remain high-resolution (10 days)
+      expect(result.labels.length).toBe(10);
+      expect(result.data.balance.length).toBe(10);
+      expect(result.data.balance).toEqual(dailyData.data.balance);
       
-      expect(result.labels.length).toBe(3);
-      // Income: Bin 1: 100, Bin 2: 700, Bin 3: 200
-      expect(result.data.income).toEqual([100, 700, 200]);
-      // Balance: Bin 1: 1000, Bin 2: 1700, Bin 3: 1900 (last in bin)
-      expect(result.data.balance).toEqual([1000, 1700, 1900]);
+      // Income should be binned but distributed (10 objects)
+      expect(result.data.income.length).toBe(10);
       
-      // todayIndex was 1 (2026-03-02), which is in Bin 2.
+      // Bin 1: Sunday 1st. Total = 100. Not forecast because it's before or equal to today.
+      expect(result.data.income[0]).toEqual({ y: 100, daily: 100, isForecast: false });
+      
+      // Bin 2: Mon 2nd to Sun 8th. Total = 700. 
+      // Contains March 3rd-8th which are AFTER March 2nd. So isForecast: true.
+      expect(result.data.income[1].isForecast).toBe(true);
+      expect(result.data.income[1].y).toBe(700);
+
+      // Bin 3: Mon 9th to Tue 10th. Total = 200
+      expect(result.data.income[8].isForecast).toBe(true);
+      expect(result.data.income[8].y).toBe(200);
+      
       expect(result.todayIndex).toBe(1);
     });
 
-    it('bins by month for mode M', () => {
+    it('bins by month for mode M (Mixed Resolution)', () => {
       const result = aggregateRollingOverview(dailyData, 'M');
       // All 10 days are in March 2026.
-      expect(result.labels.length).toBe(1);
-      expect(result.data.income).toEqual([1000]);
-      expect(result.data.balance).toEqual([1900]);
-      expect(result.todayIndex).toBe(0);
+      expect(result.labels.length).toBe(10);
+      expect(result.data.income.length).toBe(10);
+      
+      // All items in March bin (Total = 1000)
+      expect(result.data.income[0].y).toBe(1000);
+      // It contains dates after March 2nd.
+      expect(result.data.income[0].isForecast).toBe(true);
+      
+      expect(result.data.balance).toEqual(dailyData.data.balance);
+      expect(result.todayIndex).toBe(1);
     });
   });
 });

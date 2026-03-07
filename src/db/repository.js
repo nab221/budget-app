@@ -52,6 +52,17 @@ export const incomeRepository = {
   ...createBaseRepository(db.income, ['amount'], integrityDefaults),
   async getByMonth(monthStr) {
     return await db.income.where('date').startsWith(monthStr).toArray();
+  },
+  async getThreeMonthHistory(currentMonthStr) {
+    const [year, month] = currentMonthStr.split('-').map(Number);
+    // Calculate the start of the 3-month window (3 months before currentMonthStr)
+    const startDate = new Date(year, month - 4, 1);
+    const endDate = new Date(year, month - 1, 0); // Last day of previous month
+    
+    const startStr = startDate.toISOString().slice(0, 10);
+    const endStr = endDate.toISOString().slice(0, 10);
+    
+    return await db.income.where('date').between(startStr, endStr, true, true).toArray();
   }
 };
 export const recurrentExpenseRepository = {
