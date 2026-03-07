@@ -512,6 +512,7 @@ body.privacy-enabled .chart-container:hover canvas {
 .swipe-row {
   position: relative !important;
   overflow: visible !important;
+  touch-action: pan-y;
 }
 
 /* Ensure table cells don't block the revealed actions */
@@ -536,13 +537,13 @@ body.privacy-enabled .chart-container:hover canvas {
 
 .swipe-action-left {
   left: -80px;
-  background: var(--danger);
+  background: var(--success);
   border-radius: 4px 0 0 4px;
 }
 
 .swipe-action-right {
   right: -80px;
-  background: var(--success);
+  background: var(--danger);
   border-radius: 0 4px 4px 0;
 }
 

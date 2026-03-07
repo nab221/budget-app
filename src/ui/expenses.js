@@ -715,6 +715,7 @@ export const expensesUI = {
         <tr class="swipe-row ${isPaid ? 'paid-row' : ''} ${isFinished ? 'finished-row' : ''} ${isReconciled ? 'reconciled-row' : ''} ${isCleared ? 'cleared-row' : ''}" data-id="${item.id}" data-type="${item.type}">
           <td class="nw">
             ${canSwipe ? `<div class="swipe-action-right" onclick="deleteExpense(${item.id}, '${item.type}')">Delete</div>` : ''}
+            ${canSwipe && this.reconciliationMode ? `<div class="swipe-action-left" onclick="toggleExpCleared(${item.id}, '${item.type}', ${isCleared})">Clear</div>` : ''}
             ${item.displayDate}
           </td>
           <td>${catName}</td>
@@ -762,14 +763,15 @@ export const expensesUI = {
 
     const rows = document.querySelectorAll('#expenseBody .swipe-row');
     rows.forEach(row => {
-      // Reconciled rows cannot be swiped (handled in render markup, but SwipeHandler 
-      // is only applied here to rows with the class)
+      // Reconciled rows cannot be swiped
+      if (row.classList.contains('reconciled-row')) return;
+
       const instance = new SwipeHandler(row, {
         threshold: 80,
         onSwipe: (deltaX) => {
-          // Only allow swiping left (to reveal Delete on the right)
-          // deltaX < 0 means moving finger to the left
-          if (deltaX < 0) {
+          // Left swipe (negative delta) reveals Delete (on the right)
+          // Right swipe (positive delta) reveals Clear (on the left) - only in Recon Mode
+          if (deltaX < 0 || (deltaX > 0 && this.reconciliationMode)) {
             row.style.transform = `translateX(${deltaX}px)`;
             row.classList.add('swipe-active');
           }
@@ -778,11 +780,17 @@ export const expensesUI = {
           row.style.transform = '';
           row.classList.remove('swipe-active');
 
-          if (isThresholdMet && deltaX < 0) {
+          if (isThresholdMet) {
             const id = row.getAttribute('data-id');
             const type = row.getAttribute('data-type');
-            if (id && type) {
-              window.deleteExpense(parseInt(id), type);
+            
+            if (deltaX < 0) {
+              // Delete action
+              if (id && type) window.deleteExpense(parseInt(id), type);
+            } else if (deltaX > 0 && this.reconciliationMode) {
+              // Clear action
+              const isCleared = row.classList.contains('cleared-row');
+              if (id && type) window.toggleExpCleared(parseInt(id), type, isCleared);
             }
           }
         }
