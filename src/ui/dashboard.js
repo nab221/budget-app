@@ -20,7 +20,7 @@ import { modalUI } from './render.js';
 
 let _selectedMonth = new Date().toISOString().slice(0, 7);
 let _selectedView = 'current';
-let _selectedBinning = 'D';
+let _selectedBinning = 'W';
 
 /**
  * Initialize Dashboard UI listeners and first render.
@@ -100,17 +100,16 @@ function renderBinningSelector(containerId) {
       container.prepend(selector);
     }
   }
+const options = [
+  { val: 'W', label: 'Weekly' },
+  { val: 'M', label: 'Monthly' }
+];
 
-  const options = [
-    { val: 'D', label: 'Daily' },
-    { val: 'W', label: 'Weekly' },
-    { val: 'M', label: 'Monthly' }
-  ];
+selector.innerHTML = options.map(opt => `
+  <input type="radio" name="binning" id="bin-${opt.val}" value="${opt.val}" ${opt.val === _selectedBinning ? 'checked' : ''}>
+  <label for="bin-${opt.val}">${opt.label}</label>
+`).join('');
 
-  selector.innerHTML = options.map(opt => `
-    <input type="radio" name="binning" id="bin-${opt.val}" value="${opt.val}" ${opt.val === _selectedBinning ? 'checked' : ''}>
-    <label for="bin-${opt.val}">${opt.val}</label>
-  `).join('');
 
   selector.querySelectorAll('input').forEach(input => {
     input.onchange = (e) => {
