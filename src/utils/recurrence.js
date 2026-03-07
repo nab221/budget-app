@@ -65,6 +65,32 @@ export function generateInstances(base, frequency, count) {
   return instances;
 }
 
+/**
+ * Advances a recurrentExpense item to its next occurrence date.
+ * Pure function â€” no side effects, no DB access.
+ *
+ * @param {Object} item - recurrentExpense item from DB
+ * @returns {{ nextDate: string, cycleCurrent: number }}
+ */
+export function advanceNextDate(item) {
+  const base = parseISO(item.nextDate);
+  let advanced;
+  switch (item.frequency) {
+    case 'weekly':    advanced = addWeeks(base, 1); break;
+    case 'biweekly':  advanced = addWeeks(base, 2); break;
+    case 'monthly':   advanced = addMonths(base, 1); break;
+    case 'quarterly': advanced = addMonths(base, 3); break;
+    case 'annually':  advanced = addYears(base, 1); break;
+    default:          advanced = addMonths(base, 1);
+  }
+  const nextDate = format(advanced, 'yyyy-MM-dd');
+  const shouldIncrement = item.isDebtPayment === true && item.cycleTotal > 0;
+  const cycleCurrent = shouldIncrement
+    ? (item.cycleCurrent || 0) + 1
+    : (item.cycleCurrent || 0);
+  return { nextDate, cycleCurrent };
+}
+
 export const RecurrenceManager = {
   /**
    * Scans DB for recurring series and generates new instances if needed.
