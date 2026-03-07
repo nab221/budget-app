@@ -22,12 +22,20 @@ Full archive: `.planning/milestones/v2.3-ROADMAP.md`
 
 </details>
 
+<details>
+<summary>✅ v2.4 UX Polish & Spending Insights (Phases 8-9) — IN PROGRESS</summary>
+
+- [x] Phase 8: Haptic Feedback (3/3 plans) — completed 2026-03-07
+- [x] Phase 9: Swipe Gesture System (3/3 plans) — completed 2026-03-07
+
+</details>
+
 ### 🚧 v2.4 UX Polish & Spending Insights (In Progress)
 
 **Milestone Goal:** Implement the three deferred v2.3 items — haptic feedback infrastructure, swipe gestures on transaction rows, and a GitHub-style spending heatmap on the Dashboard.
 
-- [ ] **Phase 8: Haptic Feedback** — Utility module + all data-mutating action sites wired to named haptic patterns
-- [ ] **Phase 9: Swipe Gesture System** — Delegated swipe-to-delete and swipe-to-clear on Expenses rows with visual affordances
+- [x] **Phase 8: Haptic Feedback** — Utility module + all data-mutating action sites wired to named haptic patterns
+- [x] **Phase 9: Swipe Gesture System** — Delegated swipe-to-delete and swipe-to-clear on Expenses rows with visual affordances
 - [ ] **Phase 10: Spending Heatmap** — 52×7 canvas heatmap on Dashboard with tooltip, Privacy Mode integration, and Y-o-Y grid
 
 ## Phase Details
@@ -42,10 +50,10 @@ Full archive: `.planning/milestones/v2.3-ROADMAP.md`
   3. Toggling a status (e.g. cleared/reconciled) produces a tap-length haptic
   4. Submitting a form with a validation error produces a distinctive error-pulse haptic, not the success pattern
   5. All haptic calls go through `src/utils/haptics.js`; no direct `navigator.vibrate` calls exist elsewhere in the codebase
-**Plans**: TBD
-
-Plans:
-- [ ] 08-01: TBD
+**Plans**:
+- [x] 08-01: Establish the haptic feedback infrastructure and settings UI — completed 2026-03-07
+- [x] 08-02: Integrate haptic feedback into Expenses, Income, and Privacy Mode — completed 2026-03-07
+- [x] 08-03: Integrate haptic feedback into all remaining secondary data-mutating actions — completed 2026-03-07
 
 ### Phase 9: Swipe Gesture System
 **Goal**: Users can swipe Expenses rows to delete or clear them without touching secondary buttons, with the gesture behaving correctly on mobile hardware
@@ -57,10 +65,10 @@ Plans:
   3. Reconciled or locked rows do not move or respond when swiped
   4. Releasing a swipe below the gesture threshold snaps the row back to its original position with no action taken
   5. Swiping works correctly on a real iOS or Android device (not only Chrome DevTools emulation), with no accidental deletes from iOS back-gesture edge conflicts
-**Plans**: TBD
-
-Plans:
-- [ ] 09-01: TBD
+**Plans**:
+- [x] 09-01: Establish the infrastructure for swipe gestures including a reusable SwipeHandler utility, CSS affordances, and haptic refinements. — completed 2026-03-07
+- [x] 09-02: Integrate swipe-to-delete into the Expenses tab. — completed 2026-03-07
+- [x] 09-03: Implement right-swipe to clear and refine the gesture experience for mobile. — completed 2026-03-07
 
 ### Phase 10: Spending Heatmap
 **Goal**: The Dashboard displays a visual spending heatmap that lets users see their spending density across the year at a glance, with Privacy Mode and year-over-year support
@@ -71,10 +79,9 @@ Plans:
   2. Tapping or hovering a heatmap cell shows a tooltip displaying the date, the total spend for that day, and the top spending category
   3. Activating Privacy Mode blurs the heatmap canvas alongside the existing summary cards
   4. When 13 or more months of expense records exist, a second heatmap grid for the prior year appears beneath the current-year grid using the same shared color scale; when fewer records exist the prior-year grid is hidden
-**Plans**: TBD
-
-Plans:
-- [ ] 10-01: TBD
+**Plans**: 2 plans
+- [ ] 10-01-PLAN.md — Infrastructure & Basic Grid
+- [ ] 10-02-PLAN.md — Interactivity & Advanced Features
 
 ## Progress
 
@@ -87,6 +94,6 @@ Plans:
 | 5. Forecast & Graph Alignment | v2.3 | 2/2 | Complete | 2026-03-06 |
 | 6. Rolling Overview - Income/Expense Bars & Binning | v2.3 | 3/3 | Complete | 2026-03-06 |
 | 7. Code Inconsistencies & Inefficiencies | v2.3 | 3/3 | Complete | 2026-03-07 |
-| 8. Haptic Feedback | v2.4 | 0/? | Not started | - |
-| 9. Swipe Gesture System | v2.4 | 0/? | Not started | - |
-| 10. Spending Heatmap | v2.4 | 0/? | Not started | - |
+| 8. Haptic Feedback | v2.4 | 3/3 | Complete | 2026-03-07 |
+| 9. Swipe Gesture System | v2.4 | 3/3 | Complete | 2026-03-07 |
+| 10. Spending Heatmap | v2.4 | 0/2 | Not started | - |
