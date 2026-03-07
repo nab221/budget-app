@@ -29,6 +29,7 @@ export const expensesUI = {
   selectedCategories: [],
   reconciliationMode: false,
   _swipeInstances: [],
+  currentOpenRow: null,
 
   /**
    * Initialize the Expenses UI — bind events and do first render.
@@ -38,6 +39,18 @@ export const expensesUI = {
     this.setupEventListeners();
     window.addEventListener('app:refresh', () => this.render());
     await this.render();
+  },
+
+  /**
+   * Closes any open swiped rows.
+   */
+  closeAllRows() {
+    const rows = document.querySelectorAll('#expenseBody .swipe-row');
+    rows.forEach(row => {
+      row.style.transform = '';
+      row.classList.remove('swipe-active');
+    });
+    this.currentOpenRow = null;
   },
 
   /**
@@ -763,12 +776,26 @@ export const expensesUI = {
 
     const rows = document.querySelectorAll('#expenseBody .swipe-row');
     rows.forEach(row => {
-      // Reconciled rows cannot be swiped
-      if (row.classList.contains('reconciled-row')) return;
+      const isLocked = row.classList.contains('reconciled-row');
 
       const instance = new SwipeHandler(row, {
         threshold: 80,
+        edgeThreshold: 40,
+        onStart: () => {
+          // If another row is open, close it when we start swiping a new one
+          if (this.currentOpenRow && this.currentOpenRow !== row) {
+            this.closeAllRows();
+          }
+        },
         onSwipe: (deltaX) => {
+          if (isLocked) {
+            // "Thud" effect for locked rows: limit movement to 20px
+            const limit = 20;
+            const constrained = Math.min(limit, Math.max(-limit, deltaX));
+            row.style.transform = `translateX(${constrained}px)`;
+            return;
+          }
+
           // Left swipe (negative delta) reveals Delete (on the right)
           // Right swipe (positive delta) reveals Clear (on the left) - only in Recon Mode
           if (deltaX < 0 || (deltaX > 0 && this.reconciliationMode)) {
@@ -777,24 +804,41 @@ export const expensesUI = {
           }
         },
         onEnd: (deltaX, isThresholdMet) => {
-          row.style.transform = '';
-          row.classList.remove('swipe-active');
+          if (isLocked) {
+            row.style.transform = '';
+            // If swiped significantly, trigger error haptic to indicate it's locked
+            if (Math.abs(deltaX) > 10) {
+              triggerHaptic('error');
+            }
+            return;
+          }
 
           if (isThresholdMet) {
-            const id = row.getAttribute('data-id');
-            const type = row.getAttribute('data-type');
-            
-            if (deltaX < 0) {
-              // Delete action
-              if (id && type) window.deleteExpense(parseInt(id), type);
-            } else if (deltaX > 0 && this.reconciliationMode) {
-              // Clear action
-              const isCleared = row.classList.contains('cleared-row');
-              if (id && type) window.toggleExpCleared(parseInt(id), type, isCleared);
-            }
+            // Keep the row open at the threshold offset
+            const finalOffset = deltaX < 0 ? -80 : 80;
+            row.style.transform = `translateX(${finalOffset}px)`;
+            row.classList.add('swipe-active');
+            this.currentOpenRow = row;
+          } else {
+            // Snap back if threshold not met
+            row.style.transform = '';
+            row.classList.remove('swipe-active');
+            if (this.currentOpenRow === row) this.currentOpenRow = null;
           }
         }
       });
+
+      // Close row on tap if it's currently open
+      row.onclick = (e) => {
+        if (this.currentOpenRow === row) {
+          // If the click target is one of the revealed action buttons, don't close immediately 
+          // (the button's own onclick will handle the action)
+          if (!e.target.classList.contains('swipe-action-left') && !e.target.classList.contains('swipe-action-right')) {
+            this.closeAllRows();
+          }
+        }
+      };
+
       this._swipeInstances.push(instance);
     });
   },
