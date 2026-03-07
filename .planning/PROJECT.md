@@ -1,24 +1,25 @@
 # Project: Budget App
 
 ## Current State
-- **Latest Version**: v2.3 (Advanced Analytics & Mobile Polish)
-- **Status**: Milestone v2.3 Complete. Shipped Reconciliation workflow, Analytics suite, mobile PWA polish, Privacy Mode hardening, unified forecast engine, and code quality fixes.
-- **Key Features**: Reconciliation Mode, Expenses Doughnut Chart, Savings Rate KPI, Net Worth Trend, Privacy Mode, Bottom Navigation, Unified 45-day Forecast, advanceNextDate bug fix.
-- **Codebase**: ~12,191 JS LOC | Vanilla JS + Dexie.js + Chart.js v4 + date-fns
+- **Latest Version**: v2.4 (UX Polish & Spending Insights)
+- **Status**: Milestone v2.4 Complete. Shipped Haptic Feedback, Swipe Gestures (reveal-and-tap), and Interactive Spending Heatmap.
+- **Key Features**: Rhythmic Haptic Patterns, Swipe-to-Delete/Clear with Coordination, 52x7 Spending Heatmap, Quartile Scaling, Privacy Blur for Gestures/Heatmap.
+- **Codebase**: ~12,500 JS LOC | Vanilla JS + Dexie.js + Chart.js v4 + date-fns
 
-## Current Milestone: v2.4 UX Polish & Spending Insights
-
-**Goal:** Implement the three deferred v2.3 items — spending heatmap analytics, swipe gestures, and haptic feedback.
-
-**Target features:**
-- ANAL-05: Monthly Spending Heatmap / Year-over-Year comparison widget
-- UX-03: Swipe-to-clear / swipe-to-delete gesture support for transaction rows
-- UX-04: Haptic feedback (`navigator.vibrate`) on key actions
+## Next Milestone: Pending Definition
+*Run `/gsd:new-milestone` to define the next set of goals.*
 
 ---
 
 <details>
 <summary>Milestone History</summary>
+
+### v2.4: UX Polish & Spending Insights (2026-03-07)
+- Implemented centralized Haptic Feedback utility (`haptics.js`) with rhythmic patterns (tap, success, delete, error).
+- Built advanced Swipe Gesture system with "reveal-and-tap" flow, single-row coordination, and 40px iOS edge guardrail.
+- Added tactile "thud" feedback for locked/reconciled rows.
+- Developed Interactive Spending Heatmap (Canvas 2D) with quartile scaling and multi-year comparison support.
+- Integrated Privacy Mode blur for both heatmap and swipe affordances.
 
 ### v2.3: Advanced Analytics & Mobile Polish (2026-03-07)
 - Implemented full Reconciliation workflow (cleared/reconciled lifecycle, padlock UI).
@@ -99,4 +100,4 @@ A personal budget tracking web app — a full rebuild of a buggy AI-generated pr
 </details>
 
 ---
-*Last updated: 2026-03-07 after v2.4 milestone start*
+*Last updated: 2026-03-07 after v2.4 milestone completion*
