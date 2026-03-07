@@ -38,18 +38,26 @@ export function initPWA() {
  * Should be connected to the "Install App" button's click event.
  */
 export async function installApp() {
+  console.log('[PWA] installApp() called');
+  console.log('[PWA] deferredInstallPrompt:', deferredInstallPrompt);
+  
   if (!deferredInstallPrompt) {
     console.warn('[PWA] No install prompt available. Already installed or not supported.');
     return;
   }
 
-  deferredInstallPrompt.prompt();
-  const { outcome } = await deferredInstallPrompt.userChoice;
-  console.log(`[PWA] Install prompt outcome: ${outcome}`);
+  try {
+    console.log('[PWA] Calling deferredInstallPrompt.prompt()...');
+    deferredInstallPrompt.prompt();
+    const { outcome } = await deferredInstallPrompt.userChoice;
+    console.log(`[PWA] Install prompt outcome: ${outcome}`);
 
-  // Prompt can only be used once — discard it.
-  deferredInstallPrompt = null;
-  _hideInstallButton();
+    // Prompt can only be used once — discard it.
+    deferredInstallPrompt = null;
+    _hideInstallButton();
+  } catch (error) {
+    console.error('[PWA] Error during install prompt:', error);
+  }
 }
 
 /**

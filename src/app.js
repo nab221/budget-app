@@ -76,7 +76,13 @@ async function init() {
     (async () => {
       const installAppBtn = document.getElementById('installAppBtn');
       if (installAppBtn) {
-        installAppBtn.addEventListener('click', () => installApp());
+        console.log('[app] Wiring install button click handler');
+        installAppBtn.addEventListener('click', () => {
+          console.log('[app] Install button clicked!');
+          installApp();
+        });
+      } else {
+        console.warn('[app] Install button not found!');
       }
     })(),
     (async () => {
