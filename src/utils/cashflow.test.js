@@ -149,12 +149,14 @@ describe('cashflow utilities', () => {
 
   describe('generateExpectedIncomePredictions', () => {
     it('predicts income based on 3-month median pattern', async () => {
-      // Mock history: 28th of each month, slightly different amounts
-      incomeRepository.getThreeMonthHistory = vi.fn().mockResolvedValue([
+      // Mock db.income.toArray() to return history
+      const mockIncomeData = [
         { source: 'Salary', amount: 300000, date: '2025-12-28', categoryId: 10 },
         { source: 'Salary', amount: 310000, date: '2026-01-28', categoryId: 10 },
         { source: 'Salary', amount: 305000, date: '2026-02-28', categoryId: 10 }
-      ]);
+      ];
+      
+      db.income.toArray.mockResolvedValueOnce(mockIncomeData);
 
       const predictions = await generateExpectedIncomePredictions();
       

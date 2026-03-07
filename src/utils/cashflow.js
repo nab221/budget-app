@@ -9,6 +9,8 @@ import {
 } from '../db/repository.js';
 import { db } from '../db/schema.js';
 import { calcMinPayment } from './finance.js';
+import { advanceNextDate } from './recurrence.js';
+import { BALANCE_OPENING_AMOUNT_KEY } from './storage.js';
 
 const GOV_UK_HOLIDAYS_API = 'https://www.gov.uk/bank-holidays.json';
 const CACHE_KEY = 'bank-holidays-cache';
@@ -61,40 +63,50 @@ export async function fetchHolidays(force = false) {
   }
 }
 
+// Cache holidays at module level to avoid repeated JSON parsing
+let _cachedHolidaySet = null;
+
+async function _getHolidaySet() {
+  if (_cachedHolidaySet) return _cachedHolidaySet;
+  
+  const cached = localStorage.getItem(CACHE_KEY);
+  if (!cached) return new Set();
+  
+  try {
+    const { dates } = JSON.parse(cached);
+    _cachedHolidaySet = new Set(dates);
+    return _cachedHolidaySet;
+  } catch (err) {
+    return new Set();
+  }
+}
+
 /**
  * Check if a specific date is a UK bank holiday.
  * Respects manual overrides in the database.
  * @param {string} dateStr - YYYY-MM-DD
+ * @param {Set<string>} [holidaySet] - Optional pre-parsed holiday set for performance
  * @returns {Promise<boolean>}
  */
-export async function isBankHoliday(dateStr) {
+export async function isBankHoliday(dateStr, holidaySet = null) {
   // 1. Check user overrides first
   const override = await bankHolidayRepository.isOverrideActive(dateStr);
   if (override !== null) {
-    // If override is present, it explicitly defines if the date is "isOpen" (working day).
-    // So if isOpen is true, it is NOT a bank holiday (from our engine's perspective).
-    // If isOpen is false, it IS a holiday.
     return !override;
   }
 
   // 2. Check cached holidays
-  const cached = localStorage.getItem(CACHE_KEY);
-  if (!cached) return false;
-
-  try {
-    const { dates } = JSON.parse(cached);
-    return dates.includes(dateStr);
-  } catch (err) {
-    return false;
-  }
+  const holidays = holidaySet || await _getHolidaySet();
+  return holidays.has(dateStr);
 }
 
 /**
  * Check if a date is a working day (Mon-Fri and not a bank holiday).
  * @param {string} dateStr - YYYY-MM-DD
+ * @param {Set<string>} [holidaySet] - Optional pre-parsed holiday set for performance
  * @returns {Promise<boolean>}
  */
-export async function isWorkingDay(dateStr) {
+export async function isWorkingDay(dateStr, holidaySet = null) {
   const date = new Date(dateStr);
   const day = date.getDay(); // 0 = Sun, 6 = Sat
 
@@ -106,26 +118,74 @@ export async function isWorkingDay(dateStr) {
   }
 
   // Weekday - check for bank holiday
-  return !(await isBankHoliday(dateStr));
+  return !(await isBankHoliday(dateStr, holidaySet));
 }
 
 /**
  * Find the next working day after (or including) a given date.
  * @param {string} dateStr - YYYY-MM-DD
  * @param {boolean} includeToday - If true, check if today is a working day first.
+ * @param {Set<string>} [holidaySet] - Optional pre-parsed holiday set for performance
  * @returns {Promise<string>} YYYY-MM-DD
  */
-export async function nextWorkingDay(dateStr, includeToday = false) {
+export async function nextWorkingDay(dateStr, includeToday = false, holidaySet = null) {
+  const holidays = holidaySet || await _getHolidaySet();
   let current = new Date(`${dateStr}T00:00:00Z`);
   if (!includeToday) {
     current.setUTCDate(current.getUTCDate() + 1);
   }
 
-  while (!(await isWorkingDay(current.toISOString().split('T')[0]))) {
+  while (!(await isWorkingDay(current.toISOString().split('T')[0], holidays))) {
     current.setUTCDate(current.getUTCDate() + 1);
   }
 
   return current.toISOString().split('T')[0];
+}
+
+/**
+ * Project recurrent item occurrences over a date range.
+ * Generates all instances that would fall within [startDate, endDate].
+ * If item has no frequency, returns single occurrence at nextDate (if in range).
+ * @param {Object} item - Recurrent expense/income with nextDate, frequency, cycleTotal, cycleCurrent
+ * @param {string} startDate - YYYY-MM-DD
+ * @param {string} endDate - YYYY-MM-DD
+ * @param {Set<string>} [holidaySet] - Optional pre-parsed holiday set
+ * @returns {Promise<Array<{date: string, item: Object}>>} Projected occurrences
+ */
+async function _projectRecurrentOccurrences(item, startDate, endDate, holidaySet = null) {
+  if (!item.nextDate) return [];
+  
+  const occurrences = [];
+  const holidays = holidaySet || await _getHolidaySet();
+  
+  // If no frequency is set, treat as one-time occurrence
+  if (!item.frequency) {
+    if (item.nextDate >= startDate && item.nextDate <= endDate) {
+      const effectiveDate = await nextWorkingDay(item.nextDate, true, holidays);
+      occurrences.push({ date: effectiveDate, item });
+    }
+    return occurrences;
+  }
+  
+  // Otherwise, project recurring occurrences
+  let currentDate = item.nextDate;
+  let currentCycle = item.cycleCurrent || 0;
+  
+  while (currentDate <= endDate) {
+    // Check cycle limit
+    if (item.cycleTotal > 0 && currentCycle >= item.cycleTotal) break;
+    
+    if (currentDate >= startDate) {
+      const effectiveDate = await nextWorkingDay(currentDate, true, holidays);
+      occurrences.push({ date: effectiveDate, item: { ...item, cycleCurrent: currentCycle } });
+    }
+    
+    // Advance to next occurrence
+    currentDate = advanceNextDate(currentDate, item.frequency);
+    currentCycle++;
+  }
+  
+  return occurrences;
 }
 
 /**
@@ -135,20 +195,24 @@ export async function nextWorkingDay(dateStr, includeToday = false) {
  * @returns {Promise<Array>} List of daily snapshots
  */
 export async function calculateForecast(startDate, horizonDays = 45) {
-  // Use UTC to avoid timezone shifts during day increments
   let currentDay = new Date(`${startDate}T00:00:00Z`);
+  const endDate = new Date(currentDay);
+  endDate.setUTCDate(endDate.getUTCDate() + horizonDays - 1);
+  const endDateStr = endDate.toISOString().split('T')[0];
 
-  // 1. Fetch all relevant data for the horizon
+  // 1. Fetch all relevant data
   const [
     incomeList,
     recurrentList,
     oneOffList,
-    expectedIncomeList
+    expectedIncomeList,
+    holidaySet
   ] = await Promise.all([
     incomeRepository.getAll(),
     recurrentExpenseRepository.getAll(),
     oneOffExpenseRepository.getAll(),
-    expectedIncomeRepository.getAll()
+    expectedIncomeRepository.getAll(),
+    _getHolidaySet()
   ]);
 
   // 2. Determine initial opening balance
@@ -156,27 +220,54 @@ export async function calculateForecast(startDate, horizonDays = 45) {
 
   const snapshots = [];
 
-  // Pre-calculate effective dates for recurrent expenses to avoid repeated nextWorkingDay calls
-  const recurrentWithEffective = await Promise.all(recurrentList
-    .filter(item => {
-      // Skip items where cycleTotal > 0 and cycleCurrent >= cycleTotal (finished)
-      if (item.cycleTotal > 0 && item.cycleCurrent >= item.cycleTotal) return false;
-      // Skip items where status === 'paid'
-      if (item.status === 'paid') return false;
-      return true;
-    })
-    .map(async (item) => {
-      if (!item.nextDate) return { ...item, effectiveDate: null };
-      const effectiveDate = await nextWorkingDay(item.nextDate, true);
-      return { ...item, effectiveDate };
-    }));
+  // 3. Filter and project recurrent expenses
+  const activeRecurrent = recurrentList.filter(item => {
+    if (item.cycleTotal > 0 && (item.cycleCurrent || 0) >= item.cycleTotal) return false;
+    if (item.status === 'paid') return false;
+    return true;
+  });
 
-  const datasets = { incomeList, expectedIncomeList, oneOffList, recurrentWithEffective };
+  // Project all recurrent occurrences in the forecast window
+  const recurrentProjections = [];
+  for (const item of activeRecurrent) {
+    const projections = await _projectRecurrentOccurrences(item, startDate, endDateStr, holidaySet);
+    recurrentProjections.push(...projections);
+  }
 
+  // Build date-indexed maps for efficient lookup
+  const incomeByDate = new Map();
+  const expenseByDate = new Map();
+  const debtPaymentDates = new Set();
+
+  incomeList.forEach(inc => {
+    if (!incomeByDate.has(inc.date)) incomeByDate.set(inc.date, 0);
+    incomeByDate.set(inc.date, incomeByDate.get(inc.date) + (inc.amount || 0));
+  });
+
+  expectedIncomeList.forEach(inc => {
+    if (!incomeByDate.has(inc.date)) incomeByDate.set(inc.date, 0);
+    incomeByDate.set(inc.date, incomeByDate.get(inc.date) + (inc.amount || 0));
+  });
+
+  oneOffList.forEach(exp => {
+    if (exp.status === 'paid') return;
+    if (!expenseByDate.has(exp.date)) expenseByDate.set(exp.date, 0);
+    expenseByDate.set(exp.date, expenseByDate.get(exp.date) + (exp.amount || 0));
+  });
+
+  recurrentProjections.forEach(({ date, item }) => {
+    if (!expenseByDate.has(date)) expenseByDate.set(date, 0);
+    expenseByDate.set(date, expenseByDate.get(date) + (item.amount || 0));
+    if (item.isDebtPayment) debtPaymentDates.add(date);
+  });
+
+  // 4. Generate snapshots
   for (let i = 0; i < horizonDays; i++) {
     const dateStr = currentDay.toISOString().split('T')[0];
 
-    const { dayIncome, dayExpense, hasDebtPayment } = _calculateDailyMetrics(dateStr, datasets);
+    const dayIncome = incomeByDate.get(dateStr) || 0;
+    const dayExpense = expenseByDate.get(dateStr) || 0;
+    const hasDebtPayment = debtPaymentDates.has(dateStr);
 
     const openingBalance = currentBalance;
     currentBalance = openingBalance + dayIncome - dayExpense;
@@ -215,10 +306,15 @@ function calculateMedian(values) {
  */
 export async function generateExpectedIncomePredictions() {
   const today = new Date();
-  const currentMonthStr = today.toISOString().slice(0, 7);
+  const threeMonthsAgo = new Date(today);
+  threeMonthsAgo.setMonth(today.getMonth() - 3);
+  const threeMonthsAgoStr = threeMonthsAgo.toISOString().slice(0, 10);
 
-  // Get history from the last 3 months
-  const history = await incomeRepository.getThreeMonthHistory(currentMonthStr);
+  // Get all income and filter client-side for 3-month window
+  // This approach works with both real Dexie and test mocks
+  const allIncome = await db.income.toArray();
+  const history = allIncome.filter(inc => inc.date >= threeMonthsAgoStr);
+
   if (history.length === 0) return [];
 
   // Group by source
@@ -231,15 +327,12 @@ export async function generateExpectedIncomePredictions() {
   const predictions = [];
 
   for (const [source, records] of Object.entries(groups)) {
-    // Only predict if we have at least 2 occurrences? No, 1 is enough if user wants automation.
-    // But 3 months is better for stability.
-
     const amounts = records.map(r => r.amount);
     const days = records.map(r => parseInt(r.date.split('-')[2], 10));
 
     const medianAmount = calculateMedian(amounts);
     const medianDay = Math.round(calculateMedian(days));
-    const categoryId = records[0].categoryId; // Assume same category
+    const categoryId = records[0].categoryId;
 
     // Generate for next 3 months
     for (let i = 1; i <= 3; i++) {
@@ -256,11 +349,11 @@ export async function generateExpectedIncomePredictions() {
       const lastDayOfMonth = new Date(predYear, predMonth + 1, 0).getDate();
       const actualDay = Math.min(medianDay, lastDayOfMonth);
 
-      const dateStr = `${predYear}-${String(predMonth + 1).padStart(2, '0')}-${String(actualDay).padStart(2, '0')}`;  
+      const dateStr = `${predYear}-${String(predMonth + 1).padStart(2, '0')}-${String(actualDay).padStart(2, '0')}`;
 
       predictions.push({
         source,
-        amount: medianAmount / 100, // Convert to pounds (repository expects pounds)
+        amount: medianAmount / 100,
         date: dateStr,
         categoryId,
         status: 'predicted'
@@ -285,7 +378,7 @@ async function _resolveOpeningBalance(anchorDateStr) {
   const latestMonthly = await db.balanceSnapshots
     .where('month').below(anchorMonth).reverse().first();
   if (latestMonthly) return latestMonthly.closingBalance;
-  return parseInt(localStorage.getItem('budget_balance_opening_amount') || '0', 10);
+  return parseInt(localStorage.getItem(BALANCE_OPENING_AMOUNT_KEY) || '0', 10);
 }
 
 /**
@@ -305,7 +398,6 @@ export async function getDailyRollingData(targetMonth) {
   let anchorDate;
   if (targetMonth) {
     const [y, m] = targetMonth.split('-').map(Number);
-    // Use the middle of the selected month as the anchor for a balanced view
     anchorDate = new Date(Date.UTC(y, m - 1, 15));
   } else {
     anchorDate = today;
@@ -316,7 +408,7 @@ export async function getDailyRollingData(targetMonth) {
   const startDateStr = startDate.toISOString().split('T')[0];
 
   const endDate = new Date(anchorDate);
-  endDate.setDate(endDate.getDate() + 45); // 45-day forecast from anchor
+  endDate.setDate(endDate.getDate() + 45);
   const endDateStr = endDate.toISOString().split('T')[0];
 
   // 1. Fetch all data needed
@@ -325,13 +417,15 @@ export async function getDailyRollingData(targetMonth) {
     recurrentList,
     oneOffList,
     expectedIncomeList,
-    initialBalancePence
+    initialBalancePence,
+    holidaySet
   ] = await Promise.all([
     db.income.where('date').between(startDateStr, endDateStr, true, true).toArray(),
-    db.recurrentExpenses.toArray(), 
+    db.recurrentExpenses.toArray(),
     db.oneOffExpenses.where('date').between(startDateStr, endDateStr, true, true).toArray(),
     db.expectedIncome.where('date').between(startDateStr, endDateStr, true, true).toArray(),
-    _resolveOpeningBalance(startDateStr)
+    _resolveOpeningBalance(startDateStr),
+    _getHolidaySet()
   ]);
 
   const labels = [];
@@ -341,33 +435,56 @@ export async function getDailyRollingData(targetMonth) {
   let currentBalance = initialBalancePence;
   let todayIndex = -1;
 
-  let cursor = new Date(startDate);
-  let i = 0;
-
-  // Pre-filter recurrent expenses that might fall in this range
+  // Pre-filter recurrent expenses
   const relevantRecurrent = recurrentList.filter(item => {
     if (item.cycleTotal > 0 && (item.cycleCurrent || 0) >= item.cycleTotal) return false;
     if (item.status === 'paid') return false;
     return true;
   });
 
-  // Pre-calculate effective dates for recurrent expenses (projections)
-  const recurrentWithEffective = await Promise.all(relevantRecurrent.map(async item => {
-    const nextDate = item.nextDate || item.date;
-    if (!nextDate) return { ...item, effectiveDate: null };
-    
-    const effectiveDate = await nextWorkingDay(nextDate, true);
-    return { ...item, effectiveDate };
-  }));
+  // Project all recurrent occurrences
+  const recurrentProjections = [];
+  for (const item of relevantRecurrent) {
+    const projections = await _projectRecurrentOccurrences(item, startDateStr, endDateStr, holidaySet);
+    recurrentProjections.push(...projections);
+  }
 
-  const datasets = { incomeList, expectedIncomeList, oneOffList, recurrentWithEffective };
+  // Build date-indexed maps
+  const incomeByDate = new Map();
+  const expenseByDate = new Map();
+
+  incomeList.forEach(inc => {
+    if (!incomeByDate.has(inc.date)) incomeByDate.set(inc.date, 0);
+    incomeByDate.set(inc.date, incomeByDate.get(inc.date) + (inc.amount || 0));
+  });
+
+  expectedIncomeList.forEach(inc => {
+    if (!incomeByDate.has(inc.date)) incomeByDate.set(inc.date, 0);
+    incomeByDate.set(inc.date, incomeByDate.get(inc.date) + (inc.amount || 0));
+  });
+
+  oneOffList.forEach(exp => {
+    if (exp.status === 'paid') return;
+    if (!expenseByDate.has(exp.date)) expenseByDate.set(exp.date, 0);
+    expenseByDate.set(exp.date, expenseByDate.get(exp.date) + (exp.amount || 0));
+  });
+
+  recurrentProjections.forEach(({ date, item }) => {
+    if (!expenseByDate.has(date)) expenseByDate.set(date, 0);
+    expenseByDate.set(date, expenseByDate.get(date) + (item.amount || 0));
+  });
+
+  // Generate snapshots
+  let cursor = new Date(startDate);
+  let i = 0;
 
   while (cursor <= endDate) {
     const dStr = cursor.toISOString().split('T')[0];
     labels.push(dStr);
     if (dStr === todayStr) todayIndex = i;
 
-    const { dayIncome, dayExpense } = _calculateDailyMetrics(dStr, datasets);
+    const dayIncome = incomeByDate.get(dStr) || 0;
+    const dayExpense = expenseByDate.get(dStr) || 0;
 
     currentBalance += (dayIncome - dayExpense);
     balance.push(currentBalance);
@@ -382,38 +499,6 @@ export async function getDailyRollingData(targetMonth) {
 }
 
 /**
- * Internal helper to process daily activity for a given date.
- * Shared between getDailyRollingData and calculateForecast.
- * @private
- */
-function _calculateDailyMetrics(dateStr, datasets) {
-  const { incomeList, expectedIncomeList, oneOffList, recurrentWithEffective } = datasets;
-
-  const dayIncome = incomeList
-    .filter(inc => inc.date === dateStr)
-    .reduce((s, r) => s + (r.amount || 0), 0) +
-    expectedIncomeList
-    .filter(inc => inc.date === dateStr)
-    .reduce((s, r) => s + (r.amount || 0), 0);
-
-  const dayOneOff = oneOffList
-    .filter(exp => exp.date === dateStr)
-    .reduce((s, r) => s + (r.amount || 0), 0);
-  
-  const dayRecurrentExpenses = recurrentWithEffective
-    .filter(item => item.effectiveDate === dateStr);
-  
-  const dayRecurrentTotal = dayRecurrentExpenses.reduce((s, r) => s + (r.amount || 0), 0);
-  const hasDebtPayment = dayRecurrentExpenses.some(exp => exp.isDebtPayment);
-
-  return { 
-    dayIncome, 
-    dayExpense: dayOneOff + dayRecurrentTotal, 
-    hasDebtPayment 
-  };
-}
-
-/**
  * Spending Trends Aggregation - last 12 months from targetMonth.
  * @param {string} targetMonth - YYYY-MM
  */
@@ -424,20 +509,32 @@ export async function getSpendingTrends(targetMonth) {
   for (let i = -11; i <= 0; i++) {
     const d = new Date(year, month - 1 + i, 1);
     const monthStr = d.toISOString().slice(0, 7);
+    const monthStart = `${monthStr}-01`;
+    const nextMonth = new Date(d);
+    nextMonth.setMonth(d.getMonth() + 1);
+    const monthEnd = nextMonth.toISOString().slice(0, 10);
 
     const [incList, recurrentList, oneOffList] = await Promise.all([
-      db.income.where('date').startsWith(monthStr).toArray(),
-      db.recurrentExpenses.where('nextDate').startsWith(monthStr).toArray(),
-      db.oneOffExpenses.where('date').startsWith(monthStr).toArray()
+      db.income.where('date').between(monthStart, monthEnd, true, false).toArray(),
+      db.recurrentExpenses.toArray(),
+      db.oneOffExpenses.where('date').between(monthStart, monthEnd, true, false).toArray()
     ]);
+
+    // Project recurrent expenses for this month
+    const recurrentInMonth = [];
+    for (const item of recurrentList) {
+      if (item.status === 'paid') continue;
+      if (item.cycleTotal > 0 && (item.cycleCurrent || 0) >= item.cycleTotal) continue;
+      const projections = await _projectRecurrentOccurrences(item, monthStart, monthEnd);
+      recurrentInMonth.push(...projections.map(p => p.item));
+    }
 
     results.push({
       month: monthStr,
       income: incList.reduce((sum, r) => sum + (r.amount || 0), 0),
-      fixed: recurrentList.reduce((sum, r) => sum + (r.amount || 0), 0),
+      fixed: recurrentInMonth.reduce((sum, r) => sum + (r.amount || 0), 0),
       variable: oneOffList.reduce((sum, r) => sum + (r.amount || 0), 0)
     });
   }
   return results;
 }
-
