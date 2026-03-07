@@ -31,6 +31,35 @@ Chart.register(
 );
 
 /**
+ * Plugin to draw dashed borders for forecast bars.
+ */
+const barForecastPlugin = {
+  id: 'barForecast',
+  afterDatasetsDraw(chart) {
+    const { ctx } = chart;
+    chart.data.datasets.forEach((dataset, datasetIndex) => {
+      if (dataset.type === 'bar') {
+        const meta = chart.getDatasetMeta(datasetIndex);
+        meta.data.forEach((bar, index) => {
+          const raw = dataset.data[index];
+          if (raw && typeof raw === 'object' && raw.isForecast) {
+            ctx.save();
+            ctx.setLineDash([4, 4]);
+            ctx.strokeStyle = dataset.borderColor;
+            ctx.lineWidth = 1;
+            const { x, y, base, width } = bar;
+            ctx.strokeRect(x - width / 2, y, width, base - y);
+            ctx.restore();
+          }
+        });
+      }
+    });
+  }
+};
+
+Chart.register(barForecastPlugin);
+
+/**
  * Okabe-Ito color-blind safe palette.
  * Reference: https://jfly.uni-koeln.de/color/
  */
@@ -492,20 +521,28 @@ export function renderRollingOverviewChart(canvasId, data) {
           type: 'bar',
           label: 'Income',
           data: income,
-          backgroundColor: incomeColor,
+          backgroundColor: (ctx) => {
+            const val = ctx.dataset.data[ctx.dataIndex];
+            return val?.isForecast ? incomeColor + '80' : incomeColor;
+          },
           borderColor: incomeColor,
           borderWidth: 1,
-          borderRadius: 2,
+          barPercentage: 1.0,
+          categoryPercentage: 1.0,
           order: 2
         },
         {
           type: 'bar',
           label: 'Expenses',
-          data: expenses.map(e => -Math.abs(e)), // Negate expenses for downward bars
-          backgroundColor: expenseColor,
+          data: expenses.map(e => ({ ...e, y: -Math.abs(e.y) })), // Negate for downward bars
+          backgroundColor: (ctx) => {
+            const val = ctx.dataset.data[ctx.dataIndex];
+            return val?.isForecast ? expenseColor + '80' : expenseColor;
+          },
           borderColor: expenseColor,
           borderWidth: 1,
-          borderRadius: 2,
+          barPercentage: 1.0,
+          categoryPercentage: 1.0,
           order: 2
         }
       ]
@@ -531,10 +568,27 @@ export function renderRollingOverviewChart(canvasId, data) {
           position: 'nearest',
           callbacks: {
             label: (ctx) => {
-              const isForecast = todayIndex !== -1 && ctx.dataIndex > todayIndex;
-              const suffix = (isForecast && ctx.dataset.label === 'Account Balance') ? ' (Forecast)' : '';
-              // Use absolute value for labels to avoid showing negative expenses to user
-              return ` ${ctx.dataset.label}${suffix}: ${formatPence(Math.abs(ctx.parsed.y))}`;
+              const datasetLabel = ctx.dataset.label;
+              const raw = ctx.dataset.data[ctx.dataIndex];
+              const isLine = ctx.dataset.type === 'line';
+              
+              if (isLine) {
+                const isForecast = todayIndex !== -1 && ctx.dataIndex > todayIndex;
+                const suffix = isForecast ? ' (Forecast)' : '';
+                return ` ${datasetLabel}${suffix}: ${formatPence(Math.abs(ctx.parsed.y))}`;
+              } else {
+                // Bar tooltip: show bin total and daily contribution
+                if (!raw || typeof raw !== 'object') return ` ${datasetLabel}: ${formatPence(Math.abs(ctx.parsed.y))}`;
+                const binTotal = Math.abs(raw.y);
+                const dailyContrib = Math.abs(raw.daily);
+                const isForecast = raw.isForecast;
+                const suffix = isForecast ? ' (Forecast)' : '';
+                
+                return [
+                  ` ${datasetLabel}${suffix}: ${formatPence(binTotal)} (Total)`,
+                  ` Daily: ${formatPence(dailyContrib)}`
+                ];
+              }
             }
           }
         }
@@ -550,7 +604,15 @@ export function renderRollingOverviewChart(canvasId, data) {
               const label = this.getLabelForValue(val);
               const date = new Date(label);
               if (isNaN(date.getTime())) return label;
-              return date.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
+              
+              const day = date.getDay(); // 0 = Sun, 1 = Mon
+              const dayOfMonth = date.getDate();
+              
+              // Only show labels on Mondays or 1st of month
+              if (dayOfMonth === 1 || day === 1) {
+                return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+              }
+              return null;
             }
           }
         },
