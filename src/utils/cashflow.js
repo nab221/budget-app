@@ -9,12 +9,6 @@ import {
 } from '../db/repository.js';
 import { db } from '../db/schema.js';
 import { calcMinPayment } from './finance.js';
-import { 
-  startOfWeek, 
-  startOfMonth, 
-  format, 
-  parseISO 
-} from 'date-fns';
 
 const GOV_UK_HOLIDAYS_API = 'https://www.gov.uk/bank-holidays.json';
 const CACHE_KEY = 'bank-holidays-cache';
@@ -149,26 +143,16 @@ export async function calculateForecast(startDate, horizonDays = 45) {
     incomeList,
     recurrentList,
     oneOffList,
-    expectedIncomeList,
-    latestDaily,
-    latestMonthly
+    expectedIncomeList
   ] = await Promise.all([
     incomeRepository.getAll(),
     recurrentExpenseRepository.getAll(),
     oneOffExpenseRepository.getAll(),
-    expectedIncomeRepository.getAll(),
-    dailyBalanceRepository.getLatestSnapshot(),
-    balanceSnapshotRepository.getLatestSnapshot()
+    expectedIncomeRepository.getAll()
   ]);
 
   // 2. Determine initial opening balance
-  let currentBalance = 0;
-  if (latestDaily && latestDaily.date < startDate) {
-    currentBalance = latestDaily.closingBalance;
-  } else if (latestMonthly) {
-    // Fallback to monthly if no daily or daily is stale
-    currentBalance = latestMonthly.closingBalance;
-  }
+  let currentBalance = await _resolveOpeningBalance(startDate);
 
   const snapshots = [];
 
@@ -288,16 +272,32 @@ export async function generateExpectedIncomePredictions() {
 }
 
 /**
+ * Returns the latest recorded closing balance strictly before anchorDateStr.
+ * Priority: dailyBalanceSnapshots → balanceSnapshots → localStorage fallback.
+ * @param {string} anchorDateStr - YYYY-MM-DD. Returns balance as of the day BEFORE this date.
+ * @returns {Promise<number>} Balance in pence.
+ */
+async function _resolveOpeningBalance(anchorDateStr) {
+  const anchorMonth = anchorDateStr.slice(0, 7);
+  const latestDaily = await db.dailyBalanceSnapshots
+    .where('date').below(anchorDateStr).reverse().first();
+  if (latestDaily) return latestDaily.closingBalance;
+  const latestMonthly = await db.balanceSnapshots
+    .where('month').below(anchorMonth).reverse().first();
+  if (latestMonthly) return latestMonthly.closingBalance;
+  return parseInt(localStorage.getItem('budget_balance_opening_amount') || '0', 10);
+}
+
+/**
  * Daily Rolling Financial Data Aggregation.
  * Returns daily balance data for a ~13-month window:
  * - 365 days history from the 'anchor' date.
  * - 45 days forecast from the 'anchor' date.
  *
  * @param {string} [targetMonth] - Optional YYYY-MM to center the window.
- * @param {string} [binning='D'] - 'D' (Daily), 'W' (Weekly), 'M' (Monthly)
  * @returns {Promise<Object>} { labels, data: { balance, income, expenses }, todayIndex }
  */
-export async function getDailyRollingData(targetMonth, binning = 'D') {
+export async function getDailyRollingData(targetMonth) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayStr = today.toISOString().split('T')[0];
@@ -331,17 +331,7 @@ export async function getDailyRollingData(targetMonth, binning = 'D') {
     db.recurrentExpenses.toArray(), 
     db.oneOffExpenses.where('date').between(startDateStr, endDateStr, true, true).toArray(),
     db.expectedIncome.where('date').between(startDateStr, endDateStr, true, true).toArray(),
-    (async () => {
-      const startMonth = startDateStr.slice(0, 7);
-      
-      const latestDaily = await db.dailyBalanceSnapshots.where('date').below(startDateStr).reverse().first();
-      if (latestDaily) return latestDaily.closingBalance;
-      
-      const latestMonthly = await db.balanceSnapshots.where('month').below(startMonth).reverse().first();
-      if (latestMonthly) return latestMonthly.closingBalance;
-      
-      return parseInt(localStorage.getItem('budget_balance_opening_amount') || '0', 10);
-    })()
+    _resolveOpeningBalance(startDateStr)
   ]);
 
   const labels = [];
@@ -357,6 +347,7 @@ export async function getDailyRollingData(targetMonth, binning = 'D') {
   // Pre-filter recurrent expenses that might fall in this range
   const relevantRecurrent = recurrentList.filter(item => {
     if (item.cycleTotal > 0 && (item.cycleCurrent || 0) >= item.cycleTotal) return false;
+    if (item.status === 'paid') return false;
     return true;
   });
 
@@ -365,14 +356,8 @@ export async function getDailyRollingData(targetMonth, binning = 'D') {
     const nextDate = item.nextDate || item.date;
     if (!nextDate) return { ...item, effectiveDate: null };
     
-    // For historical items (before today), we use the date as is.
-    // For future items (today or after), we apply nextWorkingDay logic.
-    if (nextDate < todayStr) {
-      return { ...item, effectiveDate: nextDate };
-    } else {
-      const effectiveDate = await nextWorkingDay(nextDate, true);
-      return { ...item, effectiveDate };
-    }
+    const effectiveDate = await nextWorkingDay(nextDate, true);
+    return { ...item, effectiveDate };
   }));
 
   const datasets = { incomeList, expectedIncomeList, oneOffList, recurrentWithEffective };
@@ -393,13 +378,7 @@ export async function getDailyRollingData(targetMonth, binning = 'D') {
     i++;
   }
 
-  const result = { labels, data: { balance, income, expenses }, todayIndex };
-
-  if (binning !== 'D') {
-    return aggregateRollingOverview(result, binning);
-  }
-
-  return result;
+  return { labels, data: { balance, income, expenses }, todayIndex };
 }
 
 /**
@@ -435,78 +414,6 @@ function _calculateDailyMetrics(dateStr, datasets) {
 }
 
 /**
- * Rolling Financial Overview Data Aggregation.
- * Returns 12 months of Income and Expense data:
- * - 9 months history (actuals)
- * - Current month (actuals so far + projected remainder)
- * - 2 months forecast (recurring income + recurring expenses)
- *
- * @param {string} targetMonth - YYYY-MM string of the current month
- * @returns {Promise<Object>} { labels, income, expenses, currentMonthIndex }
- */
-export async function getRollingFinancialData(targetMonth) {
-  const [year, month] = targetMonth.split('-').map(Number);
-  const today = new Date().toISOString().split('T')[0];
-  const labels = [];
-  const income = [];
-  const expenses = [];
-  
-  // Calculate the 12-month window: 9 before, 1 current, 2 after
-  for (let i = -9; i <= 2; i++) {
-    const d = new Date(year, month - 1 + i, 1);
-    const monthStr = d.toISOString().slice(0, 7);
-    labels.push(monthStr);
-  }
-
-  const sum = (arr) => arr.reduce((acc, r) => acc + (r.amount || 0), 0);
-
-  for (const monthStr of labels) {
-    let incTotal = 0;
-    let expTotal = 0;
-
-    if (monthStr < targetMonth) {
-      // Past: Actuals only
-      const [incList, recurrentList, oneOffList] = await Promise.all([
-        db.income.where('date').startsWith(monthStr).toArray(),
-        db.recurrentExpenses.where('nextDate').startsWith(monthStr).toArray(),
-        db.oneOffExpenses.where('date').startsWith(monthStr).toArray()
-      ]);
-      incTotal = sum(incList);
-      expTotal = sum(recurrentList) + sum(oneOffList);
-    } else if (monthStr === targetMonth) {
-      // Current: Hybrid
-      const [actualInc, expectedIncRemainder] = await Promise.all([
-        db.income.where('date').between(`${monthStr}-01`, today, true, true).toArray(),
-        db.expectedIncome.where('date').between(today, `${monthStr}-31`, false, true).toArray()
-      ]);
-      
-      const [recurrentList, oneOffList] = await Promise.all([
-        db.recurrentExpenses.where('nextDate').startsWith(monthStr).toArray(),
-        db.oneOffExpenses.where('date').startsWith(monthStr).toArray()
-      ]);
-      
-      incTotal = sum(actualInc) + sum(expectedIncRemainder);
-      expTotal = sum(recurrentList) + sum(oneOffList);
-    } else {
-      // Future: Forecast
-      const [expectedInc, recurrentList, oneOffList] = await Promise.all([
-        db.expectedIncome.where('date').startsWith(monthStr).toArray(),
-        db.recurrentExpenses.where('nextDate').startsWith(monthStr).toArray(),
-        db.oneOffExpenses.where('date').startsWith(monthStr).toArray()
-      ]);
-      
-      incTotal = sum(expectedInc);
-      expTotal = sum(recurrentList) + sum(oneOffList);
-    }
-
-    income.push(incTotal);
-    expenses.push(expTotal);
-  }
-
-  return { labels, income, expenses, currentMonthIndex: 9 };
-}
-
-/**
  * Spending Trends Aggregation - last 12 months from targetMonth.
  * @param {string} targetMonth - YYYY-MM
  */
@@ -534,85 +441,3 @@ export async function getSpendingTrends(targetMonth) {
   return results;
 }
 
-/**
- * Aggregates daily rolling overview data into mixed-resolution output.
- * Returns high-resolution daily labels and balance, but binned income and expenses.
- * 
- * @param {Object} dailyData - Result from getDailyRollingData
- * @param {string} binning - 'D' (Daily), 'W' (Weekly), 'M' (Monthly)
- * @returns {Object} { labels, data: { balance, income, expenses }, todayIndex }
- */
-export function aggregateRollingOverview(dailyData, binning = 'D') {
-  if (binning === 'D' || !['W', 'M'].includes(binning)) {
-    return dailyData;
-  }
-
-  const { labels, data, todayIndex } = dailyData;
-  const { balance, income, expenses } = data;
-  const todayStr = new Date().toISOString().split('T')[0];
-
-  // 1. Group daily data into bins to calculate totals and forecast status
-  const bins = new Map();
-
-  for (let i = 0; i < labels.length; i++) {
-    const d = parseISO(labels[i]);
-    let binKey;
-    if (binning === 'W') {
-      binKey = format(startOfWeek(d, { weekStartsOn: 1 }), 'yyyy-MM-dd');
-    } else {
-      binKey = format(startOfMonth(d), 'yyyy-MM-dd');
-    }
-
-    if (!bins.has(binKey)) {
-      bins.set(binKey, { 
-        totalIncome: 0, 
-        totalExpenses: 0, 
-        isForecast: false 
-      });
-    }
-    const bin = bins.get(binKey);
-    bin.totalIncome += income[i];
-    bin.totalExpenses += expenses[i];
-    
-    // If any day in the bin is after today, the whole bin is a forecast.
-    if (labels[i] > todayStr) {
-      bin.isForecast = true;
-    }
-  }
-
-  // 2. Map daily indices back to their bin totals (Distribution)
-  const newIncome = [];
-  const newExpenses = [];
-
-  for (let i = 0; i < labels.length; i++) {
-    const d = parseISO(labels[i]);
-    let binKey;
-    if (binning === 'W') {
-      binKey = format(startOfWeek(d, { weekStartsOn: 1 }), 'yyyy-MM-dd');
-    } else {
-      binKey = format(startOfMonth(d), 'yyyy-MM-dd');
-    }
-
-    const bin = bins.get(binKey);
-    newIncome.push({ 
-      y: bin.totalIncome, 
-      daily: income[i], 
-      isForecast: bin.isForecast 
-    });
-    newExpenses.push({ 
-      y: bin.totalExpenses, 
-      daily: expenses[i], 
-      isForecast: bin.isForecast 
-    });
-  }
-
-  return {
-    labels,
-    data: {
-      balance,
-      income: newIncome,
-      expenses: newExpenses
-    },
-    todayIndex
-  };
-}
