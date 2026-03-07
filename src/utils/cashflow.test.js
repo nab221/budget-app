@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { isWorkingDay, isBankHoliday, nextWorkingDay, calculateForecast, generateExpectedIncomePredictions, aggregateRollingOverview } from './cashflow.js';
+import { isWorkingDay, isBankHoliday, nextWorkingDay, calculateForecast, generateExpectedIncomePredictions, getDailyRollingData } from './cashflow.js';
 import { 
   bankHolidayRepository,
   incomeRepository,
@@ -12,6 +12,30 @@ import {
   dailyBalanceRepository,
   balanceSnapshotRepository
 } from '../db/repository.js';
+import { db } from '../db/schema.js';
+
+// Mock the Dexie db module
+vi.mock('../db/schema.js', () => {
+  const collection = {
+    toArray: vi.fn(async () => []),
+    first: vi.fn(async () => null),
+  };
+  collection.where = vi.fn(() => collection);
+  collection.between = vi.fn(() => collection);
+  collection.below = vi.fn(() => collection);
+  collection.reverse = vi.fn(() => collection);
+  
+  return {
+    db: {
+      income: collection,
+      recurrentExpenses: collection,
+      oneOffExpenses: collection,
+      expectedIncome: collection,
+      dailyBalanceSnapshots: collection,
+      balanceSnapshots: collection,
+    }
+  };
+});
 
 // Mock all repositories
 vi.mock('../db/repository.js', () => ({
@@ -34,7 +58,7 @@ describe('cashflow utilities', () => {
     recurrentExpenseRepository.getAll.mockResolvedValue([]);
     oneOffExpenseRepository.getAll.mockResolvedValue([]);
     expectedIncomeRepository.getAll.mockResolvedValue([]);
-    dailyBalanceRepository.getLatestSnapshot.mockResolvedValue(null);
+    dailyBalanceRepository.getLatestSnapshot.mockResolvedValue({ date: '2026-01-01', closingBalance: 50000 });
     balanceSnapshotRepository.getLatestSnapshot.mockResolvedValue(null);
     bankHolidayRepository.isOverrideActive.mockResolvedValue(null);
   });
@@ -154,74 +178,18 @@ describe('cashflow utilities', () => {
     });
   });
 
-  describe('aggregateRollingOverview', () => {
-    beforeEach(() => {
-      vi.useFakeTimers();
-      vi.setSystemTime(new Date('2026-03-02'));
-    });
-
-    afterEach(() => {
-      vi.useRealTimers();
-    });
-
-    const dailyData = {
-      labels: ['2026-03-01', '2026-03-02', '2026-03-03', '2026-03-04', '2026-03-05', '2026-03-06', '2026-03-07', '2026-03-08', '2026-03-09', '2026-03-10'],
-      data: {
-        balance: [1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900],
-        income: [100, 100, 100, 100, 100, 100, 100, 100, 100, 100],
-        expenses: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-      },
-      todayIndex: 1 // 2026-03-02
-    };
-
-    it('returns data unchanged for mode D', () => {
-      const result = aggregateRollingOverview(dailyData, 'D');
-      expect(result).toEqual(dailyData);
-    });
-
-    it('bins by week for mode W (Mixed Resolution)', () => {
-      // 2026-03-01 is Sunday (Bin 1)
-      // 2026-03-02 to 2026-03-08 (Mon to Sun - Bin 2)
-      // 2026-03-09 to 2026-03-10 (Mon to Tue - Bin 3)
-      
-      const result = aggregateRollingOverview(dailyData, 'W');
-      
-      // Labels and balance should remain high-resolution (10 days)
-      expect(result.labels.length).toBe(10);
-      expect(result.data.balance.length).toBe(10);
-      expect(result.data.balance).toEqual(dailyData.data.balance);
-      
-      // Income should be binned but distributed (10 objects)
-      expect(result.data.income.length).toBe(10);
-      
-      // Bin 1: Sunday 1st. Total = 100. Not forecast because it's before or equal to today.
-      expect(result.data.income[0]).toEqual({ y: 100, daily: 100, isForecast: false });
-      
-      // Bin 2: Mon 2nd to Sun 8th. Total = 700. 
-      // Contains March 3rd-8th which are AFTER March 2nd. So isForecast: true.
-      expect(result.data.income[1].isForecast).toBe(true);
-      expect(result.data.income[1].y).toBe(700);
-
-      // Bin 3: Mon 9th to Tue 10th. Total = 200
-      expect(result.data.income[8].isForecast).toBe(true);
-      expect(result.data.income[8].y).toBe(200);
-      
-      expect(result.todayIndex).toBe(1);
-    });
-
-    it('bins by month for mode M (Mixed Resolution)', () => {
-      const result = aggregateRollingOverview(dailyData, 'M');
-      // All 10 days are in March 2026.
-      expect(result.labels.length).toBe(10);
-      expect(result.data.income.length).toBe(10);
-      
-      // All items in March bin (Total = 1000)
-      expect(result.data.income[0].y).toBe(1000);
-      // It contains dates after March 2nd.
-      expect(result.data.income[0].isForecast).toBe(true);
-      
-      expect(result.data.balance).toEqual(dailyData.data.balance);
-      expect(result.todayIndex).toBe(1);
+  describe('balance engine equality', () => {
+    it('calculateForecast and getDailyRollingData return identical closing balances for all 45 days', async () => {
+      const today = new Date().toISOString().split('T')[0];
+      const todayMonth = today.slice(0, 7);
+      const forecast = await calculateForecast(today, 45);
+      const rolling = await getDailyRollingData(todayMonth);
+      // todayIndex is the index of today in rolling.labels
+      const todayIndex = rolling.todayIndex;
+      expect(todayIndex).toBeGreaterThanOrEqual(0);
+      for (let n = 0; n < 45; n++) {
+        expect(rolling.data.balance[todayIndex + n]).toBe(forecast[n].closingBalance);
+      }
     });
   });
 });

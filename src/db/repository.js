@@ -4,6 +4,7 @@ import { toPence, fromPence } from '../utils/currency.js';
 import { findBestMatch } from '../utils/string-similarity.js';
 import { calculateTopUp, getEntitlementPeriod, calculateFundingGap } from '../utils/childcare.js';
 import { calcMinPayment, calculateBalanceChain, simulatePayoff } from '../utils/finance.js';
+import { advanceNextDate } from '../utils/recurrence.js';
 
 // ---------------------------------------------------------------------------
 // Sync trigger hook
@@ -127,7 +128,12 @@ export const recurrentExpenseRepository = {
       .filter(i => i.status === 'pending')
       .toArray();
     for (const item of pending) {
-      await db.recurrentExpenses.update(item.id, { status: 'paid' });
+      const { nextDate: newNextDate, cycleCurrent: newCycleCurrent } = advanceNextDate(item);
+      await db.recurrentExpenses.update(item.id, {
+        status: 'paid',
+        nextDate: newNextDate,
+        cycleCurrent: newCycleCurrent
+      });
     }
     triggerSync();
   },
@@ -310,11 +316,14 @@ export const statementRepository = {
       });
 
       if (statement.linkedExpenseId) {
+        const expense = await db.recurrentExpenses.get(statement.linkedExpenseId);
+        const { nextDate: newNextDate, cycleCurrent: newCycleCurrent } = advanceNextDate(expense);
         await db.recurrentExpenses.update(statement.linkedExpenseId, {
           status: 'paid',
           amount: amountPence,
-          cycleCurrent: 1,
-          date: paymentDate
+          cycleCurrent: newCycleCurrent,
+          date: paymentDate,
+          nextDate: newNextDate
         });
       }
       
