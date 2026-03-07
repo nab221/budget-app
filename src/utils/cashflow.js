@@ -310,13 +310,10 @@ export async function generateExpectedIncomePredictions() {
   threeMonthsAgo.setMonth(today.getMonth() - 3);
   const threeMonthsAgoStr = threeMonthsAgo.toISOString().slice(0, 10);
 
-  // Get history from the last 3 months
-  // Use above() instead of aboveOrEqual() for Dexie compatibility
-  const history = await db.income
-    .where('date')
-    .above(threeMonthsAgoStr)
-    .or('date').equals(threeMonthsAgoStr)
-    .toArray();
+  // Get all income and filter client-side for 3-month window
+  // This approach works with both real Dexie and test mocks
+  const allIncome = await db.income.toArray();
+  const history = allIncome.filter(inc => inc.date >= threeMonthsAgoStr);
 
   if (history.length === 0) return [];
 
