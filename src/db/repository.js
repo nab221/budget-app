@@ -464,7 +464,12 @@ export const categoryRepository = {
   }
 };
 
-export const targetRepository = createBaseRepository(db.targets, ['amount']);
+export const targetRepository = {
+  ...createBaseRepository(db.targets, ['amount']),
+  async getByBucket(bucketName) {
+    return await db.targets.where('bucket').equals(bucketName).first();
+  }
+};
 
 export const netWorthRepository = {
   async getAll() { return await db.netWorthSnapshots.orderBy('month').toArray(); },
