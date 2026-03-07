@@ -535,11 +535,12 @@ export async function getSpendingTrends(targetMonth) {
 }
 
 /**
- * Aggregates daily rolling overview data into larger time bins (Weekly, Monthly).
+ * Aggregates daily rolling overview data into mixed-resolution output.
+ * Returns high-resolution daily labels and balance, but binned income and expenses.
  * 
  * @param {Object} dailyData - Result from getDailyRollingData
  * @param {string} binning - 'D' (Daily), 'W' (Weekly), 'M' (Monthly)
- * @returns {Object} Binned data in the same format
+ * @returns {Object} { labels, data: { balance, income, expenses }, todayIndex }
  */
 export function aggregateRollingOverview(dailyData, binning = 'D') {
   if (binning === 'D' || !['W', 'M'].includes(binning)) {
@@ -548,66 +549,56 @@ export function aggregateRollingOverview(dailyData, binning = 'D') {
 
   const { labels, data, todayIndex } = dailyData;
   const { balance, income, expenses } = data;
-  const todayStr = todayIndex !== -1 ? labels[todayIndex] : null;
+  const todayStr = new Date().toISOString().split('T')[0];
 
-  const newLabels = [];
-  const newBalance = [];
-  const newIncome = [];
-  const newExpenses = [];
-  let newTodayIndex = -1;
-
-  let currentBinLabel = null;
-  let currentBinIncome = 0;
-  let currentBinExpenses = 0;
+  // 1. Group daily income/expenses into bins
+  const bins = new Map();
 
   for (let i = 0; i < labels.length; i++) {
     const d = parseISO(labels[i]);
-    let binLabel;
-    
+    let binKey;
     if (binning === 'W') {
-      // ISO week starts on Monday
-      binLabel = format(startOfWeek(d, { weekStartsOn: 1 }), 'yyyy-MM-dd');
-    } else if (binning === 'M') {
-      binLabel = format(startOfMonth(d), 'yyyy-MM-dd');
+      binKey = format(startOfWeek(d, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+    } else {
+      binKey = format(startOfMonth(d), 'yyyy-MM-dd');
     }
 
-    if (currentBinLabel !== null && currentBinLabel !== binLabel) {
-      // Close current bin
-      newLabels.push(currentBinLabel);
-      newIncome.push(currentBinIncome);
-      newExpenses.push(currentBinExpenses);
-      // Balance is the closing balance of the bin (last day's balance)
-      newBalance.push(balance[i - 1]);
-      
-      // Reset for next bin
-      currentBinIncome = 0;
-      currentBinExpenses = 0;
+    if (!bins.has(binKey)) {
+      bins.set(binKey, { totalIncome: 0, totalExpenses: 0, isForecast: false });
     }
-
-    currentBinLabel = binLabel;
-    currentBinIncome += income[i];
-    currentBinExpenses += expenses[i];
-
-    if (labels[i] === todayStr) {
-      newTodayIndex = newLabels.length; // The index of the bin we are currently building
+    const bin = bins.get(binKey);
+    bin.totalIncome += income[i];
+    bin.totalExpenses += expenses[i];
+    if (labels[i] > todayStr) {
+      bin.isForecast = true;
     }
   }
 
-  // Push last bin
-  if (currentBinLabel !== null) {
-    newLabels.push(currentBinLabel);
-    newIncome.push(currentBinIncome);
-    newExpenses.push(currentBinExpenses);
-    newBalance.push(balance[balance.length - 1]);
+  // 2. Map daily indices back to their bin totals
+  const newIncome = [];
+  const newExpenses = [];
+
+  for (let i = 0; i < labels.length; i++) {
+    const d = parseISO(labels[i]);
+    let binKey;
+    if (binning === 'W') {
+      binKey = format(startOfWeek(d, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+    } else {
+      binKey = format(startOfMonth(d), 'yyyy-MM-dd');
+    }
+
+    const bin = bins.get(binKey);
+    newIncome.push({ y: bin.totalIncome, daily: income[i], isForecast: bin.isForecast });
+    newExpenses.push({ y: bin.totalExpenses, daily: expenses[i], isForecast: bin.isForecast });
   }
 
   return {
-    labels: newLabels,
+    labels,
     data: {
-      balance: newBalance,
+      balance,
       income: newIncome,
       expenses: newExpenses
     },
-    todayIndex: newTodayIndex
+    todayIndex
   };
 }
