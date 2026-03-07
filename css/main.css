@@ -550,3 +550,27 @@ body.privacy-enabled .chart-container:hover canvas {
 .swipe-active {
   transition: transform 0.2s ease-out;
 }
+
+/* ── HEATMAP ── */
+#spendingHeatmapContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: visible;
+}
+.heatmap-tooltip {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  pointer-events: none;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  display: none;
+  white-space: nowrap;
+}
+.heatmap-tooltip .date { font-weight: 700; margin-bottom: 2px; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 2px; }
+.heatmap-tooltip .amount { font-size: 0.9rem; font-weight: 700; color: var(--accent); }
+.heatmap-tooltip .category { font-style: italic; color: #ccc; }
