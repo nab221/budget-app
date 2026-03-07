@@ -8,7 +8,8 @@ import {
   dailyBalanceRepository,
   expectedIncomeRepository,
   childcareRepository,
-  categoryRepository
+  categoryRepository,
+  getYearlyDailySpending
 } from '../db/repository.js';
 import { getDailyRollingData } from '../utils/cashflow.js';
 import { formatGBP, formatGBPShort, toPence, fromPence } from '../utils/currency.js';
@@ -17,6 +18,7 @@ import { renderRollingOverviewChart, renderSpendingBreakdownChart } from './char
 import { checkStoragePersistence } from './pwa-ux.js';
 import { getEntitlementPeriod, calculateFundingGap } from '../utils/childcare.js';
 import { modalUI } from './render.js';
+import { renderSpendingHeatmap } from './heatmap.js';
 
 let _selectedMonth = new Date().toISOString().slice(0, 7);
 let _selectedView = 'current';
@@ -316,6 +318,15 @@ export async function renderDashboard() {
     }
 
     container.appendChild(item);
+  }
+
+  // 5. Render Spending Heatmap
+  try {
+    const year = _selectedMonth.slice(0, 4);
+    const yearlySpending = await getYearlyDailySpending(year);
+    renderSpendingHeatmap('spendingHeatmapContainer', year, yearlySpending);
+  } catch (err) {
+    console.warn('Could not render spending heatmap:', err);
   }
 }
 
