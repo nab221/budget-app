@@ -185,7 +185,9 @@ async function _projectRecurrentOccurrences(item, startDate, endDate, holidaySet
     }
     
     // Advance to next occurrence
-    const nextDate = advanceNextDate(currentDate, item.frequency);
+    const nextResult = advanceNextDate({ nextDate: currentDate, frequency: item.frequency });
+    const nextDate = nextResult.nextDate;
+
     if (!nextDate || nextDate === currentDate) {
       console.warn(`[cashflow] advanceNextDate returned invalid date for item:`, item);
       break;
