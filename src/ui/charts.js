@@ -1,13 +1,11 @@
 import {
   Chart,
   LineController,
-  BarController,
   DoughnutController,
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
-  BarElement,
   ArcElement,
   Filler,
   Tooltip,
@@ -17,47 +15,16 @@ import {
 // Register only the components needed for charts
 Chart.register(
   LineController,
-  BarController,
   DoughnutController,
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
-  BarElement,
   ArcElement,
   Filler,
   Tooltip,
   Legend
 );
-
-/**
- * Plugin to draw dashed borders for forecast bars.
- */
-const barForecastPlugin = {
-  id: 'barForecast',
-  afterDatasetsDraw(chart) {
-    const { ctx } = chart;
-    chart.data.datasets.forEach((dataset, datasetIndex) => {
-      if (dataset.type === 'bar') {
-        const meta = chart.getDatasetMeta(datasetIndex);
-        meta.data.forEach((bar, index) => {
-          const raw = dataset.data[index];
-          if (raw && typeof raw === 'object' && raw.isForecast) {
-            ctx.save();
-            ctx.setLineDash([4, 4]);
-            ctx.strokeStyle = dataset.borderColor;
-            ctx.lineWidth = 1;
-            const { x, y, base, width } = bar;
-            ctx.strokeRect(x - width / 2, y, width, base - y);
-            ctx.restore();
-          }
-        });
-      }
-    });
-  }
-};
-
-Chart.register(barForecastPlugin);
 
 /**
  * Okabe-Ito color-blind safe palette.
