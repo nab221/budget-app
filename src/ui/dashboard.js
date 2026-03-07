@@ -20,7 +20,6 @@ import { modalUI } from './render.js';
 
 let _selectedMonth = new Date().toISOString().slice(0, 7);
 let _selectedView = 'current';
-let _selectedBinning = 'W';
 
 /**
  * Initialize Dashboard UI listeners and first render.
@@ -80,47 +79,6 @@ function renderMonthNavigator(containerId) {
 }
 
 /**
- * Renders a segmented control for selecting chart binning (Weekly, Monthly).
- */
-function renderBinningSelector(containerId) {
-  const container = document.getElementById(containerId);
-  if (!container) return;
-
-  let selector = document.getElementById('chartBinningSelector');
-  if (!selector) {
-    selector = document.createElement('div');
-    selector.id = 'chartBinningSelector';
-    selector.className = 'segmented-control';
-    
-    // Insert after the title if it exists
-    const title = container.querySelector('.chart-title');
-    if (title) {
-      title.parentNode.insertBefore(selector, title.nextSibling);
-    } else {
-      container.prepend(selector);
-    }
-  }
-
-  const options = [
-    { val: 'W', label: 'Weekly' },
-    { val: 'M', label: 'Monthly' }
-  ];
-
-  selector.innerHTML = options.map(opt => `
-    <input type="radio" name="binning" id="bin-${opt.val}" value="${opt.val}" ${opt.val === _selectedBinning ? 'checked' : ''}>
-    <label for="bin-${opt.val}">${opt.label}</label>
-  `).join('');
-
-
-  selector.querySelectorAll('input').forEach(input => {
-    input.onchange = (e) => {
-      _selectedBinning = e.target.value;
-      renderDashboard();
-    };
-  });
-}
-
-/**
  * Render the dashboard summary cards and the daily rolling chart.
  */
 export async function renderDashboard() {
@@ -134,14 +92,13 @@ export async function renderDashboard() {
 
   const [data, rollingData, isPersisted, categories] = await Promise.all([
     getDashboardData(normalizedPeriod, _selectedMonth),
-    getDailyRollingData(_selectedMonth, _selectedBinning),
+    getDailyRollingData(_selectedMonth),
     checkStoragePersistence(),
     categoryRepository.getCategories()
   ]);
 
   // 1. Render Rolling Chart (365 Days Daily)
   try {
-    renderBinningSelector('rollingOverviewChartContainer');
     renderRollingOverviewChart('rollingOverviewChart', rollingData);
     
     // Add Forecast Table Toggle and Container if not present
