@@ -2,7 +2,7 @@
 gsd_state_version: 1.0
 milestone: v2.4
 milestone_name: UX Polish & Spending Insights
-status: ready to plan
+status: shipped
 last_updated: "2026-03-07"
 ---
 
@@ -13,20 +13,21 @@ last_updated: "2026-03-07"
 See: .planning/PROJECT.md (updated 2026-03-07)
 
 **Core value:** A personal budget tracker that helps a UK household track income, expenses, debts, assets, and forecast cash flow — fully offline, PWA-ready, no server required.
-**Current focus:** Phase 8 — Haptic Feedback
+**Current focus:** Milestone Complete
 
 ## Current Position
 
-Phase: 8 of 10 (Haptic Feedback)
-Plan: — (not yet planned)
-Status: Ready to plan
-Last activity: 2026-03-07 — v2.4 roadmap created, phases 8-10 defined
+Phase: 10 of 10 (Spending Heatmap)
+Plan: 10-02
+Status: complete
+Last activity: 2026-03-07 — Milestone v2.4 (UX Polish & Spending Insights) shipped.
 
-Progress: [░░░░░░░░░░] 0% (v2.4 milestone)
+Progress: [▓▓▓▓▓▓▓▓▓▓] 100% (v2.4 milestone)
 
 ## Completed Milestones
 
 - v2.3 — Advanced Analytics & Mobile Polish (SHIPPED 2026-03-07, Phases 1-7, 22 plans)
+- Phase 8 — Haptic Feedback (SHIPPED 2026-03-07, 3 plans)
 
 ## Accumulated Context
 
