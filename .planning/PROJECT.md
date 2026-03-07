@@ -6,9 +6,14 @@
 - **Key Features**: Reconciliation Mode, Expenses Doughnut Chart, Savings Rate KPI, Net Worth Trend, Privacy Mode, Bottom Navigation, Unified 45-day Forecast, advanceNextDate bug fix.
 - **Codebase**: ~12,191 JS LOC | Vanilla JS + Dexie.js + Chart.js v4 + date-fns
 
-## Next Milestone: v2.4 (TBD)
-- **Goal**: To be defined. Known candidates: Multi-currency support, Advanced Childcare tracking, Swipe gestures (UX-03), Haptics (UX-04), Spending Heatmap (ANAL-05).
-- **Status**: Planning. Run `/gsd:new-milestone` to begin.
+## Current Milestone: v2.4 UX Polish & Spending Insights
+
+**Goal:** Implement the three deferred v2.3 items — spending heatmap analytics, swipe gestures, and haptic feedback.
+
+**Target features:**
+- ANAL-05: Monthly Spending Heatmap / Year-over-Year comparison widget
+- UX-03: Swipe-to-clear / swipe-to-delete gesture support for transaction rows
+- UX-04: Haptic feedback (`navigator.vibrate`) on key actions
 
 ---
 
@@ -94,4 +99,4 @@ A personal budget tracking web app — a full rebuild of a buggy AI-generated pr
 </details>
 
 ---
-*Last updated: 2026-03-07 after v2.3 milestone*
+*Last updated: 2026-03-07 after v2.4 milestone start*
