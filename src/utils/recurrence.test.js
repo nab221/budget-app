@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { parseISO, format, addMonths } from 'date-fns';
-import { generateInstances, RecurrenceManager } from './recurrence.js';
+import { generateInstances, RecurrenceManager, advanceNextDate } from './recurrence.js';
 import { db } from '../db/schema.js';
 
 // Helper to create a mock Dexie table
@@ -195,5 +195,82 @@ describe('RecurrenceManager', () => {
     expect(results.recurrentExpenses).toBe(12);
     const addedInstances = db.recurrentExpenses.bulkAdd.mock.calls[0][0];
     expect(addedInstances[0].date).toBe(format(addMonths(parseISO(nextMonth), 1), 'yyyy-MM-dd'));
+  });
+});
+
+describe('advanceNextDate', () => {
+  it('weekly item → nextDate advances by 7 days', () => {
+    const item = { nextDate: '2026-01-01', frequency: 'weekly' };
+    const result = advanceNextDate(item);
+    expect(result.nextDate).toBe('2026-01-08');
+  });
+
+  it('biweekly item → nextDate advances by 14 days', () => {
+    const item = { nextDate: '2026-01-01', frequency: 'biweekly' };
+    const result = advanceNextDate(item);
+    expect(result.nextDate).toBe('2026-01-15');
+  });
+
+  it('monthly item → nextDate advances by 1 month (same day)', () => {
+    const item = { nextDate: '2026-01-01', frequency: 'monthly' };
+    const result = advanceNextDate(item);
+    expect(result.nextDate).toBe('2026-02-01');
+  });
+
+  it('quarterly item → nextDate advances by 3 months', () => {
+    const item = { nextDate: '2026-01-01', frequency: 'quarterly' };
+    const result = advanceNextDate(item);
+    expect(result.nextDate).toBe('2026-04-01');
+  });
+
+  it('annually item → nextDate advances by 1 year', () => {
+    const item = { nextDate: '2026-01-01', frequency: 'annually' };
+    const result = advanceNextDate(item);
+    expect(result.nextDate).toBe('2027-01-01');
+  });
+
+  it('unknown/default frequency → advances by 1 month (mirrors generateInstances default)', () => {
+    const item = { nextDate: '2026-01-01', frequency: 'unknown' };
+    const result = advanceNextDate(item);
+    expect(result.nextDate).toBe('2026-02-01');
+  });
+
+  it('isDebtPayment=true, cycleTotal=6, cycleCurrent=2 → returned date is correct AND cycleCurrent returned as 3 (incremented)', () => {
+    const item = { 
+      nextDate: '2026-01-01', 
+      frequency: 'monthly', 
+      isDebtPayment: true, 
+      cycleTotal: 6, 
+      cycleCurrent: 2 
+    };
+    const result = advanceNextDate(item);
+    expect(result.nextDate).toBe('2026-02-01');
+    expect(result.cycleCurrent).toBe(3);
+  });
+
+  it('isDebtPayment=false (regular subscription), cycleTotal=6, cycleCurrent=2 → cycleCurrent unchanged (still 2), only date advances', () => {
+    const item = { 
+      nextDate: '2026-01-01', 
+      frequency: 'monthly', 
+      isDebtPayment: false, 
+      cycleTotal: 6, 
+      cycleCurrent: 2 
+    };
+    const result = advanceNextDate(item);
+    expect(result.nextDate).toBe('2026-02-01');
+    expect(result.cycleCurrent).toBe(2);
+  });
+
+  it('isDebtPayment=true but cycleTotal=0 → cycleCurrent unchanged (no defined cycle endpoint)', () => {
+    const item = { 
+      nextDate: '2026-01-01', 
+      frequency: 'monthly', 
+      isDebtPayment: true, 
+      cycleTotal: 0, 
+      cycleCurrent: 2 
+    };
+    const result = advanceNextDate(item);
+    expect(result.nextDate).toBe('2026-02-01');
+    expect(result.cycleCurrent).toBe(2);
   });
 });
