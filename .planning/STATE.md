@@ -1,45 +1,42 @@
+---
+gsd_state_version: 1.0
+milestone: v2.4
+milestone_name: TBD
+status: planning
+last_updated: "2026-03-07"
+---
+
 ## Project State: Budget App
 
-## Milestone: v2.3 — Advanced Analytics & Mobile Polish
-**Status**: COMPLETED
-**Objective**: Transform the app from a tracking tool to a proactive financial partner through formal reconciliation (Integrity), advanced visualizations (Insights), and a thumb-friendly mobile interface (Mobile Polish).
+## Project Reference
 
-## Current Progress
-- **Active Milestone**: v2.3 — Advanced Analytics & Mobile Polish (Complete)
-- **Completed Milestones**: v1.0 - v2.3
-- **Current Position**: Milestone Complete.
+See: .planning/PROJECT.md (updated 2026-03-07)
 
-## Roadmap Preview
-- [x] Phase 1: Integrity (Reconciliation) - Done
-- [x] Phase 2: Insights (Analytics) - Done
-- [x] Phase 3: Mobile Polish (UX) - Done
-- [x] Phase 4: Privacy Hardening & Dashboard Layout - Done
-- [x] Phase 5: Forecast & Graph Alignment - Done
-- [x] Phase 7: Code Inconsistencies & Inefficiencies - Done
+**Core value:** A personal budget tracker that helps a UK household track income, expenses, debts, assets, and forecast cash flow — fully offline, PWA-ready, no server required.
+**Current focus:** Planning next milestone (v2.4)
 
-## Performance Metrics
-- **Total Requirements**: 18
-- **Mapped**: 18 (100%)
-- **Status**: Milestone Complete
+## Completed Milestones
 
-## Recent Activity
-- **2026-03-07**: Completed Phase 7: Code Inconsistencies & Inefficiencies.
-- **2026-03-06**: Completed Phase 6: Rolling Overview - Income/Expense Bars & Binning.
-- **2026-03-06**: Completed Phase 5: Forecast & Graph Alignment.
-- **2026-03-06**: Completed Phase 4: Privacy Hardening & Dashboard Layout.
-- **2026-03-06**: Completed Phase 3: Mobile Polish (UX).
-- **2026-03-06**: Implemented Reconciliation Mode, Analytics charts, and Savings Rate KPI.
+- v1.0 — Modular Rebuild & Foundation
+- v1.1 — UX Refinement & CRUD Hardening
+- v1.2 — Daily Cash Flow Engine
+- v1.3 — Enhanced Debt Management
+- v1.4 — Local File Persistence
+- v1.5 — Automatic Recurring Transactions
+- v2.1 — Advanced Refinements & Security
+- v2.2 — Navigation Overhaul & Dashboard Redesign
+- v2.3 — Advanced Analytics & Mobile Polish (SHIPPED 2026-03-07)
 
+## Next Steps
 
-## Accumulated Context
+Run `/gsd:new-milestone` to define v2.4 requirements.
 
-### Roadmap Evolution
-- Phase 7 added: Code Inconsistencies & Inefficiencies
-
-## Session Continuity
-- **Last Action**: Executed all plans in Phase 7 (Code Inconsistencies & Inefficiencies).
-- **Next Task**: Prepare for Milestone v2.4 (Multi-currency & Advanced Childcare).
-- **Current Focus**: Milestone Sign-off and v2.4 planning.
+Known v2.4 candidates (deferred from v2.3):
+- ANAL-05: Monthly Spending Heatmap / Year-over-Year comparison
+- UX-03: Swipe-to-clear / swipe-to-delete gesture support
+- UX-04: Haptic feedback on key actions
+- Multi-currency support
+- Advanced Childcare tracking enhancements
 
 ---
-*Last updated: 2026-03-07 (Phase 7 Complete)*
+*Last updated: 2026-03-07 (v2.3 milestone archived)*
