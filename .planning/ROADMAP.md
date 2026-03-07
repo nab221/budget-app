@@ -70,6 +70,7 @@ Full archive: `.planning/milestones/v2.3-ROADMAP.md`
 - [x] 09-01: Establish the infrastructure for swipe gestures including a reusable SwipeHandler utility, CSS affordances, and haptic refinements. — completed 2026-03-07
 - [x] 09-02: Integrate swipe-to-delete into the Expenses tab. — completed 2026-03-07
 - [x] 09-03: Implement right-swipe to clear and refine the gesture experience for mobile. — completed 2026-03-07
+- [x] 09-STAB: Stabilize swipe logic (reveal-and-tap, coordination, thud feedback). — completed 2026-03-07
 ### Phase 10: Spending Heatmap
 **Goal**: The Dashboard displays a visual spending heatmap that lets users see their spending density across the year at a glance, with Privacy Mode and year-over-year support
 **Depends on**: Nothing (independent of Phase 9; can be worked in parallel after Phase 8)
