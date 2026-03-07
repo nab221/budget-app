@@ -5,6 +5,7 @@ import {
 import { formatGBP, fromPence } from '../utils/currency.js';
 import { safeHTML, renderTabSummary } from './render.js';
 import { filterTransactions } from '../utils/filtering.js';
+import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
 
 /**
  * Transaction UI Module
@@ -117,10 +118,11 @@ export const transactionUI = {
 
       try {
         if (type === 'income') await incomeRepository.delete(id);
+        triggerHaptic('delete');
         await this.render();
       } catch (error) {
         console.error(`Failed to delete ${type}:`, error);
-        alert(`Failed to delete ${type}: ` + error.message);
+        alertWithHaptic(`Failed to delete ${type}: ` + error.message);
       }
     };
 
@@ -263,7 +265,7 @@ export const transactionUI = {
     const amount = parseFloat(amountInput.value);
 
     if (!date || !source || isNaN(amount)) {
-      alert('Please fill in all fields correctly.');
+      alertWithHaptic('Please fill in all fields correctly.');
       return;
     }
 
@@ -285,6 +287,7 @@ export const transactionUI = {
       const savedId = this.editingId;
       this.toggleForm(false);
       await this.render();
+      triggerHaptic('success');
 
       if (savedId) {
         const row = document.querySelector(`tr[data-id="${savedId}"]`);
@@ -295,7 +298,7 @@ export const transactionUI = {
       }
     } catch (error) {
       console.error('Failed to save income:', error);
-      alert('Failed to save income: ' + error.message);
+      alertWithHaptic('Failed to save income: ' + error.message);
     }
   },
 
@@ -496,7 +499,7 @@ export const transactionUI = {
     const cleared = items.filter(i => i.isCleared && !i.isReconciled);
 
     if (cleared.length === 0) {
-      alert('No cleared items to reconcile.');
+      alertWithHaptic('No cleared items to reconcile.');
       return;
     }
 
@@ -508,14 +511,14 @@ export const transactionUI = {
       for (const item of cleared) {
         await incomeRepository.update(item.id, { isReconciled: true });
       }
-      alert('Reconciliation finalized successfully.');
+      alertWithHaptic('Reconciliation finalized successfully.', 'success');
       this.toggleReconciliationMode();
       await this.render();
     } catch (err) {
       console.error('Failed to finalize reconciliation:', err);
-      alert('Failed: ' + err.message);
+      alertWithHaptic('Failed: ' + err.message);
     }
-  },
+    },
 
   updateTotal(type, totalPence) {
     const panel = document.querySelector(`[data-panel="${type}"]`);

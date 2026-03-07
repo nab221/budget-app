@@ -1,5 +1,6 @@
 import { targetRepository } from '../db/repository.js';
 import { toPence, fromPence } from '../utils/currency.js';
+import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
 
 /**
  * Targets UI Module
@@ -86,6 +87,7 @@ export const targetsUI = {
               await targetRepository.delete(existing.id);
               input.value = '';
               console.log(`Deleted target for bucket '${bucketName}'`);
+              triggerHaptic('delete');
             }
           } else {
             const amountPence = toPence(amount);
@@ -96,6 +98,7 @@ export const targetsUI = {
               await targetRepository.add({ bucket: bucketName, amount: amountPence });
               console.log(`Added target for bucket '${bucketName}': ${amount}`);
             }
+            triggerHaptic('success');
           }
 
           // Visual feedback
@@ -108,7 +111,7 @@ export const targetsUI = {
 
         } catch (error) {
           console.error(`Failed to save target for bucket '${bucketName}':`, error);
-          alert('Failed to save target: ' + error.message);
+          alertWithHaptic('Failed to save target: ' + error.message);
         }
       };
 
