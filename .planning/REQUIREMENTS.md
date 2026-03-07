@@ -56,24 +56,24 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| HAP-01 | — | Pending |
-| HAP-02 | — | Pending |
-| HAP-03 | — | Pending |
-| SWP-01 | — | Pending |
-| SWP-02 | — | Pending |
-| SWP-03 | — | Pending |
-| SWP-04 | — | Pending |
-| SWP-05 | — | Pending |
-| HMP-01 | — | Pending |
-| HMP-02 | — | Pending |
-| HMP-03 | — | Pending |
-| HMP-04 | — | Pending |
+| HAP-01 | Phase 8 | Pending |
+| HAP-02 | Phase 8 | Pending |
+| HAP-03 | Phase 8 | Pending |
+| SWP-01 | Phase 9 | Pending |
+| SWP-02 | Phase 9 | Pending |
+| SWP-03 | Phase 9 | Pending |
+| SWP-04 | Phase 9 | Pending |
+| SWP-05 | Phase 9 | Pending |
+| HMP-01 | Phase 10 | Pending |
+| HMP-02 | Phase 10 | Pending |
+| HMP-03 | Phase 10 | Pending |
+| HMP-04 | Phase 10 | Pending |
 
 **Coverage:**
 - v2.4 requirements: 12 total
-- Mapped to phases: 0
-- Unmapped: 12 ⚠️
+- Mapped to phases: 12
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-03-07*
-*Last updated: 2026-03-07 after initial definition*
+*Last updated: 2026-03-07 — traceability populated after roadmap creation*
