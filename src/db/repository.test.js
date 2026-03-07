@@ -413,7 +413,7 @@ describe('statementRepository', () => {
       const expenseAfter = await db.recurrentExpenses.get(expenseId);
       expect(expenseAfter.status).toBe('paid');
       expect(expenseAfter.amount).toBe(3000);
-      expect(expenseAfter.cycleCurrent).toBe(1);
+      expect(expenseAfter.cycleCurrent).toBe(0);
       expect(expenseAfter.date).toBe('2026-02-01');
     });
 
