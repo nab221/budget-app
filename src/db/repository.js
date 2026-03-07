@@ -819,3 +819,77 @@ export const childcareRepository = {
     }
   }
 };
+
+/**
+ * Aggregates daily spending for a specific year for heatmap visualization.
+ * @param {string|number} year 
+ * @returns {Promise<Object>} Map of date string (YYYY-MM-DD) to daily stats
+ */
+export async function getYearlyDailySpending(year) {
+  const start = `${year}-01-01`;
+  const end = `${year}-12-31`;
+
+  const [oneOff, recurrent, categories] = await Promise.all([
+    db.oneOffExpenses.where('date').between(start, end, true, true).toArray(),
+    db.recurrentExpenses.where('nextDate').between(start, end, true, true).toArray(),
+    db.categories.toArray()
+  ]);
+
+  const catMap = categories.reduce((acc, cat) => {
+    acc[cat.id] = cat.name;
+    return acc;
+  }, {});
+
+  const dailyData = {};
+
+  // Process one-off expenses
+  oneOff.forEach(exp => {
+    const date = exp.date;
+    if (!date) return;
+    if (!dailyData[date]) {
+      dailyData[date] = { total: 0, categories: {} };
+    }
+    const amount = exp.amount || 0;
+    dailyData[date].total += amount;
+    const catName = catMap[exp.categoryId] || 'Uncategorized';
+    dailyData[date].categories[catName] = (dailyData[date].categories[catName] || 0) + amount;
+  });
+
+  // Process paid recurrent expenses
+  recurrent.filter(exp => exp.status === 'paid').forEach(exp => {
+    // For recurrent, 'date' is the occurrence date, 'nextDate' is the target.
+    // We use 'date' if available, fallback to 'nextDate'.
+    const date = exp.date || exp.nextDate;
+    if (!date) return;
+    if (!dailyData[date]) {
+      dailyData[date] = { total: 0, categories: {} };
+    }
+    const amount = exp.amount || 0;
+    dailyData[date].total += amount;
+    const catName = catMap[exp.categoryId] || 'Uncategorized';
+    dailyData[date].categories[catName] = (dailyData[date].categories[catName] || 0) + amount;
+  });
+
+  // Finalize data structure: find top category per day
+  const result = {};
+  Object.keys(dailyData).forEach(date => {
+    const day = dailyData[date];
+    let topCategory = 'None';
+    let topCategoryAmount = 0;
+
+    Object.keys(day.categories).forEach(cat => {
+      if (day.categories[cat] > topCategoryAmount) {
+        topCategory = cat;
+        topCategoryAmount = day.categories[cat];
+      }
+    });
+
+    result[date] = {
+      total: day.total,
+      topCategory,
+      topCategoryAmount
+    };
+  });
+
+  return result;
+}
