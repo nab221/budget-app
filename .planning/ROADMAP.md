@@ -92,3 +92,15 @@
 | 4. Privacy Hardening & Dashboard Layout | 2/2 | Completed | 2026-03-06 |
 | 5. Forecast & Graph Alignment | 2/2 | Completed | 2026-03-06 |
 | 6. Rolling Overview - Income/Expense Bars & Binning | 2/2 | Completed | 2026-03-06 |
+
+### Phase 7: Code Inconsistencies & Inefficiencies
+
+**Goal:** Fix balance engine divergence between getDailyRollingData and calculateForecast, fix recurrent expense nextDate advancement on payment, and remove dead code from Phases 1–6. Exit condition: chart closing balance === table closing balance for the same date.
+**Requirements**: none (internal cleanup — no formal REQ-XX IDs)
+**Depends on:** Phase 6
+**Plans:** 3 plans
+
+Plans:
+- [ ] 07-01-PLAN.md — Wave 1: Test scaffolding (advanceNextDate tests + balance equality integration test)
+- [ ] 07-02-PLAN.md — Wave 2: Bug fixes (advanceNextDate, markAllAsPaid/recordPayment, balance engine unification)
+- [ ] 07-03-PLAN.md — Wave 3: Dead code removal (barForecastPlugin, BarController/BarElement, aggregateRollingOverview, getRollingFinancialData, binning param)
