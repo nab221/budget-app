@@ -14,6 +14,8 @@ import { templateUI } from './templates.js';
 import { nextWorkingDay } from '../utils/cashflow.js';
 import { generateInstances } from '../utils/recurrence.js';
 import { generateUUID } from '../utils/security.js';
+import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
+import { SwipeHandler } from '../utils/gestures.js';
 
 /**
  * Expenses UI Module
@@ -26,6 +28,7 @@ export const expensesUI = {
   searchQuery: '',
   selectedCategories: [],
   reconciliationMode: false,
+  _swipeInstances: [],
 
   /**
    * Initialize the Expenses UI — bind events and do first render.
@@ -169,17 +172,19 @@ export const expensesUI = {
           } else {
             await repo.deleteSeries(item.recurrenceId, item.nextDate || item.date);
           }
+          triggerHaptic('delete');
           await this.render();
         } catch (err) {
-          alert('Failed to delete: ' + err.message);
+          alertWithHaptic('Failed to delete: ' + err.message);
         }
       } else {
         if (!confirm(`Delete "${label}"?`)) return;
         try {
           await repo.delete(id);
+          triggerHaptic('delete');
           await this.render();
         } catch (err) {
-          alert('Failed to delete: ' + err.message);
+          alertWithHaptic('Failed to delete: ' + err.message);
         }
       }
     };
@@ -210,6 +215,7 @@ export const expensesUI = {
           updates.cycleCurrent = Math.min((item.cycleCurrent || 0) + 1, item.cycleTotal);
         }
         await recurrentExpenseRepository.update(id, updates);
+        triggerHaptic('tap');
         await this.render();
       } catch (err) {
         console.error('Failed to toggle status:', err);
@@ -220,6 +226,7 @@ export const expensesUI = {
       try {
         const repo = type === 'recurrent' ? recurrentExpenseRepository : oneOffExpenseRepository;
         await repo.update(id, { isCleared: !currentStatus });
+        triggerHaptic('tap');
         await this.render();
       } catch (err) {
         console.error('Failed to toggle cleared status:', err);
@@ -394,11 +401,11 @@ export const expensesUI = {
     const frequency = document.getElementById('expFreq').value;
 
     if (isNaN(amount) || amount <= 0) {
-      alert('Please provide a valid amount.');
+      alertWithHaptic('Please provide a valid amount.');
       return;
     }
     if (!label) {
-      alert('Description is required.');
+      alertWithHaptic('Description is required.');
       return;
     }
 
@@ -484,9 +491,10 @@ export const expensesUI = {
           setTimeout(() => row.classList.remove('row-flash'), 1500);
         }
       }
+      triggerHaptic('success');
     } catch (err) {
       console.error('Failed to save expense:', err);
-      alert('Failed to save: ' + err.message);
+      alertWithHaptic('Failed to save: ' + err.message);
     }
   },
 
@@ -594,10 +602,11 @@ export const expensesUI = {
     if (!confirm('Mark all pending recurrent items as paid?')) return;
     try {
       await recurrentExpenseRepository.markAllAsPaid();
+      triggerHaptic('success');
       await this.render();
     } catch (err) {
       console.error('Failed to mark all as paid:', err);
-      alert('Failed: ' + err.message);
+      alertWithHaptic('Failed: ' + err.message);
     }
   },
 
@@ -679,6 +688,7 @@ export const expensesUI = {
       const isFinished = item.type === 'recurrent' && item.cycleTotal > 0 && (item.cycleCurrent || 0) >= item.cycleTotal;
       const isReconciled = item.isReconciled === true;
       const isCleared = item.isCleared === true;
+      const canSwipe = !isReconciled;
 
       const badgeHTML = [];
       if (item.type === 'recurrent') {
@@ -702,8 +712,11 @@ export const expensesUI = {
       }
 
       return safeHTML`
-        <tr class="${isPaid ? 'paid-row' : ''} ${isFinished ? 'finished-row' : ''} ${isReconciled ? 'reconciled-row' : ''} ${isCleared ? 'cleared-row' : ''}" data-id="${item.id}">
-          <td class="nw">${item.displayDate}</td>
+        <tr class="swipe-row ${isPaid ? 'paid-row' : ''} ${isFinished ? 'finished-row' : ''} ${isReconciled ? 'reconciled-row' : ''} ${isCleared ? 'cleared-row' : ''}" data-id="${item.id}" data-type="${item.type}">
+          <td class="nw">
+            ${canSwipe ? `<div class="swipe-action-right" onclick="deleteExpense(${item.id}, '${item.type}')">Delete</div>` : ''}
+            ${item.displayDate}
+          </td>
           <td>${catName}</td>
           <td>
             ${item.displayLabel || '—'}
@@ -736,6 +749,46 @@ export const expensesUI = {
     }).join('');
 
     this.updateTotal(totalPence);
+    this.setupGestures();
+  },
+
+  /**
+   * Initialize swipe gestures for all rows in the current render.
+   */
+  setupGestures() {
+    // Cleanup old instances
+    this._swipeInstances.forEach(s => s.destroy());
+    this._swipeInstances = [];
+
+    const rows = document.querySelectorAll('#expenseBody .swipe-row');
+    rows.forEach(row => {
+      // Reconciled rows cannot be swiped (handled in render markup, but SwipeHandler 
+      // is only applied here to rows with the class)
+      const instance = new SwipeHandler(row, {
+        threshold: 80,
+        onSwipe: (deltaX) => {
+          // Only allow swiping left (to reveal Delete on the right)
+          // deltaX < 0 means moving finger to the left
+          if (deltaX < 0) {
+            row.style.transform = `translateX(${deltaX}px)`;
+            row.classList.add('swipe-active');
+          }
+        },
+        onEnd: (deltaX, isThresholdMet) => {
+          row.style.transform = '';
+          row.classList.remove('swipe-active');
+
+          if (isThresholdMet && deltaX < 0) {
+            const id = row.getAttribute('data-id');
+            const type = row.getAttribute('data-type');
+            if (id && type) {
+              window.deleteExpense(parseInt(id), type);
+            }
+          }
+        }
+      });
+      this._swipeInstances.push(instance);
+    });
   },
 
   renderReconHeader(items) {
@@ -783,7 +836,7 @@ export const expensesUI = {
     const cleared = items.filter(i => i.isCleared && !i.isReconciled);
 
     if (cleared.length === 0) {
-      alert('No cleared items to reconcile.');
+      alertWithHaptic('No cleared items to reconcile.');
       return;
     }
 
@@ -796,12 +849,12 @@ export const expensesUI = {
         const repo = item.frequency ? recurrentExpenseRepository : oneOffExpenseRepository;
         await repo.update(item.id, { isReconciled: true });
       }
-      alert('Reconciliation finalized successfully.');
+      alertWithHaptic('Reconciliation finalized successfully.', 'success');
       this.toggleReconciliationMode();
       await this.render();
     } catch (err) {
       console.error('Failed to finalize reconciliation:', err);
-      alert('Failed: ' + err.message);
+      alertWithHaptic('Failed: ' + err.message);
     }
   },
 
@@ -845,7 +898,7 @@ export const expensesUI = {
         const paymentDate = document.getElementById('debtPaymentDate').value;
         
         if (!actualAmt || isNaN(actualAmt) || !paymentDate) {
-          alert('Please provide a valid amount and date.');
+          alertWithHaptic('Please provide a valid amount and date.');
           return;
         }
 
@@ -857,7 +910,7 @@ export const expensesUI = {
           window.dispatchEvent(new CustomEvent('app:refresh'));
         } catch (err) {
           console.error('Failed to record debt payment:', err);
-          alert('Error: ' + err.message);
+          alertWithHaptic('Error: ' + err.message);
         }
       };
     }
