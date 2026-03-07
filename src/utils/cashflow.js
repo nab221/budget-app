@@ -16,6 +16,12 @@ const GOV_UK_HOLIDAYS_API = 'https://www.gov.uk/bank-holidays.json';
 const CACHE_KEY = 'bank-holidays-cache';
 const CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours
 
+function normalizeMonth(value) {
+  return (typeof value === 'string' && /^\d{4}-\d{2}$/.test(value))
+    ? value
+    : new Date().toISOString().slice(0, 7);
+}
+
 /**
  * Fetch UK Bank Holidays from gov.uk API and cache them in localStorage.
  * Only fetches if cache is missing, expired, or forced.
@@ -396,8 +402,9 @@ export async function getDailyRollingData(targetMonth) {
   const todayStr = today.toISOString().split('T')[0];
 
   let anchorDate;
-  if (targetMonth) {
-    const [y, m] = targetMonth.split('-').map(Number);
+  const safeTargetMonth = targetMonth ? normalizeMonth(targetMonth) : null;
+  if (safeTargetMonth) {
+    const [y, m] = safeTargetMonth.split('-').map(Number);
     anchorDate = new Date(Date.UTC(y, m - 1, 15));
   } else {
     anchorDate = today;
@@ -503,7 +510,8 @@ export async function getDailyRollingData(targetMonth) {
  * @param {string} targetMonth - YYYY-MM
  */
 export async function getSpendingTrends(targetMonth) {
-  const [year, month] = targetMonth.split('-').map(Number);
+  const safeTargetMonth = normalizeMonth(targetMonth);
+  const [year, month] = safeTargetMonth.split('-').map(Number);
   const results = [];
 
   for (let i = -11; i <= 0; i++) {
