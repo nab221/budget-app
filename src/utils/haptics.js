@@ -7,7 +7,8 @@ export const HAPTIC_PATTERNS = {
   tap: [10],
   success: [30, 20, 30],
   delete: [40, 15, 25, 15, 15],
-  error: [60, 40, 60]
+  error: [60, 40, 60],
+  threshold: [10]
 };
 
 const lastPulseTime = new Map();
