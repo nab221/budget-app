@@ -1,65 +1,79 @@
-# Milestone v2.3 Requirements: Advanced Analytics & Mobile Polish
+# Requirements: Budget App
 
-## Goal
-Transform the app from a tracking tool to a proactive financial partner through formal reconciliation (Integrity), advanced visualizations (Insights), and a thumb-friendly mobile interface (Mobile Polish).
+**Defined:** 2026-03-07
+**Milestone:** v2.4 — UX Polish & Spending Insights
+**Core Value:** A personal budget tracker that helps a UK household track income, expenses, debts, assets, and forecast cash flow — fully offline, PWA-ready, no server required.
 
-## 1. Integrity: Reconciliation
-Maintain a perfect match between digital records and bank statements.
+## v2.4 Requirements
 
-- **RECO-01**: Schema Migration: Add `isCleared` (boolean) and `isReconciled` (boolean) fields to Income and Expenses repositories.
-- **RECO-02**: Provide a "Reconciliation Mode" toggle in Income and Expenses transaction lists.
-- **RECO-03**: In Reconciliation Mode, each transaction shows a "Clear" checkbox or icon for quick toggling.
-- **RECO-04**: Display a reconciliation header showing: "Cleared Balance" (sum of all cleared) vs. "Statement Balance" (sum of all).
-- **RECO-05**: Implement a "Finalize Reconciliation" workflow that marks all cleared items as `isReconciled`.
-- **RECO-06**: Prevent editing or deletion of items marked `isReconciled` (require unlocking).
-- **RECO-07**: Visually lock reconciled items in the transaction table with a padlock icon.
+Requirements for this milestone. Each maps to roadmap phases.
 
-## 2. Insights: Analytics
-Provide deep financial clarity through interactive visualizations.
+### Haptic Feedback
 
-- **ANAL-01**: Dashboard: Add an **Expenses Breakdown Doughnut Chart** showing top 5 categories + "Other".
-- **ANAL-02**: Dashboard: Add a **Savings Rate KPI** (Total Income - Total Expenses / Total Income) as a prominent metric.
-- **ANAL-03**: Dashboard: Add a **Net Worth Trend Chart** (12-month historical) combining Assets - Debts + current Account Balances.
-- **ANAL-04**: Implement interactive tooltips for all charts showing exact monetary values on hover/touch.
-- **ANAL-05**: Dashboard: Add a "Monthly Spending Heatmap" or Year-over-Year comparison widget for total monthly spend.
-- **DASH-04**: Enhanced Rolling Financial Overview: Replace income/expense lines with a bar chart (green/red) and add Daily/Weekly/Monthly binning via a modern radio button group.
+- [ ] **HAP-01**: App triggers haptic feedback (`navigator.vibrate`) on all data-mutating actions (save, delete, status toggle) — silent no-op on iOS
+- [ ] **HAP-02**: App triggers haptic error pulse on form validation failures
+- [ ] **HAP-03**: `src/utils/haptics.js` provides named patterns (`tap`, `success`, `delete`, `error`) with a single feature-detect guard
 
-## 3. Mobile Polish: UX
-Refine the PWA experience for thumb-zone navigation and private public use.
+### Swipe Gestures
 
-- **UX-01**: Bottom Navigation Bar: Move primary tab navigation (Dashboard, Income, Expenses, Debts, Assets, Settings) to the bottom of the viewport on mobile screens (< 768px).
-- **UX-02**: Privacy Mode: Implement a "Privacy Toggle" (eye icon) in the header that blurs or masks all sensitive currency values.
-- **UX-03**: Gesture Support: Implement swipe-to-clear or swipe-to-delete interactions for transaction list rows.
-- **UX-04**: Interaction Haptics: Trigger tactile feedback (`navigator.vibrate`) on key actions like clearing a transaction or successfully saving a form.
-- **UX-05**: PWA Installation: Ensure high-resolution icons (192, 512) and splash screens are correctly configured for iOS/Android install prompts.
+- [ ] **SWP-01**: `src/utils/swipe.js` provides a `SwipeManager` class with delegated touch handlers on `<tbody>` containers (avoids listener leak on row re-render)
+- [ ] **SWP-02**: User can left-swipe an Expenses row to reveal a delete affordance (red background + trash icon); explicit tap on the revealed button confirms delete
+- [ ] **SWP-03**: User can right-swipe an Expenses row in Reconciliation mode to mark it as cleared (green reveal + check icon)
+- [ ] **SWP-04**: Reconciled/locked rows do not respond to swipe gestures
+- [ ] **SWP-05**: Sub-threshold swipe snaps the row back to its original position
 
-## Success Criteria
-- [ ] Users can toggle "Reconciliation Mode" and clear transactions to match their bank statement.
-- [ ] Users can "Finalize Reconciliation" to lock items from accidental changes.
-- [ ] The Dashboard includes a Doughnut Chart of category spending and a Net Worth trend chart.
-- [ ] Savings Rate is displayed as a percentage of income.
-- [ ] On mobile devices, navigation is easily accessible at the bottom of the screen.
-- [ ] Users can mask sensitive financial data with one tap (Privacy Mode).
-- [ ] Transaction rows support swipe actions on touch devices.
+### Spending Heatmap
+
+- [ ] **HMP-01**: Dashboard displays a 52×7 spending heatmap for the current year (GitHub-style grid, custom canvas renderer, quartile color scale)
+- [ ] **HMP-02**: Tapping/hovering a heatmap cell shows a tooltip with date, daily spend total, and top category
+- [ ] **HMP-03**: Heatmap canvas blurs when Privacy Mode is active
+- [ ] **HMP-04**: Dashboard displays a second heatmap grid for the prior year when 13+ months of expense records exist (shared color scale, hidden otherwise)
+
+## Future Requirements (v2.5+)
+
+### Swipe (deferred)
+
+- **SWP-F1**: Swipe-to-delete on Income tab rows (copy pattern from Expenses after validation)
+
+### Heatmap (deferred)
+
+- **HMP-F1**: Category-filtered heatmap view (requires filter UI addition — high cost, low priority)
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| Swipe on reconciled rows | Data integrity — reconciled rows must not be accidentally modified via gesture |
+| chartjs-chart-matrix plugin | Chart.js plugin risk confirmed in codebase history; custom canvas is sufficient and has zero new dependencies |
+| Continuous/long haptic patterns | Annoying and battery-draining; all patterns kept under 150ms |
+| Haptics on passive/read-only actions | Navigation, filter, search — no haptic feedback to avoid noise |
+| Y-o-Y heatmap as single overlaid grid | Color intensity encoding breaks when two datasets share the same cells — must use stacked grids |
+| Swipe on Income rows (v2.4) | Deferred to validate Expenses swipe pattern first |
 
 ## Traceability
+
+Which phases cover which requirements. Updated during roadmap creation.
+
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| RECO-01 | 1 | Completed |
-| RECO-02 | 1 | Completed |
-| RECO-03 | 1 | Completed |
-| RECO-04 | 1 | Completed |
-| RECO-05 | 1 | Completed |
-| RECO-06 | 1 | Completed |
-| RECO-07 | 1 | Completed |
-| ANAL-01 | 2 | Completed |
-| ANAL-02 | 2 | Completed |
-| ANAL-03 | 2 | Completed |
-| ANAL-04 | 2, 6 | Completed |
-| ANAL-05 | 2 | Pending |
-| UX-01 | 3, 4 | Completed |
-| UX-02 | 3 | Completed |
-| UX-03 | 3 | Pending |
-| UX-04 | 3 | Pending |
-| UX-05 | 3 | Completed |
-| DASH-04 | 6 | Pending |
+| HAP-01 | — | Pending |
+| HAP-02 | — | Pending |
+| HAP-03 | — | Pending |
+| SWP-01 | — | Pending |
+| SWP-02 | — | Pending |
+| SWP-03 | — | Pending |
+| SWP-04 | — | Pending |
+| SWP-05 | — | Pending |
+| HMP-01 | — | Pending |
+| HMP-02 | — | Pending |
+| HMP-03 | — | Pending |
+| HMP-04 | — | Pending |
+
+**Coverage:**
+- v2.4 requirements: 12 total
+- Mapped to phases: 0
+- Unmapped: 12 ⚠️
+
+---
+*Requirements defined: 2026-03-07*
+*Last updated: 2026-03-07 after initial definition*
