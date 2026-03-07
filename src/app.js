@@ -21,8 +21,14 @@ import { initPWA, installApp, checkExportReminder } from './ui/pwa-ux';
 import { initFileSyncUI, refreshPersistenceWarning } from './ui/file-sync';
 import { childcareUI } from './ui/childcare.js';
 import { calculateBalanceChain } from './utils/finance.js';
-import { BALANCE_START_DATE_KEY, BALANCE_OPENING_AMOUNT_KEY, PRIVACY_MODE_KEY } from './utils/storage.js';
+import { 
+  BALANCE_START_DATE_KEY, 
+  BALANCE_OPENING_AMOUNT_KEY, 
+  PRIVACY_MODE_KEY,
+  HAPTICS_ENABLED_KEY
+} from './utils/storage.js';
 import { RecurrenceManager } from './utils/recurrence.js';
+import { triggerHaptic } from './utils/haptics.js';
 
 export { BALANCE_START_DATE_KEY };
 
@@ -54,6 +60,17 @@ async function init() {
       const privacyToggle = document.getElementById('privacyToggle');
       if (privacyToggle) {
         privacyToggle.addEventListener('click', () => togglePrivacyMode());
+      }
+    })(),
+    (async () => {
+      initHaptics();
+      const hapticsCheckbox = document.getElementById('hapticsEnabledCheckbox');
+      if (hapticsCheckbox) {
+        hapticsCheckbox.addEventListener('change', (e) => {
+          const isEnabled = e.target.checked;
+          localStorage.setItem(HAPTICS_ENABLED_KEY, isEnabled.toString());
+          if (isEnabled) triggerHaptic('tap');
+        });
       }
     })(),
     (async () => {
@@ -140,6 +157,10 @@ async function init() {
           const savedAmountPence = parseInt(localStorage.getItem(BALANCE_OPENING_AMOUNT_KEY) || '0', 10);
           balanceOpeningInput.value = (savedAmountPence / 100).toFixed(2);
         }
+        const hapticsCheckbox = document.getElementById('hapticsEnabledCheckbox');
+        if (hapticsCheckbox) {
+          hapticsCheckbox.checked = localStorage.getItem(HAPTICS_ENABLED_KEY) !== 'false';
+        }
       }
 
       await window.app.renderAll();
@@ -223,6 +244,18 @@ function togglePrivacyMode() {
   localStorage.setItem(PRIVACY_MODE_KEY, isEnabled.toString());
   const btn = document.getElementById('privacyToggle');
   if (btn) btn.classList.toggle('active', isEnabled);
+  
+  // Add haptic feedback for security state change
+  triggerHaptic('tap');
+}
+
+/**
+ * Initialize Haptics from localStorage.
+ */
+function initHaptics() {
+  const isEnabled = localStorage.getItem(HAPTICS_ENABLED_KEY) !== 'false';
+  const checkbox = document.getElementById('hapticsEnabledCheckbox');
+  if (checkbox) checkbox.checked = isEnabled;
 }
 
 // Start the application

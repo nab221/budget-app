@@ -4,6 +4,7 @@ import { templateUI } from './templates.js'; // Reuse modal logic
 import { LAST_EXPORT_KEY } from './pwa-ux.js';
 import { importBackupData } from '../db/backup.js';
 import { SyncManager } from '../utils/sync-manager.js';
+import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
 
 export const backupUI = {
   elements: {
@@ -81,6 +82,7 @@ export const backupUI = {
 
     // Record export timestamp so the export reminder can track recency
     localStorage.setItem(LAST_EXPORT_KEY, String(Date.now()));
+    triggerHaptic('success');
 
     templateUI.closeModal();
   },
@@ -95,7 +97,7 @@ export const backupUI = {
       try {
         content = JSON.parse(e.target.result);
       } catch (err) {
-        alert('Invalid backup file format: Not a valid JSON file.');
+        alertWithHaptic('Invalid backup file format: Not a valid JSON file.');
         return;
       }
 
@@ -103,7 +105,7 @@ export const backupUI = {
         this.promptImportConfirmation(content);
       } catch (err) {
         console.error('Import prompt error:', err);
-        alert('An error occurred while preparing the import prompt.');
+        alertWithHaptic('An error occurred while preparing the import prompt.');
       }
       // Reset input so the same file can be selected again
       event.target.value = '';
@@ -139,13 +141,13 @@ export const backupUI = {
     if (content.encrypted) {
       const password = document.getElementById('importPass').value;
       if (!password) {
-        alert('Password required for encrypted backup.');
+        alertWithHaptic('Password required for encrypted backup.');
         return;
       }
       try {
         data = await decryptData(content.data, password);
       } catch (err) {
-        alert('Decryption failed. Check your password.');
+        alertWithHaptic('Decryption failed. Check your password.');
         return;
       }
     } else {
@@ -154,17 +156,17 @@ export const backupUI = {
 
     // Basic validation
     if (!data || typeof data !== 'object') {
-      alert('Invalid backup data.');
+      alertWithHaptic('Invalid backup data.');
       return;
     }
 
     try {
       await importBackupData(data);
-      alert('Import successful! The app will now reload.');
+      alertWithHaptic('Import successful! The app will now reload.', 'success');
       window.location.reload();
     } catch (err) {
       console.error('Import error:', err);
-      alert('Failed to import data. The backup might be corrupted or incompatible.');
+      alertWithHaptic('Failed to import data. The backup might be corrupted or incompatible.');
     }
   },
 
@@ -184,7 +186,7 @@ export const backupUI = {
           }
         });
         localStorage.clear();
-        alert('All data has been cleared.');
+        alertWithHaptic('All data has been cleared.', 'success');
         window.location.reload();
       }
     }

@@ -1,6 +1,7 @@
 import { checkFileSupport, HandleStore, ensurePersistence } from '../utils/storage.js';
 import { SyncManager } from '../utils/sync-manager.js';
 import { db } from '../db/schema.js';
+import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
 
 /**
  * Initialize the File Sync UI and logic.
@@ -28,10 +29,11 @@ export async function initFileSyncUI() {
     enablePersistenceBtn.onclick = async () => {
       const isPersisted = await ensurePersistence();
       if (isPersisted) {
+        triggerHaptic('success');
         await refreshPersistenceWarning();
         await updateFileSyncToolbar();
       } else {
-        alert('Browser refused to enable persistence. Try adding the app to your Home Screen or Bookmarks first.');
+        alertWithHaptic('Browser refused to enable persistence. Try adding the app to your Home Screen or Bookmarks first.');
       }
     };
   }
@@ -130,7 +132,10 @@ async function updateFileSyncToolbar(status = 'idle', statusText = '') {
       reconnectBtn.textContent = '🔌 Reconnect';
       reconnectBtn.onclick = async () => {
         const granted = await SyncManager.requestPermission();
-        if (granted) await updateFileSyncToolbar();
+        if (granted) {
+          triggerHaptic('success');
+          await updateFileSyncToolbar();
+        }
       };
       toolbar.appendChild(reconnectBtn);
     }
@@ -163,7 +168,10 @@ async function updateFileSyncToolbar(status = 'idle', statusText = '') {
     selectBtn.id = 'selectFileBtn';
     selectBtn.className = 'primary sm';
     selectBtn.textContent = '📂 Select Budget File';
-    selectBtn.onclick = () => showFileSyncModal();
+    selectBtn.onclick = () => {
+      triggerHaptic('tap');
+      showFileSyncModal();
+    };
     toolbar.prepend(selectBtn);
   }
 }
@@ -182,9 +190,10 @@ function setupModalHandlers() {
         types: [{ accept: { 'application/json': ['.json'] } }]
       });
       await loadFromFile(handle);
+      triggerHaptic('success');
       modal.classList.add('hidden');
     } catch (err) {
-      if (err.name !== 'AbortError') alert('Error opening file: ' + err.message);
+      if (err.name !== 'AbortError') alertWithHaptic('Error opening file: ' + err.message);
     }
   };
 
@@ -197,10 +206,11 @@ function setupModalHandlers() {
       SyncManager.initialize(handle, updateFileSyncToolbar);
       await HandleStore.set(handle);
       await SyncManager.saveToFile();
+      triggerHaptic('success');
       modal.classList.add('hidden');
       await updateFileSyncToolbar();
     } catch (err) {
-      if (err.name !== 'AbortError') alert('Error creating file: ' + err.message);
+      if (err.name !== 'AbortError') alertWithHaptic('Error creating file: ' + err.message);
     }
   };
 }
@@ -219,6 +229,9 @@ async function loadFromFile(handle) {
         if (choice) {
           // Clear all before merging
           await Promise.all(Object.values(db.tables).map(table => table.clear()));
+          triggerHaptic('delete');
+        } else {
+          triggerHaptic('tap');
         }
       }
 
@@ -250,12 +263,13 @@ async function loadFromFile(handle) {
     
   } catch (err) {
     console.error('[FileSyncUI] Load failed:', err);
-    alert('Failed to load file: ' + err.message);
+    alertWithHaptic('Failed to load file: ' + err.message);
   }
 }
 
 async function handleDisconnectFile() {
   if (!confirm('Stop auto-saving to this file? Your data stays in the browser.')) return;
+  triggerHaptic('delete');
   await HandleStore.clear();
   // We can't easily "un-initialize" SyncManager but we can stop its effect
   location.reload(); 

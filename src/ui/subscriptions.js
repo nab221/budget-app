@@ -1,6 +1,7 @@
 import { subscriptionRepository, categoryRepository } from '../db/repository.js';
 import { formatGBP, toPence, fromPence } from '../utils/currency.js';
 import { safeHTML } from './render.js';
+import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
 
 /**
  * Subscription UI Module
@@ -29,10 +30,11 @@ export const subscriptionUI = {
       if (!confirm('Are you sure you want to delete this subscription?')) return;
       try {
         await subscriptionRepository.delete(id);
+        triggerHaptic('delete');
         await this.render();
       } catch (error) {
         console.error('Failed to delete subscription:', error);
-        alert('Failed to delete subscription: ' + error.message);
+        alertWithHaptic('Failed to delete subscription: ' + error.message);
       }
     };
   },
@@ -40,12 +42,13 @@ export const subscriptionUI = {
   async handleAddSubscription() {
     const name = document.getElementById('subName').value.trim();
     const categoryId = document.getElementById('subCat').value;
-    const amount = parseFloat(document.getElementById('subAmt').value);
+    const amountStr = document.getElementById('subAmt').value;
+    const amount = parseFloat(amountStr);
     const frequency = document.getElementById('subFreq').value;
     const nextDate = document.getElementById('subNextDate').value;
 
     if (!name || isNaN(amount) || !nextDate) {
-      alert('Please fill in Name, Amount, and Next Date.');
+      alertWithHaptic('Please fill in Name, Amount, and Next Date.');
       return;
     }
 
@@ -58,6 +61,8 @@ export const subscriptionUI = {
         nextDate
       });
       
+      triggerHaptic('success');
+
       // Clear inputs
       document.getElementById('subName').value = '';
       document.getElementById('subAmt').value = '';
@@ -66,7 +71,7 @@ export const subscriptionUI = {
       await this.render();
     } catch (error) {
       console.error('Failed to add subscription:', error);
-      alert('Failed to add subscription: ' + error.message);
+      alertWithHaptic('Failed to add subscription: ' + error.message);
     }
   },
 
