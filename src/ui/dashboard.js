@@ -23,6 +23,12 @@ import { renderSpendingHeatmap } from './heatmap.js';
 let _selectedMonth = new Date().toISOString().slice(0, 7);
 let _selectedView = 'current';
 
+function normalizeMonth(value) {
+  return (typeof value === 'string' && /^\d{4}-\d{2}$/.test(value))
+    ? value
+    : new Date().toISOString().slice(0, 7);
+}
+
 /**
  * Initialize Dashboard UI listeners and first render.
  */
@@ -46,6 +52,8 @@ export async function initDashboard() {
 function renderMonthNavigator(containerId) {
   const container = document.getElementById(containerId);
   if (!container) return;
+
+  _selectedMonth = normalizeMonth(_selectedMonth);
 
   const [year, month] = _selectedMonth.split('-').map(Number);
 
@@ -75,7 +83,7 @@ function renderMonthNavigator(containerId) {
     renderDashboard();
   };
   container.querySelector('.month-select').onchange = (e) => {
-    _selectedMonth = e.target.value;
+    _selectedMonth = normalizeMonth(e.target.value);
     renderDashboard();
   };
 }
@@ -86,6 +94,8 @@ function renderMonthNavigator(containerId) {
 export async function renderDashboard() {
   const container = document.getElementById('summaryGrid');
   if (!container) return;
+
+  _selectedMonth = normalizeMonth(_selectedMonth);
 
   renderMonthNavigator('dashboardMonthPicker');
 
