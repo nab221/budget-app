@@ -507,3 +507,45 @@ body.privacy-enabled .chart-container:hover canvas {
   color: var(--accent);
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
+
+/* ── SWIPE GESTURES ── */
+.swipe-row {
+  position: relative !important;
+  overflow: visible !important;
+}
+
+/* Ensure table cells don't block the revealed actions */
+.swipe-row td {
+  background: transparent !important;
+}
+
+.swipe-action-left, .swipe-action-right {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  z-index: -1;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #fff;
+  pointer-events: none; /* Only active when revealed enough */
+}
+
+.swipe-action-left {
+  left: -80px;
+  background: var(--danger);
+  border-radius: 4px 0 0 4px;
+}
+
+.swipe-action-right {
+  right: -80px;
+  background: var(--success);
+  border-radius: 0 4px 4px 0;
+}
+
+.swipe-active {
+  transition: transform 0.2s ease-out;
+}
