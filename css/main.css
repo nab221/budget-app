@@ -605,6 +605,14 @@ body.privacy-enabled .chart-container:hover canvas {
   align-items: center;
   overflow: visible;
 }
+
+/* Heatmap canvas should fill the container width while preserving aspect ratio. */
+#spendingHeatmapContainer canvas {
+  width: 100% !important;
+  height: auto !important;
+  max-height: none;
+}
+
 .heatmap-tooltip {
   position: absolute;
   background: rgba(0, 0, 0, 0.85);

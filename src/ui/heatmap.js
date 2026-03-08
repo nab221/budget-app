@@ -13,6 +13,25 @@ export function formatLocalDateKey(date) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+export function resolveCanvasColor(color, cssResolver = null) {
+  if (typeof color !== 'string') return color;
+
+  const match = color.match(/^var\((--[^,\s)]+)(?:\s*,\s*([^)]+))?\)$/);
+  if (!match) return color;
+
+  const [, varName, fallbackRaw] = match;
+  const fallback = (fallbackRaw || '').trim();
+
+  let resolved = '';
+  if (typeof cssResolver === 'function') {
+    resolved = String(cssResolver(varName) || '').trim();
+  } else if (typeof document !== 'undefined' && typeof getComputedStyle === 'function') {
+    resolved = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+  }
+
+  return resolved || fallback || color;
+}
+
 export function renderSpendingHeatmap(containerId, year, dailyData, options = {}) {
   const container = document.getElementById(containerId);
   if (!container) return;
@@ -26,6 +45,8 @@ export function renderSpendingHeatmap(containerId, year, dailyData, options = {}
     clear = true,
     allYearsData = null
   } = options;
+
+  const resolvedColors = colors.map(resolveCanvasColor);
 
   const yearNum = parseInt(year);
 
@@ -53,11 +74,11 @@ export function renderSpendingHeatmap(containerId, year, dailyData, options = {}
 
   // Helper: Get color based on intensity (quartiles)
   const getColor = (amount) => {
-    if (amount <= 0) return colors[0];
-    if (amount <= q1) return colors[1];
-    if (amount <= q2) return colors[2];
-    if (amount <= q3) return colors[3];
-    return colors[4];
+    if (amount <= 0) return resolvedColors[0];
+    if (amount <= q1) return resolvedColors[1];
+    if (amount <= q2) return resolvedColors[2];
+    if (amount <= q3) return resolvedColors[3];
+    return resolvedColors[4];
   };
 
   const canvas = document.createElement('canvas');
@@ -81,7 +102,7 @@ export function renderSpendingHeatmap(containerId, year, dailyData, options = {}
 
   // Draw Day Labels (Mon, Wed, Fri)
   ctx.font = '10px sans-serif';
-  ctx.fillStyle = 'var(--text-dim, #666)';
+  ctx.fillStyle = resolveCanvasColor('var(--text-dim, #666)');
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -210,8 +231,10 @@ export function renderSpendingHeatmap(containerId, year, dailyData, options = {}
 
   canvas.addEventListener('mousemove', (e) => {
     const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
+    const scaleX = rect.width > 0 ? width / rect.width : 1;
+    const scaleY = rect.height > 0 ? height / rect.height : 1;
+    const mouseX = (e.clientX - rect.left) * scaleX;
+    const mouseY = (e.clientY - rect.top) * scaleY;
     
     const date = getCellAt(mouseX, mouseY);
     if (date) {
@@ -231,8 +254,10 @@ export function renderSpendingHeatmap(containerId, year, dailyData, options = {}
   canvas.addEventListener('touchstart', (e) => {
     const touch = e.touches[0];
     const rect = canvas.getBoundingClientRect();
-    const mouseX = touch.clientX - rect.left;
-    const mouseY = touch.clientY - rect.top;
+    const scaleX = rect.width > 0 ? width / rect.width : 1;
+    const scaleY = rect.height > 0 ? height / rect.height : 1;
+    const mouseX = (touch.clientX - rect.left) * scaleX;
+    const mouseY = (touch.clientY - rect.top) * scaleY;
     
     const date = getCellAt(mouseX, mouseY);
     if (date) {
