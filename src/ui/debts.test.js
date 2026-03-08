@@ -647,6 +647,41 @@ describe('HIST-02: pencil icon in statement rows', () => {
   });
 });
 
+describe('PREFILL-01: statement prefill recovery flow', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    document.body.innerHTML = '';
+    debtUI.activeStmtDebtId = 42;
+    debtUI.editingStmtId = null;
+    statementRepository.getAll.mockResolvedValue([]);
+  });
+
+  it('reopens history modal when form container is missing, then pre-fills rendered fields', async () => {
+    const openHistorySpy = vi
+      .spyOn(debtUI, 'openHistoryModal')
+      .mockImplementation(async () => {
+        document.body.innerHTML = '<div id="stmtFormContainer-modal" class="hidden"></div>';
+      });
+
+    const summary = {
+      statementDate: '2026-02-28',
+      openingBalance: 12345,
+      newBalance: 67890,
+      minimumPayment: 5000,
+      paymentDueDate: '2026-03-15',
+    };
+
+    await debtUI.prefillStatementForm(summary);
+
+    expect(openHistorySpy).toHaveBeenCalledWith(42);
+    expect(document.getElementById('stmtDateInput-modal')?.value).toBe('2026-02-28');
+    expect(document.getElementById('stmtOpeningBalanceInput-modal')?.value).toBe('123.45');
+    expect(document.getElementById('stmtBalanceInput-modal')?.value).toBe('678.90');
+    expect(document.getElementById('stmtMinPaymentInput-modal')?.value).toBe('50.00');
+    expect(document.getElementById('stmtDueDateInput-modal')?.value).toBe('2026-03-15');
+  });
+});
+
 describe('HIST-03: Mark Paid inline action', () => {
   beforeEach(() => {
     vi.clearAllMocks();

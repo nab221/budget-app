@@ -702,9 +702,19 @@ export const debtUI = {
        return;
     }
 
+    // If the shared modal was replaced/closed by another flow, rebuild history UI first.
+    let container = document.getElementById('stmtFormContainer-modal') || document.getElementById(`stmtFormContainer-${debtId}`);
+    if (!container) {
+      await this.openHistoryModal(debtId);
+      container = document.getElementById('stmtFormContainer-modal') || document.getElementById(`stmtFormContainer-${debtId}`);
+    }
+    if (!container) {
+      alertWithHaptic('Could not open statement form for pre-fill.', 'error');
+      return;
+    }
+
     await this.toggleStmtForm(debtId, true);
-    
-    const container = document.getElementById('stmtFormContainer-modal') || document.getElementById(`stmtFormContainer-${debtId}`);
+
     const suffix = container?.id === 'stmtFormContainer-modal' ? 'modal' : debtId;
 
     const dateInput = document.getElementById(`stmtDateInput-${suffix}`);

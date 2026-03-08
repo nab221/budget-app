@@ -145,11 +145,22 @@ export const pdfImportUI = {
     window.templateUI.showModal('Statement Summary Extracted', safeHTML`${content}`, safeHTML`${footer}`);
   },
 
-  prefillStatementForm(summary) {
-    window.templateUI.closeModal();
-    if (window.debtUI && typeof window.debtUI.prefillStatementForm === 'function') {
-      window.debtUI.prefillStatementForm(summary);
+  async prefillStatementForm(summary) {
+    const debtUI = window.debtUI;
+    if (!debtUI || typeof debtUI.prefillStatementForm !== 'function') {
+      return;
     }
+
+    // Statement summary uses the shared modal overlay, so reopen debt history
+    // after closing the summary before attempting to render the statement form.
+    const debtId = debtUI.activeStmtDebtId;
+    window.templateUI.closeModal();
+
+    if (debtId && typeof debtUI.openHistoryModal === 'function') {
+      await debtUI.openHistoryModal(debtId);
+    }
+
+    await debtUI.prefillStatementForm(summary);
   },
 
   copyDebugInfo() {
