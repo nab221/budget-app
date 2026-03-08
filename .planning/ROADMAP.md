@@ -58,7 +58,11 @@ Plans:
   3. Selecting Personal Loan shows original amount, remaining balance, term, and interest rate fields
   4. Selecting Other shows the generic fallback fields
   5. Opening the Edit modal for an existing debt immediately shows the correct fieldset for that debt's type without the user touching the type selector
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 12-01-PLAN.md — Tests (RED): failing unit tests for TYPE-01 through TYPE-04 and EDIT-03
+- [ ] 12-02-PLAN.md — Implementation: _buildFormHTML fieldsets, _onTypeChange(), async openDebtModal()
 
 ### Phase 13: Save, Edit, and Validation
 **Goal**: Users can successfully add a new debt and save edits to an existing debt using the modal, with validation errors shown inline beneath each field
@@ -98,6 +102,6 @@ Plans:
 | 9. Swipe Gesture System | v2.4 | 4/4 | Complete | 2026-03-07 |
 | 10. Spending Heatmap | v2.4 | 2/2 | Complete | 2026-03-07 |
 | 11. Modal Scaffold | 2/2 | Complete    | 2026-03-08 | - |
-| 12. Type-Specific Field Logic | v2.5 | 0/TBD | Not started | - |
+| 12. Type-Specific Field Logic | v2.5 | 0/2 | Not started | - |
 | 13. Save, Edit, and Validation | v2.5 | 0/TBD | Not started | - |
 | 14. Cleanup and Polish | v2.5 | 0/TBD | Not started | - |
