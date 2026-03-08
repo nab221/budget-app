@@ -275,3 +275,132 @@ describe('debtUI type-specific fieldsets', () => {
     expect(document.getElementById('fieldset-other').classList.contains('hidden')).toBe(true);
   });
 });
+
+describe('debtUI save and edit', () => {
+  // Shared DOM setup for save/edit tests
+  function buildFullFormDOM() {
+    document.body.innerHTML = '';
+    
+    // Core fields
+    const nameInput = document.createElement('input');
+    nameInput.id = 'debtNameInput';
+    document.body.appendChild(nameInput);
+
+    const typeSelect = document.createElement('select');
+    typeSelect.id = 'debtTypeInput';
+    ['credit-card', 'mortgage', 'loan', 'other'].forEach(val => {
+      const opt = document.createElement('option');
+      opt.value = val;
+      typeSelect.appendChild(opt);
+    });
+    document.body.appendChild(typeSelect);
+
+    // CC fieldset
+    const ccFs = document.createElement('div');
+    ccFs.id = 'fieldset-credit-card';
+    ['ccBalanceInput', 'ccAprInput', 'ccLimitInput', 'ccMinPaymentInput', 'ccPromoEndInput', 'ccPostAprInput'].forEach(id => {
+      const inp = document.createElement('input');
+      inp.id = id;
+      ccFs.appendChild(inp);
+    });
+    document.body.appendChild(ccFs);
+
+    // Mortgage fieldset
+    const mFs = document.createElement('div');
+    mFs.id = 'fieldset-mortgage';
+    ['mortgagePropertyValueInput', 'mortgageBalanceInput', 'mortgageTermInput', 'mortgageRateInput', 'mortgageErcInput'].forEach(id => {
+      const inp = document.createElement('input');
+      inp.id = id;
+      mFs.appendChild(inp);
+    });
+    document.body.appendChild(mFs);
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    buildFullFormDOM();
+    debtUI.editingId = null;
+  });
+
+  it('ADD-01: _saveDebt() in Add mode saves payload and closes modal', async () => {
+    document.getElementById('debtNameInput').value = 'New CC';
+    document.getElementById('debtTypeInput').value = 'credit-card';
+    document.getElementById('ccBalanceInput').value = '1000.50';
+    document.getElementById('ccAprInput').value = '19.9';
+
+    await debtUI._saveDebt();
+
+    expect(debtRepository.add).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'New CC',
+      debtType: 'credit-card',
+      currentBalance: 1000.5,
+      apr: 19.9
+    }));
+    expect(modalUI.close).toHaveBeenCalled();
+  });
+
+  it('ADD-02: validation error on empty name prevents save and shows error span', async () => {
+    document.getElementById('debtNameInput').value = '';
+    
+    await debtUI._saveDebt();
+
+    expect(debtRepository.add).not.toHaveBeenCalled();
+    const error = document.querySelector('.field-error');
+    expect(error).not.toBeNull();
+    expect(error.textContent).toContain('Name is required');
+  });
+
+  it('ADD-03: openDebtModal in Add mode ensures fresh form', async () => {
+    // Mock modalUI.show to inject the form into the real DOM so we can check it
+    modalUI.show.mockImplementationOnce((title, content) => {
+      document.body.innerHTML = content;
+    });
+
+    await debtUI.openDebtModal(null);
+
+    const nameInput = document.getElementById('debtNameInput');
+    expect(nameInput.value).toBe('');
+  });
+
+  it('EDIT-01: _saveDebt() in Edit mode updates existing record and closes modal', async () => {
+    debtUI.editingId = 123;
+    document.getElementById('debtNameInput').value = 'Updated Mortgage';
+    document.getElementById('debtTypeInput').value = 'mortgage';
+    document.getElementById('mortgageBalanceInput').value = '250000';
+    document.getElementById('mortgageRateInput').value = '3.5';
+
+    await debtUI._saveDebt();
+
+    expect(debtRepository.update).toHaveBeenCalledWith(123, expect.objectContaining({
+      name: 'Updated Mortgage',
+      currentBalance: 250000,
+      interestRate: 3.5,
+      apr: 3.5 // Should sync rate to apr for strategy sorting
+    }));
+    expect(modalUI.close).toHaveBeenCalled();
+  });
+
+  it('EDIT-02: openDebtModal(id) pre-populates fields', async () => {
+    debtRepository.get.mockResolvedValueOnce({
+      id: 1,
+      name: 'Fetched Debt',
+      debtType: 'mortgage',
+      currentBalance: 35000000, // 350,000 in pence
+      interestRate: 4.2,
+      termMonths: 300,
+      propertyValue: 50000000
+    });
+
+    // Mock modalUI.show to inject the form
+    modalUI.show.mockImplementationOnce((title, content) => {
+      document.body.innerHTML = content;
+    });
+
+    await debtUI.openDebtModal(1);
+
+    expect(document.getElementById('debtNameInput').value).toBe('Fetched Debt');
+    expect(document.getElementById('mortgageBalanceInput').value).toBe('350000');
+    expect(document.getElementById('mortgageRateInput').value).toBe('4.2');
+    expect(document.getElementById('mortgageTermInput').value).toBe('300');
+  });
+});
