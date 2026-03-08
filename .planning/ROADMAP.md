@@ -4,6 +4,7 @@
 
 - ✅ **v2.3 Advanced Analytics & Mobile Polish** — Phases 1-7 (shipped 2026-03-07)
 - ✅ **v2.4 UX Polish & Spending Insights** — Phases 8-10 (shipped 2026-03-07) [Details](.planning/milestones/v2.4-ROADMAP.md)
+- 🚧 **v2.5 Debt Tab UX Overhaul** — Phases 11-14 (in progress)
 
 ## Phases
 
@@ -21,7 +22,64 @@ Full archive: `.planning/milestones/v2.4-ROADMAP.md`
 
 </details>
 
+### 🚧 v2.5 Debt Tab UX Overhaul (In Progress)
+
+**Milestone Goal:** Replace the broken inline debt form with a working modal dialog and type-specific field sets for all debt types. Root cause: an unclosed `<div>` in `renderDebtForm()` buries Save/Cancel buttons in a hidden container. Fix: replace `#debtFormContainer` banner with a native `<dialog>` wired through the existing `modalUI` infrastructure.
+
+- [ ] **Phase 11: Modal Scaffold** — Working (empty) debt modal that opens, closes, handles Esc, and clears state on all dismiss paths
+- [ ] **Phase 12: Type-Specific Field Logic** — All four debt type fieldsets with correct show/hide on type change and on modal open
+- [ ] **Phase 13: Save, Edit, and Validation** — Fully working Add and Edit flows for all debt types with inline validation errors
+- [ ] **Phase 14: Cleanup and Polish** — Remove dead `#debtFormContainer` HTML, auto-focus, and numeric placeholder hints
+
+## Phase Details
+
+### Phase 11: Modal Scaffold
+**Goal**: Users can open and close a debt modal dialog that correctly manages scroll lock, focus trapping, and state cleanup on every dismiss path
+**Depends on**: Nothing (first v2.5 phase; existing modalUI infrastructure in render.js)
+**Requirements**: MODAL-01, MODAL-02, MODAL-03, MODAL-04
+**Success Criteria** (what must be TRUE):
+  1. Clicking "Add New Debt" opens a modal overlay (not an inline banner) with the form visible
+  2. Clicking the backdrop (outside the dialog) dismisses the modal
+  3. Page scroll is locked while the modal is open and restored on close
+  4. Name field receives keyboard focus automatically when the modal opens
+**Plans**: TBD
+
+### Phase 12: Type-Specific Field Logic
+**Goal**: Users see the correct type-specific fields immediately when selecting a debt type, with no switch-away workaround required in either Add or Edit mode
+**Depends on**: Phase 11
+**Requirements**: TYPE-01, TYPE-02, TYPE-03, TYPE-04, EDIT-03
+**Success Criteria** (what must be TRUE):
+  1. Selecting Credit Card shows credit limit, current balance, interest rate, and min payment fields — no other type's fields are visible
+  2. Selecting Mortgage shows property value, remaining balance, term, interest rate, and ERC fields
+  3. Selecting Personal Loan shows original amount, remaining balance, term, and interest rate fields
+  4. Selecting Other shows the generic fallback fields
+  5. Opening the Edit modal for an existing debt immediately shows the correct fieldset for that debt's type without the user touching the type selector
+**Plans**: TBD
+
+### Phase 13: Save, Edit, and Validation
+**Goal**: Users can successfully add a new debt and save edits to an existing debt using the modal, with validation errors shown inline beneath each field
+**Depends on**: Phase 12
+**Requirements**: ADD-01, ADD-02, ADD-03, EDIT-01, EDIT-02
+**Success Criteria** (what must be TRUE):
+  1. Clicking Add in Add mode saves the new debt to the database and closes the modal
+  2. Clicking Save in Edit mode saves changes for all debt types and closes the modal
+  3. Opening Add New Debt always shows an empty, reset form regardless of previous modal use
+  4. All fields for an existing debt (including type-specific fields) are pre-populated when the Edit modal opens
+  5. Required-field validation errors appear as inline text below the relevant field, not as alert popups
+**Plans**: TBD
+
+### Phase 14: Cleanup and Polish
+**Goal**: The codebase contains no dead debt form code and the modal delivers polished form interactions including auto-focus and placeholder hints
+**Depends on**: Phase 13
+**Requirements**: (no additional v1 requirements — delivers clean code state and P2 polish items)
+**Success Criteria** (what must be TRUE):
+  1. The old `#debtFormContainer` element and its associated `toggleDebtForm()`/`renderDebtForm()` functions are removed from the codebase with no regressions
+  2. Numeric input fields display placeholder hints (e.g. "0.00", "2.50%") so users know the expected format
+**Plans**: TBD
+
 ## Progress
+
+**Execution Order:** Phases execute in numeric order: 11 → 12 → 13 → 14
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 | ----- | --------- | -------------- | ------ | --------- |
@@ -35,3 +93,7 @@ Full archive: `.planning/milestones/v2.4-ROADMAP.md`
 | 8. Haptic Feedback | v2.4 | 3/3 | Complete | 2026-03-07 |
 | 9. Swipe Gesture System | v2.4 | 4/4 | Complete | 2026-03-07 |
 | 10. Spending Heatmap | v2.4 | 2/2 | Complete | 2026-03-07 |
+| 11. Modal Scaffold | v2.5 | 0/TBD | Not started | - |
+| 12. Type-Specific Field Logic | v2.5 | 0/TBD | Not started | - |
+| 13. Save, Edit, and Validation | v2.5 | 0/TBD | Not started | - |
+| 14. Cleanup and Polish | v2.5 | 0/TBD | Not started | - |

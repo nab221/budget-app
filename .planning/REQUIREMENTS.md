@@ -64,12 +64,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TYPE-02 | Phase 12 | Pending |
 | TYPE-03 | Phase 12 | Pending |
 | TYPE-04 | Phase 12 | Pending |
+| EDIT-03 | Phase 12 | Pending |
 | ADD-01 | Phase 13 | Pending |
 | ADD-02 | Phase 13 | Pending |
 | ADD-03 | Phase 13 | Pending |
 | EDIT-01 | Phase 13 | Pending |
 | EDIT-02 | Phase 13 | Pending |
-| EDIT-03 | Phase 12 | Pending |
 
 **Coverage:**
 - v2.5 requirements: 13 total
@@ -78,4 +78,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-07*
-*Last updated: 2026-03-07 after initial definition*
+*Last updated: 2026-03-07 — traceability finalized during roadmap creation*
