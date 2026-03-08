@@ -16,10 +16,10 @@ Requirements for the Debt Tab UX Overhaul milestone.
 
 ### Type Fields
 
-- [ ] **TYPE-01**: Credit Card fields (credit limit, current balance, interest rate, min payment) appear automatically when Credit Card is selected — no switch-away workaround needed
-- [ ] **TYPE-02**: Mortgage fields (property value, remaining balance, term, interest rate, ERC) appear when Mortgage is selected
-- [ ] **TYPE-03**: Personal Loan fields (original amount, remaining balance, term, interest rate) appear when Personal Loan is selected
-- [ ] **TYPE-04**: Generic/Other fields appear when Other type is selected
+- [x] **TYPE-01**: Credit Card fields (credit limit, current balance, interest rate, min payment) appear automatically when Credit Card is selected — no switch-away workaround needed
+- [x] **TYPE-02**: Mortgage fields (property value, remaining balance, term, interest rate, ERC) appear when Mortgage is selected
+- [x] **TYPE-03**: Personal Loan fields (original amount, remaining balance, term, interest rate) appear when Personal Loan is selected
+- [x] **TYPE-04**: Generic/Other fields appear when Other type is selected
 
 ### Add Flow
 
@@ -31,7 +31,7 @@ Requirements for the Debt Tab UX Overhaul milestone.
 
 - [ ] **EDIT-01**: User can save an edited debt — clicking Save works for all debt types and closes the modal
 - [ ] **EDIT-02**: All fields are pre-populated from the existing debt data when the edit modal opens
-- [ ] **EDIT-03**: The correct type-specific fields auto-show for the debt's existing type (no switch-away needed)
+- [x] **EDIT-03**: The correct type-specific fields auto-show for the debt's existing type (no switch-away needed)
 
 ## Future Requirements
 
@@ -60,11 +60,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MODAL-02 | Phase 11 | Complete |
 | MODAL-03 | Phase 11 | Complete |
 | MODAL-04 | Phase 11 | Complete |
-| TYPE-01 | Phase 12 | Pending |
-| TYPE-02 | Phase 12 | Pending |
-| TYPE-03 | Phase 12 | Pending |
-| TYPE-04 | Phase 12 | Pending |
-| EDIT-03 | Phase 12 | Pending |
+| TYPE-01 | Phase 12 | Complete |
+| TYPE-02 | Phase 12 | Complete |
+| TYPE-03 | Phase 12 | Complete |
+| TYPE-04 | Phase 12 | Complete |
+| EDIT-03 | Phase 12 | Complete |
 | ADD-01 | Phase 13 | Pending |
 | ADD-02 | Phase 13 | Pending |
 | ADD-03 | Phase 13 | Pending |
