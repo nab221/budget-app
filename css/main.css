@@ -108,8 +108,14 @@ input[type="number"] { text-align: right; }
 .card-hd h2 { font-size: .9rem; text-transform: uppercase; letter-spacing: .06em; color: var(--text-soft); }
 
 /* ── SUMMARY ── */
-.sum-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-bottom: 12px; }
+.sum-grid { 
+  display: flex; 
+  flex-wrap: wrap; 
+  gap: 12px; 
+  margin-bottom: 12px; 
+}
 .sum-item {
+  flex: 1 1 180px;
   background: radial-gradient(circle at top left, var(--accent-soft), var(--card));
   border-radius: 12px;
   padding: 12px 16px;
@@ -117,12 +123,15 @@ input[type="number"] { text-align: right; }
   display: flex; flex-direction: column; gap: 4px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.02);
 }
+@media (max-width: 768px) {
+  .sum-item { flex: 1 1 100%; }
+}
 .sum-label { font-size: .68rem; text-transform: uppercase; color: var(--text-soft); letter-spacing: .08em; font-weight: 500; }
-.sum-val { font-size: 1.15rem; font-weight: 700; }
+.sum-val { font-size: 1.15rem; font-weight: 700; overflow-wrap: break-word; }
 .sum-note { font-size: .68rem; color: var(--text-dim); }
 
-/* ── BALANCE BANNER (Special Dashboard Cards) ── */
-.balance-card {
+/* ── DASHBOARD CARDS ── */
+.dashboard-card {
   background: linear-gradient(135deg, var(--card), var(--card2));
   border: 1px solid var(--accent-border);
   border-left: 4px solid var(--accent);
@@ -131,8 +140,14 @@ input[type="number"] { text-align: right; }
   display: flex;
   flex-direction: column;
   gap: 4px;
+  flex: 1 1 240px;
 }
-.balance-card .sum-val { font-size: 1.35rem; color: var(--accent); }
+.dashboard-card .sum-val { font-size: 1.35rem; color: var(--accent); }
+.dashboard-card.forecast-card {
+  border-left-color: var(--info);
+  font-style: italic;
+}
+.dashboard-card.forecast-card .sum-val { color: var(--info); }
 
 /* ── NAVIGATION ── */
 .nav-container {
