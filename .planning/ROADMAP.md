@@ -142,4 +142,4 @@ Plans:
 | 13. Save, Edit, and Validation | 1/2 | In Progress|  | - |
 | 14. Cleanup and Polish | v2.5 | 0/TBD | Not started | - |
 | 15. Statement History Modal | v2.5 | 0/TBD | Not started | - |
-| 16. Debt History UX Refinement | 1/3 | In Progress|  | - |
+| 16. Debt History UX Refinement | 2/3 | In Progress|  | - |

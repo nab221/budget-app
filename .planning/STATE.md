@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: milestone
 status: in-progress
-stopped_at: Completed 16-01-PLAN.md
-last_updated: "2026-03-08T14:25:11.956Z"
+stopped_at: Completed 16-02-PLAN.md
+last_updated: "2026-03-08T14:34:01.751Z"
 last_activity: "2026-03-08 — Added Phase 16: Debt History UX Refinement (Auto-population & History UX)"
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 5
-  completed_plans: 3
+  completed_plans: 4
 ---
 
 ---
@@ -63,6 +63,7 @@ Progress: [████████░░] 83%
 - **v2.5 Table Style**: Standardized all tables to use `.tbl.sm` for better mobile density.
 - **v2.5 Repository Exports**: Explicitly exported `calcMinPayment`, `calculateBalanceChain`, and `simulatePayoff` from `src/db/repository.js` to ensure the repository layer provides a consistent API for data-related calculations.
 - [Phase 16-debt-history-ux-refinement]: EDIT-04: _populateEditFields was already correct — tests confirm fromPence() is called for all pence fields, no production code fix needed.
+- [Phase 16-debt-history-ux-refinement]: HIST-01/02: Scoped CSS in modal HTML for sticky columns; abbrevGBP on Opening/Closing only; fmtDate on all date columns; ✏️ icon with title for edit accessibility
 
 ### Pending Todos
 
@@ -75,6 +76,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-08T14:25:11.951Z
-Stopped at: Completed 16-01-PLAN.md
+Last session: 2026-03-08T14:34:01.746Z
+Stopped at: Completed 16-02-PLAN.md
 Resume file: None
