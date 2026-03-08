@@ -1,11 +1,13 @@
 import {
   incomeRepository,
-  categoryRepository
+  categoryRepository,
+  getYearlyDailyIncome
 } from '../db/repository.js';
 import { formatGBP, fromPence } from '../utils/currency.js';
 import { safeHTML, renderTabSummary, modalUI } from './render.js';
 import { filterTransactions } from '../utils/filtering.js';
 import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
+import { renderSpendingHeatmap } from './heatmap.js';
 
 /**
  * Transaction UI Module
@@ -284,8 +286,50 @@ export const transactionUI = {
   async render(month) {
     if (month) this.setCurrentMonth(month);
     await this.renderMonthPicker();
+    await this.renderHeatmap();
     await this.renderCategoryFilter();
     await this.renderIncome(this.currentMonth);
+  },
+
+  async renderHeatmap() {
+    const container = document.getElementById('incomeTabHeatmapContainer');
+    if (!container) return;
+
+    try {
+      const year = parseInt(this.currentMonth.slice(0, 4), 10);
+      const prevYear = year - 1;
+
+      const [currentYearData, prevYearData] = await Promise.all([
+        getYearlyDailyIncome(year),
+        getYearlyDailyIncome(prevYear)
+      ]);
+
+      const hasPrevYearData = Object.values(prevYearData).some(d => d.total > 0);
+      const allData = { ...currentYearData, ...prevYearData };
+
+      renderSpendingHeatmap('incomeTabHeatmapContainer', year, currentYearData, {
+        allYearsData: allData
+      });
+
+      if (hasPrevYearData) {
+        const spacer = document.createElement('div');
+        spacer.style.height = '20px';
+        container.appendChild(spacer);
+
+        const prevLabel = document.createElement('div');
+        prevLabel.className = 'chart-title';
+        prevLabel.style.textAlign = 'center';
+        prevLabel.textContent = `Prior Year (${prevYear})`;
+        container.appendChild(prevLabel);
+
+        renderSpendingHeatmap('incomeTabHeatmapContainer', prevYear, prevYearData, {
+          clear: false,
+          allYearsData: allData
+        });
+      }
+    } catch (err) {
+      console.warn('Could not render income tab heatmap:', err);
+    }
   },
 
   async renderMonthPicker() {

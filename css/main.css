@@ -599,7 +599,10 @@ body.privacy-enabled .chart-container:hover canvas {
 }
 
 /* ── HEATMAP ── */
-#spendingHeatmapContainer {
+#spendingHeatmapContainer,
+#incomeHeatmapContainer,
+#incomeTabHeatmapContainer,
+#expensesTabHeatmapContainer {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -607,7 +610,10 @@ body.privacy-enabled .chart-container:hover canvas {
 }
 
 /* Heatmap canvas should fill the container width while preserving aspect ratio. */
-#spendingHeatmapContainer canvas {
+#spendingHeatmapContainer canvas,
+#incomeHeatmapContainer canvas,
+#incomeTabHeatmapContainer canvas,
+#expensesTabHeatmapContainer canvas {
   width: 100% !important;
   height: auto !important;
   max-height: none;
@@ -631,10 +637,16 @@ body.privacy-enabled .chart-container:hover canvas {
 .heatmap-tooltip .category { font-style: italic; color: #ccc; }
 
 /* ── HEATMAP PRIVACY ── */
-body.privacy-enabled #spendingHeatmapContainer {
+body.privacy-enabled #spendingHeatmapContainer,
+body.privacy-enabled #incomeHeatmapContainer,
+body.privacy-enabled #incomeTabHeatmapContainer,
+body.privacy-enabled #expensesTabHeatmapContainer {
   filter: blur(15px);
   transition: filter 0.3s ease;
 }
-body.privacy-enabled #spendingHeatmapSection:hover #spendingHeatmapContainer {
+body.privacy-enabled #spendingHeatmapSection:hover #spendingHeatmapContainer,
+body.privacy-enabled #incomeHeatmapSection:hover #incomeHeatmapContainer,
+body.privacy-enabled #incomeTabHeatmapSection:hover #incomeTabHeatmapContainer,
+body.privacy-enabled #expensesTabHeatmapSection:hover #expensesTabHeatmapContainer {
   filter: blur(0);
 }

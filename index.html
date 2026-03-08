@@ -134,6 +134,18 @@
             <!-- Month Picker (Navigation) -->
             <div id="incMonthPicker" class="month-nav" style="margin-bottom:20px"></div>
 
+            <div class="card" id="incomeTabHeatmapSection" style="margin-bottom: 20px; overflow-x: auto; -webkit-overflow-scrolling: touch;">
+              <div class="card-hd">
+                <h3 class="chart-title">Income Heatmap</h3>
+              </div>
+              <div class="chart-container" style="padding: 15px; min-width: 800px; border-bottom: none">
+                <div id="incomeTabHeatmapContainer" class="privacy-blur"></div>
+              </div>
+              <div class="hint" style="padding: 0 15px 15px; font-size: 0.7rem; color: var(--text-soft)">
+                Grey means no income. Greener and darker cells indicate higher daily income.
+              </div>
+            </div>
+
             <div id="incomeSummary" style="margin-bottom:20px"></div>
 
             <!-- Reconciliation Header (Hidden by default) -->
@@ -161,6 +173,18 @@
           <div class="tab-panel" data-panel="expenses">
             <!-- Month Picker (Navigation) -->
             <div id="expMonthPicker" class="month-nav" style="margin-bottom:20px"></div>
+
+            <div class="card" id="expensesTabHeatmapSection" style="margin-bottom: 20px; overflow-x: auto; -webkit-overflow-scrolling: touch;">
+              <div class="card-hd">
+                <h3 class="chart-title">Spending Heatmap</h3>
+              </div>
+              <div class="chart-container" style="padding: 15px; min-width: 800px; border-bottom: none">
+                <div id="expensesTabHeatmapContainer" class="privacy-blur"></div>
+              </div>
+              <div class="hint" style="padding: 0 15px 15px; font-size: 0.7rem; color: var(--text-soft)">
+                Grey means no spend. Greener and darker cells indicate higher daily spending.
+              </div>
+            </div>
 
             <div id="expensesSummary" style="margin-bottom:20px"></div>
 
