@@ -6,8 +6,19 @@
 - **Key Features**: Rhythmic Haptic Patterns, Swipe-to-Delete/Clear with Coordination, 52x7 Spending Heatmap, Quartile Scaling, Privacy Blur for Gestures/Heatmap.
 - **Codebase**: ~12,500 JS LOC | Vanilla JS + Dexie.js + Chart.js v4 + date-fns
 
-## Next Milestone: Pending Definition
-*Run `/gsd:new-milestone` to define the next set of goals.*
+## Current Milestone: v2.5 — Debt Tab UX Overhaul
+
+**Goal:** Replace the broken inline debt form with a working modal dialog and type-specific field sets for all debt types.
+
+**Target features:**
+- Modal/dialog for Add New Debt and Edit Debt (replaces inline banner)
+- Type-specific fields auto-shown on type selection (no switch-away-and-back workaround)
+  - Credit Card: credit limit, current balance, interest rate, min payment
+  - Mortgage: property value, remaining balance, term, interest rate, ERC
+  - Personal Loan: original amount, remaining balance, term, interest rate
+  - Other/Generic: fallback form for unlisted types
+- Working Add and Save buttons with proper form validation
+- Edit form pre-populates all fields for the selected debt
 
 ---
 
@@ -100,4 +111,4 @@ A personal budget tracking web app — a full rebuild of a buggy AI-generated pr
 </details>
 
 ---
-*Last updated: 2026-03-07 after v2.4 milestone completion*
+*Last updated: 2026-03-07 after v2.5 milestone start*
