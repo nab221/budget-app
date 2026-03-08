@@ -4,6 +4,7 @@ import {
   categoryRepository,
   statementRepository,
   targetRepository,
+  getYearlyDailySpending,
   triggerBalanceRecalc,
   triggerDailyForecastRecalc
 } from '../db/repository.js';
@@ -17,6 +18,7 @@ import { generateInstances } from '../utils/recurrence.js';
 import { generateUUID } from '../utils/security.js';
 import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
 import { SwipeHandler } from '../utils/gestures.js';
+import { renderSpendingHeatmap } from './heatmap.js';
 
 /**
  * Expenses UI Module
@@ -606,6 +608,7 @@ export const expensesUI = {
     if (!container) return;
 
     await this.renderMonthPicker();
+    await this.renderHeatmap();
     await this.renderCategoryFilter();
 
     const [recurrentRaw, oneOffRaw, categories, targets] = await Promise.all([
@@ -740,6 +743,47 @@ export const expensesUI = {
 
     this.updateTotal(totalPence);
     this.setupGestures();
+  },
+
+  async renderHeatmap() {
+    const container = document.getElementById('expensesTabHeatmapContainer');
+    if (!container) return;
+
+    try {
+      const year = parseInt(this.selectedMonth.slice(0, 4), 10);
+      const prevYear = year - 1;
+
+      const [currentYearData, prevYearData] = await Promise.all([
+        getYearlyDailySpending(year),
+        getYearlyDailySpending(prevYear)
+      ]);
+
+      const hasPrevYearData = Object.values(prevYearData).some(d => d.total > 0);
+      const allData = { ...currentYearData, ...prevYearData };
+
+      renderSpendingHeatmap('expensesTabHeatmapContainer', year, currentYearData, {
+        allYearsData: allData
+      });
+
+      if (hasPrevYearData) {
+        const spacer = document.createElement('div');
+        spacer.style.height = '20px';
+        container.appendChild(spacer);
+
+        const prevLabel = document.createElement('div');
+        prevLabel.className = 'chart-title';
+        prevLabel.style.textAlign = 'center';
+        prevLabel.textContent = `Prior Year (${prevYear})`;
+        container.appendChild(prevLabel);
+
+        renderSpendingHeatmap('expensesTabHeatmapContainer', prevYear, prevYearData, {
+          clear: false,
+          allYearsData: allData
+        });
+      }
+    } catch (err) {
+      console.warn('Could not render expenses tab heatmap:', err);
+    }
   },
 
   /**
