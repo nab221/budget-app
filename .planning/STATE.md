@@ -1,17 +1,32 @@
 ---
 gsd_state_version: 1.0
+milestone: v2.3
+milestone_name: milestone
+status: in-progress
+stopped_at: Phase 16 context gathered
+last_updated: "2026-03-08T13:15:47.203Z"
+last_activity: "2026-03-08 — Added Phase 16: Debt History UX Refinement (Auto-population & History UX)"
+progress:
+  total_phases: 6
+  completed_phases: 1
+  total_plans: 2
+  completed_plans: 2
+---
+
+---
+gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: Debt Tab UX Overhaul
-status: ready_to_plan
-stopped_at: Completed 14-ui-polish-and-layout 14-PLAN.md
-last_updated: "2026-03-08T14:00:00.000Z"
-last_activity: 2026-03-08 — Completed Phase 14: UI Polish & Layout
+status: in-progress
+stopped_at: Added Phase 16: Debt History UX Refinement
+last_updated: "2026-03-08T15:10:00.000Z"
+last_activity: 2026-03-08 — Added Phase 16: Debt History UX Refinement to v2.5
 progress:
-  total_phases: 5
-  completed_phases: 4
-  total_plans: 10
-  completed_plans: 8
-  percent: 80
+  total_phases: 6
+  completed_phases: 5
+  total_plans: 12
+  completed_plans: 11
+  percent: 83
 ---
 
 ## Project State: Budget App
@@ -21,16 +36,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-07)
 
 **Core value:** A personal budget tracker that helps a UK household track income, expenses, debts, assets, and forecast cash flow — fully offline, PWA-ready, no server required.
-**Current focus:** Milestone v2.5 — Phase 15: Statement History Modal
+**Current focus:** v2.5 — Debt Tab UX Overhaul (Polishing UX and History Modal)
 
 ## Current Position
 
-Phase: 15 of 15 (Statement History Modal)
-Plan: — (not yet planned)
-Status: Ready to plan
-Last activity: 2026-03-08 — Completed Phase 14: UI Polish & Layout (Fixed `SyntaxError` on import analysis)
+Phase: 16 of 16 (Debt History UX Refinement)
+Plan: 16-PLAN.md (01)
+Status: In Progress
+Last activity: 2026-03-08 — Added Phase 16: Debt History UX Refinement (Auto-population & History UX)
 
-Progress: [████████░░] 80%
+Progress: [████████░░] 83%
 
 ## Completed Milestones
 
@@ -41,6 +56,7 @@ Progress: [████████░░] 80%
 
 ### Decisions
 
+- **v2.5 Debt History Modal**: Migrated statement history from inline expansion to `modalUI`. Log/Edit statement forms now appear inside the history modal for context.
 - **v2.5 Dashboard Banner**: Refined dashboard with Running Balance, Next Month Forecast, and 3-Month Forecast cards sharing the same `.dashboard-card` visual style. Foreasted values marked with italics.
 - **v2.5 UI Consolidation**: Migrated Expenses, Income (Transactions), and Assets to the centralized `modalUI` system. Removed all legacy inline form containers (`#expenseFormContainer`, etc.) from HTML.
 - **v2.5 Font Scaling**: Centralized `adjustFontSize` in `render.js` to handle currency amount scaling across all dashboard and summary cards.
@@ -49,7 +65,8 @@ Progress: [████████░░] 80%
 
 ### Pending Todos
 
-- Phase 15: Migrate debt statement history from inline ledger to modal-driven view for consistency.
+- Audit v2.5 changes for any remaining dead code or CSS.
+- Plan next milestone (e.g., v2.6 or v3.0).
 
 ### Blockers/Concerns
 
@@ -57,6 +74,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-08T14:00:00.000Z
-Stopped at: Completed 14-ui-polish-and-layout 14-PLAN.md
-Resume file: None
+Last session: 2026-03-08T13:15:47.198Z
+Stopped at: Phase 16 context gathered
+Resume file: .planning/phases/16-debt-history-ux-refinement/16-CONTEXT.md
