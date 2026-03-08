@@ -9,10 +9,10 @@ Requirements for the Debt Tab UX Overhaul milestone.
 
 ### Modal Structure
 
-- [ ] **MODAL-01**: User sees a modal dialog (not an inline banner) when adding or editing a debt
-- [ ] **MODAL-02**: User can dismiss the modal by clicking the backdrop (outside the dialog)
-- [ ] **MODAL-03**: Page scroll is locked while the debt modal is open
-- [ ] **MODAL-04**: Name field receives focus automatically when the modal opens
+- [x] **MODAL-01**: User sees a modal dialog (not an inline banner) when adding or editing a debt
+- [x] **MODAL-02**: User can dismiss the modal by clicking the backdrop (outside the dialog)
+- [x] **MODAL-03**: Page scroll is locked while the debt modal is open
+- [x] **MODAL-04**: Name field receives focus automatically when the modal opens
 
 ### Type Fields
 
@@ -56,10 +56,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| MODAL-01 | Phase 11 | Pending |
-| MODAL-02 | Phase 11 | Pending |
-| MODAL-03 | Phase 11 | Pending |
-| MODAL-04 | Phase 11 | Pending |
+| MODAL-01 | Phase 11 | Complete |
+| MODAL-02 | Phase 11 | Complete |
+| MODAL-03 | Phase 11 | Complete |
+| MODAL-04 | Phase 11 | Complete |
 | TYPE-01 | Phase 12 | Pending |
 | TYPE-02 | Phase 12 | Pending |
 | TYPE-03 | Phase 12 | Pending |

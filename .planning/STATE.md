@@ -3,6 +3,22 @@ gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: Debt Tab UX Overhaul
 status: ready_to_plan
+stopped_at: Completed 11-modal-scaffold 11-01-PLAN.md
+last_updated: "2026-03-08T09:02:30.974Z"
+last_activity: 2026-03-07 — Roadmap created for v2.5 (4 phases, 13 requirements mapped)
+progress:
+  total_phases: 4
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 17
+---
+
+---
+gsd_state_version: 1.0
+milestone: v2.5
+milestone_name: Debt Tab UX Overhaul
+status: ready_to_plan
 last_updated: "2026-03-07"
 ---
 
@@ -22,7 +38,7 @@ Plan: — (not yet planned)
 Status: Ready to plan
 Last activity: 2026-03-07 — Roadmap created for v2.5 (4 phases, 13 requirements mapped)
 
-Progress: [░░░░░░░░░░] 0% (v2.5)
+Progress: [██░░░░░░░░] 17%
 
 ## Completed Milestones
 
@@ -39,6 +55,7 @@ Progress: [░░░░░░░░░░] 0% (v2.5)
 - **v2.5 dialog placement**: `<dialog>` must be a direct child of `<body>`, not nested inside tab panel, to avoid `::backdrop` clipping.
 - **v2.4 heatmap rendering**: Custom canvas 2D Context (not chartjs-chart-matrix). ~80-line fillRect renderer, zero new dependencies.
 - **v2.4 swipe logic**: Enforced "reveal-and-tap" (no auto-trigger) and single-row coordination for mobile safety.
+- [Phase 11-modal-scaffold]: Mock render.js show() to apply scroll-lock side effect in jsdom tests so MODAL-03 can assert body overflow without a real overlay
 
 ### Pending Todos
 
@@ -51,6 +68,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-07
-Stopped at: Roadmap created. Ready to plan Phase 11.
+Last session: 2026-03-08T09:02:30.969Z
+Stopped at: Completed 11-modal-scaffold 11-01-PLAN.md
 Resume file: None
