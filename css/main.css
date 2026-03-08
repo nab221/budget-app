@@ -531,6 +531,22 @@ body.privacy-enabled .chart-container:hover canvas {
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
+/* ── STATEMENT TABLE ── */
+.stmt-tbl { table-layout: fixed; width: max-content; min-width: 100%; }
+.stmt-tbl th, .stmt-tbl td { white-space: nowrap; padding: 4px 6px; }
+.stmt-tbl th:first-child, .stmt-tbl td:first-child {
+  position: sticky; left: 0; z-index: 2; background: var(--bg);
+}
+.stmt-tbl th:last-child, .stmt-tbl td:last-child {
+  position: sticky; right: 0; z-index: 2; background: var(--bg);
+}
+/* Match alternating row backgrounds on sticky cells */
+.tbl tbody tr:nth-child(odd) .stmt-tbl-sticky-bg,
+.stmt-tbl tbody tr:nth-child(odd) td:first-child,
+.stmt-tbl tbody tr:nth-child(odd) td:last-child { background: var(--bg-alt); }
+.stmt-tbl tbody tr:nth-child(even) td:first-child,
+.stmt-tbl tbody tr:nth-child(even) td:last-child { background: var(--bg); }
+
 /* ── SWIPE GESTURES ── */
 .swipe-row {
   position: relative !important;
@@ -555,7 +571,13 @@ body.privacy-enabled .chart-container:hover canvas {
   font-size: 0.8rem;
   font-weight: 600;
   color: #fff;
-  pointer-events: auto; /* Changed from none to allow clicking revealed buttons */
+  pointer-events: auto;
+  visibility: hidden; /* Hidden until row is swiped */
+}
+
+.swipe-active .swipe-action-left,
+.swipe-active .swipe-action-right {
+  visibility: visible;
 }
 
 .swipe-action-left {

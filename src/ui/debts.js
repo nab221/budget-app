@@ -1,4 +1,5 @@
-import { debtRepository, statementRepository, incomeRepository, categoryRepository } from '../db/repository.js';
+import { debtRepository, statementRepository, incomeRepository, categoryRepository, oneOffExpenseRepository } from '../db/repository.js';
+import { db } from '../db/schema.js';
 import { formatGBP, fromPence } from '../utils/currency.js';
 import { calcMinPayment, calcUtilization, simulatePayoff } from '../utils/finance.js';
 import { safeHTML, renderTabSummary, modalUI } from './render.js';
@@ -116,13 +117,19 @@ export const debtUI = {
       if (!td) return;
       _markPaidOriginals.set(stmtId, td.innerHTML);
       const defaultAmount = (minPaymentPence / 100).toFixed(2);
+      const today = new Date().toISOString().slice(0, 10);
       td.innerHTML =
+        `<div style="display:flex;flex-direction:column;gap:2px;align-items:flex-end">` +
         `<input id="markPaidAmt-${stmtId}" type="number" step="0.01" min="0"` +
-        ` value="${defaultAmount}" style="width:58px;font-size:0.85em">` +
+        ` value="${defaultAmount}" placeholder="Amount" style="width:80px;font-size:0.85em">` +
+        `<input id="markPaidDate-${stmtId}" type="date"` +
+        ` value="${today}" style="width:110px;font-size:0.85em">` +
+        `<div style="display:flex;gap:4px">` +
         `<button class="sm" style="color:var(--success)" title="Confirm"` +
-        ` onclick="confirmMarkPaid(${stmtId}, ${debtId})">✓</button>` +
+        ` onclick="confirmMarkPaid(${stmtId}, ${debtId})">✓ Confirm</button>` +
         `<button class="sm ghost" title="Cancel"` +
-        ` onclick="cancelMarkPaid(${stmtId})">✕</button>`;
+        ` onclick="cancelMarkPaid(${stmtId})">✕</button>` +
+        `</div></div>`;
     };
 
     window.cancelMarkPaid = (stmtId) => {
@@ -133,27 +140,47 @@ export const debtUI = {
 
     window.confirmMarkPaid = async (stmtId, debtId) => {
       const amtInput = document.getElementById(`markPaidAmt-${stmtId}`);
+      const dateInput = document.getElementById(`markPaidDate-${stmtId}`);
       const amtPounds = parseFloat(amtInput?.value) || 0;
-      const today = new Date().toISOString().slice(0, 10);  // 'YYYY-MM-DD'
+      const paymentDate = dateInput?.value || new Date().toISOString().slice(0, 10);
 
-      // Save payment to statement (actualPaymentAmount in penceFields — pass decimal pounds)
-      await statementRepository.update(stmtId, {
-        actualPaymentAmount: amtPounds,
-        actualPaymentDate: today
+      // Get debt for name and current balance (currentBalance stored as pence in DB)
+      const debt = await debtRepository.get(debtId);
+
+      // Create a one-off expense (paid) so the payment appears in the Expenses tab
+      const debtCategory = await db.categories.where('name').equals('Credit Cards & Loans').first();
+      const expenseId = await oneOffExpenseRepository.add({
+        date: paymentDate,
+        note: `${debt.name} - payment`,
+        amount: amtPounds,
+        categoryId: debtCategory ? debtCategory.id : null,
+        isRecurring: false,
+        isCleared: false,
+        isReconciled: false,
+        status: 'paid',
+        isDebtPayment: true,
+        linkedDebtId: debtId
       });
 
-      // Deduct payment from debt currentBalance (stored as pence)
-      const debt = await debtRepository.get(debtId);
-      const currentBalancePence = Math.round((debt.currentBalance || 0) * 100);
+      // Save payment to statement; store expenseId for later editing
+      await statementRepository.update(stmtId, {
+        actualPaymentAmount: amtPounds,
+        actualPaymentDate: paymentDate,
+        linkedExpenseId: expenseId
+      });
+
+      // Deduct payment from debt currentBalance (DB stores pence; pass pounds to update)
+      const currentBalancePence = debt.currentBalance || 0;
       const paymentPence = Math.round(amtPounds * 100);
       const newBalancePence = Math.max(0, currentBalancePence - paymentPence);
       await debtRepository.update(debtId, { currentBalance: fromPence(newBalancePence) });
 
       triggerHaptic('success');
 
-      // Re-render to reflect payment
+      // Re-render debts and notify other panels
       await debtUI.renderStatements(debtId);
       await debtUI.render();
+      if (window.app) window.app.renderAll();
     };
   },
 
@@ -493,19 +520,25 @@ export const debtUI = {
       interest: 0,
       fees: 0,
       minimumPayment: '',
-      paymentDueDate: ''
+      paymentDueDate: '',
+      actualPaymentAmount: '',
+      actualPaymentDate: '',
+      linkedExpenseId: null
     };
 
     if (this.editingStmtId) {
       const stmt = await statementRepository.get(this.editingStmtId);
       if (stmt) {
-        data = { 
-          ...stmt, 
+        data = {
+          ...stmt,
           openingBalance: fromPence(stmt.openingBalance).toFixed(2),
-          amount: fromPence(stmt.amount).toFixed(2), 
-          interest: fromPence(stmt.interest).toFixed(2), 
+          amount: fromPence(stmt.amount).toFixed(2),
+          interest: fromPence(stmt.interest).toFixed(2),
           fees: fromPence(stmt.fees).toFixed(2),
-          minimumPayment: fromPence(stmt.minimumPayment).toFixed(2)
+          minimumPayment: fromPence(stmt.minimumPayment).toFixed(2),
+          actualPaymentAmount: stmt.actualPaymentAmount ? fromPence(stmt.actualPaymentAmount).toFixed(2) : '',
+          actualPaymentDate: stmt.actualPaymentDate || '',
+          linkedExpenseId: stmt.linkedExpenseId || null
         };
       }
     } else if (debtId) {
@@ -539,6 +572,10 @@ export const debtUI = {
       <div class="form-row">
         <div><label>Min Payment Due (£)</label><input id="stmtMinPaymentInput-${suffix}" type="number" step="0.01" value="${data.minimumPayment}" placeholder="0.00"/></div>
         <div><label>Payment Due Date</label><input id="stmtDueDateInput-${suffix}" type="date" value="${data.paymentDueDate || ''}"/></div>
+      </div>
+      <div class="form-row">
+        <div><label>Paid Amount (£)</label><input id="stmtPaidAmtInput-${suffix}" type="number" step="0.01" value="${data.actualPaymentAmount}" placeholder="—" /></div>
+        <div><label>Paid On</label><input id="stmtPaidDateInput-${suffix}" type="date" value="${data.actualPaymentDate || ''}"/></div>
         <div style="display:flex;align-items:flex-end;gap:8px">
           <button class="primary sm" onclick="debtUI.handleSaveStatement()">
             ${isUpdate ? 'Save Changes' : 'Log Statement'}
@@ -569,6 +606,9 @@ export const debtUI = {
     const fees = parseFloat(document.getElementById(`stmtFeesInput-${suffix}`).value);
     const minPayment = parseFloat(document.getElementById(`stmtMinPaymentInput-${suffix}`).value);
     const dueDate = document.getElementById(`stmtDueDateInput-${suffix}`).value;
+    const paidAmtRaw = document.getElementById(`stmtPaidAmtInput-${suffix}`)?.value;
+    const paidDate = document.getElementById(`stmtPaidDateInput-${suffix}`)?.value || null;
+    const paidAmt = paidAmtRaw && paidAmtRaw !== '' ? parseFloat(paidAmtRaw) : null;
 
     if (!date || isNaN(balance) || isNaN(openingBalance)) {
       alertWithHaptic('Please fill in Date, Opening Balance, and New Balance.', 'error');
@@ -598,11 +638,23 @@ export const debtUI = {
         interest: isNaN(interest) ? 0 : interest,
         fees: isNaN(fees) ? 0 : fees,
         minimumPayment: isNaN(minPayment) ? 0 : minPayment,
-        paymentDueDate: dueDate || null
+        paymentDueDate: dueDate || null,
+        actualPaymentAmount: paidAmt !== null ? paidAmt : undefined,
+        actualPaymentDate: paidDate || undefined
       };
 
       if (this.editingStmtId) {
+        // Fetch before update to get linkedExpenseId
+        const existingStmt = await statementRepository.get(this.editingStmtId);
         await statementRepository.update(this.editingStmtId, payload);
+
+        // If paid amount or date changed, sync the linked expense
+        if (existingStmt?.linkedExpenseId && paidAmt !== null) {
+          await oneOffExpenseRepository.update(existingStmt.linkedExpenseId, {
+            amount: paidAmt,
+            date: paidDate || existingStmt.actualPaymentDate
+          });
+        }
       } else {
         const debt = await debtRepository.get(debtId);
         await statementRepository.addWithExpense(payload, debt ? debt.name : 'Debt');
@@ -823,11 +875,11 @@ export const debtUI = {
 
     modalUI.show(title, content, footer);
 
-    // Scroll hint: visible on open, fades after 2s
-    const wrapper = document.getElementById('stmtTableWrapper');
-    if (wrapper) {
-      wrapper.classList.add('scroll-hint-visible');
-      setTimeout(() => wrapper.classList.remove('scroll-hint-visible'), 2000);
+    // Scroll hint: fade in, then fade out after 2s
+    const hint = document.getElementById('stmtScrollHint');
+    if (hint) {
+      hint.style.opacity = '1';
+      setTimeout(() => { hint.style.opacity = '0'; }, 2000);
     }
 
     // Initial render of statements into the modal table
@@ -861,14 +913,9 @@ export const debtUI = {
       <!-- Statement Form Placeholder (Inside Modal) -->
       <div id="stmtFormContainer-modal" class="card hidden" style="margin-bottom:16px; background:var(--bg-alt); border: 1px solid var(--border-light);"></div>
 
-      <style>
-        .stmt-tbl th, .stmt-tbl td { white-space: nowrap; padding: 4px 6px; }
-        .stmt-tbl th:first-child, .stmt-tbl td:first-child { position: sticky; left: 0; z-index: 2; background: var(--bg); }
-        .stmt-tbl th:last-child, .stmt-tbl td:last-child { position: sticky; right: 0; z-index: 2; background: var(--bg); }
-        .scroll-hint-visible::after { content: '→ scroll'; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); opacity: 1; transition: opacity 0.5s; font-size: 0.75rem; color: var(--text-soft); pointer-events: none; }
-      </style>
-
-      <div id="stmtTableWrapper" style="overflow-x:auto; overflow-y:visible; position:relative">
+      <div style="position:relative">
+        <div id="stmtScrollHint" style="position:absolute;right:0;top:0;bottom:0;width:48px;background:linear-gradient(to right,transparent,var(--bg) 70%);display:flex;align-items:center;justify-content:flex-end;padding-right:4px;pointer-events:none;font-size:0.7rem;color:var(--text-soft);opacity:0;transition:opacity 0.5s;z-index:5">→</div>
+      <div id="stmtTableWrapper" style="overflow-x:auto; overflow-y:visible">
         <table class="tbl sm stmt-tbl">
           <thead>
             <tr>
@@ -888,6 +935,7 @@ export const debtUI = {
             <tr><td colspan="10" class="hint" style="text-align:center">Loading history...</td></tr>
           </tbody>
         </table>
+      </div>
       </div>
     `;
   },

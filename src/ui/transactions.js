@@ -3,7 +3,7 @@ import {
   categoryRepository
 } from '../db/repository.js';
 import { formatGBP, fromPence } from '../utils/currency.js';
-import { safeHTML, renderTabSummary } from './render.js';
+import { safeHTML, renderTabSummary, modalUI } from './render.js';
 import { filterTransactions } from '../utils/filtering.js';
 import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
 

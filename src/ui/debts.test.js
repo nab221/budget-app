@@ -59,6 +59,23 @@ vi.mock('../db/repository.js', () => ({
   categoryRepository: {
     getCategories: vi.fn(async () => []),
   },
+  oneOffExpenseRepository: {
+    add: vi.fn(async () => 99),
+    update: vi.fn(),
+  },
+}));
+
+// Mock db schema for category lookup used by confirmMarkPaid
+vi.mock('../db/schema.js', () => ({
+  db: {
+    categories: {
+      where: vi.fn(() => ({
+        equals: vi.fn(() => ({
+          first: vi.fn(async () => ({ id: 5, name: 'Credit Cards & Loans' })),
+        })),
+      })),
+    },
+  },
 }));
 
 // Mock haptics to avoid import errors in jsdom
@@ -513,9 +530,9 @@ describe('HIST-01: history table layout — column widths, sticky columns, scrol
     expect(html).toContain('stmtTableWrapper');
   });
 
-  it('HIST-01b: _buildHistoryModalHTML HTML contains sticky (for sticky column styles)', () => {
+  it('HIST-01b: _buildHistoryModalHTML HTML contains stmt-tbl class (sticky styles applied via global CSS)', () => {
     const html = debtUI._buildHistoryModalHTML(mockDebt);
-    expect(html).toContain('sticky');
+    expect(html).toContain('stmt-tbl');
   });
 
   it('HIST-01c: _buildHistoryModalHTML HTML contains at least 10 <th> elements', () => {
@@ -727,14 +744,16 @@ describe('HIST-03: Mark Paid inline action', () => {
   // --- Task 2: confirmMarkPaid saves payment and updates debt balance ---
 
   it('HIST-03e: confirmMarkPaid calls statementRepository.update with actualPaymentAmount and today date', async () => {
-    // Set up DOM with amount input
+    const today = new Date().toISOString().slice(0, 10);
     document.body.innerHTML = `
       <input id="markPaidAmt-30" type="number" value="150.00" />
+      <input id="markPaidDate-30" type="date" value="${today}" />
     `;
 
     debtRepository.get.mockResolvedValueOnce({
       id: 60,
-      currentBalance: 500, // £500.00 stored as decimal pounds
+      name: 'Test Card',
+      currentBalance: 50000, // 50000 pence = £500.00
     });
 
     await window.confirmMarkPaid(30, 60);
@@ -746,51 +765,59 @@ describe('HIST-03: Mark Paid inline action', () => {
   });
 
   it('HIST-03f: confirmMarkPaid calls debtRepository.update with balance reduced by payment (clamped to 0)', async () => {
+    const today = new Date().toISOString().slice(0, 10);
     document.body.innerHTML = `
       <input id="markPaidAmt-31" type="number" value="150.00" />
+      <input id="markPaidDate-31" type="date" value="${today}" />
     `;
 
     debtRepository.get.mockResolvedValueOnce({
       id: 61,
-      currentBalance: 500, // £500.00 stored as decimal pounds
+      name: 'Test Card',
+      currentBalance: 50000, // 50000 pence = £500.00
     });
 
     await window.confirmMarkPaid(31, 61);
 
-    // currentBalance = £500.00 = 50000 pence
+    // currentBalance = 50000 pence (£500)
     // payment = £150.00 = 15000 pence
-    // new balance pence = 50000 - 15000 = 35000 pence
-    // fromPence(35000) = 350 (decimal pounds)
+    // new balance = 50000 - 15000 = 35000 pence → fromPence(35000) = 350
     expect(debtRepository.update).toHaveBeenCalledWith(61, expect.objectContaining({
       currentBalance: 350,
     }));
   });
 
   it('HIST-03g: confirmMarkPaid clamps new balance to 0 when payment exceeds balance', async () => {
+    const today = new Date().toISOString().slice(0, 10);
     document.body.innerHTML = `
       <input id="markPaidAmt-32" type="number" value="600.00" />
+      <input id="markPaidDate-32" type="date" value="${today}" />
     `;
 
     debtRepository.get.mockResolvedValueOnce({
       id: 62,
-      currentBalance: 500, // £500.00 stored as decimal pounds
+      name: 'Test Card',
+      currentBalance: 50000, // 50000 pence = £500.00
     });
 
     await window.confirmMarkPaid(32, 62);
 
-    // payment £600 > balance £500 → clamped to 0
+    // payment £600 (60000 pence) > balance £500 (50000 pence) → clamped to 0
     expect(debtRepository.update).toHaveBeenCalledWith(62, expect.objectContaining({
       currentBalance: 0,
     }));
   });
 
   it('HIST-03h: confirmMarkPaid calls renderStatements and render after saving', async () => {
+    const today = new Date().toISOString().slice(0, 10);
     document.body.innerHTML = `
       <input id="markPaidAmt-33" type="number" value="25.00" />
+      <input id="markPaidDate-33" type="date" value="${today}" />
     `;
 
     debtRepository.get.mockResolvedValueOnce({
       id: 63,
+      name: 'Test Card',
       currentBalance: 10000,
     });
 
