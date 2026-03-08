@@ -723,4 +723,87 @@ describe('HIST-03: Mark Paid inline action', () => {
     window.cancelMarkPaid(21);
     expect(td.innerHTML).toContain('original content here');
   });
+
+  // --- Task 2: confirmMarkPaid saves payment and updates debt balance ---
+
+  it('HIST-03e: confirmMarkPaid calls statementRepository.update with actualPaymentAmount and today date', async () => {
+    // Set up DOM with amount input
+    document.body.innerHTML = `
+      <input id="markPaidAmt-30" type="number" value="150.00" />
+    `;
+
+    debtRepository.get.mockResolvedValueOnce({
+      id: 60,
+      currentBalance: 500, // £500.00 stored as decimal pounds
+    });
+
+    await window.confirmMarkPaid(30, 60);
+
+    expect(statementRepository.update).toHaveBeenCalledWith(30, expect.objectContaining({
+      actualPaymentAmount: 150,
+      actualPaymentDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+    }));
+  });
+
+  it('HIST-03f: confirmMarkPaid calls debtRepository.update with balance reduced by payment (clamped to 0)', async () => {
+    document.body.innerHTML = `
+      <input id="markPaidAmt-31" type="number" value="150.00" />
+    `;
+
+    debtRepository.get.mockResolvedValueOnce({
+      id: 61,
+      currentBalance: 500, // £500.00 stored as decimal pounds
+    });
+
+    await window.confirmMarkPaid(31, 61);
+
+    // currentBalance = £500.00 = 50000 pence
+    // payment = £150.00 = 15000 pence
+    // new balance pence = 50000 - 15000 = 35000 pence
+    // fromPence(35000) = 350 (decimal pounds)
+    expect(debtRepository.update).toHaveBeenCalledWith(61, expect.objectContaining({
+      currentBalance: 350,
+    }));
+  });
+
+  it('HIST-03g: confirmMarkPaid clamps new balance to 0 when payment exceeds balance', async () => {
+    document.body.innerHTML = `
+      <input id="markPaidAmt-32" type="number" value="600.00" />
+    `;
+
+    debtRepository.get.mockResolvedValueOnce({
+      id: 62,
+      currentBalance: 500, // £500.00 stored as decimal pounds
+    });
+
+    await window.confirmMarkPaid(32, 62);
+
+    // payment £600 > balance £500 → clamped to 0
+    expect(debtRepository.update).toHaveBeenCalledWith(62, expect.objectContaining({
+      currentBalance: 0,
+    }));
+  });
+
+  it('HIST-03h: confirmMarkPaid calls renderStatements and render after saving', async () => {
+    document.body.innerHTML = `
+      <input id="markPaidAmt-33" type="number" value="25.00" />
+    `;
+
+    debtRepository.get.mockResolvedValueOnce({
+      id: 63,
+      currentBalance: 10000,
+    });
+
+    // Mock renderStatements and render to track calls
+    const renderStatementsSpy = vi.spyOn(debtUI, 'renderStatements').mockResolvedValue(undefined);
+    const renderSpy = vi.spyOn(debtUI, 'render').mockResolvedValue(undefined);
+
+    await window.confirmMarkPaid(33, 63);
+
+    expect(renderStatementsSpy).toHaveBeenCalledWith(63);
+    expect(renderSpy).toHaveBeenCalled();
+
+    renderStatementsSpy.mockRestore();
+    renderSpy.mockRestore();
+  });
 });

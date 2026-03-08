@@ -130,6 +130,31 @@ export const debtUI = {
       if (td) td.innerHTML = _markPaidOriginals.get(stmtId) || '';
       _markPaidOriginals.delete(stmtId);
     };
+
+    window.confirmMarkPaid = async (stmtId, debtId) => {
+      const amtInput = document.getElementById(`markPaidAmt-${stmtId}`);
+      const amtPounds = parseFloat(amtInput?.value) || 0;
+      const today = new Date().toISOString().slice(0, 10);  // 'YYYY-MM-DD'
+
+      // Save payment to statement (actualPaymentAmount in penceFields — pass decimal pounds)
+      await statementRepository.update(stmtId, {
+        actualPaymentAmount: amtPounds,
+        actualPaymentDate: today
+      });
+
+      // Deduct payment from debt currentBalance (stored as pence)
+      const debt = await debtRepository.get(debtId);
+      const currentBalancePence = Math.round((debt.currentBalance || 0) * 100);
+      const paymentPence = Math.round(amtPounds * 100);
+      const newBalancePence = Math.max(0, currentBalancePence - paymentPence);
+      await debtRepository.update(debtId, { currentBalance: fromPence(newBalancePence) });
+
+      triggerHaptic('success');
+
+      // Re-render to reflect payment
+      await debtUI.renderStatements(debtId);
+      await debtUI.render();
+    };
   },
 
   async openDebtModal(id = null) {
