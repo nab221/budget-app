@@ -16,6 +16,7 @@
   --text-dim: #64748b;
   --border: #e2e8f0;
   --border-light: rgba(226, 232, 240, 0.8);
+  --heatmap-zero: #e5e7eb;
   --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   --radius: 10px;
   --tr: 0.15s ease-out;
@@ -39,6 +40,7 @@
   --text-dim: #6b7280;
   --border: #1e293b;
   --border-light: rgba(148, 163, 184, 0.08);
+  --heatmap-zero: #334155;
   --shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
 
