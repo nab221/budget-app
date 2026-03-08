@@ -5,20 +5,20 @@ import {
   targetRepository, 
   netWorthRepository, 
   balanceSnapshotRepository,
-  dailyBalanceRepository,
   expectedIncomeRepository,
   childcareRepository,
   categoryRepository,
   getYearlyDailySpending
 } from '../db/repository.js';
-import { getDailyRollingData } from '../utils/cashflow.js';
+import { getDailyRollingData, calculateForecast } from '../utils/cashflow.js';
 import { formatGBP, formatGBPShort, toPence, fromPence } from '../utils/currency.js';
-import { simulatePayoff, calcMinPayment, calculateBalanceChain } from '../utils/finance.js';
+import { simulatePayoff, calcMinPayment } from '../utils/finance.js';
 import { renderRollingOverviewChart, renderSpendingBreakdownChart } from './charts.js';
 import { checkStoragePersistence } from './pwa-ux.js';
 import { getEntitlementPeriod, calculateFundingGap } from '../utils/childcare.js';
 import { modalUI, adjustFontSize } from './render.js';
 import { renderSpendingHeatmap } from './heatmap.js';
+import { pickInvariantForecastKpis } from './dashboard-kpis.js';
 
 let _selectedMonth = new Date().toISOString().slice(0, 7);
 let _selectedView = 'current';
@@ -184,30 +184,22 @@ export async function renderDashboard() {
   // 3. Fetch/Calculate Consolidated Data
   const debts = await debtRepository.getAll();
   const today = new Date().toISOString().split('T')[0];
-  const snapshots = await dailyBalanceRepository.getAll();
-  
-  // Calculate Balance logic (using snapshots or calculating if missing)
-  let currentBalance = 0;
-  const todaySnap = snapshots.find(s => s.date === today);
-  if (todaySnap) {
-    currentBalance = todaySnap.closingBalance;
-  } else {
-    // Fallback or trigger recalc
-    const chain = await calculateBalanceChain(_selectedMonth, 3);
-    const actualSnaps = chain.filter(s => !s.isProjection);
-    currentBalance = actualSnaps.length > 0 ? actualSnaps[actualSnaps.length - 1].closingBalance : 0;
+
+  // Keep these KPIs invariant by always using today's forecast baseline.
+  let forecastSnapshots = [];
+  try {
+    forecastSnapshots = await calculateForecast(today, 90);
+  } catch (err) {
+    console.warn('Could not calculate invariant forecast KPIs:', err);
   }
 
-  // Monthly Forecasts (1-month and 3-month)
-  const monthlyChain = await calculateBalanceChain(_selectedMonth, 3);
-  const nextMonthSnap = monthlyChain.find(s => s.month > _selectedMonth);
-  const threeMonthSnap = monthlyChain[monthlyChain.length - 1];
+  const invariantKpis = pickInvariantForecastKpis(forecastSnapshots);
 
   // Next Negative Alert warning
   const horizon = new Date();
   horizon.setDate(horizon.getDate() + 45);
   const horizonStr = horizon.toISOString().split('T')[0];
-  const firstNeg = snapshots
+  const firstNeg = forecastSnapshots
     .filter(s => s.date >= today && s.date <= horizonStr && s.closingBalance < 0)
     .sort((a, b) => a.date.localeCompare(b.date))[0];
 
@@ -228,21 +220,21 @@ export async function renderDashboard() {
     { 
       id: 'balance-card',
       label: 'Running Balance', 
-      value: currentBalance, 
+      value: invariantKpis.runningBalance,
       color: 'var(--accent)',
       isBanner: true,
       canEdit: true
     },
     { 
       label: 'Next Month Forecast', 
-      value: nextMonthSnap ? nextMonthSnap.closingBalance : null, 
+      value: invariantKpis.nextMonthForecast,
       color: 'var(--info)',
       isBanner: true,
       isForecast: true
     },
     { 
       label: '3-Month Forecast', 
-      value: threeMonthSnap ? threeMonthSnap.closingBalance : null, 
+      value: invariantKpis.threeMonthForecast,
       color: 'var(--info)',
       isBanner: true,
       isForecast: true
@@ -315,7 +307,7 @@ export async function renderDashboard() {
       editBtn.innerHTML = '✏️';
       editBtn.onclick = (e) => {
         e.stopPropagation();
-        openBalanceAdjustmentModal(currentBalance);
+        openBalanceAdjustmentModal(invariantKpis.runningBalance);
       };
       head.appendChild(editBtn);
     }
@@ -456,7 +448,6 @@ async function renderForecastTable() {
   tableCont.innerHTML = '<div class="hint" style="text-align:center; padding:20px">Calculating 45-day forecast...</div>';
 
   try {
-    const { calculateForecast } = await import('../utils/cashflow.js');
     const today = new Date().toISOString().split('T')[0];
     const snapshots = await calculateForecast(today, 45);
 
