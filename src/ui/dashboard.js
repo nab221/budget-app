@@ -18,10 +18,11 @@ import { checkStoragePersistence } from './pwa-ux.js';
 import { getEntitlementPeriod, calculateFundingGap } from '../utils/childcare.js';
 import { modalUI, adjustFontSize } from './render.js';
 import { renderSpendingHeatmap } from './heatmap.js';
-import { pickInvariantForecastKpis } from './dashboard-kpis.js';
+import { pickInvariantForecastKpis, rebaseForecastSnapshots } from './dashboard-kpis.js';
 
 let _selectedMonth = new Date().toISOString().slice(0, 7);
 let _selectedView = 'current';
+let _dashboardForecastSnapshots = [];
 
 function normalizeMonth(value) {
   return (typeof value === 'string' && /^\d{4}-\d{2}$/.test(value))
@@ -189,9 +190,20 @@ export async function renderDashboard() {
   let forecastSnapshots = [];
   try {
     forecastSnapshots = await calculateForecast(today, 90);
+
+    // Keep all dashboard balance surfaces aligned on today's chart balance.
+    const rollingTodayBalance =
+      rollingData && Number.isInteger(rollingData.todayIndex) && rollingData.todayIndex >= 0
+        ? rollingData?.data?.balance?.[rollingData.todayIndex]
+        : null;
+    if (Number.isFinite(rollingTodayBalance)) {
+      forecastSnapshots = rebaseForecastSnapshots(forecastSnapshots, rollingTodayBalance);
+    }
   } catch (err) {
     console.warn('Could not calculate invariant forecast KPIs:', err);
   }
+
+  _dashboardForecastSnapshots = forecastSnapshots;
 
   const invariantKpis = pickInvariantForecastKpis(forecastSnapshots);
 
@@ -448,8 +460,9 @@ async function renderForecastTable() {
   tableCont.innerHTML = '<div class="hint" style="text-align:center; padding:20px">Calculating 45-day forecast...</div>';
 
   try {
-    const today = new Date().toISOString().split('T')[0];
-    const snapshots = await calculateForecast(today, 45);
+    const snapshots = Array.isArray(_dashboardForecastSnapshots)
+      ? _dashboardForecastSnapshots.slice(0, 45)
+      : [];
 
     if (!snapshots || snapshots.length === 0) {
       tableCont.innerHTML = '<div class="hint" style="text-align:center; padding:20px">No forecast data available.</div>';
