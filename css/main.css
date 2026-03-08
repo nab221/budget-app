@@ -620,7 +620,7 @@ body.privacy-enabled .chart-container:hover canvas {
 }
 
 .heatmap-tooltip {
-  position: absolute;
+  position: fixed;
   background: rgba(0, 0, 0, 0.85);
   color: #fff;
   padding: 8px 12px;

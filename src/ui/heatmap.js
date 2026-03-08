@@ -204,7 +204,7 @@ export function renderSpendingHeatmap(containerId, year, dailyData, options = {}
     
     tooltip.style.display = 'block';
     
-    // Position tooltip
+    // Position tooltip near the pointer in viewport coordinates.
     const x = e.clientX + 10;
     const y = e.clientY + 10;
     
@@ -220,6 +220,10 @@ export function renderSpendingHeatmap(containerId, year, dailyData, options = {}
     if (finalY + tooltipRect.height > window.innerHeight) {
       finalY = e.clientY - tooltipRect.height - 10;
     }
+
+    // Clamp to viewport so tooltip never renders off-screen.
+    finalX = Math.max(8, Math.min(finalX, window.innerWidth - tooltipRect.width - 8));
+    finalY = Math.max(8, Math.min(finalY, window.innerHeight - tooltipRect.height - 8));
 
     tooltip.style.left = `${finalX}px`;
     tooltip.style.top = `${finalY}px`;
