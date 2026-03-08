@@ -32,7 +32,7 @@ Full archive: `.planning/milestones/v2.4-ROADMAP.md`
 - [x] **Phase 13: Save, Edit, and Validation** — Fully working Add and Edit flows for all debt types with inline validation errors (completed 2026-03-08)
 - [x] **Phase 14: Cleanup and Polish** — Remove dead `#debtFormContainer` HTML, auto-focus, and numeric placeholder hints (completed 2026-03-08)
 - [x] **Phase 15: Statement History Modal** — Statement history view migrated from inline tab to consistent modal-driven UX (completed 2026-03-08)
-- [ ] **Phase 16: Debt History UX Refinement** — Auto-populate edit fields, refine history modal table layout, and add "Mark Paid" quick action.
+- [x] **Phase 16: Debt History UX Refinement** — Auto-populate edit fields, refine history modal table layout, and add "Mark Paid" quick action. (completed 2026-03-08)
 
 </details>
 
@@ -142,4 +142,4 @@ Plans:
 | 13. Save, Edit, and Validation | 1/2 | In Progress|  | - |
 | 14. Cleanup and Polish | v2.5 | 0/TBD | Not started | - |
 | 15. Statement History Modal | v2.5 | 0/TBD | Not started | - |
-| 16. Debt History UX Refinement | 2/3 | In Progress|  | - |
+| 16. Debt History UX Refinement | 3/3 | Complete   | 2026-03-08 | - |
