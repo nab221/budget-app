@@ -29,6 +29,9 @@ const FIELD_IDS = {
   otherBalance:          'otherBalanceInput',
 };
 
+// Module-level storage for original td HTML during Mark Paid inline prompt
+const _markPaidOriginals = new Map();
+
 /**
  * Debt UI Module
  * Handles rendering and event handling for Debts and Statements.
@@ -107,6 +110,26 @@ export const debtUI = {
     };
 
     window.editDebt = (id) => this.editDebt(id);
+
+    window.showMarkPaidPrompt = (stmtId, debtId, minPaymentPence) => {
+      const td = document.getElementById(`mark-paid-td-${stmtId}`);
+      if (!td) return;
+      _markPaidOriginals.set(stmtId, td.innerHTML);
+      const defaultAmount = (minPaymentPence / 100).toFixed(2);
+      td.innerHTML =
+        `<input id="markPaidAmt-${stmtId}" type="number" step="0.01" min="0"` +
+        ` value="${defaultAmount}" style="width:58px;font-size:0.85em">` +
+        `<button class="sm" style="color:var(--success)" title="Confirm"` +
+        ` onclick="confirmMarkPaid(${stmtId}, ${debtId})">✓</button>` +
+        `<button class="sm ghost" title="Cancel"` +
+        ` onclick="cancelMarkPaid(${stmtId})">✕</button>`;
+    };
+
+    window.cancelMarkPaid = (stmtId) => {
+      const td = document.getElementById(`mark-paid-td-${stmtId}`);
+      if (td) td.innerHTML = _markPaidOriginals.get(stmtId) || '';
+      _markPaidOriginals.delete(stmtId);
+    };
   },
 
   async openDebtModal(id = null) {
@@ -884,9 +907,11 @@ export const debtUI = {
         <td style="color:${s.actualPaymentDate ? 'var(--success)' : 'inherit'}">
           ${s.actualPaymentDate ? fmtDate(s.actualPaymentDate) : '—'}
         </td>
-        <td class="r nw">
+        <td class="r nw" id="mark-paid-td-${s.id}">
           <button class="sm ghost" title="Edit statement" onclick="debtUI.editStatement(${s.id}, ${debtId})">✏️</button>
           <button class="sm danger" onclick="deleteStatement(${s.id}, ${debtId})">✕</button>
+          ${!s.actualPaymentDate ? safeHTML`<button class="sm" style="color:var(--success)" title="Mark as paid"
+            onclick="showMarkPaidPrompt(${s.id}, ${debtId}, ${s.minimumPayment})">✓</button>` : ''}
         </td>
       </tr>
     `).join('');

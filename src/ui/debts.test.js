@@ -629,3 +629,98 @@ describe('HIST-02: pencil icon in statement rows', () => {
     expect(tbody.innerHTML).toContain('✏️');
   });
 });
+
+describe('HIST-03: Mark Paid inline action', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    document.body.innerHTML = '';
+    statementRepository.getAll.mockResolvedValue([]);
+    // Register global handlers (showMarkPaidPrompt, cancelMarkPaid, etc.)
+    debtUI.setupEventListeners();
+  });
+
+  // --- Task 1: ✓ button presence/absence and showMarkPaidPrompt / cancelMarkPaid ---
+
+  it('HIST-03a: unpaid statement row shows ✓ button with showMarkPaidPrompt onclick', async () => {
+    statementRepository.getAll.mockResolvedValueOnce([
+      {
+        id: 10,
+        debtId: 50,
+        date: '2024-03-01',
+        openingBalance: 50000,
+        amount: 45000,
+        interest: 500,
+        fees: 0,
+        minimumPayment: 2500,
+        paymentDueDate: '',
+        actualPaymentAmount: 0,
+        actualPaymentDate: '',
+      },
+    ]);
+
+    document.body.innerHTML = '<table><tbody id="stmtBody-modal"></tbody></table>';
+    await debtUI.renderStatements(50);
+
+    const tbody = document.getElementById('stmtBody-modal');
+    expect(tbody.innerHTML).toContain('✓');
+    expect(tbody.innerHTML).toContain('showMarkPaidPrompt');
+  });
+
+  it('HIST-03b: paid statement row does NOT show ✓ button or showMarkPaidPrompt', async () => {
+    statementRepository.getAll.mockResolvedValueOnce([
+      {
+        id: 11,
+        debtId: 50,
+        date: '2024-03-01',
+        openingBalance: 50000,
+        amount: 45000,
+        interest: 500,
+        fees: 0,
+        minimumPayment: 2500,
+        paymentDueDate: '',
+        actualPaymentAmount: 2500,
+        actualPaymentDate: '2024-03-15',
+      },
+    ]);
+
+    document.body.innerHTML = '<table><tbody id="stmtBody-modal"></tbody></table>';
+    await debtUI.renderStatements(50);
+
+    const tbody = document.getElementById('stmtBody-modal');
+    expect(tbody.innerHTML).not.toContain('showMarkPaidPrompt');
+  });
+
+  it('HIST-03c: showMarkPaidPrompt replaces td innerHTML with inline prompt containing input and Confirm/Cancel buttons', () => {
+    // Set up a td with the correct id
+    document.body.innerHTML = `
+      <table><tbody>
+        <tr><td id="mark-paid-td-20">original content</td></tr>
+      </tbody></table>
+    `;
+
+    window.showMarkPaidPrompt(20, 50, 2500); // stmtId=20, debtId=50, minPaymentPence=2500
+
+    const td = document.getElementById('mark-paid-td-20');
+    expect(td.innerHTML).toContain('markPaidAmt-20');
+    expect(td.innerHTML).toContain('25.00'); // 2500 pence = £25.00
+    expect(td.innerHTML).toContain('confirmMarkPaid');
+    expect(td.innerHTML).toContain('cancelMarkPaid');
+  });
+
+  it('HIST-03d: cancelMarkPaid restores td innerHTML to original content', () => {
+    document.body.innerHTML = `
+      <table><tbody>
+        <tr><td id="mark-paid-td-21">original content here</td></tr>
+      </tbody></table>
+    `;
+
+    // First show the prompt (stores original)
+    window.showMarkPaidPrompt(21, 50, 1000);
+    const td = document.getElementById('mark-paid-td-21');
+    expect(td.innerHTML).not.toContain('original content here');
+
+    // Then cancel (restores original)
+    window.cancelMarkPaid(21);
+    expect(td.innerHTML).toContain('original content here');
+  });
+});
