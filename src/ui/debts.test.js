@@ -83,7 +83,7 @@ vi.mock('../utils/finance.js', () => ({
 
 import { debtUI } from './debts.js';
 import { modalUI } from './render.js';
-import { debtRepository } from '../db/repository.js';
+import { debtRepository, statementRepository } from '../db/repository.js';
 
 describe('debtUI modal scaffold', () => {
   beforeEach(() => {
@@ -489,5 +489,143 @@ describe('debtUI save and edit', () => {
     await debtUI.openDebtModal(5);
 
     expect(document.getElementById('otherBalanceInput').value).toBe('3000');
+  });
+});
+
+describe('HIST-01: history table layout — column widths, sticky columns, scroll UX', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    document.body.innerHTML = '';
+    statementRepository.getAll.mockResolvedValue([]);
+  });
+
+  const mockDebt = {
+    id: 42,
+    name: 'Test CC',
+    debtType: 'credit-card',
+    currentBalance: 150000,
+    apr: 19.9,
+    creditLimit: 500000,
+  };
+
+  it('HIST-01a: _buildHistoryModalHTML HTML contains stmtTableWrapper', () => {
+    const html = debtUI._buildHistoryModalHTML(mockDebt);
+    expect(html).toContain('stmtTableWrapper');
+  });
+
+  it('HIST-01b: _buildHistoryModalHTML HTML contains sticky (for sticky column styles)', () => {
+    const html = debtUI._buildHistoryModalHTML(mockDebt);
+    expect(html).toContain('sticky');
+  });
+
+  it('HIST-01c: _buildHistoryModalHTML HTML contains at least 10 <th> elements', () => {
+    const html = debtUI._buildHistoryModalHTML(mockDebt);
+    const thMatches = html.match(/<th/g) || [];
+    expect(thMatches.length).toBeGreaterThanOrEqual(10);
+  });
+
+  it('HIST-01d: renderStatements renders date as "08 Mar" format', async () => {
+    statementRepository.getAll.mockResolvedValueOnce([
+      {
+        id: 1,
+        debtId: 42,
+        date: '2024-03-08',
+        openingBalance: 50000,
+        amount: 45000,
+        interest: 500,
+        fees: 0,
+        minimumPayment: 2500,
+        paymentDueDate: '',
+        actualPaymentAmount: 0,
+        actualPaymentDate: '',
+      },
+    ]);
+
+    // Set up a table + tbody in the DOM (tbody must be inside a table to be valid)
+    document.body.innerHTML = '<table><tbody id="stmtBody-modal"></tbody></table>';
+    await debtUI.renderStatements(42);
+
+    const tbody = document.getElementById('stmtBody-modal');
+    expect(tbody.innerHTML).toContain('08 Mar');
+  });
+
+  it('HIST-01e: renderStatements renders large openingBalance as "£1.5k"', async () => {
+    statementRepository.getAll.mockResolvedValueOnce([
+      {
+        id: 2,
+        debtId: 42,
+        date: '2024-03-08',
+        openingBalance: 150000, // £1,500 in pence → "£1.5k"
+        amount: 140000,
+        interest: 500,
+        fees: 0,
+        minimumPayment: 2500,
+        paymentDueDate: '',
+        actualPaymentAmount: 0,
+        actualPaymentDate: '',
+      },
+    ]);
+
+    document.body.innerHTML = '<table><tbody id="stmtBody-modal"></tbody></table>';
+    await debtUI.renderStatements(42);
+
+    const tbody = document.getElementById('stmtBody-modal');
+    expect(tbody.innerHTML).toContain('£1.5k');
+  });
+});
+
+describe('HIST-02: pencil icon in statement rows', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    document.body.innerHTML = '';
+    statementRepository.getAll.mockResolvedValue([]);
+  });
+
+  it('HIST-02a: renderStatements row HTML does NOT contain ">Edit<"', async () => {
+    statementRepository.getAll.mockResolvedValueOnce([
+      {
+        id: 3,
+        debtId: 99,
+        date: '2024-01-15',
+        openingBalance: 10000,
+        amount: 9000,
+        interest: 100,
+        fees: 0,
+        minimumPayment: 500,
+        paymentDueDate: '',
+        actualPaymentAmount: 0,
+        actualPaymentDate: '',
+      },
+    ]);
+
+    document.body.innerHTML = '<table><tbody id="stmtBody-modal"></tbody></table>';
+    await debtUI.renderStatements(99);
+
+    const tbody = document.getElementById('stmtBody-modal');
+    expect(tbody.innerHTML).not.toContain('>Edit<');
+  });
+
+  it('HIST-02b: renderStatements row HTML contains ✏️', async () => {
+    statementRepository.getAll.mockResolvedValueOnce([
+      {
+        id: 4,
+        debtId: 99,
+        date: '2024-01-15',
+        openingBalance: 10000,
+        amount: 9000,
+        interest: 100,
+        fees: 0,
+        minimumPayment: 500,
+        paymentDueDate: '',
+        actualPaymentAmount: 0,
+        actualPaymentDate: '',
+      },
+    ]);
+
+    document.body.innerHTML = '<table><tbody id="stmtBody-modal"></tbody></table>';
+    await debtUI.renderStatements(99);
+
+    const tbody = document.getElementById('stmtBody-modal');
+    expect(tbody.innerHTML).toContain('✏️');
   });
 });
