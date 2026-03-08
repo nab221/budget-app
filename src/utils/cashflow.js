@@ -176,8 +176,12 @@ async function _projectRecurrentOccurrences(item, startDate, endDate, holidaySet
   // Otherwise, project recurring occurrences
   let currentDate = item.nextDate;
   let currentCycle = item.cycleCurrent || 0;
+  const maxIterations = 1000; // Safety limit to prevent infinite loops
+  let iterations = 0;
   
-  while (currentDate <= endDate) {
+  while (currentDate && currentDate <= endDate && iterations < maxIterations) {
+    iterations++;
+    
     // Check cycle limit
     if (item.cycleTotal > 0 && currentCycle >= item.cycleTotal) break;
     
@@ -187,8 +191,19 @@ async function _projectRecurrentOccurrences(item, startDate, endDate, holidaySet
     }
     
     // Advance to next occurrence
-    currentDate = advanceNextDate({ nextDate: currentDate, frequency: item.frequency }).nextDate;
+    const nextResult = advanceNextDate({ nextDate: currentDate, frequency: item.frequency });
+    const nextDate = nextResult.nextDate;
+
+    if (!nextDate || nextDate === currentDate) {
+      console.warn(`[cashflow] advanceNextDate returned invalid date for item:`, item);
+      break;
+    }
+    currentDate = nextDate;
     currentCycle++;
+  }
+  
+  if (iterations >= maxIterations) {
+    console.warn(`[cashflow] Max iterations reached for recurrent item:`, item);
   }
   
   return occurrences;

@@ -1,24 +1,24 @@
-import { initTheme, toggleTheme } from './ui/theme';
-import { modalUI } from './ui/render';
-import { categoryUI } from './ui/categories';
+import { initTheme, toggleTheme } from './ui/theme.js';
+import { modalUI } from './ui/render.js';
+import { categoryUI } from './ui/categories.js';
 import { 
   categoryRepository, 
   netWorthRepository, 
   balanceSnapshotRepository,
   triggerBalanceRecalc 
 } from './db/repository.js';
-import { transactionUI } from './ui/transactions';
-import { expensesUI } from './ui/expenses';
-import { debtUI } from './ui/debts';
-import { assetUI } from './ui/assets';
-import { templateUI } from './ui/templates';
-import { pdfImportUI } from './ui/pdf-import';
-import { targetsUI } from './ui/targets';
-import { backupUI } from './ui/backup';
-import { initDashboard, renderDashboard } from './ui/dashboard';
-import { renderPayoffPlanner } from './ui/payoff';
-import { initPWA, installApp, checkExportReminder } from './ui/pwa-ux';
-import { initFileSyncUI, refreshPersistenceWarning } from './ui/file-sync';
+import { transactionUI } from './ui/transactions.js';
+import { expensesUI } from './ui/expenses.js';
+import { debtUI } from './ui/debts.js';
+import { assetUI } from './ui/assets.js';
+import { templateUI } from './ui/templates.js';
+import { pdfImportUI } from './ui/pdf-import.js';
+import { targetsUI } from './ui/targets.js';
+import { backupUI } from './ui/backup.js';
+import { initDashboard, renderDashboard } from './ui/dashboard.js';
+import { renderPayoffPlanner } from './ui/payoff.js';
+import { initPWA, installApp, checkExportReminder } from './ui/pwa-ux.js';
+import { initFileSyncUI, refreshPersistenceWarning } from './ui/file-sync.js';
 import { childcareUI } from './ui/childcare.js';
 import { calculateBalanceChain } from './utils/finance.js';
 import { 

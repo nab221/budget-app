@@ -6,6 +6,32 @@
  * @param {Object} dailyData - Map of date (YYYY-MM-DD) to {total, topCategory, topCategoryAmount}
  * @param {Object} options - Rendering options (colors, cellSize, gap)
  */
+export function formatLocalDateKey(date) {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+export function resolveCanvasColor(color, cssResolver = null) {
+  if (typeof color !== 'string') return color;
+
+  const match = color.match(/^var\((--[^,\s)]+)(?:\s*,\s*([^)]+))?\)$/);
+  if (!match) return color;
+
+  const [, varName, fallbackRaw] = match;
+  const fallback = (fallbackRaw || '').trim();
+
+  let resolved = '';
+  if (typeof cssResolver === 'function') {
+    resolved = String(cssResolver(varName) || '').trim();
+  } else if (typeof document !== 'undefined' && typeof getComputedStyle === 'function') {
+    resolved = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+  }
+
+  return resolved || fallback || color;
+}
+
 export function renderSpendingHeatmap(containerId, year, dailyData, options = {}) {
   const container = document.getElementById(containerId);
   if (!container) return;
@@ -15,10 +41,12 @@ export function renderSpendingHeatmap(containerId, year, dailyData, options = {}
     cellGap = 3,
     labelHeight = 25,
     labelWidth = 35,
-    colors = ['var(--bg-alt, #ebedf0)', '#9be9a8', '#40c463', '#30a14e', '#216e39'],
+    colors = ['var(--heatmap-zero, #e5e7eb)', '#9be9a8', '#40c463', '#30a14e', '#216e39'],
     clear = true,
     allYearsData = null
   } = options;
+
+  const resolvedColors = colors.map(resolveCanvasColor);
 
   const yearNum = parseInt(year);
 
@@ -46,11 +74,11 @@ export function renderSpendingHeatmap(containerId, year, dailyData, options = {}
 
   // Helper: Get color based on intensity (quartiles)
   const getColor = (amount) => {
-    if (amount <= 0) return colors[0];
-    if (amount <= q1) return colors[1];
-    if (amount <= q2) return colors[2];
-    if (amount <= q3) return colors[3];
-    return colors[4];
+    if (amount <= 0) return resolvedColors[0];
+    if (amount <= q1) return resolvedColors[1];
+    if (amount <= q2) return resolvedColors[2];
+    if (amount <= q3) return resolvedColors[3];
+    return resolvedColors[4];
   };
 
   const canvas = document.createElement('canvas');
@@ -74,7 +102,7 @@ export function renderSpendingHeatmap(containerId, year, dailyData, options = {}
 
   // Draw Day Labels (Mon, Wed, Fri)
   ctx.font = '10px sans-serif';
-  ctx.fillStyle = 'var(--text-dim, #666)';
+  ctx.fillStyle = resolveCanvasColor('var(--text-dim, #666)');
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -113,7 +141,7 @@ export function renderSpendingHeatmap(containerId, year, dailyData, options = {}
       }
 
       // Get data for this date
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = formatLocalDateKey(date);
       const data = dailyData[dateStr] || { total: 0 };
       
       // Draw Cell
@@ -203,12 +231,14 @@ export function renderSpendingHeatmap(containerId, year, dailyData, options = {}
 
   canvas.addEventListener('mousemove', (e) => {
     const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
+    const scaleX = rect.width > 0 ? width / rect.width : 1;
+    const scaleY = rect.height > 0 ? height / rect.height : 1;
+    const mouseX = (e.clientX - rect.left) * scaleX;
+    const mouseY = (e.clientY - rect.top) * scaleY;
     
     const date = getCellAt(mouseX, mouseY);
     if (date) {
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = formatLocalDateKey(date);
       const data = dailyData[dateStr] || { total: 0 };
       showTooltip(e, date, data);
       canvas.style.cursor = 'pointer';
@@ -224,13 +254,15 @@ export function renderSpendingHeatmap(containerId, year, dailyData, options = {}
   canvas.addEventListener('touchstart', (e) => {
     const touch = e.touches[0];
     const rect = canvas.getBoundingClientRect();
-    const mouseX = touch.clientX - rect.left;
-    const mouseY = touch.clientY - rect.top;
+    const scaleX = rect.width > 0 ? width / rect.width : 1;
+    const scaleY = rect.height > 0 ? height / rect.height : 1;
+    const mouseX = (touch.clientX - rect.left) * scaleX;
+    const mouseY = (touch.clientY - rect.top) * scaleY;
     
     const date = getCellAt(mouseX, mouseY);
     if (date) {
       e.preventDefault(); // Only prevent if we hit a cell
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = formatLocalDateKey(date);
       const data = dailyData[dateStr] || { total: 0 };
       showTooltip(touch, date, data);
     } else {

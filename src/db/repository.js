@@ -4,6 +4,7 @@ import { toPence, fromPence } from '../utils/currency.js';
 import { findBestMatch } from '../utils/string-similarity.js';
 import { calculateTopUp, getEntitlementPeriod, calculateFundingGap } from '../utils/childcare.js';
 import { calcMinPayment, calculateBalanceChain, simulatePayoff } from '../utils/finance.js';
+export { calcMinPayment, calculateBalanceChain, simulatePayoff };
 import { advanceNextDate } from '../utils/recurrence.js';
 
 // ---------------------------------------------------------------------------
@@ -836,7 +837,7 @@ export async function getYearlyDailySpending(year) {
 
   const [oneOff, recurrent, categories] = await Promise.all([
     db.oneOffExpenses.where('date').between(start, end, true, true).toArray(),
-    db.recurrentExpenses.where('nextDate').between(start, end, true, true).toArray(),
+    db.recurrentExpenses.toArray(),
     db.categories.toArray()
   ]);
 
@@ -860,12 +861,10 @@ export async function getYearlyDailySpending(year) {
     dailyData[date].categories[catName] = (dailyData[date].categories[catName] || 0) + amount;
   });
 
-  // Process paid recurrent expenses
+  // Process paid recurrent expenses using the actual paid occurrence date.
   recurrent.filter(exp => exp.status === 'paid').forEach(exp => {
-    // For recurrent, 'date' is the occurrence date, 'nextDate' is the target.
-    // We use 'date' if available, fallback to 'nextDate'.
     const date = exp.date || exp.nextDate;
-    if (!date) return;
+    if (!date || date < start || date > end) return;
     if (!dailyData[date]) {
       dailyData[date] = { total: 0, categories: {} };
     }
@@ -876,6 +875,65 @@ export async function getYearlyDailySpending(year) {
   });
 
   // Finalize data structure: find top category per day
+  const result = {};
+  Object.keys(dailyData).forEach(date => {
+    const day = dailyData[date];
+    let topCategory = 'None';
+    let topCategoryAmount = 0;
+
+    Object.keys(day.categories).forEach(cat => {
+      if (day.categories[cat] > topCategoryAmount) {
+        topCategory = cat;
+        topCategoryAmount = day.categories[cat];
+      }
+    });
+
+    result[date] = {
+      total: day.total,
+      topCategory,
+      topCategoryAmount
+    };
+  });
+
+  return result;
+}
+
+/**
+ * Aggregates daily income for a specific year for heatmap visualization.
+ * @param {string|number} year
+ * @returns {Promise<Object>} Map of date string (YYYY-MM-DD) to daily stats
+ */
+export async function getYearlyDailyIncome(year) {
+  const start = `${year}-01-01`;
+  const end = `${year}-12-31`;
+
+  const [incomeRows, categories] = await Promise.all([
+    db.income.where('date').between(start, end, true, true).toArray(),
+    db.categories.toArray()
+  ]);
+
+  const catMap = categories.reduce((acc, cat) => {
+    acc[cat.id] = cat.name;
+    return acc;
+  }, {});
+
+  const dailyData = {};
+
+  incomeRows.forEach(inc => {
+    const date = inc.date;
+    if (!date) return;
+
+    if (!dailyData[date]) {
+      dailyData[date] = { total: 0, categories: {} };
+    }
+
+    const amount = inc.amount || 0;
+    dailyData[date].total += amount;
+
+    const label = inc.source || catMap[inc.categoryId] || 'Uncategorized';
+    dailyData[date].categories[label] = (dailyData[date].categories[label] || 0) + amount;
+  });
+
   const result = {};
   Object.keys(dailyData).forEach(date => {
     const day = dailyData[date];

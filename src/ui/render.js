@@ -71,6 +71,9 @@ export const modalUI = {
   },
 
   init() {
+    if (this._initialized) return;
+    this._initialized = true;
+
     if (!this.elements.overlay) {
       // Re-query in case DOM wasn't ready
       this.elements = {
@@ -88,6 +91,12 @@ export const modalUI = {
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') this.close();
     });
+    // Backdrop click closes modal (clicking overlay itself, not its children)
+    if (this.elements.overlay) {
+      this.elements.overlay.addEventListener('click', (e) => {
+        if (e.target === this.elements.overlay) this.close();
+      });
+    }
   },
 
   /**

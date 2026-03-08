@@ -63,7 +63,6 @@
         <div id="tab-content">
           <!-- DASHBOARD -->
           <div class="tab-panel active" data-panel="dashboard">
-            <!-- Period Selector (Month Navigator + View Select) -->
             <div style="display:flex; justify-content:center; align-items:center; gap:12px; margin: 0 0 20px 0; flex-wrap:wrap">
               <div id="dashboardMonthPicker" class="month-nav" style="margin-bottom:0; padding:5px"></div>
               <select id="viewSelect" style="font-size:.9rem; padding:6px 12px; font-weight:600; border-radius:6px">
@@ -73,14 +72,27 @@
               </select>
             </div>
 
+            <div class="sum-grid" id="summaryGrid" style="margin-bottom: 20px">
+              <!-- Summary items will be rendered here -->
+            </div>
+
             <!-- Unified Rolling Financial Overview Chart -->
             <div class="chart-container" id="rollingOverviewChartContainer" style="margin-bottom: 20px">
               <h3 class="chart-title">Rolling Financial Overview</h3>
               <canvas id="rollingOverviewChart"></canvas>
             </div>
 
-            <div class="sum-grid" id="summaryGrid" style="margin-bottom: 20px">
-              <!-- Summary items will be rendered here -->
+            <!-- Income Heatmap Section -->
+            <div class="card" id="incomeHeatmapSection" style="margin-bottom: 20px; overflow-x: auto; -webkit-overflow-scrolling: touch;">
+              <div class="card-hd">
+                <h3 class="chart-title">Income Heatmap</h3>
+              </div>
+              <div class="chart-container" style="padding: 15px; min-width: 800px; border-bottom: none">
+                <div id="incomeHeatmapContainer" class="privacy-blur"></div>
+              </div>
+              <div class="hint" style="padding: 0 15px 15px; font-size: 0.7rem; color: var(--text-soft)">
+                Grey means no income. Greener and darker cells indicate higher daily income.
+              </div>
             </div>
 
             <!-- Spending Heatmap Section -->
@@ -92,7 +104,7 @@
                 <div id="spendingHeatmapContainer" class="privacy-blur"></div>
               </div>
               <div class="hint" style="padding: 0 15px 15px; font-size: 0.7rem; color: var(--text-soft)">
-                Intensity based on daily spending. Darker cells represent higher spending.
+                Grey means no spend. Greener and darker cells indicate higher daily spending.
               </div>
             </div>
 
@@ -122,16 +134,23 @@
             <!-- Month Picker (Navigation) -->
             <div id="incMonthPicker" class="month-nav" style="margin-bottom:20px"></div>
 
+            <div class="card" id="incomeTabHeatmapSection" style="margin-bottom: 20px; overflow-x: auto; -webkit-overflow-scrolling: touch;">
+              <div class="card-hd">
+                <h3 class="chart-title">Income Heatmap</h3>
+              </div>
+              <div class="chart-container" style="padding: 15px; min-width: 800px; border-bottom: none">
+                <div id="incomeTabHeatmapContainer" class="privacy-blur"></div>
+              </div>
+              <div class="hint" style="padding: 0 15px 15px; font-size: 0.7rem; color: var(--text-soft)">
+                Grey means no income. Greener and darker cells indicate higher daily income.
+              </div>
+            </div>
+
             <div id="incomeSummary" style="margin-bottom:20px"></div>
 
             <!-- Reconciliation Header (Hidden by default) -->
             <div id="incReconHeader" class="card hidden" style="margin-bottom:16px; background:var(--bg-alt); border: 2px solid var(--accent);">
               <!-- Injected by transactions.js -->
-            </div>
-
-            <!-- Inline Form for Add/Update -->
-            <div id="incomeFormContainer" class="card hidden" style="margin-bottom:16px; background:var(--bg-alt);">
-              <!-- Form injected by transactions.js -->
             </div>
 
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:10px">
@@ -155,16 +174,23 @@
             <!-- Month Picker (Navigation) -->
             <div id="expMonthPicker" class="month-nav" style="margin-bottom:20px"></div>
 
+            <div class="card" id="expensesTabHeatmapSection" style="margin-bottom: 20px; overflow-x: auto; -webkit-overflow-scrolling: touch;">
+              <div class="card-hd">
+                <h3 class="chart-title">Spending Heatmap</h3>
+              </div>
+              <div class="chart-container" style="padding: 15px; min-width: 800px; border-bottom: none">
+                <div id="expensesTabHeatmapContainer" class="privacy-blur"></div>
+              </div>
+              <div class="hint" style="padding: 0 15px 15px; font-size: 0.7rem; color: var(--text-soft)">
+                Grey means no spend. Greener and darker cells indicate higher daily spending.
+              </div>
+            </div>
+
             <div id="expensesSummary" style="margin-bottom:20px"></div>
 
             <!-- Reconciliation Header (Hidden by default) -->
             <div id="expReconHeader" class="card hidden" style="margin-bottom:16px; background:var(--bg-alt); border: 2px solid var(--danger);">
               <!-- Injected by expenses.js -->
-            </div>
-
-            <!-- Inline Form for Add/Update -->
-            <div id="expenseFormContainer" class="card hidden" style="margin-bottom:16px; background:var(--bg-alt);">
-              <!-- Form injected by expenses.js -->
             </div>
 
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:10px">
@@ -283,10 +309,6 @@
           <!-- DEBTS -->
           <div class="tab-panel" data-panel="debts">
             <div id="debtsSummary"></div>
-            <!-- Inline Form for Add/Update Debt Account -->
-            <div id="debtFormContainer" class="card hidden" style="margin-bottom:16px; background:var(--bg-alt);">
-              <!-- Form injected by debts.js -->
-            </div>
 
             <div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
               <button id="addDebtBtn" class="primary">+ Add Debt Account</button>
@@ -303,10 +325,6 @@
           <!-- ASSETS -->
           <div class="tab-panel" data-panel="assets">
             <div id="assetsSummary"></div>
-            <!-- Inline Form for Add/Update Asset Account -->
-            <div id="assetFormContainer" class="card hidden" style="margin-bottom:16px; background:var(--bg-alt);">
-              <!-- Form injected by assets.js -->
-            </div>
 
             <div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
               <button id="addAstBtn" class="primary">+ Add Asset Account</button>

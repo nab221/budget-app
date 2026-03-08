@@ -1,8 +1,37 @@
-import { debtRepository, statementRepository, incomeRepository, categoryRepository } from '../db/repository.js';
+import { debtRepository, statementRepository, incomeRepository, categoryRepository, oneOffExpenseRepository } from '../db/repository.js';
+import { db } from '../db/schema.js';
 import { formatGBP, fromPence } from '../utils/currency.js';
 import { calcMinPayment, calcUtilization, simulatePayoff } from '../utils/finance.js';
-import { safeHTML, renderTabSummary } from './render.js';
+import { safeHTML, renderTabSummary, modalUI } from './render.js';
 import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
+
+const FIELD_IDS = {
+  name: 'debtNameInput',
+  type: 'debtTypeInput',
+  // Phase 12: credit card fieldset
+  ccBalance:             'ccBalanceInput',
+  ccApr:                 'ccAprInput',
+  ccLimit:               'ccLimitInput',
+  ccMinPayment:          'ccMinPaymentInput',
+  ccPromoEnd:            'ccPromoEndInput',
+  ccPostApr:             'ccPostAprInput',
+  // Phase 12: mortgage fieldset
+  mortgagePropertyValue: 'mortgagePropertyValueInput',
+  mortgageBalance:       'mortgageBalanceInput',
+  mortgageTerm:          'mortgageTermInput',
+  mortgageRate:          'mortgageRateInput',
+  mortgageErc:           'mortgageErcInput',
+  // Phase 12: personal loan fieldset
+  loanOriginal:          'loanOriginalInput',
+  loanBalance:           'loanBalanceInput',
+  loanTerm:              'loanTermInput',
+  loanRate:              'loanRateInput',
+  // Phase 12: other fieldset
+  otherBalance:          'otherBalanceInput',
+};
+
+// Module-level storage for original td HTML during Mark Paid inline prompt
+const _markPaidOriginals = new Map();
 
 /**
  * Debt UI Module
@@ -11,13 +40,13 @@ import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
 export const debtUI = {
   editingId: null,
   editingStmtId: null,
-  openLedgerId: null,
   activeStmtDebtId: null,
 
   /**
    * Initialize Debt UI.
    */
   async init() {
+    modalUI.init();  // Sets up Esc key, X button, and backdrop click
     this.setupEventListeners();
     window.addEventListener('app:refresh', () => this.render());
     await this.render();
@@ -29,7 +58,7 @@ export const debtUI = {
   setupEventListeners() {
     const addDebtBtn = document.getElementById('addDebtBtn');
     if (addDebtBtn) {
-      addDebtBtn.onclick = () => this.toggleDebtForm();
+      addDebtBtn.onclick = () => this.openDebtModal();
     }
 
     const stmtPdfFile = document.getElementById('stmtPdfFile');
@@ -54,33 +83,11 @@ export const debtUI = {
         }
         await debtRepository.delete(id);
         triggerHaptic('delete');
-        if (this.openLedgerId === id) this.openLedgerId = null;
         if (this.activeStmtDebtId === id) this.activeStmtDebtId = null;
         await this.render();
       } catch (error) {
         console.error('Failed to delete debt:', error);
         alertWithHaptic('Failed to delete debt: ' + error.message, 'error');
-      }
-    };
-
-    window.toggleLedger = async (id) => {
-      const container = document.getElementById(`ledger-container-${id}`);
-      if (!container) return;
-
-      if (this.openLedgerId === id) {
-        container.classList.add('hidden');
-        this.openLedgerId = null;
-      } else {
-        // Close previously open ledger if any
-        if (this.openLedgerId !== null) {
-          const prev = document.getElementById(`ledger-container-${this.openLedgerId}`);
-          if (prev) prev.classList.add('hidden');
-        }
-        
-        container.classList.remove('hidden');
-        this.openLedgerId = id;
-        await this.renderStatements(id);
-        container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
     };
 
@@ -104,269 +111,408 @@ export const debtUI = {
     };
 
     window.editDebt = (id) => this.editDebt(id);
-  },
 
-  toggleDebtForm(show = true) {
-    const container = document.getElementById('debtFormContainer');
-    if (!container) return;
-    if (show) {
-      container.classList.remove('hidden');
-      this.renderDebtForm();
-    } else {
-      container.classList.add('hidden');
-      this.editingId = null;
-    }
-  },
-
-  /**
-   * Toggle field visibility based on debt type.
-   */
-  toggleDebtTypeFields() {
-    const type = document.getElementById('debtTypeInput').value;
-    const ccFields = document.getElementById('ccOnlyFields');
-    const loanFields = document.getElementById('loanOnlyFields');
-    
-    if (type === 'credit-card') {
-      ccFields?.classList.remove('hidden');
-      loanFields?.classList.add('hidden');
-    } else if (type === 'loan' || type === 'mortgage') {
-      ccFields?.classList.add('hidden');
-      loanFields?.classList.remove('hidden');
-    } else {
-      ccFields?.classList.add('hidden');
-      loanFields?.classList.add('hidden');
-    }
-  },
-
-  async renderDebtForm() {
-    const container = document.getElementById('debtFormContainer');
-    if (!container) return;
-
-    const categories = await categoryRepository.getCategories();
-    let data = {
-      name: '',
-      debtType: 'credit-card',
-      apr: 0,
-      creditLimit: 0,
-      promoEndDate: '',
-      postPromoApr: 0,
-      currentBalance: 0,
-      // Loan specific
-      isInterestOnly: false,
-      originalPrincipal: 0,
-      termMonths: 0,
-      fixedMonthlyPayment: 0,
-      interestRate: 0,
-      earlyRepaymentFee: 0,
-      earlyRepaymentFeeIsPercent: false,
-      earlyRepaymentAllowed: true
+    window.showMarkPaidPrompt = (stmtId, debtId, minPaymentPence) => {
+      const td = document.getElementById(`mark-paid-td-${stmtId}`);
+      if (!td) return;
+      _markPaidOriginals.set(stmtId, td.innerHTML);
+      const defaultAmount = (minPaymentPence / 100).toFixed(2);
+      const today = new Date().toISOString().slice(0, 10);
+      td.innerHTML =
+        `<div style="display:flex;flex-direction:column;gap:2px;align-items:flex-end">` +
+        `<input id="markPaidAmt-${stmtId}" type="number" step="0.01" min="0"` +
+        ` value="${defaultAmount}" placeholder="Amount" style="width:80px;font-size:0.85em">` +
+        `<input id="markPaidDate-${stmtId}" type="date"` +
+        ` value="${today}" style="width:110px;font-size:0.85em">` +
+        `<div style="display:flex;gap:4px">` +
+        `<button class="sm" style="color:var(--success)" title="Confirm"` +
+        ` onclick="confirmMarkPaid(${stmtId}, ${debtId})">✓ Confirm</button>` +
+        `<button class="sm ghost" title="Cancel"` +
+        ` onclick="cancelMarkPaid(${stmtId})">✕</button>` +
+        `</div></div>`;
     };
 
-    if (this.editingId) {
-      const debt = await debtRepository.get(this.editingId);
-      if (debt) {
-        data = { 
-          ...debt, 
-          creditLimit: fromPence(debt.creditLimit),
-          currentBalance: fromPence(debt.currentBalance),
-          originalPrincipal: fromPence(debt.originalPrincipal),
-          fixedMonthlyPayment: fromPence(debt.fixedMonthlyPayment),
-          earlyRepaymentFee: debt.earlyRepaymentFeeIsPercent ? debt.earlyRepaymentFee : fromPence(debt.earlyRepaymentFee)
-        };
-      }
+    window.cancelMarkPaid = (stmtId) => {
+      const td = document.getElementById(`mark-paid-td-${stmtId}`);
+      if (td) td.innerHTML = _markPaidOriginals.get(stmtId) || '';
+      _markPaidOriginals.delete(stmtId);
+    };
+
+    window.confirmMarkPaid = async (stmtId, debtId) => {
+      const amtInput = document.getElementById(`markPaidAmt-${stmtId}`);
+      const dateInput = document.getElementById(`markPaidDate-${stmtId}`);
+      const amtPounds = parseFloat(amtInput?.value) || 0;
+      const paymentDate = dateInput?.value || new Date().toISOString().slice(0, 10);
+
+      // Get debt for name and current balance (currentBalance stored as pence in DB)
+      const debt = await debtRepository.get(debtId);
+
+      // Create a one-off expense (paid) so the payment appears in the Expenses tab
+      const debtCategory = await db.categories.where('name').equals('Credit Cards & Loans').first();
+      const expenseId = await oneOffExpenseRepository.add({
+        date: paymentDate,
+        note: `${debt.name} - payment`,
+        amount: amtPounds,
+        categoryId: debtCategory ? debtCategory.id : null,
+        isRecurring: false,
+        isCleared: false,
+        isReconciled: false,
+        status: 'paid',
+        isDebtPayment: true,
+        linkedDebtId: debtId
+      });
+
+      // Save payment to statement; store expenseId for later editing
+      await statementRepository.update(stmtId, {
+        actualPaymentAmount: amtPounds,
+        actualPaymentDate: paymentDate,
+        linkedExpenseId: expenseId
+      });
+
+      // Deduct payment from debt currentBalance (DB stores pence; pass pounds to update)
+      const currentBalancePence = debt.currentBalance || 0;
+      const paymentPence = Math.round(amtPounds * 100);
+      const newBalancePence = Math.max(0, currentBalancePence - paymentPence);
+      await debtRepository.update(debtId, { currentBalance: fromPence(newBalancePence) });
+
+      triggerHaptic('success');
+
+      // Re-render debts and notify other panels
+      await debtUI.renderStatements(debtId);
+      await debtUI.render();
+      if (window.app) window.app.renderAll();
+    };
+  },
+
+  async openDebtModal(id = null) {
+    this.editingId = id;
+
+    const title = id === null ? 'Add Debt Account' : 'Edit Debt Account';
+    const formHTML = this._buildFormHTML();
+
+    const buttons = [
+      { label: 'Cancel', className: 'ghost', onClick: () => this._closeDebtModal() },
+      { label: id === null ? 'Add' : 'Save', className: 'primary', onClick: () => this._saveDebt() },
+    ];
+
+    modalUI.show(title, formHTML, buttons);
+
+    // MODAL-04: auto-focus name field (show() is synchronous — DOM is ready)
+    document.getElementById(FIELD_IDS.name)?.focus();
+
+    // Wire X button to _closeDebtModal so editingId is cleared (not just modalUI.close)
+    if (modalUI.elements.close) {
+      modalUI.elements.close.onclick = () => this._closeDebtModal();
     }
 
-    const isUpdate = !!this.editingId;
-    container.className = `card ${isUpdate ? 'update-mode' : ''}`;
+    // Wire Esc key to _closeDebtModal so editingId is cleared (mirrors X button override above).
+    // modalUI.init() sets a global Esc listener that calls modalUI.close() directly — that path
+    // skips editingId reset. This scoped listener intercepts Escape first, calls _closeDebtModal()
+    // (which resets editingId then calls modalUI.close()), and removes itself so it does not stack
+    // on subsequent openDebtModal() calls.
+    const escHandler = (e) => {
+      if (e.key === 'Escape') {
+        document.removeEventListener('keydown', escHandler);
+        this._closeDebtModal();
+      }
+    };
+    document.addEventListener('keydown', escHandler);
 
-    container.innerHTML = safeHTML`
-      <div class="card-hd">
-        <h2 style="font-size: 0.85rem; color: ${isUpdate ? 'var(--accent)' : 'var(--text-soft)'}">
-          ${isUpdate ? '📝 Update Debt Account' : '➕ Add Debt Account'}
-        </h2>
-      </div>
-      <div class="form-row">
-        <div><label>Name</label><input id="debtNameInput" type="text" value="${data.name}" placeholder="e.g. TSB Credit Card"/></div>
-        <div>
-          <label>Type</label>
-          <select id="debtTypeInput" onchange="debtUI.toggleDebtTypeFields()">
-            <option value="credit-card" ${data.debtType === 'credit-card' ? 'selected' : ''}>Credit Card</option>
-            <option value="loan" ${data.debtType === 'loan' ? 'selected' : ''}>Personal Loan</option>
-            <option value="mortgage" ${data.debtType === 'mortgage' ? 'selected' : ''}>Mortgage</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- Credit Card Specific Fields -->
-      <div id="ccOnlyFields" class="${data.debtType === 'credit-card' ? '' : 'hidden'}">
-        <div class="form-row">
-          <div><label>Current Balance (£)</label><input id="debtBalanceInput" type="number" step="0.01" value="${data.currentBalance}"/></div>
-          <div><label>APR (%)</label><input id="debtAprInput" type="number" step="0.1" value="${data.apr}"/></div>
-          <div><label>Credit Limit (£)</label><input id="debtLimitInput" type="number" step="0.01" value="${data.creditLimit}"/></div>
-        </div>
-        <div class="form-row">
-          <div><label>Promo End</label><input id="debtPromoEndInput" type="date" value="${data.promoEndDate || ''}"/></div>
-          <div><label>Post-Promo APR (%)</label><input id="debtPostAprInput" type="number" step="0.1" value="${data.postPromoApr || data.apr}"/></div>
-        </div>
-      </div>
-
-      <!-- Loan/Mortgage Specific Fields -->
-      <div id="loanOnlyFields" class="${(data.debtType === 'loan' || data.debtType === 'mortgage') ? '' : 'hidden'}">
-        <div class="form-row">
-          <div><label>Original Principal (£)</label><input id="loanPrincipalInput" type="number" step="0.01" value="${data.originalPrincipal}"/></div>
-          <div><label>Current Balance (£)</label><input id="loanBalanceInput" type="number" step="0.01" value="${data.currentBalance}"/></div>
-          <div><label>Fixed Monthly Payment (£)</label><input id="loanPaymentInput" type="number" step="0.01" value="${data.fixedMonthlyPayment}"/></div>
-        </div>
-        <div class="form-row">
-          <div><label>Interest Rate (%)</label><input id="loanRateInput" type="number" step="0.1" value="${data.interestRate || data.apr}"/></div>
-          <div><label>Term (Months)</label><input id="loanTermInput" type="number" value="${data.termMonths}"/></div>
-        </div>
-        <div class="form-row">
-          <div>
-            <label>Early Repayment Fee</label>
-            <div style="display:flex; gap:4px">
-              <input id="loanFeeInput" type="number" step="0.01" value="${data.earlyRepaymentFee}" style="flex:1"/>
-              <select id="loanFeeTypeInput" style="width:60px">
-                <option value="pounds" ${!data.earlyRepaymentFeeIsPercent ? 'selected' : ''}>£</option>
-                <option value="percent" ${data.earlyRepaymentFeeIsPercent ? 'selected' : ''}>%</option>
-              </select>
-            </div>
-          </div>
-          <div style="display:flex;align-items:center;gap:12px;padding-top:18px">
-            <div style="display:flex;align-items:center;gap:6px">
-              <input id="loanAllowedInput" type="checkbox" ${data.earlyRepaymentAllowed ? 'checked' : ''}/>
-              <label for="loanAllowedInput" style="margin:0">Overpayment allowed</label>
-            </div>
-            <div style="display:flex;align-items:center;gap:6px">
-              <input id="loanInterestOnlyInput" type="checkbox" ${data.isInterestOnly ? 'checked' : ''}/>
-              <label for="loanInterestOnlyInput" style="margin:0">Interest-Only</label>
-            </div>
-          </div>
-        </div>
-
-      <div class="form-row" style="margin-top:10px">
-        <div style="display:flex;align-items:flex-end;gap:8px;flex:1.5">
-          <button class="primary" onclick="debtUI.handleSaveDebt()">${isUpdate ? 'Save Changes' : 'Add Account'}</button>
-          <button class="ghost" onclick="debtUI.cancelEditDebt()">${isUpdate ? 'Cancel' : 'Hide'}</button>
-        </div>
-      </div>
-    `;
-
-    if (isUpdate) {
-      container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Phase 12: pre-select correct fieldset
+    if (id !== null) {
+      const debt = await debtRepository.get(id);
+      if (debt?.debtType) {
+        const typeSelect = document.getElementById(FIELD_IDS.type);
+        if (typeSelect) typeSelect.value = debt.debtType;
+      }
+      this._onTypeChange();
+      this._populateEditFields(debt);
+    } else {
+      this._onTypeChange();
     }
   },
 
-  async handleSaveDebt() {
-    const name = document.getElementById('debtNameInput').value.trim();
-    const debtType = document.getElementById('debtTypeInput').value;
+  _populateEditFields(debt) {
+    const set = (id, val) => {
+      const el = document.getElementById(id);
+      if (el && val !== undefined && val !== null) el.value = val;
+    };
 
+    set(FIELD_IDS.name, debt.name);
+    // type already set before _onTypeChange() call
+
+    const type = debt.debtType;
+    if (type === 'credit-card') {
+      set(FIELD_IDS.ccBalance,    fromPence(debt.currentBalance));
+      set(FIELD_IDS.ccApr,        debt.apr);
+      set(FIELD_IDS.ccLimit,      fromPence(debt.creditLimit));
+      set(FIELD_IDS.ccMinPayment, debt.minPayment ?? '');
+      set(FIELD_IDS.ccPromoEnd,   debt.promoEndDate ?? '');
+      set(FIELD_IDS.ccPostApr,    debt.postPromoApr ?? debt.apr);
+    } else if (type === 'mortgage') {
+      set(FIELD_IDS.mortgagePropertyValue, fromPence(debt.propertyValue ?? 0));
+      set(FIELD_IDS.mortgageBalance,       fromPence(debt.currentBalance));
+      set(FIELD_IDS.mortgageTerm,          debt.termMonths);
+      set(FIELD_IDS.mortgageRate,          debt.interestRate);
+      set(FIELD_IDS.mortgageErc,           fromPence(debt.earlyRepaymentFee ?? 0));
+    } else if (type === 'loan') {
+      set(FIELD_IDS.loanOriginal, fromPence(debt.originalPrincipal ?? 0));
+      set(FIELD_IDS.loanBalance,  fromPence(debt.currentBalance));
+      set(FIELD_IDS.loanTerm,     debt.termMonths);
+      set(FIELD_IDS.loanRate,     debt.interestRate);
+    } else {
+      set(FIELD_IDS.otherBalance, fromPence(debt.currentBalance));
+    }
+  },
+
+  async _saveDebt() {
+    this._clearFieldErrors();
+
+    const name = document.getElementById(FIELD_IDS.name)?.value.trim();
+    const type = document.getElementById(FIELD_IDS.type)?.value;
+
+    let valid = true;
     if (!name) {
-      alertWithHaptic('Please provide a name for the debt account.', 'error');
-      return;
+      this._showFieldError(FIELD_IDS.name, 'Name is required');
+      valid = false;
+    }
+
+    if (!valid) return;
+
+    let payload = { name, debtType: type };
+
+    const val = (id) => parseFloat(document.getElementById(id)?.value) || 0;
+    const str = (id) => document.getElementById(id)?.value || '';
+
+    if (type === 'credit-card') {
+      const apr = val(FIELD_IDS.ccApr);
+      const postAprVal = document.getElementById(FIELD_IDS.ccPostApr)?.value;
+      payload = {
+        ...payload,
+        currentBalance: val(FIELD_IDS.ccBalance),
+        apr,
+        creditLimit: val(FIELD_IDS.ccLimit),
+        minPayment: val(FIELD_IDS.ccMinPayment),
+        promoEndDate: str(FIELD_IDS.ccPromoEnd) || null,
+        postPromoApr: (postAprVal === '' || postAprVal === undefined) ? apr : parseFloat(postAprVal)
+      };
+    } else if (type === 'mortgage') {
+      const rate = val(FIELD_IDS.mortgageRate);
+      payload = {
+        ...payload,
+        propertyValue: val(FIELD_IDS.mortgagePropertyValue),
+        currentBalance: val(FIELD_IDS.mortgageBalance),
+        termMonths: parseInt(document.getElementById(FIELD_IDS.mortgageTerm)?.value) || 0,
+        interestRate: rate,
+        apr: rate, // Sync for strategy sorting
+        earlyRepaymentFee: val(FIELD_IDS.mortgageErc)
+      };
+    } else if (type === 'loan') {
+      const rate = val(FIELD_IDS.loanRate);
+      payload = {
+        ...payload,
+        originalPrincipal: val(FIELD_IDS.loanOriginal),
+        currentBalance: val(FIELD_IDS.loanBalance),
+        termMonths: parseInt(document.getElementById(FIELD_IDS.loanTerm)?.value) || 0,
+        interestRate: rate,
+        apr: rate // Sync for strategy sorting
+      };
+    } else {
+      payload = {
+        ...payload,
+        currentBalance: val(FIELD_IDS.otherBalance)
+      };
     }
 
     try {
-      let payload = { name, debtType };
-
-      if (debtType === 'credit-card') {
-        const apr = parseFloat(document.getElementById('debtAprInput').value) || 0;
-        const limit = parseFloat(document.getElementById('debtLimitInput').value) || 0;
-        const balance = parseFloat(document.getElementById('debtBalanceInput').value) || 0;
-        const promoEnd = document.getElementById('debtPromoEndInput').value;
-        const postApr = parseFloat(document.getElementById('debtPostAprInput').value);
-
-        payload = {
-          ...payload,
-          apr,
-          creditLimit: limit,
-          currentBalance: balance,
-          promoEndDate: promoEnd || null,
-          postPromoApr: isNaN(postApr) ? apr : postApr
-        };
-      } else {
-        const principal = parseFloat(document.getElementById('loanPrincipalInput').value) || 0;
-        const balance = parseFloat(document.getElementById('loanBalanceInput').value) || 0;
-        const payment = parseFloat(document.getElementById('loanPaymentInput').value) || 0;
-        const rate = parseFloat(document.getElementById('loanRateInput').value) || 0;
-        const term = parseInt(document.getElementById('loanTermInput').value) || 0;
-        const fee = parseFloat(document.getElementById('loanFeeInput').value) || 0;
-        const feeIsPercent = document.getElementById('loanFeeTypeInput').value === 'percent';
-        const allowed = document.getElementById('loanAllowedInput').checked;
-        const isInterestOnly = document.getElementById('loanInterestOnlyInput').checked;
-
-        payload = {
-          ...payload,
-          originalPrincipal: principal,
-          currentBalance: balance,
-          fixedMonthlyPayment: payment,
-          interestRate: rate,
-          apr: rate, // Sync for strategy sorting
-          termMonths: term,
-          earlyRepaymentFee: fee,
-          earlyRepaymentFeeIsPercent: feeIsPercent,
-          earlyRepaymentAllowed: allowed,
-          isInterestOnly: isInterestOnly
-        };
-      }
-
       if (this.editingId) {
         await debtRepository.update(this.editingId, payload);
       } else {
         await debtRepository.add(payload);
       }
-
       triggerHaptic('success');
-      this.toggleDebtForm(false);
+      this._closeDebtModal();
       await this.render();
       if (window.app) window.app.renderAll();
     } catch (error) {
       console.error('Failed to save debt:', error);
-      alertWithHaptic('Failed to save debt: ' + error.message, 'error');
+      this._showFieldError(FIELD_IDS.name, 'Save failed: ' + error.message);
     }
   },
 
-  cancelEditDebt() {
-    if (this.editingId && !confirm('Discard changes?')) return;
-    this.toggleDebtForm(false);
+  _closeDebtModal() {
+    this.editingId = null;
+    modalUI.close();
   },
 
-  async editDebt(id) {
-    if (this.editingId && this.editingId !== id) {
-      if (!confirm('Discard changes to the current item?')) return;
+  _showFieldError(fieldId, message) {
+    const field = document.getElementById(fieldId);
+    if (!field) return;
+    const existing = field.parentElement?.querySelector('.field-error');
+    if (existing) existing.remove();
+    const span = document.createElement('span');
+    span.className = 'field-error';
+    span.textContent = message;
+    field.insertAdjacentElement('afterend', span);
+  },
+
+  _clearFieldErrors() {
+    document.querySelectorAll('.field-error').forEach(el => el.remove());
+  },
+
+  _onTypeChange() {
+    const type = document.getElementById(FIELD_IDS.type)?.value;
+    const fieldsets = {
+      'credit-card': document.getElementById('fieldset-credit-card'),
+      'mortgage':    document.getElementById('fieldset-mortgage'),
+      'loan':        document.getElementById('fieldset-loan'),
+      'other':       document.getElementById('fieldset-other'),
+    };
+    for (const [key, el] of Object.entries(fieldsets)) {
+      if (!el) continue;
+      el.classList[key === type ? 'remove' : 'add']('hidden');
     }
-    this.editingId = id;
-    this.toggleDebtForm(true);
+  },
+
+  _buildFormHTML() {
+    return safeHTML`
+      <div class="form-row">
+        <div>
+          <label for="${FIELD_IDS.name}">Name</label>
+          <input id="${FIELD_IDS.name}" type="text" placeholder="e.g. TSB Credit Card"/>
+        </div>
+        <div>
+          <label for="${FIELD_IDS.type}">Type</label>
+          <select id="${FIELD_IDS.type}" onchange="debtUI._onTypeChange()">
+            <option value="credit-card">Credit Card</option>
+            <option value="mortgage">Mortgage</option>
+            <option value="loan">Personal Loan</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="fieldset-credit-card">
+        <div class="form-row">
+          <div>
+            <label for="${FIELD_IDS.ccBalance}">Current Balance (£)</label>
+            <input id="${FIELD_IDS.ccBalance}" type="number" step="0.01"/>
+          </div>
+          <div>
+            <label for="${FIELD_IDS.ccApr}">APR (%)</label>
+            <input id="${FIELD_IDS.ccApr}" type="number" step="0.1"/>
+          </div>
+          <div>
+            <label for="${FIELD_IDS.ccLimit}">Credit Limit (£)</label>
+            <input id="${FIELD_IDS.ccLimit}" type="number" step="0.01"/>
+          </div>
+        </div>
+        <div class="form-row">
+          <div>
+            <label for="${FIELD_IDS.ccMinPayment}">Min Monthly Payment (£)</label>
+            <input id="${FIELD_IDS.ccMinPayment}" type="number" step="0.01"/>
+          </div>
+          <div>
+            <label for="${FIELD_IDS.ccPromoEnd}">Promo End Date</label>
+            <input id="${FIELD_IDS.ccPromoEnd}" type="date"/>
+          </div>
+          <div>
+            <label for="${FIELD_IDS.ccPostApr}">Post-Promo APR (%)</label>
+            <input id="${FIELD_IDS.ccPostApr}" type="number" step="0.1"/>
+          </div>
+        </div>
+      </div>
+
+      <div id="fieldset-mortgage" class="hidden">
+        <div class="form-row">
+          <div>
+            <label for="${FIELD_IDS.mortgagePropertyValue}">Property Value (£)</label>
+            <input id="${FIELD_IDS.mortgagePropertyValue}" type="number" step="0.01"/>
+          </div>
+          <div>
+            <label for="${FIELD_IDS.mortgageBalance}">Remaining Balance (£)</label>
+            <input id="${FIELD_IDS.mortgageBalance}" type="number" step="0.01"/>
+          </div>
+          <div>
+            <label for="${FIELD_IDS.mortgageTerm}">Term (Months)</label>
+            <input id="${FIELD_IDS.mortgageTerm}" type="number"/>
+          </div>
+        </div>
+        <div class="form-row">
+          <div>
+            <label for="${FIELD_IDS.mortgageRate}">Interest Rate (%)</label>
+            <input id="${FIELD_IDS.mortgageRate}" type="number" step="0.1"/>
+          </div>
+          <div>
+            <label for="${FIELD_IDS.mortgageErc}">Early Repayment Charge (£)</label>
+            <input id="${FIELD_IDS.mortgageErc}" type="number" step="0.01"/>
+          </div>
+        </div>
+      </div>
+
+      <div id="fieldset-loan" class="hidden">
+        <div class="form-row">
+          <div>
+            <label for="${FIELD_IDS.loanOriginal}">Original Amount (£)</label>
+            <input id="${FIELD_IDS.loanOriginal}" type="number" step="0.01"/>
+          </div>
+          <div>
+            <label for="${FIELD_IDS.loanBalance}">Remaining Balance (£)</label>
+            <input id="${FIELD_IDS.loanBalance}" type="number" step="0.01"/>
+          </div>
+          <div>
+            <label for="${FIELD_IDS.loanTerm}">Term (Months)</label>
+            <input id="${FIELD_IDS.loanTerm}" type="number"/>
+          </div>
+        </div>
+        <div class="form-row">
+          <div>
+            <label for="${FIELD_IDS.loanRate}">Interest Rate (%)</label>
+            <input id="${FIELD_IDS.loanRate}" type="number" step="0.1"/>
+          </div>
+        </div>
+      </div>
+
+      <div id="fieldset-other" class="hidden">
+        <div class="form-row">
+          <div>
+            <label for="${FIELD_IDS.otherBalance}">Current Balance (£)</label>
+            <input id="${FIELD_IDS.otherBalance}" type="number" step="0.01"/>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  editDebt(id) {
+    this.openDebtModal(id);
   },
 
   async toggleStmtForm(debtId, show = true) {
     if (!debtId && this.activeStmtDebtId) debtId = this.activeStmtDebtId;
     if (!debtId) return;
 
-    const container = document.getElementById(`stmtFormContainer-${debtId}`);
+    // Target modal container if it exists, otherwise fallback to legacy
+    const container = document.getElementById('stmtFormContainer-modal') || document.getElementById(`stmtFormContainer-${debtId}`);
     if (!container) return;
 
     if (show) {
-      // Close other open statement form if any
-      if (this.activeStmtDebtId && this.activeStmtDebtId !== debtId) {
-        const prev = document.getElementById(`stmtFormContainer-${this.activeStmtDebtId}`);
-        if (prev) prev.classList.add('hidden');
-      }
-
       this.activeStmtDebtId = debtId;
       container.classList.remove('hidden');
       return await this.renderStmtForm(debtId);
     } else {
       container.classList.add('hidden');
       this.editingStmtId = null;
-      this.activeStmtDebtId = null;
     }
   },
 
   async renderStmtForm(debtId) {
-    const container = document.getElementById(`stmtFormContainer-${debtId}`);
+    const container = document.getElementById('stmtFormContainer-modal') || document.getElementById(`stmtFormContainer-${debtId}`);
     if (!container) return;
     
+    // Determine suffix for input IDs (modal or debtId)
+    const suffix = container.id === 'stmtFormContainer-modal' ? 'modal' : debtId;
+
     let data = {
       date: new Date().toISOString().slice(0, 10),
       openingBalance: '',
@@ -374,19 +520,25 @@ export const debtUI = {
       interest: 0,
       fees: 0,
       minimumPayment: '',
-      paymentDueDate: ''
+      paymentDueDate: '',
+      actualPaymentAmount: '',
+      actualPaymentDate: '',
+      linkedExpenseId: null
     };
 
     if (this.editingStmtId) {
       const stmt = await statementRepository.get(this.editingStmtId);
       if (stmt) {
-        data = { 
-          ...stmt, 
+        data = {
+          ...stmt,
           openingBalance: fromPence(stmt.openingBalance).toFixed(2),
-          amount: fromPence(stmt.amount).toFixed(2), 
-          interest: fromPence(stmt.interest).toFixed(2), 
+          amount: fromPence(stmt.amount).toFixed(2),
+          interest: fromPence(stmt.interest).toFixed(2),
           fees: fromPence(stmt.fees).toFixed(2),
-          minimumPayment: fromPence(stmt.minimumPayment).toFixed(2)
+          minimumPayment: fromPence(stmt.minimumPayment).toFixed(2),
+          actualPaymentAmount: stmt.actualPaymentAmount ? fromPence(stmt.actualPaymentAmount).toFixed(2) : '',
+          actualPaymentDate: stmt.actualPaymentDate || '',
+          linkedExpenseId: stmt.linkedExpenseId || null
         };
       }
     } else if (debtId) {
@@ -409,17 +561,21 @@ export const debtUI = {
         </h3>
       </div>
       <div class="form-row">
-        <div><label>Statement Date</label><input id="stmtDateInput-${debtId}" type="date" value="${data.date}"/></div>
-        <div><label>Opening Balance (£)</label><input id="stmtOpeningBalanceInput-${debtId}" type="number" step="0.01" value="${data.openingBalance}" placeholder="0.00"/></div>
-        <div><label>New Balance (£)</label><input id="stmtBalanceInput-${debtId}" type="number" step="0.01" value="${data.amount}" placeholder="0.00"/></div>
+        <div><label>Statement Date</label><input id="stmtDateInput-${suffix}" type="date" value="${data.date}"/></div>
+        <div><label>Opening Balance (£)</label><input id="stmtOpeningBalanceInput-${suffix}" type="number" step="0.01" value="${data.openingBalance}" placeholder="0.00"/></div>
+        <div><label>New Balance (£)</label><input id="stmtBalanceInput-${suffix}" type="number" step="0.01" value="${data.amount}" placeholder="0.00"/></div>
       </div>
       <div class="form-row">
-        <div><label>Interest (£)</label><input id="stmtInterestInput-${debtId}" type="number" step="0.01" value="${data.interest}"/></div>
-        <div><label>Fees (£)</label><input id="stmtFeesInput-${debtId}" type="number" step="0.01" value="${data.fees}"/></div>
+        <div><label>Interest (£)</label><input id="stmtInterestInput-${suffix}" type="number" step="0.01" value="${data.interest}"/></div>
+        <div><label>Fees (£)</label><input id="stmtFeesInput-${suffix}" type="number" step="0.01" value="${data.fees}"/></div>
       </div>
       <div class="form-row">
-        <div><label>Min Payment Due (£)</label><input id="stmtMinPaymentInput-${debtId}" type="number" step="0.01" value="${data.minimumPayment}" placeholder="0.00"/></div>
-        <div><label>Payment Due Date</label><input id="stmtDueDateInput-${debtId}" type="date" value="${data.paymentDueDate || ''}"/></div>
+        <div><label>Min Payment Due (£)</label><input id="stmtMinPaymentInput-${suffix}" type="number" step="0.01" value="${data.minimumPayment}" placeholder="0.00"/></div>
+        <div><label>Payment Due Date</label><input id="stmtDueDateInput-${suffix}" type="date" value="${data.paymentDueDate || ''}"/></div>
+      </div>
+      <div class="form-row">
+        <div><label>Paid Amount (£)</label><input id="stmtPaidAmtInput-${suffix}" type="number" step="0.01" value="${data.actualPaymentAmount}" placeholder="—" /></div>
+        <div><label>Paid On</label><input id="stmtPaidDateInput-${suffix}" type="date" value="${data.actualPaymentDate || ''}"/></div>
         <div style="display:flex;align-items:flex-end;gap:8px">
           <button class="primary sm" onclick="debtUI.handleSaveStatement()">
             ${isUpdate ? 'Save Changes' : 'Log Statement'}
@@ -440,13 +596,19 @@ export const debtUI = {
     const debtId = this.activeStmtDebtId;
     if (!debtId) return;
 
-    const date = document.getElementById(`stmtDateInput-${debtId}`).value;
-    const openingBalance = parseFloat(document.getElementById(`stmtOpeningBalanceInput-${debtId}`).value);
-    const balance = parseFloat(document.getElementById(`stmtBalanceInput-${debtId}`).value);
-    const interest = parseFloat(document.getElementById(`stmtInterestInput-${debtId}`).value);
-    const fees = parseFloat(document.getElementById(`stmtFeesInput-${debtId}`).value);
-    const minPayment = parseFloat(document.getElementById(`stmtMinPaymentInput-${debtId}`).value);
-    const dueDate = document.getElementById(`stmtDueDateInput-${debtId}`).value;
+    const container = document.getElementById('stmtFormContainer-modal') || document.getElementById(`stmtFormContainer-${debtId}`);
+    const suffix = container?.id === 'stmtFormContainer-modal' ? 'modal' : debtId;
+
+    const date = document.getElementById(`stmtDateInput-${suffix}`).value;
+    const openingBalance = parseFloat(document.getElementById(`stmtOpeningBalanceInput-${suffix}`).value);
+    const balance = parseFloat(document.getElementById(`stmtBalanceInput-${suffix}`).value);
+    const interest = parseFloat(document.getElementById(`stmtInterestInput-${suffix}`).value);
+    const fees = parseFloat(document.getElementById(`stmtFeesInput-${suffix}`).value);
+    const minPayment = parseFloat(document.getElementById(`stmtMinPaymentInput-${suffix}`).value);
+    const dueDate = document.getElementById(`stmtDueDateInput-${suffix}`).value;
+    const paidAmtRaw = document.getElementById(`stmtPaidAmtInput-${suffix}`)?.value;
+    const paidDate = document.getElementById(`stmtPaidDateInput-${suffix}`)?.value || null;
+    const paidAmt = paidAmtRaw && paidAmtRaw !== '' ? parseFloat(paidAmtRaw) : null;
 
     if (!date || isNaN(balance) || isNaN(openingBalance)) {
       alertWithHaptic('Please fill in Date, Opening Balance, and New Balance.', 'error');
@@ -476,11 +638,23 @@ export const debtUI = {
         interest: isNaN(interest) ? 0 : interest,
         fees: isNaN(fees) ? 0 : fees,
         minimumPayment: isNaN(minPayment) ? 0 : minPayment,
-        paymentDueDate: dueDate || null
+        paymentDueDate: dueDate || null,
+        actualPaymentAmount: paidAmt !== null ? paidAmt : undefined,
+        actualPaymentDate: paidDate || undefined
       };
 
       if (this.editingStmtId) {
+        // Fetch before update to get linkedExpenseId
+        const existingStmt = await statementRepository.get(this.editingStmtId);
         await statementRepository.update(this.editingStmtId, payload);
+
+        // If paid amount or date changed, sync the linked expense
+        if (existingStmt?.linkedExpenseId && paidAmt !== null) {
+          await oneOffExpenseRepository.update(existingStmt.linkedExpenseId, {
+            amount: paidAmt,
+            date: paidDate || existingStmt.actualPaymentDate
+          });
+        }
       } else {
         const debt = await debtRepository.get(debtId);
         await statementRepository.addWithExpense(payload, debt ? debt.name : 'Debt');
@@ -530,11 +704,14 @@ export const debtUI = {
 
     await this.toggleStmtForm(debtId, true);
     
-    const dateInput = document.getElementById(`stmtDateInput-${debtId}`);
-    const openInput = document.getElementById(`stmtOpeningBalanceInput-${debtId}`);
-    const balanceInput = document.getElementById(`stmtBalanceInput-${debtId}`);
-    const minInput = document.getElementById(`stmtMinPaymentInput-${debtId}`);
-    const dueInput = document.getElementById(`stmtDueDateInput-${debtId}`);
+    const container = document.getElementById('stmtFormContainer-modal') || document.getElementById(`stmtFormContainer-${debtId}`);
+    const suffix = container?.id === 'stmtFormContainer-modal' ? 'modal' : debtId;
+
+    const dateInput = document.getElementById(`stmtDateInput-${suffix}`);
+    const openInput = document.getElementById(`stmtOpeningBalanceInput-${suffix}`);
+    const balanceInput = document.getElementById(`stmtBalanceInput-${suffix}`);
+    const minInput = document.getElementById(`stmtMinPaymentInput-${suffix}`);
+    const dueInput = document.getElementById(`stmtDueDateInput-${suffix}`);
 
     if (summary.statementDate && dateInput) dateInput.value = summary.statementDate;
     if (summary.openingBalance !== null && openInput) openInput.value = (summary.openingBalance / 100).toFixed(2);
@@ -625,96 +802,52 @@ export const debtUI = {
         if (type === 'loan') typeLabel = 'Personal Loan';
         if (type === 'mortgage') typeLabel = 'Mortgage';
 
-        const isLedgerOpen = this.openLedgerId === debt.id;
-
         return safeHTML`
-          <div style="display:contents">
-            <div class="card clickable-card ${isLedgerOpen ? 'active' : ''}" 
-                 onclick="toggleLedger(${debt.id})"
-                 style="border:1px solid var(--border); padding:15px; display:flex; flex-direction:column; gap:8px; cursor:pointer; position:relative; ${isLedgerOpen ? 'border-color:var(--accent); background:var(--bg-alt);' : ''}">
-              
-              <div style="display:flex; justify-content:space-between; align-items:flex-start">
-                <div>
-                  <h3 style="margin:0; font-size:1.1rem">${debt.name}</h3>
-                  <div style="display:flex; gap:4px; align-items:center">
-                    <span class="pill" style="font-size:0.7rem">${typeLabel}</span>
-                    ${debt.isInterestOnly ? '<span class="pill" style="font-size:0.7rem; background:rgba(217,119,6,0.1); color:var(--warn); border-color:rgba(217,119,6,0.2)">Interest-Only</span>' : ''}
-                  </div>
-                </div>
-                <div style="display:flex; gap:4px">
-                  <button class="sm ghost" onclick="event.stopPropagation(); debtUI.editDebt(${debt.id})" title="Edit Debt Details">✏️</button>
-                  <button class="sm danger" onclick="event.stopPropagation(); deleteDebt(${debt.id})" title="Delete Debt">🗑</button>
+          <div class="card clickable-card" 
+               onclick="debtUI.openHistoryModal(${debt.id})"
+               style="border:1px solid var(--border); padding:15px; display:flex; flex-direction:column; gap:8px; cursor:pointer; position:relative;">
+            
+            <div style="display:flex; justify-content:space-between; align-items:flex-start">
+              <div>
+                <h3 style="margin:0; font-size:1.1rem">${debt.name}</h3>
+                <div style="display:flex; gap:4px; align-items:center">
+                  <span class="pill" style="font-size:0.7rem">${typeLabel}</span>
+                  ${debt.isInterestOnly ? '<span class="pill" style="font-size:0.7rem; background:rgba(217,119,6,0.1); color:var(--warn); border-color:rgba(217,119,6,0.2)">Interest-Only</span>' : ''}
                 </div>
               </div>
-              
-              <div style="font-size:1.4rem; font-weight:bold; margin:5px 0">
-                <span class="privacy-blur">${formatGBP(debt.currentBalance)}</span>
-              </div>
-              
-              <div class="grid2" style="font-size:0.85rem; color:var(--text-soft)">
-                <div>${type === 'credit-card' ? 'APR' : 'Rate'}: ${type === 'credit-card' ? debt.apr : debt.interestRate}%</div>
-                <div class="r">${type === 'credit-card' ? `Limit: ${debt.creditLimit > 0 ? `<span class="privacy-blur">${formatGBP(debt.creditLimit)}</span>` : 'N/A'}` : `Term: ${debt.termMonths}mo`}</div>
-              </div>
-
-              ${type === 'credit-card' && debt.promoEndDate ? `
-                <div style="font-size:0.75rem; color:var(--warn); margin-top:4px">
-                  Promo ends: ${debt.promoEndDate} (${debt.postPromoApr}%)
-                </div>
-              ` : ''}
-              
-              ${type === 'credit-card' && debt.creditLimit > 0 ? `
-                <div style="height:6px; background:var(--bg-alt); border-radius:3px; overflow:hidden; margin-top:4px">
-                  <div style="height:100%; width:${Math.min(utilization, 100)}%; background:${utilization > 90 ? 'var(--danger)' : utilization > 50 ? 'var(--warn)' : 'var(--success)'}"></div>
-                </div>
-                <div style="font-size:0.75rem; text-align:right">${utilization.toFixed(1)}% used</div>
-              ` : ''}
-              
-              <div style="margin-top:auto; padding-top:10px; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center">
-                <div style="font-size:0.85rem">
-                  ${type === 'credit-card' ? 'Est. Min:' : 'Monthly:'} <strong><span class="privacy-blur">${formatGBP(minPay)}</span></strong>
-                </div>
-                <div class="hint" style="font-size:0.7rem">Click to view history</div>
+              <div style="display:flex; gap:4px">
+                <button class="sm ghost" onclick="event.stopPropagation(); debtUI.editDebt(${debt.id})" title="Edit Debt Details">✏️</button>
+                <button class="sm danger" onclick="event.stopPropagation(); deleteDebt(${debt.id})" title="Delete Debt">🗑</button>
               </div>
             </div>
+            
+            <div style="font-size:1.4rem; font-weight:bold; margin:5px 0">
+              <span class="privacy-blur">${formatGBP(debt.currentBalance)}</span>
+            </div>
+            
+            <div class="grid2" style="font-size:0.85rem; color:var(--text-soft)">
+              <div>${type === 'credit-card' ? 'APR' : 'Rate'}: ${type === 'credit-card' ? debt.apr : debt.interestRate}%</div>
+              <div class="r">${type === 'credit-card' ? `Limit: ${debt.creditLimit > 0 ? `<span class="privacy-blur">${formatGBP(debt.creditLimit)}</span>` : 'N/A'}` : `Term: ${debt.termMonths}mo`}</div>
+            </div>
 
-            <!-- Inline Ledger Container -->
-            <div id="ledger-container-${debt.id}" class="card ${isLedgerOpen ? '' : 'hidden'}" 
-                 onclick="event.stopPropagation()"
-                 style="grid-column: 1 / -1; margin-top:-10px; margin-bottom:20px; border-top:none; border-radius: 0 0 8px 8px; border: 1px solid var(--accent); background:var(--bg);">
-              <div style="padding:15px">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px">
-                  <h4 style="margin:0; font-size:0.9rem">Statement History: ${debt.name}</h4>
-                  <div style="display:flex; gap:8px">
-                    <button class="sm primary" onclick="debtUI.toggleStmtForm(${debt.id}, true)">+ Log Statement</button>
-                    ${type === 'credit-card' ? `<button class="sm ghost" onclick="debtUI.activeStmtDebtId=${debt.id}; document.getElementById('stmtPdfFile').click()">📄 Import PDF</button>` : ''}
-                  </div>
-                </div>
-
-                <!-- Statement Form Placeholder -->
-                <div id="stmtFormContainer-${debt.id}" class="card hidden" style="margin-bottom:16px; background:var(--bg-alt); border: 1px solid var(--border-light);"></div>
-
-                <div style="overflow-x:auto">
-                  <table class="tbl sm">
-                    <thead>
-                      <tr>
-                        <th>Date</th>
-                        <th class="r">Opening</th>
-                        <th class="r">Closing</th>
-                        <th class="r">Int</th>
-                        <th class="r">Fees</th>
-                        <th class="r">Min Due</th>
-                        <th>Due Date</th>
-                        <th class="r">Paid</th>
-                        <th>Paid On</th>
-                        <th></th>
-                      </tr>
-                    </thead>
-                    <tbody id="stmtBody-${debt.id}">
-                      <tr><td colspan="10" class="hint" style="text-align:center">Loading history...</td></tr>
-                    </tbody>
-                  </table>
-                </div>
+            ${type === 'credit-card' && debt.promoEndDate ? `
+              <div style="font-size:0.75rem; color:var(--warn); margin-top:4px">
+                Promo ends: ${debt.promoEndDate} (${debt.postPromoApr}%)
               </div>
+            ` : ''}
+            
+            ${type === 'credit-card' && debt.creditLimit > 0 ? `
+              <div style="height:6px; background:var(--bg-alt); border-radius:3px; overflow:hidden; margin-top:4px">
+                <div style="height:100%; width:${Math.min(utilization, 100)}%; background:${utilization > 90 ? 'var(--danger)' : utilization > 50 ? 'var(--warn)' : 'var(--success)'}"></div>
+              </div>
+              <div style="font-size:0.75rem; text-align:right">${utilization.toFixed(1)}% used</div>
+            ` : ''}
+            
+            <div style="margin-top:auto; padding-top:10px; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center">
+              <div style="font-size:0.85rem">
+                ${type === 'credit-card' ? 'Est. Min:' : 'Monthly:'} <strong><span class="privacy-blur">${formatGBP(minPay)}</span></strong>
+              </div>
+              <div class="hint" style="font-size:0.7rem">Click to view history</div>
             </div>
           </div>
         `;
@@ -724,11 +857,87 @@ export const debtUI = {
     }
 
     container.innerHTML = html;
+  },
 
-    // If a ledger is open, re-render its content
-    if (this.openLedgerId) {
-      this.renderStatements(this.openLedgerId);
+  /**
+   * Render the statement history for a specific debt in a modal.
+   */
+  async openHistoryModal(debtId) {
+    this.activeStmtDebtId = debtId;
+    const debt = await debtRepository.get(debtId);
+    if (!debt) return;
+
+    const title = `Statement History: ${debt.name}`;
+    const content = this._buildHistoryModalHTML(debt);
+    const footer = [
+      { label: 'Close', className: 'ghost', onClick: () => this._closeHistoryModal() }
+    ];
+
+    modalUI.show(title, content, footer);
+
+    // Scroll hint: fade in, then fade out after 2s
+    const hint = document.getElementById('stmtScrollHint');
+    if (hint) {
+      hint.style.opacity = '1';
+      setTimeout(() => { hint.style.opacity = '0'; }, 2000);
     }
+
+    // Initial render of statements into the modal table
+    await this.renderStatements(debtId);
+
+    // Wire X button to _closeHistoryModal for cleanup
+    if (modalUI.elements.close) {
+      modalUI.elements.close.onclick = () => this._closeHistoryModal();
+    }
+  },
+
+  _closeHistoryModal() {
+    this.activeStmtDebtId = null;
+    this.editingStmtId = null;
+    modalUI.close();
+  },
+
+  _buildHistoryModalHTML(debt) {
+    const type = debt.debtType || 'credit-card';
+    return safeHTML`
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px">
+        <div style="display:flex; gap:8px">
+          <button class="primary" onclick="debtUI.toggleStmtForm(${debt.id}, true)">+ Log Statement</button>
+          ${type === 'credit-card' ? `<button class="ghost" onclick="debtUI.activeStmtDebtId=${debt.id}; document.getElementById('stmtPdfFile').click()">📄 Import PDF</button>` : ''}
+        </div>
+        <div class="hint" style="font-size:0.8rem">
+          Current Balance: <strong>${formatGBP(debt.currentBalance)}</strong>
+        </div>
+      </div>
+
+      <!-- Statement Form Placeholder (Inside Modal) -->
+      <div id="stmtFormContainer-modal" class="card hidden" style="margin-bottom:16px; background:var(--bg-alt); border: 1px solid var(--border-light);"></div>
+
+      <div style="position:relative">
+        <div id="stmtScrollHint" style="position:absolute;right:0;top:0;bottom:0;width:48px;background:linear-gradient(to right,transparent,var(--bg) 70%);display:flex;align-items:center;justify-content:flex-end;padding-right:4px;pointer-events:none;font-size:0.7rem;color:var(--text-soft);opacity:0;transition:opacity 0.5s;z-index:5">→</div>
+      <div id="stmtTableWrapper" style="overflow-x:auto; overflow-y:visible">
+        <table class="tbl sm stmt-tbl">
+          <thead>
+            <tr>
+              <th style="width:80px">Date</th>
+              <th class="r" style="width:70px">Opening</th>
+              <th class="r" style="width:70px">Closing</th>
+              <th class="r" style="width:50px">Int</th>
+              <th class="r" style="width:50px">Fees</th>
+              <th class="r" style="width:65px">Min Due</th>
+              <th style="width:80px">Due Date</th>
+              <th class="r" style="width:60px">Paid</th>
+              <th style="width:80px">Paid On</th>
+              <th style="width:60px"></th>
+            </tr>
+          </thead>
+          <tbody id="stmtBody-modal">
+            <tr><td colspan="10" class="hint" style="text-align:center">Loading history...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      </div>
+    `;
   },
 
   /**
@@ -738,39 +947,47 @@ export const debtUI = {
     const allStmts = await statementRepository.getAll();
     const stmts = allStmts.filter(s => Number(s.debtId) === Number(debtId));
     
-    const renderTo = (container) => {
-      if (!container) return;
-      if (stmts.length === 0) {
-        container.innerHTML = '<tr><td colspan="10" class="hint" style="text-align:center">No statements logged yet.</td></tr>';
-        return;
-      }
+    // Target the modal-specific body first, fallback to legacy for safety during transition
+    const container = document.getElementById('stmtBody-modal') || document.getElementById(`stmtBody-${debtId}`);
+    if (!container) return;
 
-      stmts.sort((a, b) => b.date.localeCompare(a.date));
+    if (stmts.length === 0) {
+      container.innerHTML = '<tr><td colspan="10" class="hint" style="text-align:center">No statements logged yet.</td></tr>';
+      return;
+    }
 
-      container.innerHTML = stmts.map(s => safeHTML`
-        <tr>
-          <td>${s.date}</td>
-          <td class="r">${formatGBP(s.openingBalance)}</td>
-          <td class="r">${formatGBP(s.amount)}</td>
-          <td class="r">${formatGBP(s.interest)}</td>
-          <td class="r">${formatGBP(s.fees)}</td>
-          <td class="r">${formatGBP(s.minimumPayment)}</td>
-          <td>${s.paymentDueDate || '—'}</td>
-          <td class="r" style="color:${s.actualPaymentAmount ? 'var(--success)' : 'inherit'}">
-            ${s.actualPaymentAmount ? formatGBP(s.actualPaymentAmount) : '—'}
-          </td>
-          <td style="color:${s.actualPaymentDate ? 'var(--success)' : 'inherit'}">
-            ${s.actualPaymentDate || '—'}
-          </td>
-          <td class="r nw">
-            <button class="sm ghost" onclick="debtUI.editStatement(${s.id}, ${debtId})">Edit</button>
-            <button class="sm danger" onclick="deleteStatement(${s.id}, ${debtId})">✕</button>
-          </td>
-        </tr>
-      `).join('');
+    stmts.sort((a, b) => b.date.localeCompare(a.date));
+
+    const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '—';
+    const abbrevGBP = (pence) => {
+      if (!pence && pence !== 0) return '—';
+      const pounds = pence / 100;
+      return pounds >= 1000 ? `£${(pounds / 1000).toFixed(1)}k` : formatGBP(pence);
     };
 
-    renderTo(document.getElementById(`stmtBody-${debtId}`));
+    container.innerHTML = stmts.map(s => safeHTML`
+      <tr>
+        <td>${fmtDate(s.date)}</td>
+        <td class="r">${abbrevGBP(s.openingBalance)}</td>
+        <td class="r">${abbrevGBP(s.amount)}</td>
+        <td class="r">${formatGBP(s.interest)}</td>
+        <td class="r">${formatGBP(s.fees)}</td>
+        <td class="r">${formatGBP(s.minimumPayment)}</td>
+        <td>${s.paymentDueDate ? fmtDate(s.paymentDueDate) : '—'}</td>
+        <td class="r" style="color:${s.actualPaymentAmount ? 'var(--success)' : 'inherit'}">
+          ${s.actualPaymentAmount ? formatGBP(s.actualPaymentAmount) : '—'}
+        </td>
+        <td style="color:${s.actualPaymentDate ? 'var(--success)' : 'inherit'}">
+          ${s.actualPaymentDate ? fmtDate(s.actualPaymentDate) : '—'}
+        </td>
+        <td class="r nw" id="mark-paid-td-${s.id}">
+          <button class="sm ghost" title="Edit statement" onclick="debtUI.editStatement(${s.id}, ${debtId})">✏️</button>
+          <button class="sm danger" onclick="deleteStatement(${s.id}, ${debtId})">✕</button>
+          ${!s.actualPaymentDate ? safeHTML`<button class="sm" style="color:var(--success)" title="Mark as paid"
+            onclick="showMarkPaidPrompt(${s.id}, ${debtId}, ${s.minimumPayment})">✓</button>` : ''}
+        </td>
+      </tr>
+    `).join('');
   }
 };
 

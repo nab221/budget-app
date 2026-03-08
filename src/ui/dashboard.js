@@ -5,23 +5,25 @@ import {
   targetRepository, 
   netWorthRepository, 
   balanceSnapshotRepository,
-  dailyBalanceRepository,
   expectedIncomeRepository,
   childcareRepository,
   categoryRepository,
+  getYearlyDailyIncome,
   getYearlyDailySpending
 } from '../db/repository.js';
-import { getDailyRollingData } from '../utils/cashflow.js';
+import { getDailyRollingData, calculateForecast } from '../utils/cashflow.js';
 import { formatGBP, formatGBPShort, toPence, fromPence } from '../utils/currency.js';
-import { simulatePayoff, calcMinPayment, calculateBalanceChain } from '../utils/finance.js';
+import { simulatePayoff, calcMinPayment } from '../utils/finance.js';
 import { renderRollingOverviewChart, renderSpendingBreakdownChart } from './charts.js';
 import { checkStoragePersistence } from './pwa-ux.js';
 import { getEntitlementPeriod, calculateFundingGap } from '../utils/childcare.js';
-import { modalUI } from './render.js';
+import { modalUI, adjustFontSize } from './render.js';
 import { renderSpendingHeatmap } from './heatmap.js';
+import { pickInvariantForecastKpis, rebaseForecastSnapshots } from './dashboard-kpis.js';
 
 let _selectedMonth = new Date().toISOString().slice(0, 7);
 let _selectedView = 'current';
+let _dashboardForecastSnapshots = [];
 
 function normalizeMonth(value) {
   return (typeof value === 'string' && /^\d{4}-\d{2}$/.test(value))
@@ -184,25 +186,33 @@ export async function renderDashboard() {
   // 3. Fetch/Calculate Consolidated Data
   const debts = await debtRepository.getAll();
   const today = new Date().toISOString().split('T')[0];
-  const snapshots = await dailyBalanceRepository.getAll();
-  
-  // Calculate Balance logic (using snapshots or calculating if missing)
-  let currentBalance = 0;
-  const todaySnap = snapshots.find(s => s.date === today);
-  if (todaySnap) {
-    currentBalance = todaySnap.closingBalance;
-  } else {
-    // Fallback or trigger recalc
-    const chain = await calculateBalanceChain(_selectedMonth, 3);
-    const actualSnaps = chain.filter(s => !s.isProjection);
-    currentBalance = actualSnaps.length > 0 ? actualSnaps[actualSnaps.length - 1].closingBalance : 0;
+
+  // Keep these KPIs invariant by always using today's forecast baseline.
+  let forecastSnapshots = [];
+  try {
+    forecastSnapshots = await calculateForecast(today, 90);
+
+    // Keep all dashboard balance surfaces aligned on today's chart balance.
+    const rollingTodayBalance =
+      rollingData && Number.isInteger(rollingData.todayIndex) && rollingData.todayIndex >= 0
+        ? rollingData?.data?.balance?.[rollingData.todayIndex]
+        : null;
+    if (Number.isFinite(rollingTodayBalance)) {
+      forecastSnapshots = rebaseForecastSnapshots(forecastSnapshots, rollingTodayBalance);
+    }
+  } catch (err) {
+    console.warn('Could not calculate invariant forecast KPIs:', err);
   }
+
+  _dashboardForecastSnapshots = forecastSnapshots;
+
+  const invariantKpis = pickInvariantForecastKpis(forecastSnapshots);
 
   // Next Negative Alert warning
   const horizon = new Date();
   horizon.setDate(horizon.getDate() + 45);
   const horizonStr = horizon.toISOString().split('T')[0];
-  const firstNeg = snapshots
+  const firstNeg = forecastSnapshots
     .filter(s => s.date >= today && s.date <= horizonStr && s.closingBalance < 0)
     .sort((a, b) => a.date.localeCompare(b.date))[0];
 
@@ -219,14 +229,30 @@ export async function renderDashboard() {
 
   // 4. Define the new card order
   const cards = [
+    // Balance Banner (3 standardized cards)
     { 
       id: 'balance-card',
-      label: 'Current Balance', 
-      value: currentBalance, 
-      color: currentBalance >= 0 ? 'var(--accent)' : 'var(--danger)',
-      warning: firstNeg ? { title: '⚠️ Future Deficit', text: `Projected ${formatGBP(firstNeg.closingBalance)} on ${firstNeg.date}` } : null,
+      label: 'Running Balance', 
+      value: invariantKpis.runningBalance,
+      color: 'var(--accent)',
+      isBanner: true,
       canEdit: true
     },
+    { 
+      label: 'Next Month Forecast', 
+      value: invariantKpis.nextMonthForecast,
+      color: 'var(--info)',
+      isBanner: true,
+      isForecast: true
+    },
+    { 
+      label: '3-Month Forecast', 
+      value: invariantKpis.threeMonthForecast,
+      color: 'var(--info)',
+      isBanner: true,
+      isForecast: true
+    },
+    // Standard cards
     { label: 'Income', value: data.income, color: 'var(--accent)' },
     { label: 'Expenses', value: data.totalExpenses, color: 'var(--danger)' },
     { label: 'Net Position', value: data.netPosition, color: data.netPosition >= 0 ? 'var(--accent)' : 'var(--danger)' },
@@ -255,8 +281,13 @@ export async function renderDashboard() {
 
   container.textContent = '';
   for (const card of cards) {
+    // Filter out null values (per Task 3)
+    if (card.value === null || card.value === undefined) continue;
+
     const item = document.createElement('div');
-    item.className = 'sum-item';
+    item.className = card.isBanner ? 'dashboard-card' : 'sum-item';
+    if (card.isForecast) item.classList.add('forecast-card');
+
     if (card.warning) {
       item.style.borderColor = 'var(--danger)';
       item.style.borderWidth = '2px';
@@ -289,7 +320,7 @@ export async function renderDashboard() {
       editBtn.innerHTML = '✏️';
       editBtn.onclick = (e) => {
         e.stopPropagation();
-        openBalanceAdjustmentModal(currentBalance);
+        openBalanceAdjustmentModal(invariantKpis.runningBalance);
       };
       head.appendChild(editBtn);
     }
@@ -298,6 +329,8 @@ export async function renderDashboard() {
     const valEl = document.createElement('div');
     valEl.className = 'sum-val';
     valEl.style.color = card.color;
+    
+    // Use centralized adjustFontSize from render.js
     adjustFontSize(valEl, card.value);
     item.appendChild(valEl);
 
@@ -330,7 +363,46 @@ export async function renderDashboard() {
     container.appendChild(item);
   }
 
-  // 5. Render Spending Heatmap
+  // 5. Render Income Heatmap
+  try {
+    const year = parseInt(_selectedMonth.slice(0, 4));
+    const prevYear = year - 1;
+
+    const [currentYearData, prevYearData] = await Promise.all([
+      getYearlyDailyIncome(year),
+      getYearlyDailyIncome(prevYear)
+    ]);
+
+    const hasPrevYearData = Object.values(prevYearData).some(d => d.total > 0);
+    const allData = { ...currentYearData, ...prevYearData };
+
+    renderSpendingHeatmap('incomeHeatmapContainer', year, currentYearData, {
+      allYearsData: allData
+    });
+
+    if (hasPrevYearData) {
+      const container = document.getElementById('incomeHeatmapContainer');
+
+      const spacer = document.createElement('div');
+      spacer.style.height = '20px';
+      container.appendChild(spacer);
+
+      const prevLabel = document.createElement('div');
+      prevLabel.className = 'chart-title';
+      prevLabel.style.textAlign = 'center';
+      prevLabel.textContent = `Prior Year (${prevYear})`;
+      container.appendChild(prevLabel);
+
+      renderSpendingHeatmap('incomeHeatmapContainer', prevYear, prevYearData, {
+        clear: false,
+        allYearsData: allData
+      });
+    }
+  } catch (err) {
+    console.warn('Could not render income heatmap:', err);
+  }
+
+  // 6. Render Spending Heatmap
   try {
     const year = parseInt(_selectedMonth.slice(0, 4));
     const prevYear = year - 1;
@@ -385,8 +457,8 @@ function openBalanceAdjustmentModal(currentBalancePence) {
   `;
   
   modalUI.show('Set Current Balance', content, [
-    { label: 'Cancel', class: 'ghost', onclick: () => modalUI.close() },
-    { label: 'Save Balance', class: 'primary', onclick: async () => {
+    { label: 'Cancel', className: 'ghost', onClick: () => modalUI.close() },
+    { label: 'Save Balance', className: 'primary', onClick: async () => {
       const val = parseFloat(document.getElementById('adjBalanceInput').value);
       if (isNaN(val)) return;
       
@@ -397,26 +469,6 @@ function openBalanceAdjustmentModal(currentBalancePence) {
       if (window.app) window.app.renderAll();
     }}
   ]);
-}
-
-/**
- * Adjusts the font size of an element based on the length of the currency string.
- */
-function adjustFontSize(el, pence) {
-  const amount = Math.abs(pence / 100);
-  let fontSize = '1.35rem';
-  let displayValue = formatGBP(pence);
-
-  if (amount >= 100000) {
-    displayValue = formatGBPShort(pence);
-  } else if (amount >= 10000) {
-    fontSize = '1.15rem';
-  } else if (amount >= 1000) {
-    fontSize = '1.25rem';
-  }
-
-  el.style.fontSize = fontSize;
-  el.innerHTML = `<span class="privacy-blur">${displayValue}</span>`;
 }
 
 /**
@@ -448,9 +500,9 @@ async function renderForecastTable() {
   tableCont.innerHTML = '<div class="hint" style="text-align:center; padding:20px">Calculating 45-day forecast...</div>';
 
   try {
-    const { calculateForecast } = await import('../utils/cashflow.js');
-    const today = new Date().toISOString().split('T')[0];
-    const snapshots = await calculateForecast(today, 45);
+    const snapshots = Array.isArray(_dashboardForecastSnapshots)
+      ? _dashboardForecastSnapshots.slice(0, 45)
+      : [];
 
     if (!snapshots || snapshots.length === 0) {
       tableCont.innerHTML = '<div class="hint" style="text-align:center; padding:20px">No forecast data available.</div>';
