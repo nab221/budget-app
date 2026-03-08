@@ -1,156 +1,247 @@
 # Pitfalls Research
 
-**Domain:** Vanilla JS Mobile PWA — Adding Heatmap, Swipe Gestures, Haptic Feedback to existing system
+**Domain:** Vanilla JS modal form with type-specific field switching — Debt Tab UX Overhaul (v2.5)
 **Researched:** 2026-03-07
-**Confidence:** HIGH (swipe/haptics — confirmed via MDN, Chrome docs, iOS issues); MEDIUM (heatmap — chartjs-chart-matrix docs sparse, color scale edge cases from general library knowledge)
+**Confidence:** HIGH (codebase-verified bugs, confirmed by reading debts.js directly); MEDIUM (modal accessibility and form state patterns — standard web platform behavior)
 
 ---
 
 ## Critical Pitfalls
 
-### Pitfall 1: chartjs-chart-matrix Not Registered in Tree-Shaken Import System
+### Pitfall 1: Unclosed HTML Div Swallows Action Buttons Into a Conditional Field Group
 
 **What goes wrong:**
-The existing `charts.js` imports only specific Chart.js components (LineController, DoughnutController, CategoryScale, LinearScale, etc.) via tree-shaken imports. chartjs-chart-matrix provides a `MatrixController` and `MatrixElement` that must be explicitly imported and registered with `Chart.register()`. Forgetting this causes a silent runtime error: "No dataset controller found for type 'matrix'". The chart canvas renders blank.
+The `renderDebtForm()` function in `debts.js` injects HTML with an unclosed `<div id="loanOnlyFields">`. The closing `</div>` for that container is missing. As a result, the HTML parser promotes the action buttons row (Save/Cancel) into the loan fields container. The buttons only appear when `loanOnlyFields` is visible — i.e., when debt type is "loan" or "mortgage". For credit card type (the default), the buttons are inside a `hidden` div and are never seen. This is the root cause of "Edit shows only name/type with no save button."
 
 **Why it happens:**
-The CDN-based examples in chartjs-chart-matrix docs use the global `Chart` object which auto-registers everything. The tree-shaken ESM path is not documented prominently. Developers copy the example config and omit the registration step.
+Template-literal HTML strings with nested conditionally-hidden divs are hard to visually balance. A closing tag gets dropped during a refactor and there is no compiler or linter to catch it. The bug is invisible in the source code because template literals don't enforce structure.
 
 **How to avoid:**
-Add to `charts.js`:
-```js
-import { MatrixController, MatrixElement } from 'chartjs-chart-matrix';
-Chart.register(MatrixController, MatrixElement);
+In the modal replacement, write each type-specific fieldset as a named fragment with explicit open/close comments:
+```html
+<!-- BEGIN: credit-card fields -->
+<div id="ccFields" class="field-group hidden">...</div>
+<!-- END: credit-card fields -->
+<!-- BEGIN: mortgage fields -->
+<div id="mortgageFields" class="field-group hidden">...</div>
+<!-- END: mortgage fields -->
+<!-- Action row is OUTSIDE all fieldsets -->
+<div class="form-actions">...</div>
 ```
-Do this before any matrix chart is instantiated. Verify with a console log that `Chart.registry.controllers` includes `matrix`.
+Keep the action row (`<dialog>` footer or a dedicated `.modal-footer` element) completely separate from the conditional fieldset area. Never nest action buttons inside a conditional visibility container.
 
 **Warning signs:**
-- Browser console: "No dataset controller found for type 'matrix'"
-- Canvas is present in DOM but completely blank
-- No chart error thrown — it fails silently
+- Save/Cancel buttons are missing for one debt type but visible for another
+- Buttons appear after switching type selector but disappear when switching back
+- DevTools shows the button elements inside a `hidden` parent
 
-**Phase to address:** Heatmap phase (first task: install and register before any data work)
+**Phase to address:** Modal scaffold phase — define the modal HTML structure with explicit fieldset boundaries before writing any JS
 
 ---
 
-### Pitfall 2: Heatmap Cell Color Scale Breaks When maxSpend Is Zero
+### Pitfall 2: Type-Switch Show/Hide State Not Reset When Modal Opens
 
 **What goes wrong:**
-The color interpolation for heatmap cells divides the cell value by `maxSpend` to get a 0–1 intensity ratio. If all days in the visible range have zero spending (e.g., a new user who has just installed the app, or the current month has no expenses yet), `maxSpend` is 0 and the division produces `NaN` or `Infinity`. Every cell renders as the "zero" color — or worse, as `rgba(NaN, NaN, NaN, NaN)` which collapses to black or transparent depending on browser.
+If the modal is built by injecting HTML into a container (the current approach) or by re-using a persistent `<dialog>` element, the visible/hidden state of type-specific fieldsets can be stale when the modal opens for a new debt. Example: user opens Add modal for a credit card (credit card fields visible), saves it, then opens Add modal again and selects "mortgage" — at this point the `ccOnlyFields` div should hide and `loanOnlyFields` should show, but if `toggleDebtTypeFields()` is not called during initial render the old state persists. On first open this is not an issue, but after the second open the initial type display can be wrong.
 
 **Why it happens:**
-Color scale functions are written assuming at least one non-zero value exists. The zero-max case is a degenerate edge case not covered by typical test data.
+Developers call `toggleDebtTypeFields()` only from the `onchange` event on the type selector. They forget to call it once during form initialization to set the correct initial state for the pre-selected type. For edit mode (where a type is pre-selected), the fieldsets must reflect that type immediately without user interaction.
 
 **How to avoid:**
-Guard the scale function:
+After injecting the modal HTML or pre-populating fields for edit mode, explicitly call the field-visibility function once:
 ```js
-const intensity = maxSpend > 0 ? value / maxSpend : 0;
+renderDebtForm();          // inject HTML + set select value
+toggleDebtTypeFields();    // apply visibility for the current type immediately
 ```
-Also handle the case where `maxSpend` equals `minSpend` (all days identical) — intensity should be 0.5 or 0, not `0/0`.
+Do this at the end of the open/populate flow, not at the start. The select value must already be set before the toggle reads it.
 
 **Warning signs:**
-- All heatmap cells render the same color (the zero-spend color) even for days with transactions
-- Black or transparent cells on a brand-new test dataset
-- Console errors mentioning `NaN` in color values
+- Edit modal opens for a mortgage but shows credit card fields
+- Switching type selector and switching back does not restore the correct set of fields
+- Fields from the previous open are visible when opening a fresh Add modal
 
-**Phase to address:** Heatmap phase — must be caught in data-aggregation logic before passing to `backgroundColor` callback
+**Phase to address:** Field-switching logic phase — include an "initialize visibility on open" step in the implementation plan
 
 ---
 
-### Pitfall 3: Swipe Gesture Registers as Passive Listener, Making preventDefault Ineffective
+### Pitfall 3: Edit Mode Does Not Pre-Populate Type-Specific Fields Because It Reads the Wrong Element IDs
 
 **What goes wrong:**
-Chrome (Android) defaults `touchstart` and `touchmove` listeners on `document`, `window`, and `body` to `{passive: true}` since Chrome 56. If swipe handlers are attached without `{passive: false}`, calling `event.preventDefault()` inside the handler has no effect — the browser scrolls anyway and logs: "Unable to preventDefault inside passive event listener". This means the swipe-to-delete action cannot suppress vertical scroll while the user is pulling a row horizontally.
+The existing `handleSaveDebt()` reads form values from element IDs like `debtAprInput`, `debtLimitInput`, `loanPrincipalInput`. These IDs are injected by `renderDebtForm()`. If the modal uses a persistent `<dialog>` (not re-injected HTML), the inputs are created once and their IDs must match exactly. A mismatch — e.g., renaming an input during the modal rebuild — causes `document.getElementById()` to return `null`, and `parseFloat(null.value)` throws. The save silently fails or produces NaN values written to the database.
 
 **Why it happens:**
-The default passive behavior was added for scroll performance. Developers who don't explicitly opt out get passive listeners without realizing it. The intervention warning appears in DevTools but not in production builds.
+Input IDs are defined in two places: the HTML template (in `renderDebtForm`) and the read-back logic (in `handleSaveDebt`). These drift apart during refactoring. In the inline-form architecture there is no compile-time check, so a typo in one place is only caught at runtime.
 
 **How to avoid:**
-Attach the touchmove listener with explicit `{passive: false}` on the individual transaction row elements (not on document/window). Only call `preventDefault()` when the gesture is confirmed to be horizontal (deltaX > deltaY threshold). Keep touchstart as `{passive: true}` to avoid blocking the initial touch.
-
+Define input IDs as named constants at the top of the module:
 ```js
-row.addEventListener('touchmove', handler, {passive: false});
+const FIELD_IDS = {
+  name: 'debtModal-name',
+  type: 'debtModal-type',
+  ccBalance: 'debtModal-cc-balance',
+  ccApr: 'debtModal-cc-apr',
+  // ...
+};
+```
+Reference these constants in both the HTML template string and the save handler. A missing constant reference will be `undefined` rather than a silently wrong string, making the error obvious.
+
+**Warning signs:**
+- Save produces `0` values for all numeric fields despite the user filling them in
+- `document.getElementById('someInputId')` returns `null` in DevTools console
+- Edit modal pre-populates some fields but not others
+
+**Phase to address:** Modal scaffold phase — establish canonical IDs before writing either the template or the save handler
+
+---
+
+### Pitfall 4: Inline `onclick` Attribute Handlers Require `window.debtUI` to Be Synchronously Available
+
+**What goes wrong:**
+The current form uses `onchange="debtUI.toggleDebtTypeFields()"` and `onclick="debtUI.handleSaveDebt()"` inline in injected HTML. These resolve `debtUI` against `window` at event time. In the current code, `window.debtUI = debtUI` is set at module bottom, so it works. But if any refactor moves the modal open call earlier in the module load sequence — or if the modal HTML is injected before `window.debtUI` is assigned — these handlers throw `ReferenceError: debtUI is not defined`.
+
+**Why it happens:**
+Inline `onclick` attributes are global namespace lookups. ES module scope is not available to inline handlers. This is a long-standing vanilla JS constraint that becomes a pitfall when mixing module-scoped objects with inline-HTML event wiring.
+
+**How to avoid:**
+After injecting modal HTML, wire all events programmatically using `addEventListener` on the specific elements:
+```js
+document.getElementById(FIELD_IDS.type).addEventListener('change', () => toggleDebtTypeFields());
+document.getElementById('debtModal-save').addEventListener('click', () => handleSaveDebt());
+```
+This keeps all event wiring in JS scope where the module object is accessible, and removes the dependency on `window` global exposure for form events. The `window.debtUI` global can be kept for external callers (edit button on debt cards) but should not be relied on for internal modal wiring.
+
+**Warning signs:**
+- `ReferenceError: debtUI is not defined` in console when interacting with form
+- Type selector change does nothing — no visible field switch
+- Save button click does nothing and no error is thrown (handler registered but references wrong scope)
+
+**Phase to address:** Modal scaffold phase — establish event wiring pattern before implementing any field logic
+
+---
+
+### Pitfall 5: Data Loss When Add Modal Is Dismissed Then Re-Opened
+
+**What goes wrong:**
+The current inline form approach calls `renderDebtForm()` every time the form is shown. This resets all inputs to blank/default values. If a user partially fills an Add form (e.g., enters name and balance), closes it by clicking "Hide", then re-opens it, all their input is gone. For a modal, the same issue occurs if the open function re-injects HTML rather than just showing the dialog.
+
+**Why it happens:**
+Re-injecting innerHTML is the simplest way to reset a form to a known state. Developers do this to avoid having to explicitly reset each field. The cost — silent data loss on dismiss — is only noticed by users who cancel and retry.
+
+**How to avoid:**
+For a `<dialog>` modal: use `dialog.showModal()` and `dialog.close()` for open/close. Only reset form fields explicitly (via `form.reset()` or manual field clearing) when opening a fresh Add flow, not on close. This preserves partial input if the user accidentally dismisses. For Edit mode, always overwrite all fields on open. Consider a light warning on dismiss if any field has been modified from its initial state.
+
+**Warning signs:**
+- User reports "I had to fill in the form twice" — dismissed and re-opened
+- Opening the Add modal always shows blank fields even after a previous partial fill
+- The cancel button and the dismiss-by-clicking-backdrop produce different results
+
+**Phase to address:** Modal open/close logic phase — establish a clear contract: "reset on open for Add, reset on open for Edit (to DB values), never reset on close"
+
+---
+
+### Pitfall 6: Edit Mode Partially Pre-Populates — Fields Not in the Active Fieldset Are Missed
+
+**What goes wrong:**
+When editing a credit card debt, only the credit card fieldset is visible. The loan fieldset inputs (`loanPrincipalInput`, `loanTermInput`, etc.) are hidden but still present in the DOM. On save, `handleSaveDebt()` reads the active type's inputs and ignores the hidden fieldset entirely. This is correct behavior. The pitfall is the reverse: if the user switches type during edit (credit card → mortgage), the mortgage fields need to be populated from the debt's existing loan data, but they start blank. The user can accidentally save a mortgage record with all-zero loan fields if they simply switch type and click Save without filling in anything.
+
+**Why it happens:**
+Pre-population in `renderDebtForm()` populates all inputs at inject-time regardless of type, which is correct. But if the form is a persistent `<dialog>` that is not re-injected on open, the populate step must explicitly write to every input in all fieldsets, not just the currently visible one.
+
+**How to avoid:**
+Always populate all fieldsets on modal open, not just the currently active one. The hidden fields are in the DOM and their values persist. When saving, read only from the active type's fieldset (current behavior is correct) — but on populate, write to all of them:
+```js
+// Always set all inputs, even in hidden fieldsets
+document.getElementById(FIELD_IDS.ccBalance).value = toGBP(debt.currentBalance);
+document.getElementById(FIELD_IDS.loanPrincipal).value = toGBP(debt.originalPrincipal);
+// ... etc for every field
 ```
 
 **Warning signs:**
-- DevTools console: "Unable to preventDefault inside passive event listener due to target being treated as passive"
-- Row swipes also scroll the page vertically simultaneously
-- Behavior differs between desktop (no issue) and Android Chrome (broken)
+- Switching type during edit clears the destination fieldset to zeros
+- Editing a debt that was previously a different type shows zeros in type-specific fields
+- Saving after a type switch produces a record with mostly zero values
 
-**Phase to address:** Swipe gesture phase — architecture decision must be made upfront before any gesture code is written
-
----
-
-### Pitfall 4: iOS Safari Edge-Swipe Back Navigation Collides With Row Swipe
-
-**What goes wrong:**
-On iOS (both Safari and installed PWA), swiping from the left screen edge triggers the browser's native "go back" navigation. If a transaction row is positioned near the left edge of the viewport, beginning a left-to-right swipe to reveal a "delete" action starts the native back navigation gesture simultaneously. The native gesture wins, navigating away from the app (or flickering if it's a PWA with no history).
-
-**Why it happens:**
-iOS reserves approximately 20px from each screen edge for navigation gestures. This cannot be disabled via JavaScript or CSS in a home-screen PWA — Apple does not expose this in the Web App Manifest. The W3C manifest spec has an open issue requesting an `"gestures"` field, but it is not implemented.
-
-**How to avoid:**
-Design swipe affordance for right-to-left (swipe left to reveal delete), not left-to-right. The right edge of the screen does not have a system gesture conflict on iOS. Alternatively, detect if the touch started within 20px of the left edge (`touch.pageX < 20`) and abort the gesture handler entirely.
-
-**Warning signs:**
-- On iOS only, swiping a row near the left edge causes page flicker or navigation
-- Works correctly on Android but breaks on iOS PWA
-- Ionic and other PWA frameworks have open bugs for exactly this scenario
-
-**Phase to address:** Swipe gesture phase — inform the UX decision about swipe direction before implementation begins
+**Phase to address:** Edit mode pre-population phase — write a populate function that always targets all inputs, not just the visible fieldset
 
 ---
 
-### Pitfall 5: Ghost Click Fires on the Row After a Completed Swipe
+### Pitfall 7: Modal Backdrop Click Dismisses Without Confirmation, Losing Edit Changes
 
 **What goes wrong:**
-After a user completes a horizontal swipe (e.g., reveals the delete button), the browser synthesizes a `click` event at the touchend coordinates. This click lands on whatever element is at those coordinates — often the delete button that just slid into view — triggering an immediate delete without the user intending to tap it. The item disappears instantly, looking like a bug.
+The HTML `<dialog>` element fires a `cancel` event and closes itself when the user presses Escape. Clicking outside the dialog (on the backdrop `::backdrop`) does not close it by default, but developers often add a `click` handler on the dialog element itself to catch backdrop clicks and call `dialog.close()`. Without a "discard changes?" prompt, the user loses an in-progress edit with no warning.
 
 **Why it happens:**
-Browsers synthesize mouse/click events from touch sequences with a ~300ms delay (or immediately on modern fast-tap browsers). The synthesized click is dispatched after `touchend`, by which time the DOM may have shifted (the swipe reveal animation completed), placing the delete button under the finger's release point.
+The Escape key `cancel` event and the backdrop click both feel like "dismiss" to the user. Developers implement dismiss-on-backdrop because users expect it. The confirmation step is forgotten because it requires intercepting both paths.
 
 **How to avoid:**
-Two strategies:
-1. After a swipe completes (threshold crossed), set a `_swipeJustCompleted` flag and suppress the next `click` event on the row via a one-time `click` handler that calls `event.stopPropagation()` then removes itself.
-2. Require an explicit second tap on the revealed delete button (the button must be fully visible, not appearing during the gesture), and add a brief animation delay (150ms) before the button becomes interactive.
-
-Strategy 2 is safer UX — the user must deliberately tap delete after the row settles.
-
-**Warning signs:**
-- Swipe to reveal delete immediately deletes the item without a tap
-- Issue is timing-dependent and inconsistent (fast swipes hit it, slow swipes don't)
-- Works on desktop (no ghost click) but fails on mobile
-
-**Phase to address:** Swipe gesture phase — design the reveal-then-confirm flow, not reveal-and-immediately-act
-
----
-
-### Pitfall 6: iOS Safari Has No Support for navigator.vibrate
-
-**What goes wrong:**
-`navigator.vibrate()` is undefined on all iOS Safari versions. Calling it without a guard throws a TypeError, or silently does nothing if the browser returns `undefined` for the property. On iOS 18+, Safari introduced a non-standard checkbox `switch` attribute that triggers system haptics when programmatically toggled, but this is a fragile workaround requiring hidden DOM elements and is not part of any standard.
-
-**Why it happens:**
-Apple has never implemented the W3C Vibration API. The MDN compat data has had an open issue about this since 2024. The Vibration API is implemented in Chrome Android, Firefox, and most Android browsers, creating a false sense of universal support.
-
-**How to avoid:**
-Always guard:
+Handle `cancel` event (Escape key) explicitly:
 ```js
-function triggerHaptic(pattern = 50) {
-  if (typeof navigator.vibrate === 'function') {
-    navigator.vibrate(pattern);
+dialog.addEventListener('cancel', (e) => {
+  if (hasUnsavedChanges()) {
+    e.preventDefault();
+    if (confirm('Discard changes?')) dialog.close();
   }
-  // iOS: silently skip — no viable production workaround
-}
+});
 ```
-Do NOT attempt the checkbox-switch workaround for production code. It depends on undocumented Safari behavior that could break in any iOS update, and it requires injecting/removing DOM elements on every haptic trigger, which is fragile in a vanilla JS architecture.
+For backdrop click, compare the click target to the dialog element itself:
+```js
+dialog.addEventListener('click', (e) => {
+  if (e.target === dialog) {  // clicked backdrop, not dialog content
+    if (hasUnsavedChanges()) {
+      if (!confirm('Discard changes?')) return;
+    }
+    dialog.close();
+  }
+});
+```
+For Edit mode, "has unsaved changes" means any field differs from its pre-populated value. For Add mode, "has unsaved changes" means any field is non-empty/non-zero.
 
 **Warning signs:**
-- TypeError in console on iOS: "navigator.vibrate is not a function"
-- Haptics work on Android test device but nothing happens on iPhone
-- Feature assumed to work because it's in MDN without checking the compat table
+- Pressing Escape during edit immediately closes modal with no prompt
+- User clicks slightly outside dialog and loses everything
+- Add flow has no dismiss protection at all (because `editingId` is null, current code skips the confirm)
 
-**Phase to address:** Haptic phase — write the guard utility first, before wiring it to any actions
+**Phase to address:** Modal open/close logic phase — implement dismiss guards before wiring any save logic
+
+---
+
+### Pitfall 8: `debtFormContainer` Banner Position Causes User Confusion — Not a Code Bug, a Layout Bug
+
+**What goes wrong:**
+In the current HTML, `#debtFormContainer` appears above `#addDebtBtn`. When the user clicks Add, the form expands above the button and shifts the button and debt list downward. The user's eye is at the button location; the form appears above it. On mobile, this pushes the button off-screen. The user may think nothing happened.
+
+**Why it happens:**
+Inline forms placed above the triggering button are conventional in some designs, but on mobile they require a scroll-up to find the newly-appeared form — the opposite direction from the user's intent. A modal overlay eliminates this entirely by centering over the viewport.
+
+**How to avoid:**
+The modal approach (`<dialog>`) solves this structurally — the dialog overlays the viewport at center regardless of where the trigger button is. Ensure the modal is appended to `document.body` (or is a direct child of body) rather than nested inside a scrolling tab panel, which would constrain the `::backdrop` and stacking context.
+
+**Warning signs:**
+- After clicking Add, the form appears but the user's viewport position doesn't scroll to it
+- On mobile, user taps Add then sees nothing change (form appeared above scroll position)
+- The tab panel container has `overflow: hidden` or `position: relative` — these limit `<dialog>` backdrop coverage
+
+**Phase to address:** Modal scaffold phase — place `<dialog>` as direct body child; do not nest inside tab panels
+
+---
+
+### Pitfall 9: `window.editDebt` Global Survives Re-Renders But Closes Over Stale State
+
+**What goes wrong:**
+The `window.editDebt = (id) => this.editDebt(id)` global is set in `setupEventListeners()`, which runs once on init. The closure over `this` (the `debtUI` object) is stable because `debtUI` is a singleton. This is fine. The risk is if a refactor moves the global assignment inside `render()` — then each render creates a new closure and the old one on `window` is replaced. During a render, if a card's onclick fires mid-replacement, it might call a stale or undefined function.
+
+**Why it happens:**
+Moving event wiring into render functions is a common refactoring mistake when trying to keep everything in one place. It feels simpler but creates timing issues and multiple assignments to the same global.
+
+**How to avoid:**
+Keep `window.editDebt`, `window.deleteDebt`, `window.toggleLedger` assignments strictly in `init()` / `setupEventListeners()`, never in `render()`. These globals are stable references to the singleton's methods and should never change after init.
+
+**Warning signs:**
+- Edit button works for the first debt card but not for subsequent ones after re-render
+- Console shows `window.editDebt` is `undefined` after navigation away and back to the tab
+- Multiple renders cause the global to be reassigned repeatedly (detectable via breakpoint)
+
+**Phase to address:** Modal scaffold phase — audit global assignment locations during the refactor
 
 ---
 
@@ -158,10 +249,11 @@ Do NOT attempt the checkbox-switch workaround for production code. It depends on
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| Inline `backgroundColor` function computing color from raw value each render | Simple, no pre-processing step | On every Chart.js redraw (e.g., theme toggle) all 365 cells recompute; no memoization | Acceptable for 365 cells — not a real perf issue unless redraw is >60fps |
-| Attach swipe listeners in the main `render()` loop (re-add on every render) | Simple, always fresh | Leaks if old listeners aren't removed; doubles up after re-render | Never — always detach before re-attaching or use event delegation |
-| Calling `navigator.vibrate()` directly at every call site | Less indirection | No single place to disable haptics; hard to throttle or feature-detect | Never — always centralize in a `triggerHaptic()` utility |
-| Using CSS `overflow: hidden` on rows to clip the swipe reveal | Easy containment | Clips box-shadow on the delete button; looks broken in dark mode | Acceptable if delete button uses background color instead of shadow |
+| Re-inject full modal HTML on every open | Simple reset to known state | Data loss on dismiss; no field animation; re-wires all event listeners | Acceptable for MVP if dismiss protection is added |
+| Inline `onchange`/`onclick` in injected HTML strings | No separate wiring step | Depends on `window` globals; breaks if module load order changes; untestable | Never for new code — use `addEventListener` after injection |
+| Single `currentBalance` field shared between CC and loan (overloaded) | One save path | CC balance and loan remaining balance are semantically different; mixing causes downstream calc errors in payoff planner | Never — use distinct field IDs per type |
+| `confirm()` for unsaved-changes guard | Zero dependencies | Blocks the main thread; cannot be styled; disruptive on mobile | Acceptable for this app's scope — no need for a custom confirm modal |
+| Reading form fields by `document.getElementById` in save handler | Simple, direct | Couples save handler to DOM structure; any rename breaks silently | Acceptable if field IDs are defined as named constants |
 
 ---
 
@@ -169,10 +261,10 @@ Do NOT attempt the checkbox-switch workaround for production code. It depends on
 
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
-| chartjs-chart-matrix + existing Chart.js tree-shaken setup | Importing from `chartjs-chart-matrix` without calling `Chart.register(MatrixController, MatrixElement)` | Add both to the `Chart.register()` call in `charts.js` alongside existing controllers |
-| chartjs-chart-matrix + CategoryScale | Using category labels on x-axis for dates — the matrix plugin uses numeric x/y coordinates internally | Use LinearScale (already registered) for both axes; map week number to x, day-of-week to y |
-| Privacy Mode blur overlay + swipe gestures | The blur overlay intercepts `touchstart`/`touchmove` before the row, preventing swipe detection | Swipe listeners must be attached to the row element, not the overlay; verify `pointer-events: none` is set on the blur overlay during Privacy Mode |
-| Bottom navigation bar + vertical touch events | Bottom nav's `touchstart` handler may capture the start of a swipe that begins near the bottom of a list | Ensure bottom nav event handlers call `event.stopPropagation()` only on confirmed tap (not touch), or use `pointer-events: none` on nav bar during active swipe |
+| `<dialog>` element + tab panel `overflow: hidden` | Dialog backdrop clips to the overflow boundary of the parent tab panel | Place `<dialog>` as a direct child of `<body>`, not inside the tab panel div |
+| `<dialog>` + `form method="dialog"` | Using `<form method="dialog">` auto-closes dialog on submit, bypassing async save logic | Do not use `method="dialog"`; handle submit manually via `addEventListener('click')` on the save button |
+| `debtRepository.update()` + pence conversion | Passing raw float pounds to repository that expects pence — or vice versa — produces 100x wrong values | Establish a clear boundary: all repository calls use pence; all form inputs use pounds; convert at the save handler boundary only |
+| `safeHTML` template tag + dynamic form HTML | `safeHTML` escapes values but does not validate HTML structure — a missing `</div>` still produces malformed output | Use `safeHTML` for user-visible values only; do not use it to escape the structural HTML of the form template itself |
 
 ---
 
@@ -180,10 +272,8 @@ Do NOT attempt the checkbox-switch workaround for production code. It depends on
 
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| Re-querying all 365 days of expense data on every heatmap render (including theme toggle re-renders) | Visible delay when switching dark/light mode; Dexie query fires unnecessarily | Cache the aggregated day-totals object; only re-query when the selected year changes | Immediately noticeable on slow mobile devices (low-end Android) |
-| Attaching `touchstart`/`touchmove`/`touchend` listeners to every row individually without cleanup | Memory grows with each render; old listeners accumulate on detached DOM nodes | Use a single delegated listener on the list container, or explicitly `removeEventListener` before each re-render | After 10+ re-renders (month navigation), memory pressure noticeable |
-| Calling `navigator.vibrate()` in rapid succession (e.g., holding a long-press) | Vibration motor is triggered faster than it can complete; results in jank and battery drain on Android | Debounce haptic calls with a 200ms minimum interval | Any action that fires repeatedly (scroll, drag) |
-| chartjs-chart-matrix cell width calculated as `chartArea.width / 53` before the chart is fully laid out | `chartArea` is undefined on first render; cells have width 0; chart appears blank | Guard: `width: ({chart}) => (chart.chartArea?.width ?? 0) / 53 - 1` | First render only — subsequent renders are fine |
+| Calling `debtRepository.getAll()` + `statementRepository.getAll()` on every modal open | Visible delay before modal appears; blocking UI on slow devices | Cache debt data in the modal open call; pass the debt object directly to the pre-populate function rather than re-fetching by ID | Not a real issue at <50 debts; noticeable at no realistic scale for this app — moot |
+| Re-calling `this.render()` (full debt list re-render) after every modal close | Debt list flickers on every add/save/cancel | Only re-render after a successful save, not on cancel | Immediately noticeable on modal dismiss |
 
 ---
 
@@ -191,26 +281,26 @@ Do NOT attempt the checkbox-switch workaround for production code. It depends on
 
 | Pitfall | User Impact | Better Approach |
 |---------|-------------|-----------------|
-| Heatmap shows current year only but app has <3 months of data — most of the grid is empty/grey | User sees a mostly empty chart and thinks the feature is broken | Show current year with a note "X days of data so far"; do not show Year-over-Year comparison tab until 13+ months of data exist; detect and communicate gracefully |
-| Swipe-to-delete with no undo | User swipes accidentally and loses a transaction permanently | Always show a toast with "Undo" (3–5 second window) using the existing `repository.js` delete + re-insert pattern |
-| Haptic feedback on every action (form submit, toggle, navigation) | Haptics become background noise; users find it annoying within minutes | Haptics only on destructive or confirmatory actions: delete, clear/reconcile, save. Not on navigation or filter changes |
-| Heatmap tooltip positioned off-screen on cells at the top or right edge | Tooltip clips to viewport edge or is partially hidden; unreadable on small phones | Use Chart.js tooltip `position: 'nearest'` and configure the external tooltip callback to clamp to viewport bounds; or disable tooltip on mobile and show a tap-to-highlight selected day's value in a fixed info bar below the chart |
-| Swipe gesture with no visual affordance | Users never discover the feature; or they discover it by accident and are confused | Show a subtle swipe hint icon on row hover (desktop) / first-load animation (mobile); document in an onboarding tooltip |
+| No visual indication which fields are required | User submits with missing name; gets an alert after the fact | Mark required fields with `*` in label; show inline validation on blur |
+| Type selector defaults to Credit Card even when editing a mortgage | User must re-select type when editing a non-CC debt (if type is not pre-populated) | Always pre-select the saved debt type; initialize fieldset visibility immediately after pre-selection |
+| "Add Account" button label on edit form (current bug) | User editing an existing debt sees "Add Account" as the submit label, which is misleading | Conditionally set button label: `isUpdate ? 'Save Changes' : 'Add Account'` — current code does this, but the button is hidden due to the unclosed-div bug |
+| Modal opens but focus stays on the background | Screen reader / keyboard user cannot interact with modal fields | Call `dialog.showModal()` (native implementation moves focus into dialog); ensure the first focusable element in the modal gets focus on open |
+| Save button shows no loading state during async DB write | User double-clicks Save; two records are created | Disable save button during async operation; re-enable on success or error |
 
 ---
 
 ## "Looks Done But Isn't" Checklist
 
-- [ ] **Heatmap color scale:** Verify `maxSpend === 0` produces valid colors (not NaN/black/transparent) — test with empty month
-- [ ] **Heatmap Y-o-Y tab:** Verify graceful degradation when `< 13 months` of data exists — should hide or disable the comparison tab
-- [ ] **Heatmap Privacy Mode:** Verify heatmap cells are blurred when Privacy Mode is active — not just the summary cards
-- [ ] **Swipe gesture cleanup:** Verify `touchstart`/`touchmove`/`touchend` listeners are removed before each `render()` call — check DevTools > Event Listeners on a row element after 5 re-renders
-- [ ] **Swipe on iOS:** Test specifically on iOS Safari (not just Chrome DevTools mobile emulation) — edge-swipe conflict only manifests on real device
-- [ ] **Ghost click:** Test fast swipe: does the delete button activate without a second tap? — if yes, ghost click prevention is missing
-- [ ] **Haptic guard:** Verify `triggerHaptic()` does not throw on iOS — open DevTools console on a real iPhone and perform a delete action
-- [ ] **Haptic over-triggering:** Verify haptics do not fire on filter changes, month navigation, or search — only on destructive/confirmatory actions
-- [ ] **MatrixController registration:** Verify `Chart.registry.controllers.matrix` exists in browser console before heatmap renders
-- [ ] **Accessibility — swipe:** Verify each transaction row has a visible delete button reachable by keyboard Tab + Enter for non-touch users
+- [ ] **Unclosed div fix:** Verify Save/Cancel buttons are visible for ALL debt types (credit card, mortgage, loan) — not just one
+- [ ] **Type-switch initialization:** Open Add modal, confirm credit card fields are shown without touching the type selector
+- [ ] **Edit pre-population:** Edit a mortgage; confirm all mortgage fields are pre-filled (not zero)
+- [ ] **Edit pre-population cross-type:** Edit a credit card; confirm credit card fields are pre-filled; switch type to mortgage — mortgage fields should show empty/zero (no stale CC values)
+- [ ] **Dismiss protection (edit):** Open Edit modal, change a field, press Escape — confirm "Discard changes?" prompt appears
+- [ ] **Dismiss protection (add):** Open Add modal, type a name, click backdrop or Escape — confirm prompt appears
+- [ ] **Backdrop vs dialog click:** Click inside the modal content area — confirm it does NOT dismiss; click the backdrop — confirm it does (with prompt)
+- [ ] **Add success → clean re-open:** Save a new debt, click Add again — confirm modal opens with blank fields, not the previous entry's values
+- [ ] **Mobile layout:** Open modal on 375px viewport — confirm all fields are visible; confirm modal does not extend off-screen
+- [ ] **Keyboard navigation:** Tab through all visible fields in order; confirm no hidden fields receive focus
 
 ---
 
@@ -218,12 +308,12 @@ Do NOT attempt the checkbox-switch workaround for production code. It depends on
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| MatrixController not registered (blank chart) | LOW | Add `Chart.register(MatrixController, MatrixElement)` to `charts.js`; no data or architecture changes needed |
-| Ghost click deleting rows without confirmation | MEDIUM | Add `_swipeJustCompleted` flag + click suppression, or add reveal-then-tap UX; requires testing on device |
-| navigator.vibrate TypeError on iOS in production | LOW | Wrap in `typeof navigator.vibrate === 'function'` guard; 1-line fix, no architecture change |
-| Swipe listeners accumulating on re-render (memory leak) | MEDIUM | Audit all `addEventListener` call sites; add paired `removeEventListener` before each render; or refactor to event delegation on the list container |
-| Heatmap maxSpend=0 NaN color (visible to new users) | LOW | Add `maxSpend > 0 ? value / maxSpend : 0` guard in color callback |
-| iOS edge-swipe conflict (UX broken for left-edge rows) | MEDIUM | Change swipe direction to right-to-left (left swipe reveals delete), or add `pageX < 20` abort guard |
+| Unclosed div swallowing Save button | LOW | Add the missing `</div>` closing tag for `loanOnlyFields` in the HTML template; verify with DevTools Elements panel |
+| Type-switch not initializing on open | LOW | Add `toggleDebtTypeFields()` call at end of `renderDebtForm()` or `openModal()` |
+| Edit not pre-populating type-specific fields | LOW | Ensure populate function writes to all inputs regardless of which fieldset is currently hidden |
+| Backdrop click dismissing without confirm | MEDIUM | Add `cancel` event handler (Escape) and `click` handler (backdrop) with unsaved-changes check |
+| Inline onclick not working after refactor | MEDIUM | Replace all inline `onchange`/`onclick` in injected HTML with `addEventListener` calls after injection |
+| Modal nested in tab panel breaking backdrop | LOW | Move `<dialog>` element to `<body>` in `index.html`; reference from JS via `document.getElementById` |
 
 ---
 
@@ -231,34 +321,30 @@ Do NOT attempt the checkbox-switch workaround for production code. It depends on
 
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| MatrixController not registered | Heatmap — install & setup task | `Chart.registry.controllers.matrix` in console |
-| maxSpend=0 NaN color | Heatmap — data aggregation task | Render chart with zero-expense dataset; all cells should show minimum color, not black |
-| Y-o-Y tab with insufficient data | Heatmap — UX/display task | Test with fresh DB; Y-o-Y tab should be hidden or show "not enough data" |
-| Tooltip clipping on mobile | Heatmap — polish task | Test on 375px-wide viewport; tooltip on top-right cell must not clip |
-| Passive listener blocking preventDefault | Swipe — architecture task | Swipe row; page must not scroll vertically while pulling horizontally |
-| iOS edge-swipe navigation conflict | Swipe — architecture task (UX direction decision) | Test swipe starting from left 20px of screen on iOS real device |
-| Ghost click after swipe | Swipe — gesture logic task | Fast swipe: delete button must not activate without explicit second tap |
-| Swipe listener leak on re-render | Swipe — render integration task | DevTools Event Listeners panel; after 5 renders, row should have 1 listener not 5 |
-| navigator.vibrate not a function (iOS) | Haptic — utility task (write guard first) | Open Safari console on iPhone; perform delete action; no TypeError |
-| Over-haptics on every action | Haptic — wiring task | Step through all actions; haptic should only fire on delete/clear/save |
-| Privacy Mode not covering heatmap | Heatmap + Privacy integration task | Enable Privacy Mode; heatmap must be blurred or hidden |
+| Unclosed div / missing Save button | Modal scaffold — define HTML structure with explicit fieldset boundaries | Open modal for each debt type; Save button must be visible for all |
+| Inline onclick globals | Modal scaffold — establish addEventListener-based wiring pattern | No `onclick=` attributes in injected modal HTML |
+| Field ID drift | Modal scaffold — define FIELD_IDS constants before writing template or save handler | Save handler uses only constants, not string literals for getElementById |
+| Type-switch not initializing | Field-switching logic phase | Open Add modal; credit card fields show without user interaction |
+| Edit pre-population gaps | Edit mode pre-population phase | Edit each debt type; all fields pre-filled correctly |
+| Backdrop dismiss without confirm | Modal open/close logic phase | Escape and backdrop click show confirm prompt when fields are dirty |
+| Add modal re-open data loss | Modal open/close logic phase | Dismiss and re-open Add modal; fields are blank (for add) or preserved (optional) |
+| Type switch during edit zeros out fields | Edit mode pre-population phase | Switch type on edit modal; new type fields show DB values, not zeros |
+| Banner layout confusion | Modal scaffold phase — use `<dialog>` at body level | Modal appears centered on viewport regardless of scroll position |
+| Double-save on slow connection | Save handler phase | Disable Save button on first click; re-enable after response |
 
 ---
 
 ## Sources
 
-- [chartjs-chart-matrix GitHub (kurkle/chartjs-chart-matrix)](https://github.com/kurkle/chartjs-chart-matrix) — registration and data format
-- [chartjs-chart-matrix Docs — Usage](https://chartjs-chart-matrix.pages.dev/usage) — cell sizing, color callback pattern
-- [MDN — Vibration API](https://developer.mozilla.org/en-US/docs/Web/API/Vibration_API) — iOS not supported
-- [GitHub — navigator.vibrate works on iOS Safari (mdn/browser-compat-data #29166)](https://github.com/mdn/browser-compat-data/issues/29166) — iOS compat discussion
-- [Ionic Framework — iOS cannot disable Safari swipe to go back (PWA)](https://github.com/ionic-team/ionic-framework/issues/22299) — edge-swipe conflict confirmed unfixable
-- [Chrome Developers — Making touch scrolling fast by default](https://developer.chrome.com/blog/scrolling-intervention) — passive listener defaults
-- [Chrome Lighthouse — Use passive listeners](https://developer.chrome.com/docs/lighthouse/best-practices/uses-passive-event-listeners) — {passive: false} guidance
-- [JavaScriptRoom — Prevent touchstart when swiping](https://www.javascriptroom.com/blog/prevent-touchstart-when-swiping/) — tap vs swipe conflict
-- [pantaley.com — Separating drag/swipe from click/touch events](https://pantaley.com/blog/How-to-separate-Drag-and-Swipe-from-Click-and-Touch-events/) — ghost click prevention
-- [Ionic Framework iOS haptics — iOS 18+ switch workaround](https://github.com/ionic-team/ionic-framework/issues/29942) — checkbox switch technique (not recommended for production)
-- [Progressier — Vibration API PWA Demo](https://progressier.com/pwa-capabilities/vibration-api) — cross-platform compat matrix
+- `src/ui/debts.js` — direct code inspection; unclosed div confirmed at line 246; missing `</div>` for `loanOnlyFields` container
+- `index.html` lines 283–301 — confirmed `debtFormContainer` placement above `addDebtBtn`; dialog is not yet used
+- `.planning/debug/debt-ui-consolidation-failure.md` — historical evidence of disconnected form/container architecture
+- `.planning/debug/debt-id-mismatch-and-save-error.md` — Dexie transaction table scope bug (separate from modal, but confirms save handler fragility pattern)
+- [MDN — HTMLDialogElement](https://developer.mozilla.org/en-US/docs/Web/API/HTMLDialogElement) — `showModal()`, `cancel` event, backdrop behavior
+- [MDN — `<dialog>` element](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/dialog) — `method="dialog"` behavior and focus management
+- [HTML Spec — dialog cancel event](https://html.spec.whatwg.org/multipage/interactive-elements.html#canceling-dialogs) — Escape key handling
+- Known vanilla JS pattern: inline `onclick` resolves against `window` scope, not module scope
 
 ---
-*Pitfalls research for: v2.4 UX Polish — Heatmap, Swipe Gestures, Haptic Feedback*
+*Pitfalls research for: v2.5 Debt Tab UX Overhaul — Modal Form with Type-Specific Fields*
 *Researched: 2026-03-07*

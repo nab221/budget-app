@@ -247,3 +247,309 @@ Touch gesture and haptic implementations are pure JS utilities added to `src/uti
 ---
 *Stack research for: Budget App v2.4 — Heatmap, Swipe Gestures, Haptic Feedback*
 *Researched: 2026-03-07*
+
+---
+---
+
+# Stack Research — v2.5 Addendum: Debt Form UX Overhaul
+
+**Domain:** Vanilla JS — Modal dialogs, type-specific form fields, form validation
+**Researched:** 2026-03-07
+**Confidence:** HIGH (native dialog: HIGH; constraint validation API: HIGH; field-switching: HIGH)
+
+---
+
+## Scope
+
+This addendum covers only the new techniques needed for v2.5. No new npm dependencies are introduced. The existing stack (Dexie.js, Chart.js v4, date-fns, Vanilla JS ES6 modules, Vite) is unchanged.
+
+---
+
+## Decision 1: Native `<dialog>` Element via `showModal()` — Not a Custom Overlay
+
+### Recommendation
+
+Use the native HTML `<dialog>` element with `showModal()` for the Add Debt and Edit Debt forms.
+
+### Rationale
+
+The `<dialog>` element with `showModal()` provides everything a custom overlay must laboriously re-implement: focus trap (keyboard focus stays inside the dialog automatically), backdrop rendering (via `::backdrop` pseudo-element, no extra div needed), `Esc` key dismissal, `aria-modal="true"` set implicitly, and all content outside the dialog made `inert` automatically. A custom overlay div approach requires ~400 lines of JS to replicate this correctly; the native element reduces that to ~38 lines.
+
+Browser support is not a concern for this codebase. The `<dialog>` element is Baseline Widely Available since March 2022 — Chrome 37+, Firefox 98+, Safari 15.4+, iOS Safari 15.4+. Global support is 95.57% as of 2025. The app's PWA targets modern mobile browsers, all of which are well above these floor versions.
+
+### Core API
+
+```js
+// Open as modal (blocks page, Esc closes, backdrop shown)
+const dialog = document.getElementById('debtDialog');
+dialog.showModal();
+
+// Close programmatically
+dialog.close();
+
+// Close on backdrop click (event.target === dialog when ::backdrop is clicked)
+dialog.addEventListener('click', (e) => {
+  if (e.target === dialog) dialog.close();
+});
+
+// Reset editingId on close
+dialog.addEventListener('close', () => {
+  debtUI.editingId = null;
+});
+```
+
+### HTML Structure
+
+```html
+<dialog id="debtDialog" aria-labelledby="debtDialogTitle">
+  <div class="dialog-inner">
+    <div class="dialog-header">
+      <h2 id="debtDialogTitle">Add Debt Account</h2>
+      <button class="dialog-close" aria-label="Close" autofocus>&#x2715;</button>
+    </div>
+    <form id="debtForm" novalidate>
+      <!-- fields injected here -->
+    </form>
+    <div class="dialog-footer">
+      <button type="button" class="secondary" id="debtCancelBtn">Cancel</button>
+      <button type="submit" form="debtForm" class="primary" id="debtSaveBtn">Add Account</button>
+    </div>
+  </div>
+</dialog>
+```
+
+Key points:
+- `aria-labelledby` connects the dialog to its heading for screen readers.
+- `autofocus` on the close button (not the dialog element itself — that breaks Chrome on macOS) ensures focus lands in a predictable place immediately.
+- The close button at top-right is the recommended focus target: users know where to look, and screen readers hear the dialog title before encountering the dismiss action.
+- `novalidate` on the form suppresses browser-native validation bubbles so custom validation controls the UX (while the Constraint Validation API still works underneath).
+
+### Background Scroll Lock
+
+`showModal()` makes content inert but does not prevent the page behind from scrolling. Add/remove a CSS class to lock it:
+
+```js
+// Before showModal()
+document.body.style.overflow = 'hidden';
+dialog.showModal();
+
+// In the 'close' event handler
+document.body.style.overflow = '';
+```
+
+Alternatively, use `scrollbar-gutter: stable` on `:root` to prevent layout shift from the scrollbar disappearing (recommended if the debt tab has a visible scrollbar).
+
+### What NOT to Do
+
+| Avoid | Why |
+|-------|-----|
+| `tabindex` on the `<dialog>` element | The element is not interactive; adding tabindex causes browsers to make the dialog itself focusable and skip its children |
+| `autofocus` on the `<dialog>` element | Fails silently in Chrome on macOS/Windows — place `autofocus` on a child element instead |
+| Custom overlay div (`position: fixed; z-index: 9999`) | Must manually implement focus trap, `inert` on background, Esc key, ARIA — ~400 lines of JS to do correctly |
+| `dialog[open]` attribute in HTML | Sets the dialog as non-modal (no backdrop, no inert content, no Esc key) — always use `showModal()` for forms |
+
+---
+
+## Decision 2: Type-Specific Field Sets via CSS Class Toggle — Not Dynamic innerHTML
+
+### Recommendation
+
+Render all field sets for all debt types into the dialog HTML at once (hidden by default), then show/hide the relevant set by toggling a CSS class when the type `<select>` changes. Do not re-render the entire form HTML on type change.
+
+### Rationale
+
+The existing `debts.js` uses `toggleDebtTypeFields()` with `classList.remove('hidden')` / `classList.add('hidden')`. This is the correct pattern — it preserves input values across type switches (user types a name, switches type, name is not lost), avoids re-attaching event listeners, and is ~5 lines of JS. The v2.5 requirement adds a fourth type (Other/Generic) — extend the existing pattern, don't replace it.
+
+Rendering via `innerHTML` on each type change (the broken current approach) destroys DOM state, loses partially-entered values, and requires re-querying all inputs after every render.
+
+### Pattern
+
+```js
+// debtUI.js
+switchDebtType(type) {
+  // Map of type value -> fieldset element id
+  const fieldsets = {
+    'credit-card': document.getElementById('ccFields'),
+    'mortgage':    document.getElementById('mortgageFields'),
+    'loan':        document.getElementById('loanFields'),
+    'other':       document.getElementById('otherFields'),
+  };
+  Object.entries(fieldsets).forEach(([key, el]) => {
+    if (!el) return;
+    el.classList.toggle('hidden', key !== type);
+  });
+}
+```
+
+```html
+<select id="debtTypeInput" onchange="debtUI.switchDebtType(this.value)">
+  <option value="credit-card">Credit Card</option>
+  <option value="mortgage">Mortgage</option>
+  <option value="loan">Personal Loan</option>
+  <option value="other">Other</option>
+</select>
+
+<fieldset id="ccFields" class="hidden"><!-- Credit Card fields --></fieldset>
+<fieldset id="mortgageFields" class="hidden"><!-- Mortgage fields --></fieldset>
+<fieldset id="loanFields" class="hidden"><!-- Personal Loan fields --></fieldset>
+<fieldset id="otherFields" class="hidden"><!-- Generic fields --></fieldset>
+```
+
+Using `<fieldset>` elements (rather than generic `<div>`) provides semantic grouping that assistive technologies surface as a named group when combined with a `<legend>`.
+
+### Pre-Population on Edit
+
+When opening the dialog in edit mode:
+1. Call `showModal()`.
+2. Set the `<select>` value to the debt's type.
+3. Call `switchDebtType(debt.debtType)` to show the right fieldset.
+4. Populate every field input value programmatically (not via `innerHTML`).
+5. Update the dialog title and save button text.
+
+This order guarantees the correct fieldset is visible before the user sees the dialog.
+
+---
+
+## Decision 3: Constraint Validation API — Not a Validation Library
+
+### Recommendation
+
+Use the browser's built-in Constraint Validation API (`element.validity`, `element.checkValidity()`, `form.checkValidity()`, `element.setCustomValidity()`, `element.reportValidity()`) for all form validation. No validation library is needed.
+
+### Rationale
+
+The Constraint Validation API is universally supported in all target browsers. It works alongside HTML5 attributes (`required`, `type="number"`, `min`, `max`, `step`) and is the minimum-overhead approach for a vanilla JS codebase with no existing validation infrastructure. The `novalidate` attribute on the form suppresses browser-native error bubbles while keeping the API accessible, giving full control over error presentation.
+
+### Pattern
+
+```js
+function validateDebtForm() {
+  const form = document.getElementById('debtForm');
+  // Check all visible (not hidden-fieldset) inputs
+  const visibleInputs = form.querySelectorAll(':not(.hidden *) input, :not(.hidden *) select');
+  let valid = true;
+
+  visibleInputs.forEach(input => {
+    // Clear previous custom error
+    input.setCustomValidity('');
+
+    // Business rule: balance must not exceed credit limit for credit cards
+    if (input.id === 'ccBalanceInput' && input.value) {
+      const limit = parseFloat(document.getElementById('ccLimitInput').value) || 0;
+      if (parseFloat(input.value) > limit) {
+        input.setCustomValidity('Balance cannot exceed credit limit');
+      }
+    }
+
+    if (!input.checkValidity()) {
+      input.classList.add('input-error');
+      valid = false;
+    } else {
+      input.classList.remove('input-error');
+    }
+  });
+
+  return valid;
+}
+
+// On save button click:
+document.getElementById('debtSaveBtn').addEventListener('click', async (e) => {
+  e.preventDefault();
+  if (!validateDebtForm()) return;
+  await debtUI.handleSaveDebt();
+});
+```
+
+Key points:
+- Validate only inputs in the currently-visible fieldset (`:not(.hidden *) input`) — hidden fields for other debt types must not block submission.
+- Use `setCustomValidity('')` to clear a previous custom error before re-checking.
+- Use `input.classList.add('input-error')` to style invalid fields — pair with a CSS rule for `.input-error` border colour.
+- Do not call `form.reportValidity()` — it shows native browser bubbles. Use `input.checkValidity()` per-field and render your own inline error messages for better UX control.
+
+### Required HTML Attributes Per Field Type
+
+| Field | Required Attributes |
+|-------|---------------------|
+| Balance inputs | `type="number" min="0" step="0.01" required` |
+| Rate/APR | `type="number" min="0" max="100" step="0.01" required` |
+| Term (months) | `type="number" min="1" step="1" required` |
+| Name | `type="text" required maxlength="100"` |
+| Promo end date | `type="date"` (optional, no required) |
+
+Setting these attributes means `checkValidity()` handles range and type checks automatically — `setCustomValidity()` is only needed for cross-field business rules (balance vs. limit).
+
+---
+
+## Installation
+
+No new npm packages. This milestone uses only native browser APIs.
+
+```bash
+# No new dependencies for v2.5
+```
+
+---
+
+## Integration Notes for Existing debts.js
+
+The existing `debts.js` module has:
+- `editingId` state tracking — keep it, works identically for the modal approach.
+- `toggleDebtTypeFields()` — rename to `switchDebtType()` and extend with `other` type; same pattern.
+- `renderDebtForm()` — replace with a `populateDebtForm(debt)` function that sets input values rather than writing innerHTML.
+- `toggleDebtForm(show)` — replace with `openDebtDialog()` / `closeDebtDialog()` that call `dialog.showModal()` / `dialog.close()`.
+- `handleSaveDebt()` — keep as-is; just call it after `validateDebtForm()` passes.
+- `window.editDebt = (id) => this.editDebt(id)` — keep; the inline onclick attribute on list rows still works.
+
+The `<dialog>` element can be added to the debt tab HTML once (in the shell template), rather than being created and destroyed on each open. This preserves the dialog's DOM state between uses and avoids re-attaching listeners.
+
+---
+
+## Alternatives Considered
+
+| Recommended | Alternative | When to Use Alternative |
+|-------------|-------------|-------------------------|
+| Native `<dialog>` + `showModal()` | Custom `position:fixed` overlay div | Never in a modern app — the native element does everything the overlay does plus accessibility, with 10% the JS |
+| Native `<dialog>` + `showModal()` | Popover API (`popover` attribute) | Use Popover for non-modal UI (tooltips, dropdowns, menus). Debt forms are modal — user must complete or dismiss before continuing. Popover allows page interaction which is wrong here. |
+| Constraint Validation API | Yup / Zod / Valibot | Only if the codebase moves to a build pipeline that already has these (e.g., if TypeScript schema validation is needed). Adds ~7-30 KB for no benefit in a vanilla JS form. |
+| CSS class toggle for fieldsets | innerHTML re-render on type change | innerHTML destroys DOM state (loses partially-entered values) and requires re-querying all inputs on every type switch |
+
+## What NOT to Use
+
+| Avoid | Why | Use Instead |
+|-------|-----|-------------|
+| `dialog.show()` (non-modal) | Does not add backdrop, does not trap focus, does not make background inert, does not respond to Esc | `dialog.showModal()` |
+| `tabindex` on `<dialog>` | Makes the dialog element itself focusable, breaking keyboard navigation for its children | `autofocus` on a child element (close button or first input) |
+| `innerHTML` to inject the whole form on each open | Destroys input state, requires re-attaching listeners, slow on repeated open/close | Static HTML with `populateDebtForm()` setting `.value` programmatically |
+| Validation library (Yup, Zod, Joi) | 7-30 KB overhead; Constraint Validation API + `setCustomValidity()` covers all needed cases natively | Constraint Validation API |
+| `form.reportValidity()` | Triggers browser-native bubble tooltips that can't be styled and vary across browsers | `input.checkValidity()` per field with custom `.input-error` CSS |
+| `formmethod="dialog"` on Save button | Closes the dialog without running JS validation — data never gets saved | `type="button"` with a JS click handler that validates then saves |
+
+---
+
+## Version Compatibility
+
+All techniques in this section are native browser APIs with no npm package involvement. No compatibility concerns within the existing stack.
+
+| API | Chrome | Firefox | Safari | iOS Safari | Notes |
+|-----|--------|---------|--------|------------|-------|
+| `<dialog>` + `showModal()` | 37+ | 98+ | 15.4+ | 15.4+ | Baseline Widely Available since 2022 |
+| `::backdrop` pseudo-element | 37+ | 98+ | 15.4+ | 15.4+ | Same as dialog |
+| Constraint Validation API | 4+ | 4+ | 5+ | 5+ | Universally available |
+| `inert` attribute (auto-set by showModal) | 102+ | 112+ | 15.5+ | 15.5+ | Set automatically — no manual use needed |
+| `element.setCustomValidity()` | All | All | All | All | Part of HTML5 standard |
+
+---
+
+## Sources
+
+- [MDN: `<dialog>` element](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/dialog) — showModal(), close(), returnValue, form method=dialog, browser compat (HIGH confidence — MDN page fetched directly)
+- [Can I Use: dialog element](https://caniuse.com/dialog) — 95.57% global support, Chrome 37+, Firefox 98+, Safari 15.4+ (HIGH confidence — page fetched directly)
+- [Jared Cunha: HTML Dialog Accessibility](https://jaredcunha.com/blog/html-dialog-getting-accessibility-and-ux-right) — focus management pitfalls, background scroll lock pattern, scrollbar-gutter (HIGH confidence — page fetched directly)
+- [web.dev: dialog and popover baseline patterns](https://web.dev/articles/baseline-in-action-dialog-popover) — modal vs non-modal distinction, Popover API context (MEDIUM confidence — search result)
+- [MDN: Constraint Validation API](https://developer.mozilla.org/en-US/docs/Web/HTML/Guides/Constraint_validation) — checkValidity(), setCustomValidity(), validity object (HIGH confidence — well-established MDN reference)
+- [Go Make Things: backdrop click pattern](https://gomakethings.com/how-to-dismiss-native-html-dialog-elements-when-the-backdrop-is-clicked/) — `event.target === dialog` technique (HIGH confidence — search result, technique confirmed by MDN)
+- [Can I Use: inert attribute](https://caniuse.com/mdn-html_global_attributes_inert) — Safari inert support, find-in-page caveat (MEDIUM confidence — search result)
+
+---
+*Stack research addendum for: Budget App v2.5 — Debt Form UX Overhaul*
+*Researched: 2026-03-07*

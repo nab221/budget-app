@@ -1,414 +1,231 @@
 # Architecture Research
 
-**Domain:** Vanilla JS PWA Budget App — v2.4 Feature Integration
+**Domain:** Modal dialog form integration — vanilla JS ES6 module budget app (v2.5)
 **Researched:** 2026-03-07
 **Confidence:** HIGH (based on direct codebase inspection)
 
----
+## Context: What Already Exists
 
-## Context
+This is not a greenfield architecture question. The codebase has everything needed for a clean modal integration:
 
-This is an integration-focused research file, not a greenfield architecture document. The existing codebase is a mature Vanilla JS + Dexie.js + Chart.js v4 PWA. The three new features (ANAL-05 Heatmap, UX-03 Swipe, UX-04 Haptics) must integrate without refactoring existing modules.
+- A working generic modal system: `modalUI` in `src/ui/render.js` — overlay, title, body, footer slots, ESC key, scroll lock, already in production use
+- `templateUI.showModal()` / `templateUI.closeModal()` — a thin bridge already used by `backupUI` and `expensesUI`
+- A broken inline debt form at `#debtFormContainer` in index.html, rendered by `debtUI.renderDebtForm()` via innerHTML
+- `debtUI` object (module singleton exposed as `window.debtUI`) with state properties: `editingId`, `editingStmtId`, `openLedgerId`, `activeStmtDebtId`
+- `debtRepository.add/update` in `src/db/repository.js` with pence conversion and loan-payment side effects already baked in
 
----
+The v2.5 goal is: replace the inline form with a modal dialog using the existing `modalUI` infrastructure, and add a fourth "Other/Generic" debt type.
 
-## Standard Architecture
-
-### System Overview (Existing)
+## System Overview
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│                          index.html                              │
-│   Tab panels (dashboard, income, expenses, debts, …)            │
-│   Static HTML canvas/table containers                            │
-└──────────────┬───────────────────────────────────────────────────┘
-               │ DOM manipulation / innerHTML
-┌──────────────▼───────────────────────────────────────────────────┐
-│                      src/app.js                                  │
-│   Tab routing — window.app.renderAll() dispatches per-panel      │
-│   Theme, Privacy, RecurrenceManager, FileSync init               │
-└──────────┬──────────────────────────┬────────────────────────────┘
-           │ import                   │ import
-┌──────────▼──────────┐   ┌──────────▼──────────┐
-│   src/ui/*.js        │   │  src/utils/*.js      │
-│  dashboard.js        │   │  cashflow.js         │
-│  transactions.js     │   │  finance.js          │
-│  expenses.js         │   │  recurrence.js       │
-│  charts.js           │   │  filtering.js        │
-│  … (15 UI modules)   │   │  currency.js         │
-└──────────┬──────────┘   └──────────────────────┘
-           │ import
-┌──────────▼──────────────────────────────────────┐
-│            src/db/repository.js                  │
-│   createBaseRepository() — add/update/delete     │
-│   Specialized repos: incomeRepository,           │
-│   recurrentExpenseRepository, oneOffExpense…     │
-└──────────┬──────────────────────────────────────┘
-           │ Dexie.js
-┌──────────▼──────────────────────────────────────┐
-│            src/db/schema.js (v16)                │
-│   Tables: income, recurrentExpenses,             │
-│   oneOffExpenses, dailyBalanceSnapshots,         │
-│   balanceSnapshots, netWorthSnapshots, …         │
-└─────────────────────────────────────────────────┘
+│                        UI Layer (src/ui/)                         │
+├──────────────────┬───────────────────────────────────────────────┤
+│   debts.js       │              render.js                         │
+│                  │                                                │
+│  openDebtModal() │  modalUI.show(title, body, buttons)           │
+│  ─ renders form  │  modalUI.close()                              │
+│    HTML string   │  ─ overlay, ESC, scroll lock (existing)       │
+│  ─ calls repo    │  ─ footer button array API (existing)         │
+│  ─ refreshes     │                                                │
+│    list on save  │  safeHTML, renderTabSummary (unchanged)        │
+└────────┬─────────┴──────────────────────────────────────────────┘
+         │ debtRepository.add / update / delete
+         ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                       Data Layer (src/db/)                        │
+│  debtRepository — pence conversion, generateLoanPayments()        │
+│  statementRepository — statement CRUD (unchanged)                 │
+└──────────────────────────────────────────────────────────────────┘
+         │ Dexie.js
+         ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                    Storage (IndexedDB)                            │
+│  db.debts   db.statements   db.recurrentExpenses                  │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-### Component Responsibilities
+## Component Boundaries
 
-| Component | Responsibility | Notes |
-|-----------|----------------|-------|
-| `src/app.js` | Tab routing, global init, `window.app.renderAll()` | Entry point for all panel renders |
-| `src/ui/dashboard.js` | Dashboard rendering, summary cards, chart wiring | Hosts existing analytics section |
-| `src/ui/charts.js` | Chart.js chart factories (`_chartInstances` Map for destroy/re-render) | All Chart.js logic centralised here |
-| `src/ui/expenses.js` | Expenses tab render, transaction row HTML, delete/status handlers | Rows are `<tr data-id="…">` inside `#expenseBody` |
-| `src/ui/transactions.js` | Income tab render, transaction row HTML, delete/cleared handlers | Rows are `<tr data-id="…">` inside `#incBody` |
-| `src/db/repository.js` | Dexie query layer; all DB reads/writes flow through here | `getByMonth()` is the primary query pattern |
-| `src/utils/cashflow.js` | `getDailyRollingData()` — 410-point daily aggregation | Source of truth for balance data |
+| Component | File | Responsibility | Change |
+|-----------|------|---------------|--------|
+| Debt list renderer | `src/ui/debts.js` | Renders debt cards, opens modal, handles delete/ledger | Minor (wire openDebtModal) |
+| Debt modal form | `src/ui/debts.js` (same file) | Builds and manages the add/edit form via modalUI | Refactored from inline |
+| Generic modal shell | `src/ui/render.js` (modalUI) | Show/hide overlay, inject title/body/footer HTML | Unchanged |
+| Debt data access | `src/db/repository.js` (debtRepository) | add/update/delete with pence conversion and side effects | Unchanged |
+| HTML shell | `index.html` | Hosts #modalOverlay (already present), #debtFormContainer (to remove) | Remove inline form div |
 
----
+### Where the Modal Logic Lives
 
-## Feature Integration Architecture
+The debt modal logic stays in `src/ui/debts.js`. No new file is needed. Rationale:
 
-### ANAL-05: Monthly Spending Heatmap
+- The form logic (`renderDebtForm`, `handleSaveDebt`, `toggleDebtTypeFields`) is already in `debts.js` and shares state with `debtUI.editingId`
+- Extracting to a separate `src/ui/debt-modal.js` would require `debtUI` to import it (or vice versa), creating a coupling seam with no benefit at this scale
+- All other tab forms (expenses, income, assets) follow the same single-file pattern — consistency matters
+- `modalUI` in `render.js` is the shell infrastructure; `debts.js` is the consumer
 
-#### Where It Lives
-
-The heatmap belongs in the Dashboard panel's existing "Spending Analytics Section" (line 87 of `index.html`), alongside the doughnut and savings rate KPI. The current `grid2` layout (doughnut + savings rate) should expand to accommodate a full-width heatmap card below it, or replace the `grid2` with a three-card layout depending on screen size.
-
-There is no separate "Analytics" tab. Adding one is possible but not required — the Dashboard already serves as the analytics hub.
-
-#### Data Aggregation Needed
-
-The heatmap needs daily spending totals for a 12-month window. The existing repositories do not expose this query. A new aggregation function is needed in `src/db/repository.js` (or a dedicated utility).
-
-**Required query:** For each calendar day in the past 12 months, sum `oneOffExpenses.amount` + paid `recurrentExpenses.amount` where `date` (or `nextDate`) falls within a date range.
-
-Dexie query pattern (both tables indexed on `date` / `nextDate`):
-
-```js
-// Pseudocode — actual implementation in repository.js
-async function getSpendingByDay(fromDate, toDate) {
-  const [oneOff, recurrent] = await Promise.all([
-    db.oneOffExpenses.where('date').between(fromDate, toDate, true, true).toArray(),
-    db.recurrentExpenses.where('nextDate').between(fromDate, toDate, true, true)
-      .filter(i => i.status === 'paid')
-      .toArray()
-  ]);
-  // Group by date, sum amounts in pence
-  const byDay = {};
-  for (const item of [...oneOff, ...recurrent]) {
-    const d = item.date || item.nextDate;
-    byDay[d] = (byDay[d] || 0) + item.amount;
-  }
-  return byDay; // { 'YYYY-MM-DD': pence }
-}
-```
-
-The function returns a plain object `{ 'YYYY-MM-DD': penceTotal }` covering the requested window. The caller fills in zero for days with no data.
-
-#### Chart Implementation: Custom Canvas, Not Chart.js
-
-A GitHub-style calendar heatmap is fundamentally a grid of colored rectangles. Chart.js v4 (as registered in `charts.js`) does not support a matrix/heatmap chart type natively. The registered set is: `LineController`, `DoughnutController`, `CategoryScale`, `LinearScale` — no matrix controller exists.
-
-Options:
-
-1. **Custom `<canvas>` drawn with the 2D Context API** — matches the "no new dependencies" constraint. The implementation is self-contained, renders fast for 365 cells, and integrates cleanly with the theme system (read `--accent`, `--bg-alt` CSS vars via `getComputedStyle`).
-
-2. **chartjs-chart-matrix plugin** — adds a matrix chart type to Chart.js v4. Requires registering `MatrixController` and `MatrixElement`. This introduces a new npm dependency and more Chart.js configuration complexity. Given the bar-chart failures documented in `debugging.md`, adding more Chart.js complexity is a risk.
-
-**Recommendation: Custom canvas with 2D Context API.**
-
-The implementation is ~80-100 lines, fully controllable, and avoids Chart.js plugin risks. It should live in `src/ui/charts.js` as `renderSpendingHeatmap(canvasId, dailyData, year)` — consistent with the existing chart factory pattern. The canvas element goes in `index.html` inside the Dashboard panel.
-
-Year-over-Year comparison: render two heatmaps (current year, prior year) stacked vertically, or add a year-selector UI control above a single heatmap.
-
-#### Files Changed
-
-| File | Change Type | What |
-|------|-------------|------|
-| `src/db/repository.js` | Modified | Add `getSpendingByDay(fromDate, toDate)` function |
-| `src/ui/charts.js` | Modified | Add `renderSpendingHeatmap(canvasId, dailyData, year)` |
-| `src/ui/dashboard.js` | Modified | Wire data fetch + `renderSpendingHeatmap` call in `renderDashboard()` |
-| `index.html` | Modified | Add `<canvas id="spendingHeatmapChart">` inside Dashboard panel |
-
----
-
-### UX-03: Swipe-to-Clear / Swipe-to-Delete on Transaction Rows
-
-#### DOM Structure of Transaction Rows
-
-Both Income and Expenses tabs render transaction rows as `<tr data-id="…">` elements inside a `<tbody>`. The rows are created via `innerHTML` assignment in `renderIncome()` and in the expenses `render()` method. They are fully replaced on every render call.
-
-Because rows are re-created on every render, event listeners attached directly to `<tr>` elements are destroyed with them. There are two valid approaches:
-
-**Option A: Delegated touch events on `<tbody>`** — attach `touchstart`/`touchmove`/`touchend` listeners to `#incBody` and `#expenseBody` once (at init time), then detect which `<tr>` is under the touch via `e.target.closest('tr')`. This survives re-renders because the `<tbody>` persists.
-
-**Option B: SwipeRow utility that attaches per-row on each render** — call `SwipeRow.attach(trElement, { onSwipeLeft, onSwipeRight })` after `innerHTML` assignment. Requires modifying the render methods.
-
-**Recommendation: Option A — delegated listeners on `<tbody>`.**
-
-This avoids modifying the render methods and aligns with how the existing delete handlers work (`window.deleteExpense`, `window.deleteTransaction` — global functions called from `onclick` attributes). The `<tbody>` elements (`#incBody`, `#expenseBody`) are static HTML containers that persist across renders.
-
-#### SwipeManager Utility
-
-Create `src/utils/swipe.js` — a reusable `SwipeManager` class.
-
-Responsibilities:
-- Accept a container element and callbacks `{ onSwipeLeft(row), onSwipeRight(row) }`
-- Track `touchstart` → `touchmove` → `touchend` on the container
-- Determine swipe direction and minimum distance threshold (e.g. 60px horizontal, less than 40px vertical drift to distinguish from scroll)
-- Apply a CSS transform `translateX` during the gesture for visual feedback
-- Call the appropriate callback on release
-- Reset the transform after callback completion
-
-```js
-// src/utils/swipe.js — interface sketch
-export class SwipeManager {
-  constructor(containerEl, { onSwipeLeft, onSwipeRight, threshold = 60 }) { … }
-  destroy() { … } // removeEventListeners — for future cleanup
-}
-```
-
-The manager itself does not know about delete or clear semantics. It calls the provided callbacks with the `<tr>` element. The caller in `transactions.js` / `expenses.js` reads `tr.dataset.id` and dispatches to the existing `deleteTransaction` / `toggleIncCleared` / `deleteExpense` / `toggleExpCleared` handlers.
-
-#### Attaching in Init
-
-In `transactionUI.init()` (transactions.js) and `expensesUI.init()` (expenses.js), after the `<tbody>` exists in the DOM:
-
-```js
-import { SwipeManager } from '../utils/swipe.js';
-
-// In transactionUI.init():
-new SwipeManager(document.getElementById('incBody'), {
-  onSwipeLeft: (tr) => window.deleteTransaction('income', parseInt(tr.dataset.id)),
-  onSwipeRight: (tr) => window.toggleIncCleared(parseInt(tr.dataset.id), false)
-});
-```
-
-Swipe-to-delete (left) and swipe-to-clear (right) are the two actions — matching the existing button actions already present in each row.
-
-#### Visual Feedback
-
-The `<tr>` element needs `overflow: hidden` (or a wrapper div) and a CSS transition for the translateX. A swipe hint background (red for delete on the left, green for clear on the right) can be shown via a pseudo-element or an absolutely-positioned div inside the row wrapper. This requires CSS changes in `main.css`.
-
-#### Reconciliation Mode Guard
-
-Swiping must be disabled when `reconciliationMode` is active (rows show checkboxes instead of buttons, and reconciled rows cannot be deleted). The SwipeManager callbacks should check reconciliationMode state before acting, or the manager should be paused via a `.setEnabled(bool)` method.
-
-#### Files Changed
-
-| File | Change Type | What |
-|------|-------------|------|
-| `src/utils/swipe.js` | New | `SwipeManager` class with delegated touch handling |
-| `src/ui/transactions.js` | Modified | Instantiate SwipeManager in `init()` with income callbacks |
-| `src/ui/expenses.js` | Modified | Instantiate SwipeManager in `init()` with expense callbacks |
-| `css/main.css` | Modified | Swipe feedback CSS (transition, color hints, overflow hidden on rows) |
-
----
-
-### UX-04: Haptic Feedback
-
-#### API Availability
-
-`navigator.vibrate()` is a browser API. It is supported in Chrome/Android and Firefox/Android. It is **not supported** in Safari (iOS) — `navigator.vibrate` is undefined on iOS Safari as of 2026. The implementation must feature-detect before calling.
-
-#### Centralization: HapticManager Utility
-
-Create `src/utils/haptics.js` — a thin wrapper with a feature-detected `vibrate(pattern)` function.
-
-```js
-// src/utils/haptics.js
-const supported = typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
-
-export const haptics = {
-  // Short tap feedback — confirmations, selections
-  tap:    () => supported && navigator.vibrate(10),
-  // Success feedback — saved, paid, cleared
-  success: () => supported && navigator.vibrate([10, 30, 10]),
-  // Error/warning feedback — validation fail
-  error:   () => supported && navigator.vibrate([50, 30, 50]),
-  // Delete feedback — destructive action
-  delete:  () => supported && navigator.vibrate(30),
-};
-```
-
-A centralized module is correct here because:
-- Feature detection runs once at import, not on every call
-- Patterns can be tuned in one place
-- No risk of calling undefined in non-supporting environments
-- The module is trivially tree-shakeable if not imported
-
-#### Action Sites
-
-These are the existing handlers that should trigger haptics:
-
-| Action | Handler Location | Haptic Pattern |
-|--------|-----------------|----------------|
-| Save income entry | `transactionUI.handleSave()` in `transactions.js` | `haptics.success()` |
-| Save expense entry | `expensesUI.handleSaveExpense()` in `expenses.js` | `haptics.success()` |
-| Delete income | `window.deleteTransaction` in `transactions.js` | `haptics.delete()` |
-| Delete expense | `window.deleteExpense` in `expenses.js` | `haptics.delete()` |
-| Mark expense paid | `window.toggleExpenseStatus` in `expenses.js` | `haptics.tap()` |
-| Mark all paid | `expensesUI.handleMarkAllPaid()` in `expenses.js` | `haptics.success()` |
-| Toggle cleared (recon) | `window.toggleExpCleared` / `window.toggleIncCleared` | `haptics.tap()` |
-| Swipe gesture confirm | `SwipeManager` callbacks in `swipe.js` | `haptics.delete()` or `haptics.tap()` |
-| Form validation fail | `handleSave` / `handleSaveExpense` before early return | `haptics.error()` |
-
-Haptics should NOT fire on read-only actions (rendering, navigation, search). They should fire only on data-mutating or destructive confirmations.
-
-#### Files Changed
-
-| File | Change Type | What |
-|------|-------------|------|
-| `src/utils/haptics.js` | New | `haptics` object with feature-detected vibrate patterns |
-| `src/ui/transactions.js` | Modified | Import `haptics`, call at save/delete/toggle sites |
-| `src/ui/expenses.js` | Modified | Import `haptics`, call at save/delete/toggle/markPaid sites |
-| `src/utils/swipe.js` | Modified | Import `haptics`, call `haptics.delete()` / `haptics.tap()` in gesture callbacks |
-
----
-
-## Data Flow
-
-### Heatmap Data Flow
-
-```
-renderDashboard() in dashboard.js
-    |
-    +--> getSpendingByDay(fromDate, toDate) in repository.js
-    |        |
-    |        +--> db.oneOffExpenses (Dexie range query by date)
-    |        +--> db.recurrentExpenses (Dexie range query by nextDate, filter paid)
-    |        |
-    |        <-- { 'YYYY-MM-DD': penceTotal }
-    |
-    +--> renderSpendingHeatmap('spendingHeatmapChart', dailyData, year) in charts.js
-             |
-             +--> canvas.getContext('2d')
-             +--> getComputedStyle() for theme colors
-             +--> 365 fillRect() calls, color-scaled by spend amount
-```
-
-### Swipe Gesture Flow
-
-```
-User touches <tr> inside #incBody / #expenseBody
-    |
-SwipeManager (delegated listener on <tbody>)
-    |
-    +--> touchstart: record startX, startY, target <tr>
-    +--> touchmove:  compute deltaX, apply translateX CSS
-    +--> touchend:   if |deltaX| > threshold and |deltaY| < drift-limit:
-    |        |
-    |        +--> swipeLeft  --> haptics.delete() --> window.deleteExpense(id)
-    |        +--> swipeRight --> haptics.tap()    --> window.toggleExpCleared(id)
-    |
-    +--> reset translateX to 0
-```
-
-### Haptic Flow
-
-```
-User action (button click / swipe gesture)
-    |
-Handler (transactions.js / expenses.js / swipe.js)
-    |
-haptics.success() / haptics.delete() / haptics.tap() / haptics.error()
-    |
-navigator.vibrate(pattern)  [no-op if unsupported]
-```
-
----
-
-## Recommended Project Structure Changes
-
-```
-src/
-├── db/
-│   ├── schema.js               # No change (v16 schema sufficient)
-│   └── repository.js           # MODIFIED: add getSpendingByDay()
-├── ui/
-│   ├── dashboard.js            # MODIFIED: heatmap data fetch + render call
-│   ├── charts.js               # MODIFIED: add renderSpendingHeatmap()
-│   ├── transactions.js         # MODIFIED: SwipeManager init, haptics import
-│   ├── expenses.js             # MODIFIED: SwipeManager init, haptics import
-│   └── … (no other UI changes)
-└── utils/
-    ├── swipe.js                # NEW: SwipeManager class
-    ├── haptics.js              # NEW: haptics object
-    └── … (existing utils unchanged)
-```
-
-No new DB schema version is required. All data is derivable from existing `oneOffExpenses` and `recurrentExpenses` tables via date-range queries.
-
----
+If the form grows beyond 4 debt types with complex per-type validation logic, extraction to `src/ui/debt-modal.js` becomes worthwhile. Not for v2.5.
 
 ## Architectural Patterns
 
-### Pattern 1: Chart Factory with Instance Map
+### Pattern 1: Modal-as-Container
 
-**What:** Each chart render function checks `_chartInstances.has(canvasId)`, destroys the existing Chart.js instance, then creates a new one and stores it. This prevents "Canvas already in use" errors.
+**What:** `debtUI.openDebtModal(id)` builds a form HTML string and injects it into `modalUI`'s `#modalBody`. Footer buttons are passed as an array of `{ label, className, onClick }` configs — these are rendered as real DOM nodes with bound JS functions by `modalUI.show()`.
 
-**When to use:** For any new Chart.js-based chart added to `charts.js`.
+**When to use:** The form content is dynamic (differs for add vs edit, differs per debt type). The modal shell is static and reused.
 
-**Trade-offs:** Simple and reliable. Slight overhead from full destroy/recreate on every render. Acceptable at this scale.
+**Why the array API for footer buttons:** The existing `modalUI.show()` already supports an array-of-button-configs path that creates real DOM elements. This is cleaner than embedding `onclick="debtUI.handleSaveDebt()"` strings in footer HTML — and avoids any edge cases with DOMPurify attribute stripping when content passes through `innerHTML`.
 
-**Note for heatmap:** The custom canvas implementation does not use Chart.js, so it does not use `_chartInstances`. Instead, the render function clears the canvas with `ctx.clearRect()` before redrawing. No destroy/create cycle needed.
+**Example:**
+```javascript
+// In debtUI — replaces toggleDebtForm() + renderDebtForm()
+async openDebtModal(id = null) {
+  this.editingId = id;
+  let data = { /* defaults */ };
+  if (id) {
+    const debt = await debtRepository.get(id);
+    data = { ...debt, currentBalance: fromPence(debt.currentBalance), /* etc */ };
+  }
+  const content = this._buildFormHTML(data);   // returns HTML string, all type sections present
+  modalUI.show(
+    id ? 'Edit Debt Account' : 'Add Debt Account',
+    content,
+    [
+      { label: 'Cancel', className: 'ghost', onClick: () => { this.editingId = null; modalUI.close(); } },
+      { label: id ? 'Save Changes' : 'Add Account', className: 'primary', onClick: () => this.handleSaveDebt() }
+    ]
+  );
+  this.toggleDebtTypeFields();  // set initial show/hide state after content is in DOM
+}
+```
 
-### Pattern 2: Delegated Event Handling on Persistent Containers
+### Pattern 2: DOM Show/Hide for Type Switching
 
-**What:** Event listeners are attached to stable container elements (`<tbody>`, `<table>`) once at `init()` time. Event delegation (`e.target.closest('tr')`) identifies the actual target.
+**What:** All four type-specific field sets are rendered into the modal body at once. A `<select onchange>` triggers `debtUI.toggleDebtTypeFields()` to add/remove `hidden` class on the relevant div.
 
-**When to use:** Any time row-level interaction is needed on dynamically re-rendered lists.
+**Why not re-render on type change:** Re-rendering the entire modal body on type switch loses any values already entered in shared fields (name). DOM show/hide preserves all field values across type switches.
 
-**Trade-offs:** Listeners survive re-renders without re-attachment. Requires discipline to guard against acting on non-row clicks (null check on `closest()` result).
+**Four types — toggle logic:**
+```javascript
+toggleDebtTypeFields() {
+  const type = document.getElementById('debtTypeInput')?.value;
+  if (!type) return;
+  document.getElementById('ccOnlyFields')?.classList.toggle('hidden', type !== 'credit-card');
+  document.getElementById('loanOnlyFields')?.classList.toggle('hidden', type !== 'loan');
+  document.getElementById('mortgageOnlyFields')?.classList.toggle('hidden', type !== 'mortgage');
+  document.getElementById('otherFields')?.classList.toggle('hidden', type !== 'other');
+}
+```
 
-**This is the correct approach for SwipeManager.** The existing delete handlers already follow a similar pattern via global `window.deleteExpense` functions called from `onclick` attributes.
+Note: the current code conflates loan and mortgage into one `loanOnlyFields` div. v2.5 separates them since mortgages have a distinct field (property value / ERC) from personal loans. The `<select>` gains a fourth `other` option.
 
-### Pattern 3: Feature-Detected Utility Wrapper
+**Trade-off:** Modal body HTML is slightly larger (all four type sections present but three hidden). Irrelevant at this scale.
 
-**What:** A utility module checks for API availability at import time and exports safe wrapper functions that silently no-op when the API is absent.
+### Pattern 3: Stateful Module Singleton
 
-**When to use:** Browser APIs with incomplete cross-browser support (`navigator.vibrate`, `navigator.share`, etc.).
+**What:** `debtUI.editingId` tracks whether the modal is in add or edit mode. Set before opening the modal, cleared on close or save.
 
-**Trade-offs:** Zero runtime errors on unsupported platforms. Slightly harder to test (requires mocking `navigator.vibrate`). Worth it for any capability-gated Web API.
+**State inventory for v2.5:**
+- `editingId` — null for add mode, debt ID for edit mode; cleared on save or cancel
+- `editingStmtId`, `openLedgerId`, `activeStmtDebtId` — unchanged, not involved in debt modal
 
----
+**On modal close without saving:** The Cancel button's `onClick` must set `this.editingId = null` before calling `modalUI.close()`. The existing `modalUI` close button (the X) also needs to clear `editingId` — wire this via `modalUI.elements.close.onclick` override after `modalUI.show()` is called, or by wrapping `modalUI.show()` in a helper that always registers a cleanup callback.
 
-## Anti-Patterns
+## Data Flow
 
-### Anti-Pattern 1: Attaching Swipe Listeners Inside innerHTML Assignment
+### Add Debt Flow
 
-**What people do:** Call `attachSwipeToRow(tr)` inside the `.map()` that builds HTML strings, or add a `data-swipe` attribute and re-query after innerHTML.
+```
+User clicks "+ Add Debt Account"
+    |
+debtUI.openDebtModal(null)
+    | editingId = null
+    | builds form HTML (empty defaults, all type sections)
+    | modalUI.show(title, html, buttons)
+    |
+User selects type -> debtUI.toggleDebtTypeFields() -> DOM show/hide [no fetch]
+    |
+User fills fields, clicks "Add Account"
+    |
+debtUI.handleSaveDebt()
+    | reads values from DOM by ID
+    | validates (name required, numeric fields)
+    | builds payload object (pounds, not pence)
+    |
+debtRepository.add(payload)
+    | toPence() on monetary fields [inside repo]
+    | generateLoanPayments() side effect if loan/mortgage
+    | triggerSync()
+    |
+triggerHaptic('success')
+editingId = null
+modalUI.close()
+debtUI.render()         [refreshes debt card list]
+window.app.renderAll()  [refreshes dashboard, payoff planner]
+```
 
-**Why it's wrong:** The render methods use `innerHTML = safeHTML...` which replaces all DOM nodes. Any listeners attached to old `<tr>` elements are orphaned. The re-query approach adds a post-render sweep that couples swipe logic to render timing.
+### Edit Debt Flow
 
-**Do this instead:** Attach once to the persistent `<tbody>` via delegated listeners in `init()`. The SwipeManager never needs to be re-initialized on render.
+```
+User clicks edit button on debt card (event.stopPropagation() to avoid ledger toggle)
+    |
+debtUI.openDebtModal(id)
+    | editingId = id
+    | await debtRepository.get(id)   [fetch current values]
+    | fromPence() on monetary fields for display
+    | builds form HTML (pre-populated, type section visible for existing type)
+    | modalUI.show(title, html, buttons)
+    |
+[same type-switching pattern as add — all sections present, current type visible]
+    |
+User edits, clicks "Save Changes"
+    |
+debtUI.handleSaveDebt()
+    | same read/validate/build pattern as add
+    |
+debtRepository.update(editingId, payload)
+    | toPence() on monetary fields [inside repo]
+    | deleteLinkedExpenses() + generateLoanPayments() if type/payment changed
+    | triggerSync()
+    |
+[same post-save flow as add]
+```
 
-### Anti-Pattern 2: Using Chart.js for the Heatmap
+### Type Switching (No Async)
 
-**What people do:** Import `chartjs-chart-matrix`, register `MatrixController`, and configure a matrix chart.
+```
+User changes <select id="debtTypeInput">
+    |
+onchange -> debtUI.toggleDebtTypeFields()
+    | reads select value (synchronous)
+    | classList.toggle('hidden') on each of four type-section divs
+    | [no fetch, no re-render, field values in other sections preserved]
+```
 
-**Why it's wrong:** Adds a new npm dependency, increases bundle size, and introduces Chart.js plugin compatibility risk. The project already has documented bar-chart failures (CategoryScale bar-width issues). A custom canvas draw is simpler, faster, and fully predictable.
+## Recommended Project Structure Change
 
-**Do this instead:** Draw directly with `canvas.getContext('2d')` inside `renderSpendingHeatmap()` in `charts.js`. Approximately 80 lines, no dependencies.
+```
+src/
+├── ui/
+│   ├── debts.js          MODIFIED: replace toggleDebtForm/renderDebtForm
+│   │                               with openDebtModal/_buildFormHTML
+│   │                               add 'other' type fields and handling
+│   ├── render.js         UNCHANGED: modalUI already supports this use case
+│   └── templates.js      UNCHANGED: bridge pattern unchanged
+├── db/
+│   └── repository.js     UNCHANGED: debtRepository API unchanged
+index.html                MODIFIED: remove #debtFormContainer div
+                                    #modalOverlay already exists and is correct
+```
 
-### Anti-Pattern 3: Calling navigator.vibrate Without Feature Detection
+### What Gets Removed
 
-**What people do:** Call `navigator.vibrate(100)` directly inline at action sites.
-
-**Why it's wrong:** `navigator.vibrate` is undefined on iOS Safari. The call throws a TypeError and breaks the action handler on iPhone.
-
-**Do this instead:** Import `haptics` from `src/utils/haptics.js`. The feature detection is done once at module load time.
-
-### Anti-Pattern 4: Firing Haptics on Read / Navigation Actions
-
-**What people do:** Add haptic feedback to tab clicks, month navigation, search input, or filter changes.
-
-**Why it's wrong:** Haptic feedback on non-committal actions feels aggressive and drains battery. Users expect haptics on confirmation of irreversible or significant actions, not on passive browsing.
-
-**Do this instead:** Limit haptics to: save (data mutation), delete (destructive), status toggle (state commitment), and swipe-to-action (gesture confirmation).
-
----
+- `#debtFormContainer` div and its `<!-- Form injected by debts.js -->` comment from index.html
+- `debtUI.toggleDebtForm()` method — replaced by `modalUI.show/close`
+- `debtUI.renderDebtForm()` method — replaced by `debtUI.openDebtModal()` + `debtUI._buildFormHTML()`
+- `debtUI.cancelEditDebt()` method — replaced by the Cancel button's onClick in the array API
+- The `addDebtBtn.onclick = () => this.toggleDebtForm()` wire in `setupEventListeners()` — replaced by `openDebtModal(null)`
 
 ## Integration Points
 
@@ -416,65 +233,95 @@ No new DB schema version is required. All data is derivable from existing `oneOf
 
 | Boundary | Communication | Notes |
 |----------|---------------|-------|
-| `dashboard.js` → `repository.js` | Direct async call to `getSpendingByDay()` | New function, same import pattern as existing repos |
-| `dashboard.js` → `charts.js` | Direct call to `renderSpendingHeatmap()` | New named export from charts.js |
-| `transactions.js` → `swipe.js` | Import `SwipeManager`, instantiate in `init()` | One-way; SwipeManager calls back via provided callbacks |
-| `expenses.js` → `swipe.js` | Import `SwipeManager`, instantiate in `init()` | Same pattern as transactions.js |
-| `swipe.js` → `haptics.js` | Import `haptics`, call on gesture completion | SwipeManager owns gesture haptics |
-| `transactions.js` → `haptics.js` | Import `haptics`, call at save/delete/toggle sites | Action handler owns those haptics |
-| `expenses.js` → `haptics.js` | Import `haptics`, call at save/delete/toggle/markPaid sites | Action handler owns those haptics |
+| `debts.js` -> `render.js` (modalUI) | `import { modalUI } from './render.js'` + `modalUI.show()` / `modalUI.close()` | One new import; modalUI is already exported |
+| `debts.js` -> `repository.js` | `debtRepository.add/update` — unchanged | Same API, same pence-conversion contract |
+| Edit button in card list -> modal | inline `onclick="event.stopPropagation(); debtUI.openDebtModal(${debt.id})"` | Replaces current `debtUI.editDebt(id)` call |
+| Add button -> modal | `addDebtBtn.onclick = () => this.openDebtModal(null)` in setupEventListeners | Replaces current `toggleDebtForm()` call |
+| Modal save -> list refresh | `debtUI.render()` in handleSaveDebt after await repo call | Existing pattern, unchanged |
+| Modal save -> app refresh | `window.app.renderAll()` in handleSaveDebt | Existing pattern, unchanged |
 
-### No New External Services
+### DOMPurify Note
 
-All three features are fully client-side:
-- Heatmap: Dexie queries + canvas 2D API
-- Swipe: Touch Events API (standard)
-- Haptics: Vibration API (`navigator.vibrate`)
+`safeHTML` is used for the debt card list HTML (the `container.innerHTML = html` assignment in `render()`). The form HTML injected into `modalBody.innerHTML` also goes through DOMPurify via `safeHTML` if the `_buildFormHTML()` method uses it. `onclick` is in `ALLOWED_ATTR` so inline `onchange="debtUI.toggleDebtTypeFields()"` on the type select is preserved.
 
-No new npm packages are required if the custom canvas approach is taken for the heatmap.
+Footer buttons must use the `modalUI.show()` array API (creates real DOM nodes) rather than HTML strings in the footer parameter — this is the cleaner path and avoids any attribute edge cases.
 
----
+## Anti-Patterns
+
+### Anti-Pattern 1: Re-rendering the Form on Type Switch
+
+**What people do:** Wire the type `<select>` to re-fetch data and rebuild the entire modal body HTML on each change.
+
+**Why it's wrong:** Loses values the user has already typed in shared fields (name, balance). Creates a flash. Requires another async operation on a trivial UI action.
+
+**Do this instead:** Render all four type sections at once into the modal body. Use `classList.toggle('hidden')` to show/hide sections. This is already how `toggleDebtTypeFields()` works — keep it.
+
+### Anti-Pattern 2: Two Separate Modal Open Methods for Add vs Edit
+
+**What people do:** Write `openAddModal()` and `openEditModal(id)` as separate methods with duplicated form HTML.
+
+**Why it's wrong:** The only structural differences between add and edit are: modal title string, whether fields are pre-populated, and whether `debtRepository.add` or `debtRepository.update` is called. Duplicating the HTML template for this is maintenance overhead.
+
+**Do this instead:** A single `openDebtModal(id = null)` method. `id === null` means add mode. `id` is a number means edit mode. A private `_buildFormHTML(data)` renders the same template either way. `handleSaveDebt()` checks `this.editingId` to choose add vs update.
+
+### Anti-Pattern 3: Bypassing the Repository Layer
+
+**What people do:** Call `db.debts.add(...)` or `db.debts.update(...)` directly from the UI module to avoid "extra layers."
+
+**Why it's wrong:** Bypasses pence conversion, bypasses `generateLoanPayments` side effect (which creates the recurring expense for loan/mortgage), bypasses `triggerSync`. These concerns are correctly encapsulated in the repository.
+
+**Do this instead:** Always go through `debtRepository.add()` and `debtRepository.update()`. They handle all the side effects.
+
+### Anti-Pattern 4: Forgetting to Clear editingId on Modal Dismiss
+
+**What people do:** Wire the modal's Cancel button and X button to just call `modalUI.close()` without clearing `debtUI.editingId`.
+
+**Why it's wrong:** If the user opens edit for debt A, closes without saving, then clicks "+ Add Debt," `editingId` is still set to A's ID. The save call will update A instead of creating a new debt.
+
+**Do this instead:** Every modal close path (Cancel button onClick, X button, ESC key) must call `this.editingId = null` before or alongside `modalUI.close()`. Wire the cleanup via the Cancel button's onClick in the array API, and override `modalUI.elements.close.onclick` after `modalUI.show()` completes.
+
+### Anti-Pattern 5: Keeping #debtFormContainer in HTML Alongside the Modal
+
+**What people do:** Leave the old `#debtFormContainer` div in index.html as a "fallback" while the modal is being built.
+
+**Why it's wrong:** The container will still be present and the old `addDebtBtn` click handler may still reference `toggleDebtForm`. This creates confusion during testing and risks the old code path being triggered.
+
+**Do this instead:** Remove `#debtFormContainer` from index.html in the same commit that wires `openDebtModal()`. The two changes are atomic.
 
 ## Build Order
 
-Dependencies between the three features determine implementation order:
+Sequence the work so the app remains functional at each step:
 
-1. **`src/utils/haptics.js` (UX-04, first)** — No dependencies. Required by both `swipe.js` and the action handlers. Build first so it can be imported immediately.
+1. **Wire modalUI import into debts.js** — Add `import { modalUI } from './render.js'`. Write `openDebtModal(null)` that calls `modalUI.show()` with a placeholder body. Wire `addDebtBtn.onclick` to it. Verify the modal opens, closes, ESC works.
 
-2. **`src/utils/swipe.js` (UX-03, second)** — Depends on `haptics.js`. Build second. No DB or render dependencies.
+2. **Port the form HTML into the modal body** — Write `_buildFormHTML(data)` that returns the same HTML as the current `renderDebtForm()` produces, but as a returned string. Keep `toggleDebtTypeFields()` exactly as-is (IDs are unchanged). Remove `toggleDebtForm()` and `renderDebtForm()`. Verify type switching works inside the modal.
 
-3. **`src/ui/transactions.js` + `src/ui/expenses.js` modifications (UX-03 + UX-04 together)** — Attach `SwipeManager` and add `haptics` calls. These two files can be modified in parallel. Swipe and haptics modifications in these files are independent of the heatmap work.
+3. **Add the "Other/Generic" type section** — New fourth `<option value="other">` in the select, new `#otherFields` div with generic fallback fields (name, balance, notes), extend `toggleDebtTypeFields()`, add the `other` branch in `handleSaveDebt()`. This is new functionality — isolate it from the infrastructure refactor.
 
-4. **`src/db/repository.js` + `getSpendingByDay()` (ANAL-05, prerequisite)** — The Dexie query function. No UI dependencies. Can be built in parallel with step 3.
+4. **Wire save and cancel** — Pass the footer button array to `modalUI.show()`. Ensure `handleSaveDebt()` calls `modalUI.close()` on success. Ensure Cancel clears `editingId`. Ensure the modal X button also clears `editingId`. Test add, edit, and cancel for all four debt types.
 
-5. **`src/ui/charts.js` + `renderSpendingHeatmap()` (ANAL-05, depends on step 4 design)** — Canvas draw function. Can be stubbed with test data before repository is complete.
+5. **Remove the inline form from HTML** — Delete `#debtFormContainer` from index.html. Confirm the page renders without it. Remove `cancelEditDebt()` from debts.js.
 
-6. **`src/ui/dashboard.js` + `index.html` changes (ANAL-05, last)** — Wire heatmap into the dashboard render pipeline and add canvas element to HTML. Depends on steps 4 and 5.
-
-```
-haptics.js  ──────────────────────────────────────────────────────────┐
-                                                                       ▼
-swipe.js (imports haptics) ──────────────> transactions.js modifications
-                           ──────────────> expenses.js modifications
-
-repository.js (getSpendingByDay) ──────> charts.js (renderSpendingHeatmap) ──────> dashboard.js + index.html
-```
-
----
+6. **Pre-population and validation pass** — Verify edit pre-populates all fields for each debt type. Test the "Discard changes?" guard when opening a second edit while one is in progress. Validate all required fields across all types.
 
 ## Scaling Considerations
 
-This is a single-user PWA. Scaling does not apply. The heatmap query (365 days, two Dexie range queries) will return at most a few hundred records in typical use — well within IndexedDB performance bounds.
-
----
+| Scale | Architecture Adjustments |
+|-------|--------------------------|
+| Current (personal app, 1 user) | Single modal instance, sync DOM reads on save — correct as-is |
+| If 5+ debt types added | Extract form builder to `src/ui/debt-modal.js`; keep state in `debtUI` |
+| If async validation needed | Disable Save button during repo call; show spinner in button text |
 
 ## Sources
 
-- Direct code inspection: `src/app.js`, `src/ui/dashboard.js`, `src/ui/charts.js`, `src/ui/expenses.js`, `src/ui/transactions.js`, `src/db/repository.js`, `src/db/schema.js`, `index.html`
-- MDN Vibration API: `navigator.vibrate` is undefined in Safari (iOS) — confirmed via MDN compatibility data
-- Chart.js v4 registered components: verified from `src/ui/charts.js` import block (LineController, DoughnutController, CategoryScale, LinearScale — no MatrixController)
-- Project memory: bar chart failure history — informs recommendation against chartjs-chart-matrix
+- Direct inspection: `src/ui/debts.js` — full `debtUI` object, `renderDebtForm`, `handleSaveDebt`, `toggleDebtTypeFields`
+- Direct inspection: `src/ui/render.js` — `modalUI.show()` implementation including array-of-button-configs path
+- Direct inspection: `src/ui/templates.js` — `templateUI.showModal` bridge (confirms modal infrastructure is proven in production)
+- Direct inspection: `src/ui/backup.js` — `templateUI.showModal()` usage pattern as reference
+- Direct inspection: `src/db/repository.js` — `debtRepository` pence fields, `generateLoanPayments` side effect, `deleteLinkedExpenses`
+- Direct inspection: `index.html` — `#modalOverlay` structure, `#debtFormContainer` location, `#addDebtBtn` placement
+- Direct inspection: `src/app.js` — `debtUI` import and init wiring
 
 ---
-*Architecture research for: Budget App v2.4 — Heatmap, Swipe, Haptics integration*
+*Architecture research for: v2.5 debt modal dialog integration, vanilla JS ES6 module budget app*
 *Researched: 2026-03-07*

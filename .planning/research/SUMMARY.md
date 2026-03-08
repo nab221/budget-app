@@ -1,179 +1,195 @@
 # Project Research Summary
 
-**Project:** Budget App v2.4 — UX Polish & Spending Insights
-**Domain:** Vanilla JS PWA — Mobile-first personal finance app, feature additions to mature codebase
+**Project:** Budget App v2.5 — Debt Form Modal UX Overhaul
+**Domain:** Vanilla JS PWA — Modal dialog form integration with type-specific field switching
 **Researched:** 2026-03-07
-**Confidence:** HIGH (swipe/haptics/architecture); MEDIUM (heatmap rendering approach has a stack conflict — see Gaps)
+**Confidence:** HIGH
 
 ## Executive Summary
 
-Budget App v2.4 adds three features to a mature, 12k+ LOC vanilla JS PWA: a GitHub-style spending heatmap (ANAL-05), swipe-to-delete/clear gestures on transaction rows (UX-03), and haptic feedback on data-mutating actions (UX-04). All three features are well-understood patterns with established browser APIs. The overall approach is additive — no schema changes, no new frameworks, minimal new dependencies. The implementation order is dictated by a clear dependency chain: haptics utility first (no dependencies), then swipe utility (imports haptics), then the two gesture-wired UI modules, then heatmap (data query + canvas render + dashboard wiring).
+This milestone is a structural fix, not a feature addition. The debt form is broken in a specific and diagnosable way: an unclosed `<div>` in the `renderDebtForm()` template swallows the Save/Cancel action buttons into the `loanOnlyFields` container, making them invisible for credit card type (the default). The fix is to replace the broken inline `#debtFormContainer` banner with a native `<dialog>` modal that uses the existing `modalUI` infrastructure already proven in production by `backupUI` and `expensesUI`. No new npm packages, no architectural invention, and no new DB schema work is required.
 
-The dominant architectural decision is the heatmap rendering approach. STACK.md recommends `chartjs-chart-matrix@3.0.0`; ARCHITECTURE.md explicitly recommends against it, citing the project's documented bar-chart failures and additional dependency risk, preferring a custom `<canvas>` 2D Context draw (~80 lines) instead. ARCHITECTURE.md has higher confidence (direct codebase inspection) and the stronger technical rationale: Chart.js plugin compatibility is a proven pain point in this codebase, and 365 `fillRect()` calls are entirely sufficient for performance. The custom canvas path is the recommended approach. Resolve this conflict explicitly before Phase 3 implementation begins.
+The recommended approach leans entirely on existing infrastructure: `modalUI.show()` in `render.js` already handles overlay, Esc key, scroll lock, and footer button rendering via a real-DOM array API. The `debtUI` singleton in `debts.js` already owns `editingId` state, `handleSaveDebt()` validation, and `toggleDebtTypeFields()` field-switching logic — all of which are reused unchanged. The refactor is a wrapper replacement: `toggleDebtForm()` and `renderDebtForm()` are replaced by `openDebtModal(id)` and `_buildFormHTML(data)`, with the form HTML injected into `modalUI`'s body slot and footer buttons passed as the array config.
 
-The main risks are mobile-specific: iOS edge-swipe navigation conflicts with left-swipe gesture starts near the screen edge; ghost click events can fire delete immediately after a swipe completes without a second deliberate tap; and `navigator.vibrate` is undefined on iOS Safari and will throw a TypeError if called without a guard. All three risks have low-cost, well-defined mitigations that must be designed in from the start rather than patched later.
+The primary risk is not technical complexity but execution discipline. Nine distinct pitfalls are documented, all preventable by following a strict build order: establish modal scaffold and canonical field ID constants first, then port field logic, then wire save/cancel, then remove the old inline form. Any phase that skips the scaffold step and jumps directly to feature logic will reproduce the unclosed-div class of bug in new form. The discard-changes guard and backdrop-click confirm must be wired before save logic, not after, to avoid data loss paths shipping.
+
+---
 
 ## Key Findings
 
 ### Recommended Stack
 
-The existing stack (Chart.js v4.5.1, Dexie.js v4, date-fns v4, Vite, Vitest, ES6 modules) is unchanged. No new npm dependencies are required if the custom canvas heatmap path is taken (recommended). Two new source files (`src/utils/swipe.js`, `src/utils/haptics.js`) are pure JS utilities with no external dependencies. The heatmap adds one canvas element to `index.html` and one render function to `src/ui/charts.js`.
+No new npm dependencies are required for v2.5. All techniques are native browser APIs (Baseline Widely Available since 2022) or existing in-codebase infrastructure.
 
 **Core technologies:**
-- Custom `<canvas>` 2D Context API: heatmap rendering — avoids Chart.js plugin risk, self-contained, ~80 lines, theme-integrated via `getComputedStyle`
-- Native Touch Events (`touchstart`/`touchmove`/`touchend`): swipe gestures — universally supported on mobile, no library needed, ~60-80 lines with delegated listener pattern
-- `navigator.vibrate()`: haptic feedback on Android — one-liner API; iOS Safari unsupported (silent no-op via feature-detection guard in utility module)
-- Dexie.js (existing): new `getSpendingByDay(fromDate, toDate)` range query against existing `oneOffExpenses` and `recurrentExpenses` tables
+- `<dialog>` + `showModal()`: Native modal container — replaces `#debtFormContainer`; provides focus trapping, Esc close, `::backdrop`, and `inert` background automatically. Supported Chrome 37+, Firefox 98+, Safari 15.4+, iOS Safari 15.4+ (95.57% global coverage).
+- `modalUI` (existing, `src/ui/render.js`): Generic modal shell already in production — overlay, scroll lock, footer button array API, ESC wiring. No change needed.
+- Constraint Validation API (native): `checkValidity()`, `setCustomValidity()`, `validity` object — handles required fields, type checking, and cross-field business rules with zero library overhead.
+- CSS class toggle (`classList.toggle('hidden')`): Field-switching pattern — already implemented in `toggleDebtTypeFields()`, reused as-is for four debt types.
 
 ### Expected Features
 
-**Must have (table stakes) — P1, v2.4 launch:**
-- Swipe-to-delete (left swipe, Expenses rows) — native-app users expect this; snap-back on sub-threshold is required or the gesture feels broken
-- Visual swipe affordance: red background + trash icon reveals during left drag; green + check during right drag in recon mode
-- Suppression of swipe on reconciled/locked rows — data integrity; must not be swiped at all
-- Swipe-to-clear (right swipe, reconciliation mode only) — completes the recon workflow without tapping buttons
-- Spending heatmap (current year): 52×7 GitHub-style grid, quartile color scale, daily spend from both expense tables
-- Heatmap cell tooltip: date, daily total, top category
-- Haptic feedback: threshold-cross pulse (swipe) + completion pulse (delete/clear confirm)
+**Must have (table stakes — v2.5 P1):**
+- True modal overlay replacing inline banner — the core fix; unblocks all other form UX
+- Esc key and click-outside dismiss with discard-changes guard
+- Focus trapped inside modal (native with `showModal()`)
+- Type selector shows/hides correct fieldsets in modal (reuse `toggleDebtTypeFields()`)
+- Add mode: blank form, "Add Account" button label
+- Edit mode: pre-populated form, "Save Changes" button label
+- Name and current balance inline validation errors (replace `alert()`)
+- Mortgage-appropriate field labels ("Remaining Balance" vs "Current Balance")
 
-**Should have (competitive) — P2, add after validation:**
-- Year-over-Year heatmap (second grid stacked, shared color scale) — validate single-year view is useful first; defer if data is sparse
-- Haptic on error states (form validation failures) — additive once haptic infrastructure is in place
+**Should have (v2.5 P2 — add after core modal works):**
+- Blur-time inline validation on APR/interest rate fields
+- Auto-focus name input on modal open
+- Numeric placeholder hints ("0.00", "2.50%")
 
-**Defer (P3 / v2.5+):**
-- Swipe gestures on Income tab rows — copy the pattern after expenses is validated
-- Category-filtered heatmap — requires filter UI addition; high cost, low priority
-
-**Anti-features (do not build):**
-- Swipe on reconciled rows (data integrity violation)
-- Continuous or long haptic patterns (annoying, battery drain; all patterns under 150ms)
-- Haptics on passive/read-only actions (navigation, filter, search)
-- Year-over-Year as a single overlaid grid (color encoding breaks — use stacked grids)
+**Defer (v2.6+):**
+- "Other/Generic" fourth debt type — useful but not blocking the UX fix
+- Progressive disclosure for promo rate fields ("Advanced" toggle)
+- Property value / LTV field for mortgage (requires new DB schema version)
+- Multi-step wizard, bulk CSV import, real-time payoff preview in form
 
 ### Architecture Approach
 
-The architecture is purely additive integration into the existing layered vanilla JS app. Two new utility modules are created; four existing files are modified; one canvas element is added to `index.html`; CSS swipe styles are added to `main.css`. No new DB schema version is required. No new external services. All three features are entirely client-side.
+The debt modal logic stays in `src/ui/debts.js`. No new file is needed. The pattern is Modal-as-Container: `openDebtModal(id = null)` builds form HTML via `_buildFormHTML(data)` and injects it into `modalUI`'s `#modalBody` slot. Footer buttons are passed as a `{ label, className, onClick }` array to `modalUI.show()`, which creates real DOM nodes with bound JS functions — this avoids inline `onclick` attribute globals and sidesteps DOMPurify attribute stripping concerns. The repository layer (`debtRepository.add/update`) is unchanged; pence conversion and `generateLoanPayments()` side effects remain encapsulated there.
 
-**Major components:**
+**Major components and changes:**
 
-1. `src/utils/haptics.js` (NEW) — feature-detected `navigator.vibrate` wrapper; four named patterns (`tap`, `success`, `delete`, `error`); feature detection runs once at module load time
-2. `src/utils/swipe.js` (NEW) — `SwipeManager` class; delegated `touchstart`/`touchmove`/`touchend` on persistent `<tbody>` containers; calls haptics on threshold cross and completion; calls provided callbacks with the `<tr>` element
-3. `src/db/repository.js` (MODIFIED) — `getSpendingByDay(fromDate, toDate)` returns `{ 'YYYY-MM-DD': penceTotal }` via parallel Dexie range queries on both expense tables
-4. `src/ui/charts.js` (MODIFIED) — `renderSpendingHeatmap(canvasId, dailyData, year)` using `canvas.getContext('2d')`; clears via `clearRect()` then draws 365 `fillRect()` calls with quartile color scale; reads theme colors via `getComputedStyle`
-5. `src/ui/dashboard.js` (MODIFIED) — wires heatmap data fetch and render call into `renderDashboard()`
-6. `src/ui/transactions.js` + `src/ui/expenses.js` (MODIFIED) — instantiate SwipeManager in `init()` with row action callbacks; import and call haptics at save/delete/toggle sites
+| Component | File | Change |
+|-----------|------|--------|
+| Debt modal form | `src/ui/debts.js` | `openDebtModal()` + `_buildFormHTML()` replace `toggleDebtForm()` + `renderDebtForm()` |
+| Generic modal shell | `src/ui/render.js` (modalUI) | Unchanged — already supports this use case |
+| Debt data access | `src/db/repository.js` | Unchanged — API contract unaffected |
+| HTML shell | `index.html` | Remove `#debtFormContainer`; `#modalOverlay` already present |
 
-The critical architectural pattern for swipe is **delegated event handling on persistent `<tbody>` containers** (not per-row listeners). All rows are rebuilt via `innerHTML` replacement on every render, so per-row listeners are destroyed and re-created each time, causing listener accumulation and memory leaks. Attach once to `#expenseBody` / `#incBody` at `init()` time and use `e.target.closest('tr')` for targeting.
+Build order matters: (1) wire `modalUI` import and placeholder open, (2) port form HTML into `_buildFormHTML`, (3) add "Other" type section, (4) wire save/cancel buttons, (5) remove inline form from HTML, (6) pre-population and validation pass.
 
 ### Critical Pitfalls
 
-1. **Ghost click fires delete immediately after swipe completes** — the browser synthesizes a `click` event at the `touchend` coordinates, which may land on the just-revealed delete button. Prevention: require an explicit second tap (reveal-then-confirm, not reveal-and-act); add 150ms animation delay before the button becomes interactive. Alternative: set a `_swipeJustCompleted` flag and suppress the next `click` event on the row.
+1. **Unclosed `<div>` swallows Save/Cancel buttons** — The root cause of the current bug. In `renderDebtForm()`, `loanOnlyFields` div is missing its closing tag, so action buttons are nested inside it and hidden for credit card type. Fix: define explicit HTML structure with comments marking BEGIN/END of each fieldset; keep action row completely outside all conditional containers.
 
-2. **`navigator.vibrate` TypeError on iOS** — the API is undefined on all iOS Safari versions; calling it without a guard throws and breaks the action handler. Prevention: write `src/utils/haptics.js` first (Phase 1), with `typeof navigator.vibrate === 'function'` guard at module load time. Never call the API directly at action sites.
+2. **Type-switch state not initialized on modal open** — `toggleDebtTypeFields()` is called only on `<select>` change events, not on modal open. For edit mode (pre-selected type), fieldsets show the wrong set until user touches the selector. Fix: always call `toggleDebtTypeFields()` once at the end of the open/populate sequence, after the select value is set.
 
-3. **Passive touch listener blocks `preventDefault`, allowing simultaneous vertical scroll during horizontal swipe** — Chrome Android defaults `touchmove` listeners to `{passive: true}`. Prevention: attach `touchmove` with explicit `{passive: false}` on the `<tbody>` container; only call `preventDefault()` after confirming gesture is horizontal (`|deltaX| > |deltaY| * 2`).
+3. **Field ID drift between template and save handler** — Input IDs are defined in the HTML template and referenced by string in `handleSaveDebt()`. They drift apart during refactoring; `getElementById()` returns null; save silently writes NaN to DB. Fix: define a `FIELD_IDS` constants object at module top; use it in both the template and the save handler.
 
-4. **iOS edge-swipe navigation conflicts with row swipe starts** — iOS reserves ~20px from the left screen edge for the native back gesture; this cannot be suppressed in a PWA. Prevention: confirm the swipe direction (left = finger moves left, row translates left) avoids the left-edge issue; add `touch.pageX < 20` abort guard as a safety net.
+4. **Inline `onclick`/`onchange` attributes fail after refactor** — Inline attributes resolve against `window` scope. If `window.debtUI` is not yet assigned, handlers throw `ReferenceError`. Fix: wire all internal modal events via `addEventListener` after injection; reserve `window.debtUI` globals only for external callers (edit buttons on debt cards).
 
-5. **Heatmap color scale NaN/black when `maxSpend === 0`** — dividing by zero produces NaN colors for new users or months with no expense data. Prevention: guard `intensity = maxSpend > 0 ? value / maxSpend : 0` in the color callback; test with an empty dataset during development.
+5. **Backdrop dismiss loses unsaved edit changes** — The native `<dialog>` fires a `cancel` event on Esc; developers add a backdrop-click handler but forget the confirm prompt. Fix: handle both the `cancel` event (Esc) and the `click` event (backdrop target check `e.target === dialog`) with a "Discard changes?" confirm gate; wire these before any save logic.
+
+6. **`<dialog>` nested in tab panel breaks backdrop** — If `<dialog>` is a child of a tab panel div with `overflow: hidden` or `position: relative`, the `::backdrop` clips to that panel's bounds. Fix: place `<dialog>` as a direct child of `<body>`.
+
+---
 
 ## Implications for Roadmap
 
-The build order is determined by the dependency chain identified in ARCHITECTURE.md. Three sequential phases are recommended. Phases 2 and 3 can be partially parallelized (heatmap data query and canvas renderer are independent of swipe work), but Phase 1 must complete before Phase 2 begins.
+Based on the combined research, this milestone maps cleanly to a four-phase build sequence. Each phase leaves the app in a working state.
 
-### Phase 1: Haptic Feedback Infrastructure (UX-04)
+### Phase 1: Modal Scaffold
 
-**Rationale:** `src/utils/haptics.js` has zero dependencies on other v2.4 work and is required by both `swipe.js` and the action-handler wiring in `transactions.js`/`expenses.js`. Building it first ensures the iOS TypeError guard exists before any wiring occurs. The complete feature (haptics on all data-mutating actions) is deliverable as a standalone increment.
+**Rationale:** The modal structure must exist before any field logic is written. This phase establishes the patterns (field ID constants, `addEventListener` wiring, `<dialog>` placement) that prevent the entire pitfall class of the current bug. Skip this and you reproduce the unclosed-div problem in new code.
 
-**Delivers:** `haptics` utility module with four named patterns; all action sites in `transactions.js` and `expenses.js` wired to call haptics on save, delete, toggle, and form validation failure.
+**Delivers:** A working (but empty) debt modal that opens, closes, responds to Esc, handles backdrop click with confirm guard, clears `editingId` on all dismiss paths, and is placed as a direct body child.
 
-**Addresses features:** UX-04 (haptic feedback on all data-mutating actions, independent of swipe)
+**Addresses:** True modal overlay, Esc close, click-outside cancel, focus trapping (native), clear add vs edit mode signaling.
 
-**Avoids pitfalls:** iOS `navigator.vibrate` TypeError (guard written once, not scattered); over-haptics on read-only actions (patterns enumerated in the module, not ad hoc)
+**Avoids:** Unclosed div swallowing buttons (Pitfall 1), inline onclick globals (Pitfall 4), dialog nested in tab panel (Pitfall 6), stale `editingId` on dismiss.
 
-**Research flag:** Standard pattern — skip phase research. Feature-detection wrapper is well-documented.
+**Research flag:** Standard pattern — skip research-phase. Native `<dialog>` + `modalUI` integration is fully documented.
 
-### Phase 2: Swipe Gesture System (UX-03)
+### Phase 2: Field Logic and Type Switching
 
-**Rationale:** Depends on Phase 1 (`haptics.js` must exist for threshold-cross pulse). SwipeManager is the most visible UX improvement of v2.4. Reconciliation mode guard and ghost click prevention must be designed in from the start — retrofitting these is MEDIUM recovery cost.
+**Rationale:** With the scaffold in place, port the form HTML from `renderDebtForm()` into `_buildFormHTML(data)`. Extend `toggleDebtTypeFields()` to handle all debt types in the modal DOM context. Define `FIELD_IDS` constants before writing a single `getElementById` call.
 
-**Delivers:** `src/utils/swipe.js` (`SwipeManager` class with delegated listeners); swipe-to-delete (left) and swipe-to-clear (right, recon mode only) on Expenses rows; visual affordance CSS (red/green reveal, row transition); snap-back on sub-threshold release; reconciled row suppression; swipe + haptic integration.
+**Delivers:** Modal with all type-specific fieldsets (credit card, mortgage, loan, other), correct show/hide on type select change, and correct initial visibility on modal open without user interaction.
 
-**Addresses features:** UX-03 complete (all P1 swipe features); UX-04 threshold pulse (via Phase 1 infrastructure)
+**Implements:** DOM Show/Hide pattern, field ID constants (Pitfall 3 fix), `addEventListener`-based event wiring (Pitfall 4 fix), `toggleDebtTypeFields()` initialization call on open (Pitfall 2 fix).
 
-**Avoids pitfalls:** Ghost click (reveal-then-confirm, 150ms delay); passive listener scroll conflict (`{passive: false}` on `touchmove`); iOS edge-swipe conflict (`pageX < 20` abort guard); swipe listener leak on re-render (delegated listener pattern)
+**Avoids:** Type-switch not initialized on open (Pitfall 2), field ID drift (Pitfall 3), inline onclick globals (Pitfall 4).
 
-**Research flag:** Standard pattern — skip phase research. All edge cases characterized. iOS real-device testing required for sign-off (not just Chrome DevTools emulation).
+**Research flag:** Standard pattern — skip research-phase.
 
-### Phase 3: Spending Heatmap (ANAL-05)
+### Phase 3: Save, Edit Pre-Population, and Validation
 
-**Rationale:** Independent of Phases 1 and 2; highest implementation complexity among the three features. Can be split into two parallel sub-tracks: (A) `repository.js` data query and (B) `charts.js` canvas renderer, integrated last in `dashboard.js`. Privacy Mode interaction with the heatmap canvas must be addressed here.
+**Rationale:** With the form structure stable, wire `handleSaveDebt()` to the modal's Save button via the `modalUI` footer array API. Implement edit pre-population that writes to all fieldsets (not just the visible one). Replace `alert()` validation with inline field-level error text.
 
-**Delivers:** `getSpendingByDay()` in `repository.js`; `renderSpendingHeatmap()` custom canvas renderer in `charts.js`; heatmap card in Dashboard panel with quartile color scale and theme integration; cell tooltip; empty-state handling (new users with no data); Privacy Mode blur on heatmap canvas.
+**Delivers:** Fully working Add and Edit flows for all debt types. Inline required-field validation. Mortgage-appropriate labels. `editingId` correctly gates `debtRepository.add` vs `debtRepository.update`.
 
-**Addresses features:** ANAL-05 (full P1 heatmap scope); Year-over-Year grid deferred to P2 (validate single-year view first; hide Y-o-Y toggle until DB has 13+ months of records)
+**Addresses:** Add mode, edit mode pre-population, name/balance required inline errors, mortgage label adjustments, haptic feedback on save (preserved, no change needed in `handleSaveDebt()`).
 
-**Avoids pitfalls:** `maxSpend === 0` NaN colors (guard in color callback); Privacy Mode not covering heatmap (explicit CSS check when canvas element is added); tooltip clipping on small viewports (clamp or fixed info bar); graceful Y-o-Y degradation for sparse data
+**Avoids:** Edit pre-population gaps (Pitfall 6 from PITFALLS.md), type-switch during edit zeroing fields, pence conversion boundary bugs, double-save on slow connection (disable Save button during async write).
 
-**Research flag:** Moderate complexity — canvas 2D heatmap is well-documented, but the quartile color scale and mobile tooltip positioning benefit from a brief written implementation spec before coding. No formal research-phase needed. Resolve the chartjs-chart-matrix vs custom canvas decision first (recommendation: custom canvas).
+**Research flag:** Standard pattern — skip research-phase. Constraint Validation API patterns fully documented in STACK.md.
+
+### Phase 4: Cleanup and Polish Pass
+
+**Rationale:** Remove the old `#debtFormContainer` from `index.html` atomically with confirming all new modal paths work. Then add P2 polish items as incremental improvements.
+
+**Delivers:** Clean HTML with no dead code. Improved form feel with auto-focus, blur validation on rate fields, and complete placeholder coverage.
+
+**Addresses:** Auto-focus name field (P2), blur-time validation on APR fields (P2), numeric placeholder hints (P2).
+
+**Avoids:** Keeping `#debtFormContainer` alongside modal during testing (the two removals are atomic — old form and old code path removed in the same change).
+
+**Research flag:** Standard pattern — skip research-phase. Incremental polish with no integration unknowns.
 
 ### Phase Ordering Rationale
 
-- Haptics first because it is a leaf dependency (nothing it depends on is being built in v2.4) and everything downstream imports it.
-- Swipe second because it depends on haptics and is the highest-visibility UX change; completing it before heatmap ensures the milestone has clear user-facing value even if heatmap runs long.
-- Heatmap third because it is independent of swipe and is the most complex; its two sub-tracks (data query, canvas renderer) can be developed in parallel and integrated last.
+- Scaffold before field logic: the current bug proves that writing field HTML before establishing structural boundaries produces invisible action buttons. Phase 1 makes Phase 2 safe.
+- Field structure before save wiring: `handleSaveDebt()` reads inputs by ID. Those IDs must exist and be stable (via `FIELD_IDS` constants) before the save handler is written or tested.
+- Save/edit before cleanup: Phase 4 removes the old form. Removing it before Phase 3 is complete leaves the app with no working debt form at all.
+- The "Other" type is included in Phase 2 (field structure) rather than deferred — it is a single new fieldset div and a fourth `<option>`, and deferring it creates a second HTML structure change later.
 
 ### Research Flags
 
-Phases with standard patterns (skip research-phase):
-- **Phase 1 (Haptics):** Feature-detection wrapper is trivial and fully specified in research files.
-- **Phase 2 (Swipe):** Touch event delegation is a well-documented pattern; all edge cases are characterized with mitigations in PITFALLS.md.
+No phase in this milestone requires a dedicated `/gsd:research-phase` run. All patterns are either verified from direct codebase inspection (HIGH confidence) or from official MDN documentation (HIGH confidence). The "Other" debt type and Constraint Validation API are fully characterized in the research files.
 
-Phases needing brief implementation planning before coding (not full research-phase):
-- **Phase 3 (Heatmap):** Write a short implementation spec covering: (1) rendering approach decision (custom canvas — recommended), (2) quartile bucket computation, (3) mobile tooltip strategy, (4) Privacy Mode CSS, (5) Y-o-Y data density detection.
+---
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | MEDIUM | chartjs-chart-matrix vs custom canvas conflict between STACK.md (recommends plugin) and ARCHITECTURE.md (recommends custom canvas); custom canvas is the correct call based on codebase history but the conflict must be explicitly resolved |
-| Features | MEDIUM | Scope is well-defined; Y-o-Y data density assumption is unvalidated — depends on each user's data history; feature is P2 so this is acceptable |
-| Architecture | HIGH | Based on direct codebase inspection; component boundaries, delegated listener pattern, and build order are unambiguous |
-| Pitfalls | HIGH | Swipe and haptics pitfalls confirmed via MDN and Chrome documentation; iOS edge-swipe is a confirmed unfixable PWA limitation; heatmap edge cases are well-characterized |
+| Stack | HIGH | v2.5 uses only native browser APIs. `<dialog>` support data fetched directly from Can I Use (95.57%). No new npm packages. |
+| Features | HIGH | Primary evidence is the codebase itself (`src/ui/debts.js`, `src/db/schema.js`). No fields or schema changes needed. Field sets and validation rules derived from direct schema inspection. |
+| Architecture | HIGH | All components inspected directly. `modalUI` in `render.js` confirmed to support this use case via `backupUI` and `expensesUI` production usage. Data flow documented from first-party source. |
+| Pitfalls | HIGH (code bugs) / MEDIUM (modal patterns) | Pitfalls 1 and 2 confirmed by direct code inspection (line 246 for unclosed div). Modal accessibility patterns from MDN and established web platform references. |
 
-**Overall confidence:** HIGH — three well-characterized features adding to a mature codebase. No architectural unknowns. Main validation risk is iOS real-device testing for swipe and haptics (Chrome DevTools emulation is not sufficient).
+**Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **Heatmap rendering approach conflict (must resolve):** STACK.md recommends chartjs-chart-matrix; ARCHITECTURE.md recommends custom canvas. Resolve before Phase 3 begins. Recommendation: custom canvas (no new dependency, avoids Chart.js plugin risk, simpler and fully controllable). Mark RESOLVED in favor of custom canvas when the decision is made.
+- **Discard-changes detection for Add mode:** Determining "has the user entered anything?" requires either tracking initial field state on modal open or checking if any field is non-empty/non-zero. The research recommends the latter as simpler. Confirm the specific implementation during Phase 3 — the `confirm()` call should not fire if the user opens Add and immediately dismisses without typing anything.
 
-- **Y-o-Y data density (conditional feature):** Year-over-Year comparison requires 13+ months of expense records. Many users will not have this. Mitigation: detect in `renderDashboard()` and hide/disable the Y-o-Y toggle until sufficient data exists. Implement detection before exposing the UI control.
+- **`modalUI` ESC handler and `editingId` cleanup:** Confirm during Phase 1 that `modalUI`'s existing Esc/close handler calls a cleanup callback (clearing `editingId`) rather than calling `modalUI.close()` directly without running cleanup. If not, wire the cleanup via a `dialog.addEventListener('close')` callback in `openDebtModal`.
 
-- **Privacy Mode + heatmap interaction (integration gap):** Privacy Mode must blur the heatmap canvas, not just the existing summary cards. This is not covered by the current Privacy Mode implementation. Add heatmap canvas to the Privacy Mode blur target list when the canvas element is introduced to `index.html`.
+- **Mortgage vs loan field separation:** Current code conflates loan and mortgage into one `loanOnlyFields` div. v2.5 separates them since mortgages have distinct fields (ERC, interest-only flag). This separation must happen in Phase 2; mixing them is the existing source of label confusion for mortgage users.
 
-- **iOS real-device testing requirement:** Swipe edge-swipe conflict and ghost click behavior only manifest on real iOS hardware. Chrome DevTools mobile emulation will not catch these. Ensure iOS testing is part of Phase 2 sign-off criteria.
+---
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- Direct codebase inspection (`src/app.js`, `src/ui/charts.js`, `src/ui/expenses.js`, `src/ui/transactions.js`, `src/db/repository.js`, `index.html`) — architecture, component boundaries, existing Chart.js registrations confirmed
-- MDN Navigator.vibrate() — API surface, sticky user activation requirement, iOS non-support
-- MDN Touch Events — API surface, passive listener defaults, universal mobile browser support
-- chartjs-chart-matrix releases page (GitHub) — v3.0.0 released March 2025, peerDep `>=3.0.0`
-- Chrome Developers — passive event listener defaults since Chrome 56; `{passive: false}` guidance
+- `src/ui/debts.js` — existing `debtUI` object; `renderDebtForm`, `handleSaveDebt`, `toggleDebtTypeFields`; unclosed div confirmed at line 246
+- `src/ui/render.js` — `modalUI.show()` implementation; array-of-button-configs path; scroll lock
+- `src/db/repository.js` — `debtRepository` pence fields, `generateLoanPayments` side effect
+- `src/db/schema.js` — v13–v15 debt schema; all persisted fields
+- `index.html` — `#modalOverlay` structure; `#debtFormContainer` location; `#addDebtBtn` placement
+- [MDN: `<dialog>` element](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/dialog) — showModal(), cancel event, backdrop behavior, focus management
+- [Can I Use: dialog element](https://caniuse.com/dialog) — 95.57% global support, browser floor versions
+- [MDN: Constraint Validation API](https://developer.mozilla.org/en-US/docs/Web/HTML/Guides/Constraint_validation) — checkValidity(), setCustomValidity()
 
 ### Secondary (MEDIUM confidence)
-- chartjs-chart-matrix GitHub (kurkle) — ESM tree-shaking pattern, registration requirement (rate-limited during fetch, confirmed via search)
-- chartjs-chart-matrix npm — latest v3.0.0, peerDep coverage (403 on direct fetch, confirmed via search results)
-- bitsofco.de — GitHub contribution graph CSS grid pattern
-- CSS-Tricks: Simple Swipe with Vanilla JavaScript — touch event pattern and passive listener recommendation
-- Ionic Framework iOS edge-swipe issue #22299 — confirms iOS back gesture cannot be suppressed in PWA
+- [LogRocket: Modal UX Design Patterns](https://blog.logrocket.com/ux-design/modal-ux-design-patterns-examples-best-practices/) — focus trapping, validation UX patterns
+- [YNAB: Loan Accounts Guide](https://support.ynab.com/en_us/loan-accounts-a-guide-HkNSkPHJi) — field expectations for loan tracking apps
+- [Jared Cunha: HTML Dialog Accessibility](https://jaredcunha.com/blog/html-dialog-getting-accessibility-and-ux-right) — autofocus pitfalls, scroll lock pattern, scrollbar-gutter
+- [web.dev: dialog and popover baseline](https://web.dev/articles/baseline-in-action-dialog-popover) — modal vs non-modal distinction
+- `.planning/debug/debt-ui-consolidation-failure.md` — historical evidence of disconnected form/container architecture
+- `.planning/debug/debt-id-mismatch-and-save-error.md` — save handler fragility and Dexie transaction scope bug
 
-### Tertiary (LOW confidence / secondary sources)
-- Can I Use: Vibration API — browser support table (WebSearch, page not directly fetched)
-- mdn/browser-compat-data issue #29166 — iOS `navigator.vibrate` ongoing non-support discussion
-- iOS-haptics GitHub (tijnjh) — checkbox-switch haptic technique for iOS 18+; assessed and not recommended for production use (fragile undocumented behavior)
-- Medium: 2025 Guide to Haptics — haptic UX pattern recommendations for pattern duration limits
+### Tertiary (LOW confidence)
+- [Monarch Money: Manual Accounts](https://help.monarch.com/hc/en-us/articles/360058187072-Manual-Accounts) — minimal required field pattern for competitor context
+- [Eleken: Mastering Modal UX](https://www.eleken.co/blog-posts/modal-ux) — modal UX best practices (general industry reference)
 
 ---
 *Research completed: 2026-03-07*
