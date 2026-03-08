@@ -17,7 +17,7 @@ import { simulatePayoff, calcMinPayment, calculateBalanceChain } from '../utils/
 import { renderRollingOverviewChart, renderSpendingBreakdownChart } from './charts.js';
 import { checkStoragePersistence } from './pwa-ux.js';
 import { getEntitlementPeriod, calculateFundingGap } from '../utils/childcare.js';
-import { modalUI } from './render.js';
+import { modalUI, adjustFontSize } from './render.js';
 import { renderSpendingHeatmap } from './heatmap.js';
 
 let _selectedMonth = new Date().toISOString().slice(0, 7);
@@ -198,6 +198,11 @@ export async function renderDashboard() {
     currentBalance = actualSnaps.length > 0 ? actualSnaps[actualSnaps.length - 1].closingBalance : 0;
   }
 
+  // Monthly Forecasts (1-month and 3-month)
+  const monthlyChain = await calculateBalanceChain(_selectedMonth, 3);
+  const nextMonthSnap = monthlyChain.find(s => s.month > _selectedMonth);
+  const threeMonthSnap = monthlyChain[monthlyChain.length - 1];
+
   // Next Negative Alert warning
   const horizon = new Date();
   horizon.setDate(horizon.getDate() + 45);
@@ -219,14 +224,30 @@ export async function renderDashboard() {
 
   // 4. Define the new card order
   const cards = [
+    // Balance Banner (3 standardized cards)
     { 
       id: 'balance-card',
-      label: 'Current Balance', 
+      label: 'Running Balance', 
       value: currentBalance, 
-      color: currentBalance >= 0 ? 'var(--accent)' : 'var(--danger)',
-      warning: firstNeg ? { title: '⚠️ Future Deficit', text: `Projected ${formatGBP(firstNeg.closingBalance)} on ${firstNeg.date}` } : null,
+      color: 'var(--accent)',
+      isBanner: true,
       canEdit: true
     },
+    { 
+      label: 'Next Month Forecast', 
+      value: nextMonthSnap ? nextMonthSnap.closingBalance : null, 
+      color: 'var(--info)',
+      isBanner: true,
+      isForecast: true
+    },
+    { 
+      label: '3-Month Forecast', 
+      value: threeMonthSnap ? threeMonthSnap.closingBalance : null, 
+      color: 'var(--info)',
+      isBanner: true,
+      isForecast: true
+    },
+    // Standard cards
     { label: 'Income', value: data.income, color: 'var(--accent)' },
     { label: 'Expenses', value: data.totalExpenses, color: 'var(--danger)' },
     { label: 'Net Position', value: data.netPosition, color: data.netPosition >= 0 ? 'var(--accent)' : 'var(--danger)' },
@@ -255,8 +276,13 @@ export async function renderDashboard() {
 
   container.textContent = '';
   for (const card of cards) {
+    // Filter out null values (per Task 3)
+    if (card.value === null || card.value === undefined) continue;
+
     const item = document.createElement('div');
-    item.className = 'sum-item';
+    item.className = card.isBanner ? 'dashboard-card' : 'sum-item';
+    if (card.isForecast) item.classList.add('forecast-card');
+
     if (card.warning) {
       item.style.borderColor = 'var(--danger)';
       item.style.borderWidth = '2px';
@@ -298,6 +324,8 @@ export async function renderDashboard() {
     const valEl = document.createElement('div');
     valEl.className = 'sum-val';
     valEl.style.color = card.color;
+    
+    // Use centralized adjustFontSize from render.js
     adjustFontSize(valEl, card.value);
     item.appendChild(valEl);
 
@@ -385,8 +413,8 @@ function openBalanceAdjustmentModal(currentBalancePence) {
   `;
   
   modalUI.show('Set Current Balance', content, [
-    { label: 'Cancel', class: 'ghost', onclick: () => modalUI.close() },
-    { label: 'Save Balance', class: 'primary', onclick: async () => {
+    { label: 'Cancel', className: 'ghost', onClick: () => modalUI.close() },
+    { label: 'Save Balance', className: 'primary', onClick: async () => {
       const val = parseFloat(document.getElementById('adjBalanceInput').value);
       if (isNaN(val)) return;
       
@@ -397,26 +425,6 @@ function openBalanceAdjustmentModal(currentBalancePence) {
       if (window.app) window.app.renderAll();
     }}
   ]);
-}
-
-/**
- * Adjusts the font size of an element based on the length of the currency string.
- */
-function adjustFontSize(el, pence) {
-  const amount = Math.abs(pence / 100);
-  let fontSize = '1.35rem';
-  let displayValue = formatGBP(pence);
-
-  if (amount >= 100000) {
-    displayValue = formatGBPShort(pence);
-  } else if (amount >= 10000) {
-    fontSize = '1.15rem';
-  } else if (amount >= 1000) {
-    fontSize = '1.25rem';
-  }
-
-  el.style.fontSize = fontSize;
-  el.innerHTML = `<span class="privacy-blur">${displayValue}</span>`;
 }
 
 /**

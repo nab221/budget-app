@@ -4,6 +4,7 @@ import { toPence, fromPence } from '../utils/currency.js';
 import { findBestMatch } from '../utils/string-similarity.js';
 import { calculateTopUp, getEntitlementPeriod, calculateFundingGap } from '../utils/childcare.js';
 import { calcMinPayment, calculateBalanceChain, simulatePayoff } from '../utils/finance.js';
+export { calcMinPayment, calculateBalanceChain, simulatePayoff };
 import { advanceNextDate } from '../utils/recurrence.js';
 
 // ---------------------------------------------------------------------------
