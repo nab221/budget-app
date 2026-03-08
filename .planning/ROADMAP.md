@@ -42,7 +42,11 @@ Full archive: `.planning/milestones/v2.4-ROADMAP.md`
   2. Clicking the backdrop (outside the dialog) dismisses the modal
   3. Page scroll is locked while the modal is open and restored on close
   4. Name field receives keyboard focus automatically when the modal opens
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 11-01-PLAN.md — Test scaffold: failing unit tests for MODAL-01 through MODAL-04
+- [ ] 11-02-PLAN.md — Implementation: openDebtModal, backdrop click, auto-focus, editingId cleanup
 
 ### Phase 12: Type-Specific Field Logic
 **Goal**: Users see the correct type-specific fields immediately when selecting a debt type, with no switch-away workaround required in either Add or Edit mode
@@ -93,7 +97,7 @@ Full archive: `.planning/milestones/v2.4-ROADMAP.md`
 | 8. Haptic Feedback | v2.4 | 3/3 | Complete | 2026-03-07 |
 | 9. Swipe Gesture System | v2.4 | 4/4 | Complete | 2026-03-07 |
 | 10. Spending Heatmap | v2.4 | 2/2 | Complete | 2026-03-07 |
-| 11. Modal Scaffold | v2.5 | 0/TBD | Not started | - |
+| 11. Modal Scaffold | v2.5 | 0/2 | Not started | - |
 | 12. Type-Specific Field Logic | v2.5 | 0/TBD | Not started | - |
 | 13. Save, Edit, and Validation | v2.5 | 0/TBD | Not started | - |
 | 14. Cleanup and Polish | v2.5 | 0/TBD | Not started | - |
