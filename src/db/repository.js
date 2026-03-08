@@ -897,3 +897,62 @@ export async function getYearlyDailySpending(year) {
 
   return result;
 }
+
+/**
+ * Aggregates daily income for a specific year for heatmap visualization.
+ * @param {string|number} year
+ * @returns {Promise<Object>} Map of date string (YYYY-MM-DD) to daily stats
+ */
+export async function getYearlyDailyIncome(year) {
+  const start = `${year}-01-01`;
+  const end = `${year}-12-31`;
+
+  const [incomeRows, categories] = await Promise.all([
+    db.income.where('date').between(start, end, true, true).toArray(),
+    db.categories.toArray()
+  ]);
+
+  const catMap = categories.reduce((acc, cat) => {
+    acc[cat.id] = cat.name;
+    return acc;
+  }, {});
+
+  const dailyData = {};
+
+  incomeRows.forEach(inc => {
+    const date = inc.date;
+    if (!date) return;
+
+    if (!dailyData[date]) {
+      dailyData[date] = { total: 0, categories: {} };
+    }
+
+    const amount = inc.amount || 0;
+    dailyData[date].total += amount;
+
+    const label = inc.source || catMap[inc.categoryId] || 'Uncategorized';
+    dailyData[date].categories[label] = (dailyData[date].categories[label] || 0) + amount;
+  });
+
+  const result = {};
+  Object.keys(dailyData).forEach(date => {
+    const day = dailyData[date];
+    let topCategory = 'None';
+    let topCategoryAmount = 0;
+
+    Object.keys(day.categories).forEach(cat => {
+      if (day.categories[cat] > topCategoryAmount) {
+        topCategory = cat;
+        topCategoryAmount = day.categories[cat];
+      }
+    });
+
+    result[date] = {
+      total: day.total,
+      topCategory,
+      topCategoryAmount
+    };
+  });
+
+  return result;
+}

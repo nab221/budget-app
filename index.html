@@ -82,6 +82,19 @@
               <canvas id="rollingOverviewChart"></canvas>
             </div>
 
+            <!-- Income Heatmap Section -->
+            <div class="card" id="incomeHeatmapSection" style="margin-bottom: 20px; overflow-x: auto; -webkit-overflow-scrolling: touch;">
+              <div class="card-hd">
+                <h3 class="chart-title">Income Heatmap</h3>
+              </div>
+              <div class="chart-container" style="padding: 15px; min-width: 800px; border-bottom: none">
+                <div id="incomeHeatmapContainer" class="privacy-blur"></div>
+              </div>
+              <div class="hint" style="padding: 0 15px 15px; font-size: 0.7rem; color: var(--text-soft)">
+                Grey means no income. Greener and darker cells indicate higher daily income.
+              </div>
+            </div>
+
             <!-- Spending Heatmap Section -->
             <div class="card" id="spendingHeatmapSection" style="margin-bottom: 20px; overflow-x: auto; -webkit-overflow-scrolling: touch;">
               <div class="card-hd">
