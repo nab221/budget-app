@@ -4,7 +4,8 @@
 
 - ✅ **v2.3 Advanced Analytics & Mobile Polish** — Phases 1-7 (shipped 2026-03-07)
 - ✅ **v2.4 UX Polish & Spending Insights** — Phases 8-10 (shipped 2026-03-07) [Details](.planning/milestones/v2.4-ROADMAP.md)
-- **v2.5 Debt Tab UX Overhaul** — Phases 11-16 (in progress)
+- ✅ **v2.5 Debt Tab UX Overhaul** — Phases 11-16 (shipped 2026-03-08)
+- **v2.6 Dashboard Forecast Invariants & Layout Split** — Phase 17 (planned)
 
 ## Phases
 
@@ -12,6 +13,15 @@
 <summary>✅ v2.3 Advanced Analytics & Mobile Polish (Phases 1-7) — SHIPPED 2026-03-07</summary>
 
 Full archive: `.planning/milestones/v2.3-ROADMAP.md`
+
+</details>
+
+<details>
+<summary>v2.6 Dashboard Forecast Invariants & Layout Split (Phase 17)</summary>
+
+**Milestone Goal:** Make dashboard forecast KPI cards reflect current balance/projections independent of navigation state, and restructure dashboard layout so navigation-dependent and invariant widgets are clearly separated.
+
+- [ ] **Phase 17: Dashboard Invariant Forecast KPIs and Layout Reflow** — Running Balance/30-day/90-day cards become navigation-invariant and aligned with detailed forecast logic; reposition heatmap/navigation/KPI sections for clearer UX separation.
 
 </details>
 
@@ -121,6 +131,18 @@ Plans:
 - [ ] 16-02-PLAN.md — History table layout, sticky columns, scroll UX, and pencil icon (HIST-01, HIST-02)
 - [ ] 16-03-PLAN.md — Mark Paid inline quick action per statement row (HIST-03)
 
+### Phase 17: Dashboard Invariant Forecast KPIs and Layout Reflow
+**Goal**: Ensure Running Balance, Next Month Forecast, and 3-Month Forecast cards represent current forward-looking values regardless of month/YTD/all-time navigation, and reorder dashboard sections so navigation-dependent and navigation-invariant widgets are visually separated.
+**Depends on**: Phase 16
+**Requirements**: DASH-INV-01, DASH-INV-02, DASH-INV-03, DASH-INV-04, DASH-INV-05, DASH-INV-06, DASH-INV-07
+**Success Criteria** (what must be TRUE):
+  1. Running Balance card matches current account balance and does not change when month navigation/view mode changes.
+  2. Next Month Forecast card equals +30-day projection from the same baseline/logic as detailed 45-day forecast.
+  3. 3-Month Forecast card equals +90-day projection from the same baseline/logic as detailed 45-day forecast.
+  4. Spending Heatmap and forecast KPI cards are in the invariant section.
+  5. Month navigation controls appear below the heatmap and above forecast KPI cards.
+**Plans**: TBD
+
 ## Progress
 
 **Execution Order:** Phases execute in numeric order: 11 → 12 → 13 → 14 → 15 → 16
@@ -143,3 +165,4 @@ Plans:
 | 14. Cleanup and Polish | 1/1 | Complete    | 2026-03-08 | - |
 | 15. Statement History Modal | 1/1 | Complete    | 2026-03-08 | - |
 | 16. Debt History UX Refinement | 3/3 | Complete   | 2026-03-08 | - |
+| 17. Dashboard Invariant Forecast KPIs and Layout Reflow | 0/0 | Planned | - | - |
