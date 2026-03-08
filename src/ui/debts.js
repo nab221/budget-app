@@ -140,7 +140,7 @@ export const debtUI = {
 
     const buttons = [
       { label: 'Cancel', className: 'ghost', onClick: () => this._closeDebtModal() },
-      // Save button added in Phase 13
+      { label: id === null ? 'Add' : 'Save', className: 'primary', onClick: () => this._saveDebt() },
     ];
 
     modalUI.show(title, formHTML, buttons);
@@ -173,13 +173,139 @@ export const debtUI = {
         const typeSelect = document.getElementById(FIELD_IDS.type);
         if (typeSelect) typeSelect.value = debt.debtType;
       }
+      this._onTypeChange();
+      this._populateEditFields(debt);
+    } else {
+      this._onTypeChange();
     }
-    this._onTypeChange();
+  },
+
+  _populateEditFields(debt) {
+    const set = (id, val) => {
+      const el = document.getElementById(id);
+      if (el && val !== undefined && val !== null) el.value = val;
+    };
+
+    set(FIELD_IDS.name, debt.name);
+    // type already set before _onTypeChange() call
+
+    const type = debt.debtType;
+    if (type === 'credit-card') {
+      set(FIELD_IDS.ccBalance,    fromPence(debt.currentBalance));
+      set(FIELD_IDS.ccApr,        debt.apr);
+      set(FIELD_IDS.ccLimit,      fromPence(debt.creditLimit));
+      set(FIELD_IDS.ccMinPayment, debt.minPayment ?? '');
+      set(FIELD_IDS.ccPromoEnd,   debt.promoEndDate ?? '');
+      set(FIELD_IDS.ccPostApr,    debt.postPromoApr ?? debt.apr);
+    } else if (type === 'mortgage') {
+      set(FIELD_IDS.mortgagePropertyValue, fromPence(debt.propertyValue ?? 0));
+      set(FIELD_IDS.mortgageBalance,       fromPence(debt.currentBalance));
+      set(FIELD_IDS.mortgageTerm,          debt.termMonths);
+      set(FIELD_IDS.mortgageRate,          debt.interestRate);
+      set(FIELD_IDS.mortgageErc,           fromPence(debt.earlyRepaymentFee ?? 0));
+    } else if (type === 'loan') {
+      set(FIELD_IDS.loanOriginal, fromPence(debt.originalPrincipal ?? 0));
+      set(FIELD_IDS.loanBalance,  fromPence(debt.currentBalance));
+      set(FIELD_IDS.loanTerm,     debt.termMonths);
+      set(FIELD_IDS.loanRate,     debt.interestRate);
+    } else {
+      set(FIELD_IDS.otherBalance, fromPence(debt.currentBalance));
+    }
+  },
+
+  async _saveDebt() {
+    this._clearFieldErrors();
+
+    const name = document.getElementById(FIELD_IDS.name)?.value.trim();
+    const type = document.getElementById(FIELD_IDS.type)?.value;
+
+    let valid = true;
+    if (!name) {
+      this._showFieldError(FIELD_IDS.name, 'Name is required');
+      valid = false;
+    }
+
+    if (!valid) return;
+
+    let payload = { name, debtType: type };
+
+    const val = (id) => parseFloat(document.getElementById(id)?.value) || 0;
+    const str = (id) => document.getElementById(id)?.value || '';
+
+    if (type === 'credit-card') {
+      const apr = val(FIELD_IDS.ccApr);
+      const postAprVal = document.getElementById(FIELD_IDS.ccPostApr)?.value;
+      payload = {
+        ...payload,
+        currentBalance: val(FIELD_IDS.ccBalance),
+        apr,
+        creditLimit: val(FIELD_IDS.ccLimit),
+        minPayment: val(FIELD_IDS.ccMinPayment),
+        promoEndDate: str(FIELD_IDS.ccPromoEnd) || null,
+        postPromoApr: (postAprVal === '' || postAprVal === undefined) ? apr : parseFloat(postAprVal)
+      };
+    } else if (type === 'mortgage') {
+      const rate = val(FIELD_IDS.mortgageRate);
+      payload = {
+        ...payload,
+        propertyValue: val(FIELD_IDS.mortgagePropertyValue),
+        currentBalance: val(FIELD_IDS.mortgageBalance),
+        termMonths: parseInt(document.getElementById(FIELD_IDS.mortgageTerm)?.value) || 0,
+        interestRate: rate,
+        apr: rate, // Sync for strategy sorting
+        earlyRepaymentFee: val(FIELD_IDS.mortgageErc)
+      };
+    } else if (type === 'loan') {
+      const rate = val(FIELD_IDS.loanRate);
+      payload = {
+        ...payload,
+        originalPrincipal: val(FIELD_IDS.loanOriginal),
+        currentBalance: val(FIELD_IDS.loanBalance),
+        termMonths: parseInt(document.getElementById(FIELD_IDS.loanTerm)?.value) || 0,
+        interestRate: rate,
+        apr: rate // Sync for strategy sorting
+      };
+    } else {
+      payload = {
+        ...payload,
+        currentBalance: val(FIELD_IDS.otherBalance)
+      };
+    }
+
+    try {
+      if (this.editingId) {
+        await debtRepository.update(this.editingId, payload);
+      } else {
+        await debtRepository.add(payload);
+      }
+      triggerHaptic('success');
+      this._closeDebtModal();
+      await this.render();
+      if (window.app) window.app.renderAll();
+    } catch (error) {
+      console.error('Failed to save debt:', error);
+      this._showFieldError(FIELD_IDS.name, 'Save failed: ' + error.message);
+    }
   },
 
   _closeDebtModal() {
     this.editingId = null;
     modalUI.close();
+  },
+
+  _showFieldError(fieldId, message) {
+    const field = document.getElementById(fieldId);
+    if (!field) return;
+    const existing = field.parentElement?.querySelector('.field-error');
+    if (existing) existing.remove();
+    const span = document.createElement('span');
+    span.className = 'field-error';
+    span.textContent = message;
+    field.insertAdjacentElement('afterend', span);
+  },
+
+  _clearFieldErrors() {
+    document.querySelectorAll('.field-error').forEach(el => el.remove());
   },
 
   _onTypeChange() {
