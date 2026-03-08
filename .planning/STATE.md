@@ -4,7 +4,7 @@ milestone: v2.5
 milestone_name: Debt Tab UX Overhaul
 status: ready_to_plan
 stopped_at: Completed 12-type-specific-field-logic 12-02-PLAN.md
-last_updated: "2026-03-08T10:27:33.267Z"
+last_updated: "2026-03-08T10:30:48.370Z"
 last_activity: 2026-03-07 — Roadmap created for v2.5 (4 phases, 13 requirements mapped)
 progress:
   total_phases: 4

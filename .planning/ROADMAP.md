@@ -102,6 +102,6 @@ Plans:
 | 9. Swipe Gesture System | v2.4 | 4/4 | Complete | 2026-03-07 |
 | 10. Spending Heatmap | v2.4 | 2/2 | Complete | 2026-03-07 |
 | 11. Modal Scaffold | 2/2 | Complete    | 2026-03-08 | - |
-| 12. Type-Specific Field Logic | 2/2 | Complete   | 2026-03-08 | - |
+| 12. Type-Specific Field Logic | 2/2 | Complete    | 2026-03-08 | - |
 | 13. Save, Edit, and Validation | v2.5 | 0/TBD | Not started | - |
 | 14. Cleanup and Polish | v2.5 | 0/TBD | Not started | - |
