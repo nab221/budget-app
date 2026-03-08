@@ -25,7 +25,7 @@ export const assetUI = {
   setupEventListeners() {
     const addAstBtn = document.getElementById('addAstBtn');
     if (addAstBtn) {
-      addAstBtn.onclick = () => this.toggleForm();
+      addAstBtn.onclick = () => this.openForm();
     }
 
     // Global handlers
@@ -42,21 +42,15 @@ export const assetUI = {
     };
   },
 
-  toggleForm(show = true) {
-    const container = document.getElementById('assetFormContainer');
-    if (!container) return;
-    if (show) {
-      container.classList.remove('hidden');
-      this.renderForm();
-    } else {
-      container.classList.add('hidden');
+  /**
+   * Opens the Asset form (Add or Edit) in a modal.
+   */
+  async openForm(id = null) {
+    if (id && this.editingId !== id) {
+      this.editingId = id;
+    } else if (!id) {
       this.editingId = null;
     }
-  },
-
-  async renderForm() {
-    const container = document.getElementById('assetFormContainer');
-    if (!container) return;
 
     let data = {
       date: new Date().toISOString().slice(0, 10),
@@ -71,16 +65,10 @@ export const assetUI = {
     }
 
     const isUpdate = !!this.editingId;
-    container.className = `card ${isUpdate ? 'update-mode' : ''}`;
 
-    container.innerHTML = safeHTML`
-      <div class="card-hd">
-        <h2 style="font-size: 0.85rem; color: ${isUpdate ? 'var(--accent)' : 'var(--text-soft)'}">
-          ${isUpdate ? '📝 Update Asset Account' : '➕ Add Asset Account'}
-        </h2>
-      </div>
+    const content = safeHTML`
       <div class="form-row">
-        <div><label>Date</label><input id="astDateInput" type="date" value="${data.date}"/></div>
+        <div><label>Date</label><input id="astDateInput" type="date" value="${data.date}" autofocus/></div>
         <div>
           <label>Type</label>
           <select id="astTypeInput">
@@ -95,23 +83,31 @@ export const assetUI = {
       <div class="form-row">
         <div><label>Name</label><input id="astNameInput" type="text" value="${data.name}" placeholder="e.g. Savings Account"/></div>
         <div><label>Value (£)</label><input id="astValueInput" type="number" step="0.01" value="${data.currentBalance}" placeholder="0.00"/></div>
-        <div style="display:flex;align-items:flex-end;gap:8px;flex:0.5">
-          <button class="primary" onclick="assetUI.handleSaveAsset()">${isUpdate ? 'Save Changes' : 'Add Account'}</button>
-          <button class="ghost" onclick="assetUI.cancelEdit()">${isUpdate ? 'Cancel' : 'Hide'}</button>
-        </div>
       </div>
     `;
 
-    if (isUpdate) {
-      container.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    const footer = [
+      { 
+        label: isUpdate ? 'Save Changes' : 'Add Account', 
+        className: 'primary', 
+        onClick: () => this.handleSaveAsset() 
+      },
+      { 
+        label: 'Cancel', 
+        className: 'ghost', 
+        onClick: () => modalUI.close() 
+      }
+    ];
+
+    modalUI.show(isUpdate ? '📝 Update Asset Account' : '➕ Add Asset Account', content, footer);
   },
 
   async handleSaveAsset() {
     const name = document.getElementById('astNameInput').value.trim();
     const type = document.getElementById('astTypeInput').value;
     const date = document.getElementById('astDateInput').value;
-    const value = parseFloat(document.getElementById('astValueInput').value);
+    const valueInput = document.getElementById('astValueInput');
+    const value = parseFloat(valueInput.value);
 
     if (!name || !date || isNaN(value)) {
       alertWithHaptic('Please fill in Name, Date, and Value correctly.', 'error');
@@ -133,7 +129,7 @@ export const assetUI = {
       }
 
       triggerHaptic('success');
-      this.toggleForm(false);
+      modalUI.close();
       await this.render();
       if (window.app) window.app.renderAll();
     } catch (error) {
@@ -142,17 +138,8 @@ export const assetUI = {
     }
   },
 
-  cancelEdit() {
-    if (this.editingId && !confirm('Discard changes?')) return;
-    this.toggleForm(false);
-  },
-
   async editAsset(id) {
-    if (this.editingId && this.editingId !== id) {
-      if (!confirm('Discard changes to the current item?')) return;
-    }
-    this.editingId = id;
-    this.toggleForm(true);
+    await this.openForm(id);
   },
 
   /**

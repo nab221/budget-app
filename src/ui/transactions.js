@@ -55,7 +55,7 @@ export const transactionUI = {
     // Toggle Add Income Form
     const addBtn = document.getElementById('addIncBtn');
     if (addBtn) {
-      addBtn.onclick = () => this.toggleForm();
+      addBtn.onclick = () => this.openForm();
     }
 
     // Toggle Reconciliation Mode
@@ -154,56 +154,23 @@ export const transactionUI = {
     }
 
     if (this.reconciliationMode) {
-      this.toggleForm(false);
+      modalUI.close();
     }
 
     this.render();
   },
 
   /**
-   * Handles category selection changes.
+   * Opens the Income form (Add or Edit) in a modal.
    */
-  handleCategoryChange(checkbox) {
-    const cid = parseInt(checkbox.value);
-    if (checkbox.checked) {
-      if (!this.selectedCategories.includes(cid)) this.selectedCategories.push(cid);
-    } else {
-      this.selectedCategories = this.selectedCategories.filter(id => id !== cid);
-    }
-    this.render();
-  },
-
-  /**
-   * Clears the category filter.
-   */
-  clearCategoryFilter() {
-    this.selectedCategories = [];
-    this.render();
-  },
-
-  /**
-   * Toggles the visibility of the inline form.
-   */
-  toggleForm(show = true) {
-    const container = document.getElementById('incomeFormContainer');
-    if (!container) return;
-    
-    if (show) {
-      container.classList.remove('hidden');
-      this.renderForm();
-      if (this.reconciliationMode) this.toggleReconciliationMode();
-    } else {
-      container.classList.add('hidden');
+  async openForm(id = null) {
+    if (id && this.editingId !== id) {
+      this.editingId = id;
+    } else if (!id) {
       this.editingId = null;
     }
-  },
 
-  /**
-   * Renders the inline form for adding or updating income.
-   */
-  async renderForm() {
-    const container = document.getElementById('incomeFormContainer');
-    if (!container) return;
+    if (this.reconciliationMode) this.toggleReconciliationMode();
 
     const categories = await categoryRepository.getCategories();
     let data = { 
@@ -224,17 +191,13 @@ export const transactionUI = {
     }
 
     const isUpdate = !!this.editingId;
-    container.className = `card ${isUpdate ? 'update-mode' : ''}`;
     
-    container.innerHTML = safeHTML`
-      <div class="card-hd">
-        <h2 style="font-size: 0.85rem; color: ${isUpdate ? 'var(--accent)' : 'var(--text-soft)'}">
-          ${isUpdate ? '📝 Update Income Entry' : '➕ Add Income Entry'}
-        </h2>
+    const content = safeHTML`
+      <div class="form-row">
+        <div><label>Date</label><input id="incDate" type="date" value="${data.date}" autofocus/></div>
+        <div><label>Source</label><input id="incSource" type="text" value="${data.source}" placeholder="e.g. Salary"/></div>
       </div>
       <div class="form-row">
-        <div><label>Date</label><input id="incDate" type="date" value="${data.date}"/></div>
-        <div><label>Source</label><input id="incSource" type="text" value="${data.source}" placeholder="e.g. Salary"/></div>
         <div><label>Category</label>
           <select id="incCat">
             <option value="">— Category —</option>
@@ -242,16 +205,23 @@ export const transactionUI = {
           </select>
         </div>
         <div><label>Amount (£)</label><input id="incAmount" type="number" step="0.01" value="${data.amount}" placeholder="0.00"/></div>
-        <div style="display:flex;align-items:flex-end;gap:8px">
-          <button class="primary" onclick="transactionUI.handleSave()">${isUpdate ? 'Save Changes' : 'Add Income'}</button>
-          <button class="ghost" onclick="transactionUI.cancelEdit()">${isUpdate ? 'Cancel' : 'Hide'}</button>
-        </div>
       </div>
     `;
 
-    if (isUpdate) {
-      container.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    const footer = [
+      { 
+        label: isUpdate ? 'Save Changes' : 'Add Income', 
+        className: 'primary', 
+        onClick: () => this.handleSave() 
+      },
+      { 
+        label: 'Cancel', 
+        className: 'ghost', 
+        onClick: () => modalUI.close() 
+      }
+    ];
+
+    modalUI.show(isUpdate ? '📝 Update Income Entry' : '➕ Add Income Entry', content, footer);
   },
 
   /**
@@ -279,13 +249,12 @@ export const transactionUI = {
 
       if (this.editingId) {
         await incomeRepository.update(this.editingId, payload);
-        // Success feedback will be handled by renderIncome identifying the row
       } else {
         await incomeRepository.add(payload);
       }
 
       const savedId = this.editingId;
-      this.toggleForm(false);
+      modalUI.close();
       await this.render();
       triggerHaptic('success');
 
@@ -303,24 +272,10 @@ export const transactionUI = {
   },
 
   /**
-   * Cancels the current edit operation.
-   */
-  cancelEdit() {
-    if (this.editingId) {
-      if (!confirm('Discard changes to the current entry?')) return;
-    }
-    this.toggleForm(false);
-  },
-
-  /**
    * Enters edit mode for a specific transaction.
    */
   async editTransaction(id) {
-    if (this.editingId && this.editingId !== id) {
-      if (!confirm('Discard changes to the current item?')) return;
-    }
-    this.editingId = id;
-    this.toggleForm(true);
+    await this.openForm(id);
   },
 
   /**

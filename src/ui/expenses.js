@@ -8,8 +8,9 @@ import {
   triggerDailyForecastRecalc
 } from '../db/repository.js';
 import { formatGBP, toPence, fromPence } from '../utils/currency.js';
-import { safeHTML, renderTabSummary } from './render.js';
+import { safeHTML, renderTabSummary, modalUI } from './render.js';
 import { filterTransactions } from '../utils/filtering.js';
+
 import { templateUI } from './templates.js';
 import { nextWorkingDay } from '../utils/cashflow.js';
 import { generateInstances } from '../utils/recurrence.js';
@@ -91,20 +92,19 @@ export const expensesUI = {
         </div>
       `;
 
-      const footer = safeHTML`
-        <button class="ghost" id="recurrenceCancelBtn">Cancel</button>
-      `;
+      const footer = [
+        { label: 'Cancel', className: 'ghost', onClick: () => cleanup(null) }
+      ];
 
-      templateUI.showModal(title, content, footer);
+      modalUI.show(title, content, footer);
 
       const cleanup = (val) => {
-        templateUI.closeModal();
+        modalUI.close();
         resolve(val);
       };
 
       document.getElementById('recurrenceThisBtn').onclick = () => cleanup('this');
       document.getElementById('recurrenceFutureBtn').onclick = () => cleanup('future');
-      document.getElementById('recurrenceCancelBtn').onclick = () => cleanup(null);
     });
   },
 
@@ -123,7 +123,7 @@ export const expensesUI = {
     // Toggle Expense Form
     const addExpenseBtn = document.getElementById('addExpenseBtn');
     if (addExpenseBtn) {
-      addExpenseBtn.onclick = () => this.toggleForm();
+      addExpenseBtn.onclick = () => this.openForm();
     }
 
     // Toggle Reconciliation Mode
@@ -287,30 +287,25 @@ export const expensesUI = {
     }
 
     if (this.reconciliationMode) {
-      this.toggleForm(false);
+      modalUI.close();
     }
 
     this.render();
   },
 
-  toggleForm(show = true) {
-    const container = document.getElementById('expenseFormContainer');
-    if (!container) return;
-    
-    if (show) {
-      container.classList.remove('hidden');
-      this.renderForm();
-      if (this.reconciliationMode) this.toggleReconciliationMode();
-    } else {
-      container.classList.add('hidden');
+  /**
+   * Opens the Expense form (Add or Edit) in a modal.
+   */
+  async openForm(id = null, type = null) {
+    if (id && (this.editingId !== id || this.editingType !== type)) {
+      this.editingId = id;
+      this.editingType = type;
+    } else if (!id) {
       this.editingId = null;
       this.editingType = null;
     }
-  },
 
-  async renderForm() {
-    const container = document.getElementById('expenseFormContainer');
-    if (!container) return;
+    if (this.reconciliationMode) this.toggleReconciliationMode();
 
     const categories = await categoryRepository.getCategories();
     const isUpdate = !!this.editingId;
@@ -340,8 +335,6 @@ export const expensesUI = {
       }
     }
 
-    container.className = `card ${isUpdate ? 'update-mode' : ''}`;
-    
     const categoryOptions = categories
       .map(c => `<option value="${c.id}" ${Number(data.categoryId) === c.id ? 'selected' : ''}>${c.name} (${c.group})</option>`)
       .join('');
@@ -354,14 +347,9 @@ export const expensesUI = {
       <option value="annually" ${data.frequency === 'annually' ? 'selected' : ''}>Annually</option>
     `;
 
-    container.innerHTML = safeHTML`
-      <div class="card-hd">
-        <h2 style="font-size: 0.85rem; color: ${isUpdate ? 'var(--accent)' : 'var(--text-soft)'}">
-          ${isUpdate ? '📝 Update Expense' : '➕ Add Expense'}
-        </h2>
-      </div>
+    const content = safeHTML`
       <div class="form-row">
-        <div><label>Date</label><input id="expDate" type="date" value="${data.date}"/></div>
+        <div><label>Date</label><input id="expDate" type="date" value="${data.date}" autofocus/></div>
         <div><label>Category</label><select id="expCat"><option value="">— Category —</option>${categoryOptions}</select></div>
       </div>
       <div class="form-row">
@@ -391,18 +379,22 @@ export const expensesUI = {
         <div><label>Total Payments</label><input id="expCycleTotal" type="number" min="0" value="${data.cycleTotal || ''}" placeholder="0 = ongoing"/></div>
         <div><label>End Date</label><input id="expEndDate" type="date" value="${data.endDate || ''}"/></div>
       </div>
-
-      <div class="form-row" style="margin-top:10px">
-        <div style="display:flex;align-items:flex-end;gap:8px;flex:2">
-          <button class="primary" onclick="expensesUI.handleSaveExpense()">${isUpdate ? 'Save Changes' : 'Add Expense'}</button>
-          <button class="ghost" onclick="expensesUI.cancelEdit()">${isUpdate ? 'Cancel' : 'Hide'}</button>
-        </div>
-      </div>
     `;
 
-    if (isUpdate) {
-      container.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    const footer = [
+      { 
+        label: isUpdate ? 'Save Changes' : 'Add Expense', 
+        className: 'primary', 
+        onClick: () => this.handleSaveExpense() 
+      },
+      { 
+        label: 'Cancel', 
+        className: 'ghost', 
+        onClick: () => modalUI.close() 
+      }
+    ];
+
+    modalUI.show(isUpdate ? '📝 Update Expense' : '➕ Add Expense', content, footer);
   },
 
   async handleSaveExpense() {
@@ -494,7 +486,7 @@ export const expensesUI = {
         }
       }
 
-      this.toggleForm(false);
+      modalUI.close();
       await this.render();
 
       if (id) {
@@ -511,18 +503,8 @@ export const expensesUI = {
     }
   },
 
-  cancelEdit() {
-    if (this.editingId && !confirm('Discard changes?')) return;
-    this.toggleForm(false);
-  },
-
   async editExpense(id, type) {
-    if (this.editingId && (this.editingId !== id || this.editingType !== type)) {
-      if (!confirm('Discard changes to the current item?')) return;
-    }
-    this.editingId = id;
-    this.editingType = type;
-    this.toggleForm(true);
+    await this.openForm(id, type);
   },
 
   async renderCategoryFilter() {
@@ -557,14 +539,8 @@ export const expensesUI = {
   },
 
   async renderMonthPicker() {
-    let container = document.getElementById('expMonthPicker');
-    if (!container) {
-      container = document.createElement('div');
-      container.id = 'expMonthPicker';
-      container.className = 'month-nav';
-      const formContainer = document.getElementById('expenseFormContainer');
-      if (formContainer) formContainer.insertAdjacentElement('afterend', container);
-    }
+    const container = document.getElementById('expMonthPicker');
+    if (!container) return;
 
     const currentMonth = this.selectedMonth;
     const [year, month] = currentMonth.split('-').map(Number);

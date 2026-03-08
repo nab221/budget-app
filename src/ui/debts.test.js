@@ -98,10 +98,6 @@ describe('debtUI modal scaffold', () => {
     addDebtBtn.id = 'addDebtBtn';
     document.body.appendChild(addDebtBtn);
 
-    const debtFormContainer = document.createElement('div');
-    debtFormContainer.id = 'debtFormContainer';
-    document.body.appendChild(debtFormContainer);
-
     const debtNameInput = document.createElement('input');
     debtNameInput.id = 'debtNameInput';
     document.body.appendChild(debtNameInput);
