@@ -129,12 +129,11 @@ export const recurrentExpenseRepository = {
       .filter(i => i.status === 'pending')
       .toArray();
     for (const item of pending) {
-      const { nextDate: newNextDate, cycleCurrent: newCycleCurrent } = advanceNextDate(item);
-      await db.recurrentExpenses.update(item.id, {
-        status: 'paid',
-        nextDate: newNextDate,
-        cycleCurrent: newCycleCurrent
-      });
+      const updates = { status: 'paid' };
+      if (item.cycleTotal > 0) {
+        updates.cycleCurrent = Math.min((item.cycleCurrent || 0) + 1, item.cycleTotal);
+      }
+      await db.recurrentExpenses.update(item.id, updates);
     }
     triggerSync();
   },
@@ -317,14 +316,11 @@ export const statementRepository = {
       });
 
       if (statement.linkedExpenseId) {
-        const expense = await db.recurrentExpenses.get(statement.linkedExpenseId);
-        const { nextDate: newNextDate, cycleCurrent: newCycleCurrent } = advanceNextDate(expense);
         await db.recurrentExpenses.update(statement.linkedExpenseId, {
           status: 'paid',
           amount: amountPence,
-          cycleCurrent: newCycleCurrent,
-          date: paymentDate,
-          nextDate: newNextDate
+          date: paymentDate
+          // nextDate deliberately NOT changed — keeps item in its original month
         });
       }
       
