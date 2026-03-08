@@ -1,4 +1,4 @@
-import { debtRepository, statementRepository, incomeRepository, categoryRepository, oneOffExpenseRepository } from '../db/repository.js';
+import { debtRepository, statementRepository, recurrentExpenseRepository, incomeRepository, categoryRepository, oneOffExpenseRepository } from '../db/repository.js';
 import { db } from '../db/schema.js';
 import { formatGBP, fromPence } from '../utils/currency.js';
 import { calcMinPayment, calcUtilization, simulatePayoff } from '../utils/finance.js';
@@ -146,28 +146,43 @@ export const debtUI = {
 
       // Get debt for name and current balance (currentBalance stored as pence in DB)
       const debt = await debtRepository.get(debtId);
+      const stmt = await statementRepository.get(stmtId);
 
-      // Create a one-off expense (paid) so the payment appears in the Expenses tab
-      const debtCategory = await db.categories.where('name').equals('Credit Cards & Loans').first();
-      const expenseId = await oneOffExpenseRepository.add({
-        date: paymentDate,
-        note: `${debt.name} - payment`,
-        amount: amtPounds,
-        categoryId: debtCategory ? debtCategory.id : null,
-        isRecurring: false,
-        isCleared: false,
-        isReconciled: false,
-        status: 'paid',
-        isDebtPayment: true,
-        linkedDebtId: debtId
-      });
-
-      // Save payment to statement; store expenseId for later editing
-      await statementRepository.update(stmtId, {
-        actualPaymentAmount: amtPounds,
-        actualPaymentDate: paymentDate,
-        linkedExpenseId: expenseId
-      });
+      if (stmt.linkedExpenseId) {
+        // Normal case: statement already has a linked recurrent expense from addWithExpense.
+        // Update it in place — do NOT create a duplicate one-off expense.
+        await recurrentExpenseRepository.update(stmt.linkedExpenseId, {
+          status: 'paid',
+          amount: amtPounds,
+          date: paymentDate
+        });
+        await statementRepository.update(stmtId, {
+          actualPaymentAmount: amtPounds,
+          actualPaymentDate: paymentDate
+          // linkedExpenseId already set — do not overwrite
+        });
+      } else {
+        // Edge case: old statement created before addWithExpense logic.
+        // Fall back to creating a one-off expense.
+        const debtCategory = await db.categories.where('name').equals('Credit Cards & Loans').first();
+        const expenseId = await oneOffExpenseRepository.add({
+          date: paymentDate,
+          note: `${debt.name} - payment`,
+          amount: amtPounds,
+          categoryId: debtCategory ? debtCategory.id : null,
+          isRecurring: false,
+          isCleared: false,
+          isReconciled: false,
+          status: 'paid',
+          isDebtPayment: true,
+          linkedDebtId: debtId
+        });
+        await statementRepository.update(stmtId, {
+          actualPaymentAmount: amtPounds,
+          actualPaymentDate: paymentDate,
+          linkedExpenseId: expenseId
+        });
+      }
 
       // Deduct payment from debt currentBalance (DB stores pence; pass pounds to update)
       const currentBalancePence = debt.currentBalance || 0;
