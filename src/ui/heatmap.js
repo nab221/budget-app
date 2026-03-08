@@ -6,6 +6,13 @@
  * @param {Object} dailyData - Map of date (YYYY-MM-DD) to {total, topCategory, topCategoryAmount}
  * @param {Object} options - Rendering options (colors, cellSize, gap)
  */
+export function formatLocalDateKey(date) {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 export function renderSpendingHeatmap(containerId, year, dailyData, options = {}) {
   const container = document.getElementById(containerId);
   if (!container) return;
@@ -15,7 +22,7 @@ export function renderSpendingHeatmap(containerId, year, dailyData, options = {}
     cellGap = 3,
     labelHeight = 25,
     labelWidth = 35,
-    colors = ['var(--bg-alt, #ebedf0)', '#9be9a8', '#40c463', '#30a14e', '#216e39'],
+    colors = ['var(--heatmap-zero, #e5e7eb)', '#9be9a8', '#40c463', '#30a14e', '#216e39'],
     clear = true,
     allYearsData = null
   } = options;
@@ -113,7 +120,7 @@ export function renderSpendingHeatmap(containerId, year, dailyData, options = {}
       }
 
       // Get data for this date
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = formatLocalDateKey(date);
       const data = dailyData[dateStr] || { total: 0 };
       
       // Draw Cell
@@ -208,7 +215,7 @@ export function renderSpendingHeatmap(containerId, year, dailyData, options = {}
     
     const date = getCellAt(mouseX, mouseY);
     if (date) {
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = formatLocalDateKey(date);
       const data = dailyData[dateStr] || { total: 0 };
       showTooltip(e, date, data);
       canvas.style.cursor = 'pointer';
@@ -230,7 +237,7 @@ export function renderSpendingHeatmap(containerId, year, dailyData, options = {}
     const date = getCellAt(mouseX, mouseY);
     if (date) {
       e.preventDefault(); // Only prevent if we hit a cell
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = formatLocalDateKey(date);
       const data = dailyData[dateStr] || { total: 0 };
       showTooltip(touch, date, data);
     } else {

@@ -837,7 +837,7 @@ export async function getYearlyDailySpending(year) {
 
   const [oneOff, recurrent, categories] = await Promise.all([
     db.oneOffExpenses.where('date').between(start, end, true, true).toArray(),
-    db.recurrentExpenses.where('nextDate').between(start, end, true, true).toArray(),
+    db.recurrentExpenses.toArray(),
     db.categories.toArray()
   ]);
 
@@ -861,12 +861,10 @@ export async function getYearlyDailySpending(year) {
     dailyData[date].categories[catName] = (dailyData[date].categories[catName] || 0) + amount;
   });
 
-  // Process paid recurrent expenses
+  // Process paid recurrent expenses using the actual paid occurrence date.
   recurrent.filter(exp => exp.status === 'paid').forEach(exp => {
-    // For recurrent, 'date' is the occurrence date, 'nextDate' is the target.
-    // We use 'date' if available, fallback to 'nextDate'.
     const date = exp.date || exp.nextDate;
-    if (!date) return;
+    if (!date || date < start || date > end) return;
     if (!dailyData[date]) {
       dailyData[date] = { total: 0, categories: {} };
     }
