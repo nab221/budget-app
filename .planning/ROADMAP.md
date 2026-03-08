@@ -139,7 +139,7 @@ Plans:
 | 10. Spending Heatmap | v2.4 | 2/2 | Complete | 2026-03-07 |
 | 11. Modal Scaffold | 2/2 | Complete    | 2026-03-08 | - |
 | 12. Type-Specific Field Logic | 2/2 | Complete    | 2026-03-08 | - |
-| 13. Save, Edit, and Validation | 1/2 | In Progress|  | - |
-| 14. Cleanup and Polish | v2.5 | 0/TBD | Not started | - |
-| 15. Statement History Modal | v2.5 | 0/TBD | Not started | - |
+| 13. Save, Edit, and Validation | 2/2 | Complete    | 2026-03-08 | - |
+| 14. Cleanup and Polish | 1/1 | Complete    | 2026-03-08 | - |
+| 15. Statement History Modal | 1/1 | Complete    | 2026-03-08 | - |
 | 16. Debt History UX Refinement | 3/3 | Complete   | 2026-03-08 | - |

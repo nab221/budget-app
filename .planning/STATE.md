@@ -17,16 +17,16 @@ progress:
 gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: Debt Tab UX Overhaul
-status: in-progress
-stopped_at: Added Phase 16: Debt History UX Refinement
-last_updated: "2026-03-08T15:10:00.000Z"
-last_activity: 2026-03-08 — Added Phase 16: Debt History UX Refinement to v2.5
+status: completed
+stopped_at: Completed Phase 16: Debt History UX Refinement
+last_updated: "2026-03-08T15:20:00.000Z"
+last_activity: 2026-03-08 — Completed Phase 16: Debt History UX Refinement (Auto-population & History UX)
 progress:
   total_phases: 6
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 12
-  completed_plans: 11
-  percent: 83
+  completed_plans: 12
+  percent: 100
 ---
 
 ## Project State: Budget App
@@ -41,16 +41,17 @@ See: .planning/PROJECT.md (updated 2026-03-07)
 ## Current Position
 
 Phase: 16 of 16 (Debt History UX Refinement)
-Plan: 16-PLAN.md (01)
-Status: In Progress
-Last activity: 2026-03-08 — Added Phase 16: Debt History UX Refinement (Auto-population & History UX)
+Plan: 16-03-SUMMARY.md
+Status: Completed
+Last activity: 2026-03-08 — Completed Milestone v2.5
 
-Progress: [████████░░] 83%
+Progress: [██████████] 100%
 
 ## Completed Milestones
 
 - v2.3 — Advanced Analytics & Mobile Polish (SHIPPED 2026-03-07, Phases 1-7, 22 plans)
 - v2.4 — UX Polish & Spending Insights (SHIPPED 2026-03-07, Phases 8-10)
+- v2.5 — Debt Tab UX Overhaul (SHIPPED 2026-03-08, Phases 11-16)
 
 ## Accumulated Context
 

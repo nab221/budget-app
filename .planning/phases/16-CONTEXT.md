@@ -1,19 +1,27 @@
-# Phase 16 Context: Advanced Utilities
+# Phase 16 Context: Debt History UX Refinement
 
 ## Overview
-Phase 16 adds power-user features for setting an initial opening balance and manually triggering recurring templates.
+Phase 16 focuses on polishing the Debt Tab UX, specifically addressing auto-population of edit fields and refining the layout and functionality of the Statement History modal.
+
+## Requirements
+- **EDIT-04**: Clicking "Edit" (pencil icon) on a debt row should auto-populate the modal fields with the current debt data.
+- **HIST-01**: History modal table should be reviewed and refined to handle multi-line text (e.g., long descriptions) without messy wrapping.
+- **HIST-02**: Edit button for statement rows in the history modal should use the standard pencil icon for consistency.
+- **HIST-03**: Each statement in the history modal should have a "Mark Paid" button (e.g., a green tick icon).
 
 ## Decisions
 
-### Initial Opening Balance Setup
-- **Placement**: The setting will be integrated into the existing "Balance Start Date" section in the Settings tab, creating a unified "Balance Start Configuration" area.
-- **Negative Values**: The input will support negative values to allow users to start their tracking while in an overdraft.
-- **Feedback**: Saving the opening balance will use the same inline status feedback ("Recalculating...") as the start date, as both trigger the same background balance chain recalculation.
+### Edit Auto-population
+- The modal fields should be populated from the debt object stored in the repository.
+- This includes all type-specific fields (credit limit, property value, etc.).
 
-### Template Trigger Behavior
-- **Placement**: A secondary "Call Templates" button will be added to the Expenses tab, positioned near the "+ Add Expense" button (e.g., as a `ghost` button).
-- **Existing Flow**: Clicking the button will invoke the existing template processing modal (which prompts the user to select which templates to apply for the month).
-- **Duplicate Prevention**: If the template logic detects that templates have already been run for the current month, the button will still function but the modal will naturally show the user what they are about to add, allowing them to cancel if they realize it's a duplicate. We will rely on the user to review the modal before confirming.
+### History Modal Layout
+- Use `.tbl.sm` (already used in other tables) or a custom layout to handle multi-line text.
+- Consider adding a `max-width` or fixed width to certain columns (Date, Amount) to allow more space for the description.
+
+### "Mark Paid" Workflow
+- Clicking the "Mark Paid" icon (green tick) will update the statement status and potentially the debt balance.
+- This action should be accessible directly from the history table row.
 
 ## Deferred Ideas
-*None identified during discussion.*
+*None identified yet.*

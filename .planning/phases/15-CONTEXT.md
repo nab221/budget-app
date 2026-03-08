@@ -1,36 +1,35 @@
-# Phase 15 Context: Core CRUD & Filtering
+# Phase 15 Context: Statement History Modal
 
 ## Overview
-Phase 15 introduces edit capabilities for all transaction types and adds real-time search/filtering to the Income and Expenses tabs. This document captures the UI/UX decisions made to guide implementation.
+Phase 15 completes the v2.5 Debt Tab UX Overhaul by migrating the "Statement History" view from an inline, potentially cluttered, expansion container to a focused modal dialog. This brings consistency with the rest of the application's entry management (Expenses, Income, Assets) which were moved to modals in Phase 14.
 
 ## Decisions
 
-### Edit Flow & Form Interaction
-- **Update Mode**: When "Edit" is clicked, the existing entry form (e.g., at the top or bottom of the page) will transition into "Update" mode.
-- **Scroll Behavior**: The page will automatically scroll to the entry form when a row is selected for editing to ensure user focus.
-- **Mode Indicators**: "Update" mode will be clearly visible via:
-  - Changing the form background color.
-  - Updating the submit button text (e.g., "Save Changes").
-  - Adding a visible "Cancel" button.
-- **Single Edit**: Only one row can be edited at a time. Selecting a different row for editing while one is active will trigger a warning or prevent the action until the current edit is finished or cancelled.
+### Modal Layout & Interaction
+- **Trigger**: Clicking a Debt Card in the main list will open the "Statement History" modal.
+- **Title**: The modal title will clearly identify the debt: "Statement History: [Debt Name]".
+- **Table Density**: The statement history table will continue to use the `.tbl.sm` class for high density.
+- **Action Placement**:
+  - The "Add Statement" and "Import PDF" buttons will be prominently placed above the history table within the modal.
+  - Footer buttons will include a "Close" action for clear dismissal.
 
-### Filter/Search Placement & Scope
-- **Placement**: Search and category filtering controls will be located directly above the main tables.
-- **Independence**: Filter and search states are isolated per tab (Income vs. Expenses). Filtering in one tab does not affect the other.
-- **Auto-Reset**: Active filters and search queries will automatically reset when the user switches between tabs or months.
-- **Filter UI**: Category filtering will utilize a multi-select dropdown to allow users to view multiple specific categories simultaneously.
+### Statement Form Management
+- **In-Modal Form**: The "Log Monthly Statement" form will appear *within* the history modal body (as a hidden card that toggles visible), rather than opening a secondary modal. This keeps the history context visible during entry.
+- **Update Mode**: Editing an existing statement will also happen within the history modal, replacing the "Log" form or appearing in its place.
+- **Backdrop Dismissal**: Clicking the modal backdrop will close the history modal (and any active statement form within it).
 
-### Filtered Summaries & Calculation
-- **Dynamic Summaries**: Category totals and summary cards on the page will dynamically update to reflect only the items currently visible based on active filters/search.
-- **Running Balance**: The "Running Balance" (or overall month balance) will always reflect the full month's data, regardless of any active filters.
-- **Interaction**: Filtering and search will apply in real-time as the user types or makes selections (no "Apply" button required).
-- **No Results**: When no matches are found, the table will display a clear "No matches found" row or placeholder message.
+### State Management
+- **`activeStmtDebtId`**: This state will continue to track which debt's history is being viewed/edited.
+- **`openLedgerId`**: This property in `debtUI` is no longer needed (since it was used for the inline view) and will be removed.
+- **`openHistoryModal(id)`**: New primary entry point for viewing statements.
 
-### Feedback & Undo Flow
-- **Success Feedback**: Upon a successful edit, the updated row will briefly flash or highlight to confirm the change was applied.
-- **Cancel Confirmation**: Clicking "Cancel" during an edit will require a user confirmation (e.g., a simple dialog) to prevent accidental loss of changes.
-- **Error Handling**: Failed updates will display an inline error message within the form area rather than using transient toast notifications.
-- **Automatic Resort**: If an edit changes a field used for sorting (like Date), the row will automatically resort to its new position in the list upon saving.
+### UX Continuity
+- **Success Feedback**: Saving a statement will briefly highlight the new/updated row in the table before closing the form (if applicable) or refreshing the view.
+- **Haptic Feedback**: Retain success/error haptic triggers during statement operations.
 
-## Deferred Ideas
-*None identified during discussion.*
+## Success Criteria
+1. Clicking a Debt card opens a modal (not an inline container).
+2. The modal contains the statement history table and "+ Log Statement" / "Import PDF" buttons.
+3. The legacy `#ledger-container-${id}` elements and related `toggleLedger()` logic are removed from the codebase.
+4. "Log Statement" and "Edit Statement" work correctly within the modal context.
+5. The PDF Import pre-filling logic functions correctly within the modal.

@@ -1,16 +1,16 @@
 ---
-status: investigating
+status: awaiting_human_verify
 trigger: "install app is not working on mobile on the deployed netlify"
 created: 2026-03-07T12:00:00Z
-updated: 2026-03-07T12:01:00Z
+updated: 2026-03-07T12:25:00Z
 ---
 
 ## Current Focus
 
-hypothesis: Click event is firing but installApp() either has null deferredInstallPrompt or an error is being thrown silently
-test: adding console.log statements to trace execution
-expecting: logs will show if click event fires, if deferredInstallPrompt is null, or if prompt() is called
-next_action: add debugging logs to installApp function and button click handler
+hypothesis: Click event may not be firing OR deferredInstallPrompt is null when button clicked. Added extensive logging to diagnose
+test: enhanced logging added to installation flow, awaiting user testing with deployment
+expecting: console logs will reveal exact point of failure when install button is tapped
+next_action: CHECKPOINT - wait for Netlify build, then test on Android and share console logs
 
 ## Symptoms
 
@@ -53,6 +53,11 @@ started: First time testing on mobile; was working on desktop but now showing sa
   action: Added debug console.log statements to installApp() and button click handler
   expecting: Will reveal if click fires, if deferredInstallPrompt is null, or if an error occurs
   next: Build and deploy to test with enhanced logging
+
+- timestamp: 2026-03-07T12:10:00Z
+  action: Built app successfully, committed and pushed changes to main branch
+  found: Push succeeded (commit 2787987), Netlify will auto-deploy
+  next: Wait for deployment and get user to test with console open
 
 ## Resolution
 
