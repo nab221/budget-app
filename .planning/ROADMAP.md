@@ -4,7 +4,7 @@
 
 - ✅ **v2.3 Advanced Analytics & Mobile Polish** — Phases 1-7 (shipped 2026-03-07)
 - ✅ **v2.4 UX Polish & Spending Insights** — Phases 8-10 (shipped 2026-03-07) [Details](.planning/milestones/v2.4-ROADMAP.md)
-- 🚧 **v2.5 Debt Tab UX Overhaul** — Phases 11-15 (in progress)
+- **v2.5 Debt Tab UX Overhaul** — Phases 11-16 (in progress)
 
 ## Phases
 
@@ -22,15 +22,19 @@ Full archive: `.planning/milestones/v2.4-ROADMAP.md`
 
 </details>
 
-### 🚧 v2.5 Debt Tab UX Overhaul (In Progress)
+<details>
+<summary>v2.5 Debt Tab UX Overhaul (Phases 11-16)</summary>
 
-**Milestone Goal:** Replace the broken inline debt form with a working modal dialog and type-specific field sets for all debt types. Root cause: an unclosed `<div>` in `renderDebtForm()` buries Save/Cancel buttons in a hidden container. Fix: replace `#debtFormContainer` banner with a native `<dialog>` wired through the existing `modalUI` infrastructure.
+**Milestone Goal:** Replace the broken inline debt form with a working modal dialog and type-specific field sets for all debt types. Fix: replace `#debtFormContainer` banner with a native `<dialog>` wired through the existing `modalUI` infrastructure.
 
 - [x] **Phase 11: Modal Scaffold** — Working (empty) debt modal that opens, closes, handles Esc, and clears state on all dismiss paths (completed 2026-03-08)
 - [x] **Phase 12: Type-Specific Field Logic** — All four debt type fieldsets with correct show/hide on type change and on modal open (completed 2026-03-08)
-- [ ] **Phase 13: Save, Edit, and Validation** — Fully working Add and Edit flows for all debt types with inline validation errors
-- [ ] **Phase 14: Cleanup and Polish** — Remove dead `#debtFormContainer` HTML, auto-focus, and numeric placeholder hints
-- [ ] **Phase 15: Statement History Modal** — Statement history view migrated from inline tab to consistent modal-driven UX
+- [x] **Phase 13: Save, Edit, and Validation** — Fully working Add and Edit flows for all debt types with inline validation errors (completed 2026-03-08)
+- [x] **Phase 14: Cleanup and Polish** — Remove dead `#debtFormContainer` HTML, auto-focus, and numeric placeholder hints (completed 2026-03-08)
+- [x] **Phase 15: Statement History Modal** — Statement history view migrated from inline tab to consistent modal-driven UX (completed 2026-03-08)
+- [ ] **Phase 16: Debt History UX Refinement** — Auto-populate edit fields, refine history modal table layout, and add "Mark Paid" quick action.
+
+</details>
 
 ## Phase Details
 
@@ -101,9 +105,25 @@ Plans:
   3. The modal can be dismissed using the standard backdrop click or Esc key.
 **Plans**: TBD
 
+### Phase 16: Debt History UX Refinement
+**Goal**: Polish the Debt Tab UX by auto-populating edit fields, refining history modal table layout, and adding a "Mark Paid" quick action.
+**Depends on**: Phase 15
+**Requirements**: EDIT-04, HIST-01, HIST-02, HIST-03
+**Success Criteria** (what must be TRUE):
+  1. Clicking the pencil icon on a debt row auto-fills the modal fields with current debt data.
+  2. History modal table uses improved spacing/layout to handle multi-line text without messy wrapping.
+  3. Edit buttons in the history modal use the standard pencil icon for consistency.
+  4. Each statement row in the history modal has a "Mark Paid" button (green tick icon).
+**Plans**: 3 plans
+
+Plans:
+- [ ] 16-01-PLAN.md — TDD: RED tests + fix for EDIT-04 field auto-population (all four debt types)
+- [ ] 16-02-PLAN.md — History table layout, sticky columns, scroll UX, and pencil icon (HIST-01, HIST-02)
+- [ ] 16-03-PLAN.md — Mark Paid inline quick action per statement row (HIST-03)
+
 ## Progress
 
-**Execution Order:** Phases execute in numeric order: 11 → 12 → 13 → 14 → 15
+**Execution Order:** Phases execute in numeric order: 11 → 12 → 13 → 14 → 15 → 16
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 | ----- | --------- | -------------- | ------ | --------- |
@@ -122,3 +142,4 @@ Plans:
 | 13. Save, Edit, and Validation | 1/2 | In Progress|  | - |
 | 14. Cleanup and Polish | v2.5 | 0/TBD | Not started | - |
 | 15. Statement History Modal | v2.5 | 0/TBD | Not started | - |
+| 16. Debt History UX Refinement | v2.5 | 0/3 | Not started | - |
