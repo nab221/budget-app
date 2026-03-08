@@ -175,6 +175,9 @@ input[type="number"] { text-align: right; }
 }
 .tabs::-webkit-scrollbar { display: none; }
 .tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 8px 16px;
   border-radius: 999px;
   background: var(--card);
@@ -196,6 +199,21 @@ input[type="number"] { text-align: right; }
 }
 .tab-panel { display: none; }
 .tab-panel.active { display: block; }
+
+/* Tab icons — apply on all screen sizes */
+.tab::before {
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  font-size: 1rem;
+  line-height: 1;
+}
+.tab[data-tab="dashboard"]::before { content: "🏠"; }
+.tab[data-tab="income"]::before    { content: "💰"; }
+.tab[data-tab="expenses"]::before  { content: "💸"; }
+.tab[data-tab="debts"]::before     { content: "💳"; }
+.tab[data-tab="payoff"]::before    { content: "📈"; }
+.tab[data-tab="assets"]::before    { content: "🏦"; }
+.tab[data-tab="childcare"]::before { content: "👶"; }
+.tab[data-tab="settings"]::before  { content: "⚙️"; }
 
 @media (max-width: 768px) {
   .mobile-menu-btn { display: none; } /* Replaced by bottom nav */
@@ -245,19 +263,9 @@ input[type="number"] { text-align: right; }
   }
 
   .tab::before {
-    font-size: 1.2rem;
+    font-size: 1.4rem;
     margin-bottom: 2px;
   }
-
-  /* Assign icons via pseudo-elements based on data-tab */
-  .tab[data-tab="dashboard"]::before { content: "🏠"; }
-  .tab[data-tab="income"]::before { content: "💰"; }
-  .tab[data-tab="expenses"]::before { content: "💸"; }
-  .tab[data-tab="debts"]::before { content: "💳"; }
-  .tab[data-tab="payoff"]::before { content: "📈"; }
-  .tab[data-tab="assets"]::before { content: "🏦"; }
-  .tab[data-tab="childcare"]::before { content: "👶"; }
-  .tab[data-tab="settings"]::before { content: "⚙️"; }
 
   /* Hide tabs that don't fit well or are secondary if needed, or allow horizontal scroll if many */
   .tabs {
