@@ -36,7 +36,6 @@ const FIELD_IDS = {
 export const debtUI = {
   editingId: null,
   editingStmtId: null,
-  openLedgerId: null,
   activeStmtDebtId: null,
 
   /**
@@ -80,33 +79,11 @@ export const debtUI = {
         }
         await debtRepository.delete(id);
         triggerHaptic('delete');
-        if (this.openLedgerId === id) this.openLedgerId = null;
         if (this.activeStmtDebtId === id) this.activeStmtDebtId = null;
         await this.render();
       } catch (error) {
         console.error('Failed to delete debt:', error);
         alertWithHaptic('Failed to delete debt: ' + error.message, 'error');
-      }
-    };
-
-    window.toggleLedger = async (id) => {
-      const container = document.getElementById(`ledger-container-${id}`);
-      if (!container) return;
-
-      if (this.openLedgerId === id) {
-        container.classList.add('hidden');
-        this.openLedgerId = null;
-      } else {
-        // Close previously open ledger if any
-        if (this.openLedgerId !== null) {
-          const prev = document.getElementById(`ledger-container-${this.openLedgerId}`);
-          if (prev) prev.classList.add('hidden');
-        }
-        
-        container.classList.remove('hidden');
-        this.openLedgerId = id;
-        await this.renderStatements(id);
-        container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
     };
 
@@ -440,30 +417,27 @@ export const debtUI = {
     if (!debtId && this.activeStmtDebtId) debtId = this.activeStmtDebtId;
     if (!debtId) return;
 
-    const container = document.getElementById(`stmtFormContainer-${debtId}`);
+    // Target modal container if it exists, otherwise fallback to legacy
+    const container = document.getElementById('stmtFormContainer-modal') || document.getElementById(`stmtFormContainer-${debtId}`);
     if (!container) return;
 
     if (show) {
-      // Close other open statement form if any
-      if (this.activeStmtDebtId && this.activeStmtDebtId !== debtId) {
-        const prev = document.getElementById(`stmtFormContainer-${this.activeStmtDebtId}`);
-        if (prev) prev.classList.add('hidden');
-      }
-
       this.activeStmtDebtId = debtId;
       container.classList.remove('hidden');
       return await this.renderStmtForm(debtId);
     } else {
       container.classList.add('hidden');
       this.editingStmtId = null;
-      this.activeStmtDebtId = null;
     }
   },
 
   async renderStmtForm(debtId) {
-    const container = document.getElementById(`stmtFormContainer-${debtId}`);
+    const container = document.getElementById('stmtFormContainer-modal') || document.getElementById(`stmtFormContainer-${debtId}`);
     if (!container) return;
     
+    // Determine suffix for input IDs (modal or debtId)
+    const suffix = container.id === 'stmtFormContainer-modal' ? 'modal' : debtId;
+
     let data = {
       date: new Date().toISOString().slice(0, 10),
       openingBalance: '',
@@ -506,17 +480,17 @@ export const debtUI = {
         </h3>
       </div>
       <div class="form-row">
-        <div><label>Statement Date</label><input id="stmtDateInput-${debtId}" type="date" value="${data.date}"/></div>
-        <div><label>Opening Balance (£)</label><input id="stmtOpeningBalanceInput-${debtId}" type="number" step="0.01" value="${data.openingBalance}" placeholder="0.00"/></div>
-        <div><label>New Balance (£)</label><input id="stmtBalanceInput-${debtId}" type="number" step="0.01" value="${data.amount}" placeholder="0.00"/></div>
+        <div><label>Statement Date</label><input id="stmtDateInput-${suffix}" type="date" value="${data.date}"/></div>
+        <div><label>Opening Balance (£)</label><input id="stmtOpeningBalanceInput-${suffix}" type="number" step="0.01" value="${data.openingBalance}" placeholder="0.00"/></div>
+        <div><label>New Balance (£)</label><input id="stmtBalanceInput-${suffix}" type="number" step="0.01" value="${data.amount}" placeholder="0.00"/></div>
       </div>
       <div class="form-row">
-        <div><label>Interest (£)</label><input id="stmtInterestInput-${debtId}" type="number" step="0.01" value="${data.interest}"/></div>
-        <div><label>Fees (£)</label><input id="stmtFeesInput-${debtId}" type="number" step="0.01" value="${data.fees}"/></div>
+        <div><label>Interest (£)</label><input id="stmtInterestInput-${suffix}" type="number" step="0.01" value="${data.interest}"/></div>
+        <div><label>Fees (£)</label><input id="stmtFeesInput-${suffix}" type="number" step="0.01" value="${data.fees}"/></div>
       </div>
       <div class="form-row">
-        <div><label>Min Payment Due (£)</label><input id="stmtMinPaymentInput-${debtId}" type="number" step="0.01" value="${data.minimumPayment}" placeholder="0.00"/></div>
-        <div><label>Payment Due Date</label><input id="stmtDueDateInput-${debtId}" type="date" value="${data.paymentDueDate || ''}"/></div>
+        <div><label>Min Payment Due (£)</label><input id="stmtMinPaymentInput-${suffix}" type="number" step="0.01" value="${data.minimumPayment}" placeholder="0.00"/></div>
+        <div><label>Payment Due Date</label><input id="stmtDueDateInput-${suffix}" type="date" value="${data.paymentDueDate || ''}"/></div>
         <div style="display:flex;align-items:flex-end;gap:8px">
           <button class="primary sm" onclick="debtUI.handleSaveStatement()">
             ${isUpdate ? 'Save Changes' : 'Log Statement'}
@@ -537,13 +511,16 @@ export const debtUI = {
     const debtId = this.activeStmtDebtId;
     if (!debtId) return;
 
-    const date = document.getElementById(`stmtDateInput-${debtId}`).value;
-    const openingBalance = parseFloat(document.getElementById(`stmtOpeningBalanceInput-${debtId}`).value);
-    const balance = parseFloat(document.getElementById(`stmtBalanceInput-${debtId}`).value);
-    const interest = parseFloat(document.getElementById(`stmtInterestInput-${debtId}`).value);
-    const fees = parseFloat(document.getElementById(`stmtFeesInput-${debtId}`).value);
-    const minPayment = parseFloat(document.getElementById(`stmtMinPaymentInput-${debtId}`).value);
-    const dueDate = document.getElementById(`stmtDueDateInput-${debtId}`).value;
+    const container = document.getElementById('stmtFormContainer-modal') || document.getElementById(`stmtFormContainer-${debtId}`);
+    const suffix = container?.id === 'stmtFormContainer-modal' ? 'modal' : debtId;
+
+    const date = document.getElementById(`stmtDateInput-${suffix}`).value;
+    const openingBalance = parseFloat(document.getElementById(`stmtOpeningBalanceInput-${suffix}`).value);
+    const balance = parseFloat(document.getElementById(`stmtBalanceInput-${suffix}`).value);
+    const interest = parseFloat(document.getElementById(`stmtInterestInput-${suffix}`).value);
+    const fees = parseFloat(document.getElementById(`stmtFeesInput-${suffix}`).value);
+    const minPayment = parseFloat(document.getElementById(`stmtMinPaymentInput-${suffix}`).value);
+    const dueDate = document.getElementById(`stmtDueDateInput-${suffix}`).value;
 
     if (!date || isNaN(balance) || isNaN(openingBalance)) {
       alertWithHaptic('Please fill in Date, Opening Balance, and New Balance.', 'error');
@@ -627,11 +604,14 @@ export const debtUI = {
 
     await this.toggleStmtForm(debtId, true);
     
-    const dateInput = document.getElementById(`stmtDateInput-${debtId}`);
-    const openInput = document.getElementById(`stmtOpeningBalanceInput-${debtId}`);
-    const balanceInput = document.getElementById(`stmtBalanceInput-${debtId}`);
-    const minInput = document.getElementById(`stmtMinPaymentInput-${debtId}`);
-    const dueInput = document.getElementById(`stmtDueDateInput-${debtId}`);
+    const container = document.getElementById('stmtFormContainer-modal') || document.getElementById(`stmtFormContainer-${debtId}`);
+    const suffix = container?.id === 'stmtFormContainer-modal' ? 'modal' : debtId;
+
+    const dateInput = document.getElementById(`stmtDateInput-${suffix}`);
+    const openInput = document.getElementById(`stmtOpeningBalanceInput-${suffix}`);
+    const balanceInput = document.getElementById(`stmtBalanceInput-${suffix}`);
+    const minInput = document.getElementById(`stmtMinPaymentInput-${suffix}`);
+    const dueInput = document.getElementById(`stmtDueDateInput-${suffix}`);
 
     if (summary.statementDate && dateInput) dateInput.value = summary.statementDate;
     if (summary.openingBalance !== null && openInput) openInput.value = (summary.openingBalance / 100).toFixed(2);
@@ -722,96 +702,52 @@ export const debtUI = {
         if (type === 'loan') typeLabel = 'Personal Loan';
         if (type === 'mortgage') typeLabel = 'Mortgage';
 
-        const isLedgerOpen = this.openLedgerId === debt.id;
-
         return safeHTML`
-          <div style="display:contents">
-            <div class="card clickable-card ${isLedgerOpen ? 'active' : ''}" 
-                 onclick="toggleLedger(${debt.id})"
-                 style="border:1px solid var(--border); padding:15px; display:flex; flex-direction:column; gap:8px; cursor:pointer; position:relative; ${isLedgerOpen ? 'border-color:var(--accent); background:var(--bg-alt);' : ''}">
-              
-              <div style="display:flex; justify-content:space-between; align-items:flex-start">
-                <div>
-                  <h3 style="margin:0; font-size:1.1rem">${debt.name}</h3>
-                  <div style="display:flex; gap:4px; align-items:center">
-                    <span class="pill" style="font-size:0.7rem">${typeLabel}</span>
-                    ${debt.isInterestOnly ? '<span class="pill" style="font-size:0.7rem; background:rgba(217,119,6,0.1); color:var(--warn); border-color:rgba(217,119,6,0.2)">Interest-Only</span>' : ''}
-                  </div>
-                </div>
-                <div style="display:flex; gap:4px">
-                  <button class="sm ghost" onclick="event.stopPropagation(); debtUI.editDebt(${debt.id})" title="Edit Debt Details">✏️</button>
-                  <button class="sm danger" onclick="event.stopPropagation(); deleteDebt(${debt.id})" title="Delete Debt">🗑</button>
+          <div class="card clickable-card" 
+               onclick="debtUI.openHistoryModal(${debt.id})"
+               style="border:1px solid var(--border); padding:15px; display:flex; flex-direction:column; gap:8px; cursor:pointer; position:relative;">
+            
+            <div style="display:flex; justify-content:space-between; align-items:flex-start">
+              <div>
+                <h3 style="margin:0; font-size:1.1rem">${debt.name}</h3>
+                <div style="display:flex; gap:4px; align-items:center">
+                  <span class="pill" style="font-size:0.7rem">${typeLabel}</span>
+                  ${debt.isInterestOnly ? '<span class="pill" style="font-size:0.7rem; background:rgba(217,119,6,0.1); color:var(--warn); border-color:rgba(217,119,6,0.2)">Interest-Only</span>' : ''}
                 </div>
               </div>
-              
-              <div style="font-size:1.4rem; font-weight:bold; margin:5px 0">
-                <span class="privacy-blur">${formatGBP(debt.currentBalance)}</span>
-              </div>
-              
-              <div class="grid2" style="font-size:0.85rem; color:var(--text-soft)">
-                <div>${type === 'credit-card' ? 'APR' : 'Rate'}: ${type === 'credit-card' ? debt.apr : debt.interestRate}%</div>
-                <div class="r">${type === 'credit-card' ? `Limit: ${debt.creditLimit > 0 ? `<span class="privacy-blur">${formatGBP(debt.creditLimit)}</span>` : 'N/A'}` : `Term: ${debt.termMonths}mo`}</div>
-              </div>
-
-              ${type === 'credit-card' && debt.promoEndDate ? `
-                <div style="font-size:0.75rem; color:var(--warn); margin-top:4px">
-                  Promo ends: ${debt.promoEndDate} (${debt.postPromoApr}%)
-                </div>
-              ` : ''}
-              
-              ${type === 'credit-card' && debt.creditLimit > 0 ? `
-                <div style="height:6px; background:var(--bg-alt); border-radius:3px; overflow:hidden; margin-top:4px">
-                  <div style="height:100%; width:${Math.min(utilization, 100)}%; background:${utilization > 90 ? 'var(--danger)' : utilization > 50 ? 'var(--warn)' : 'var(--success)'}"></div>
-                </div>
-                <div style="font-size:0.75rem; text-align:right">${utilization.toFixed(1)}% used</div>
-              ` : ''}
-              
-              <div style="margin-top:auto; padding-top:10px; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center">
-                <div style="font-size:0.85rem">
-                  ${type === 'credit-card' ? 'Est. Min:' : 'Monthly:'} <strong><span class="privacy-blur">${formatGBP(minPay)}</span></strong>
-                </div>
-                <div class="hint" style="font-size:0.7rem">Click to view history</div>
+              <div style="display:flex; gap:4px">
+                <button class="sm ghost" onclick="event.stopPropagation(); debtUI.editDebt(${debt.id})" title="Edit Debt Details">✏️</button>
+                <button class="sm danger" onclick="event.stopPropagation(); deleteDebt(${debt.id})" title="Delete Debt">🗑</button>
               </div>
             </div>
+            
+            <div style="font-size:1.4rem; font-weight:bold; margin:5px 0">
+              <span class="privacy-blur">${formatGBP(debt.currentBalance)}</span>
+            </div>
+            
+            <div class="grid2" style="font-size:0.85rem; color:var(--text-soft)">
+              <div>${type === 'credit-card' ? 'APR' : 'Rate'}: ${type === 'credit-card' ? debt.apr : debt.interestRate}%</div>
+              <div class="r">${type === 'credit-card' ? `Limit: ${debt.creditLimit > 0 ? `<span class="privacy-blur">${formatGBP(debt.creditLimit)}</span>` : 'N/A'}` : `Term: ${debt.termMonths}mo`}</div>
+            </div>
 
-            <!-- Inline Ledger Container -->
-            <div id="ledger-container-${debt.id}" class="card ${isLedgerOpen ? '' : 'hidden'}" 
-                 onclick="event.stopPropagation()"
-                 style="grid-column: 1 / -1; margin-top:-10px; margin-bottom:20px; border-top:none; border-radius: 0 0 8px 8px; border: 1px solid var(--accent); background:var(--bg);">
-              <div style="padding:15px">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px">
-                  <h4 style="margin:0; font-size:0.9rem">Statement History: ${debt.name}</h4>
-                  <div style="display:flex; gap:8px">
-                    <button class="sm primary" onclick="debtUI.toggleStmtForm(${debt.id}, true)">+ Log Statement</button>
-                    ${type === 'credit-card' ? `<button class="sm ghost" onclick="debtUI.activeStmtDebtId=${debt.id}; document.getElementById('stmtPdfFile').click()">📄 Import PDF</button>` : ''}
-                  </div>
-                </div>
-
-                <!-- Statement Form Placeholder -->
-                <div id="stmtFormContainer-${debt.id}" class="card hidden" style="margin-bottom:16px; background:var(--bg-alt); border: 1px solid var(--border-light);"></div>
-
-                <div style="overflow-x:auto">
-                  <table class="tbl sm">
-                    <thead>
-                      <tr>
-                        <th>Date</th>
-                        <th class="r">Opening</th>
-                        <th class="r">Closing</th>
-                        <th class="r">Int</th>
-                        <th class="r">Fees</th>
-                        <th class="r">Min Due</th>
-                        <th>Due Date</th>
-                        <th class="r">Paid</th>
-                        <th>Paid On</th>
-                        <th></th>
-                      </tr>
-                    </thead>
-                    <tbody id="stmtBody-${debt.id}">
-                      <tr><td colspan="10" class="hint" style="text-align:center">Loading history...</td></tr>
-                    </tbody>
-                  </table>
-                </div>
+            ${type === 'credit-card' && debt.promoEndDate ? `
+              <div style="font-size:0.75rem; color:var(--warn); margin-top:4px">
+                Promo ends: ${debt.promoEndDate} (${debt.postPromoApr}%)
               </div>
+            ` : ''}
+            
+            ${type === 'credit-card' && debt.creditLimit > 0 ? `
+              <div style="height:6px; background:var(--bg-alt); border-radius:3px; overflow:hidden; margin-top:4px">
+                <div style="height:100%; width:${Math.min(utilization, 100)}%; background:${utilization > 90 ? 'var(--danger)' : utilization > 50 ? 'var(--warn)' : 'var(--success)'}"></div>
+              </div>
+              <div style="font-size:0.75rem; text-align:right">${utilization.toFixed(1)}% used</div>
+            ` : ''}
+            
+            <div style="margin-top:auto; padding-top:10px; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center">
+              <div style="font-size:0.85rem">
+                ${type === 'credit-card' ? 'Est. Min:' : 'Monthly:'} <strong><span class="privacy-blur">${formatGBP(minPay)}</span></strong>
+              </div>
+              <div class="hint" style="font-size:0.7rem">Click to view history</div>
             </div>
           </div>
         `;
@@ -821,11 +757,91 @@ export const debtUI = {
     }
 
     container.innerHTML = html;
+  },
 
-    // If a ledger is open, re-render its content
-    if (this.openLedgerId) {
-      this.renderStatements(this.openLedgerId);
+  /**
+   * Render the statement history for a specific debt in a modal.
+   */
+  async openHistoryModal(debtId) {
+    this.activeStmtDebtId = debtId;
+    const debt = await debtRepository.get(debtId);
+    if (!debt) return;
+
+    const title = `Statement History: ${debt.name}`;
+    const content = this._buildHistoryModalHTML(debt);
+    const footer = [
+      { label: 'Close', className: 'ghost', onClick: () => this._closeHistoryModal() }
+    ];
+
+    modalUI.show(title, content, footer);
+
+    // Scroll hint: visible on open, fades after 2s
+    const wrapper = document.getElementById('stmtTableWrapper');
+    if (wrapper) {
+      wrapper.classList.add('scroll-hint-visible');
+      setTimeout(() => wrapper.classList.remove('scroll-hint-visible'), 2000);
     }
+
+    // Initial render of statements into the modal table
+    await this.renderStatements(debtId);
+
+    // Wire X button to _closeHistoryModal for cleanup
+    if (modalUI.elements.close) {
+      modalUI.elements.close.onclick = () => this._closeHistoryModal();
+    }
+  },
+
+  _closeHistoryModal() {
+    this.activeStmtDebtId = null;
+    this.editingStmtId = null;
+    modalUI.close();
+  },
+
+  _buildHistoryModalHTML(debt) {
+    const type = debt.debtType || 'credit-card';
+    return safeHTML`
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px">
+        <div style="display:flex; gap:8px">
+          <button class="primary" onclick="debtUI.toggleStmtForm(${debt.id}, true)">+ Log Statement</button>
+          ${type === 'credit-card' ? `<button class="ghost" onclick="debtUI.activeStmtDebtId=${debt.id}; document.getElementById('stmtPdfFile').click()">📄 Import PDF</button>` : ''}
+        </div>
+        <div class="hint" style="font-size:0.8rem">
+          Current Balance: <strong>${formatGBP(debt.currentBalance)}</strong>
+        </div>
+      </div>
+
+      <!-- Statement Form Placeholder (Inside Modal) -->
+      <div id="stmtFormContainer-modal" class="card hidden" style="margin-bottom:16px; background:var(--bg-alt); border: 1px solid var(--border-light);"></div>
+
+      <style>
+        .stmt-tbl th, .stmt-tbl td { white-space: nowrap; padding: 4px 6px; }
+        .stmt-tbl th:first-child, .stmt-tbl td:first-child { position: sticky; left: 0; z-index: 2; background: var(--bg); }
+        .stmt-tbl th:last-child, .stmt-tbl td:last-child { position: sticky; right: 0; z-index: 2; background: var(--bg); }
+        .scroll-hint-visible::after { content: '→ scroll'; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); opacity: 1; transition: opacity 0.5s; font-size: 0.75rem; color: var(--text-soft); pointer-events: none; }
+      </style>
+
+      <div id="stmtTableWrapper" style="overflow-x:auto; overflow-y:visible; position:relative">
+        <table class="tbl sm stmt-tbl">
+          <thead>
+            <tr>
+              <th style="width:80px">Date</th>
+              <th class="r" style="width:70px">Opening</th>
+              <th class="r" style="width:70px">Closing</th>
+              <th class="r" style="width:50px">Int</th>
+              <th class="r" style="width:50px">Fees</th>
+              <th class="r" style="width:65px">Min Due</th>
+              <th style="width:80px">Due Date</th>
+              <th class="r" style="width:60px">Paid</th>
+              <th style="width:80px">Paid On</th>
+              <th style="width:60px"></th>
+            </tr>
+          </thead>
+          <tbody id="stmtBody-modal">
+            <tr><td colspan="10" class="hint" style="text-align:center">Loading history...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    `;
   },
 
   /**
@@ -835,39 +851,45 @@ export const debtUI = {
     const allStmts = await statementRepository.getAll();
     const stmts = allStmts.filter(s => Number(s.debtId) === Number(debtId));
     
-    const renderTo = (container) => {
-      if (!container) return;
-      if (stmts.length === 0) {
-        container.innerHTML = '<tr><td colspan="10" class="hint" style="text-align:center">No statements logged yet.</td></tr>';
-        return;
-      }
+    // Target the modal-specific body first, fallback to legacy for safety during transition
+    const container = document.getElementById('stmtBody-modal') || document.getElementById(`stmtBody-${debtId}`);
+    if (!container) return;
 
-      stmts.sort((a, b) => b.date.localeCompare(a.date));
+    if (stmts.length === 0) {
+      container.innerHTML = '<tr><td colspan="10" class="hint" style="text-align:center">No statements logged yet.</td></tr>';
+      return;
+    }
 
-      container.innerHTML = stmts.map(s => safeHTML`
-        <tr>
-          <td>${s.date}</td>
-          <td class="r">${formatGBP(s.openingBalance)}</td>
-          <td class="r">${formatGBP(s.amount)}</td>
-          <td class="r">${formatGBP(s.interest)}</td>
-          <td class="r">${formatGBP(s.fees)}</td>
-          <td class="r">${formatGBP(s.minimumPayment)}</td>
-          <td>${s.paymentDueDate || '—'}</td>
-          <td class="r" style="color:${s.actualPaymentAmount ? 'var(--success)' : 'inherit'}">
-            ${s.actualPaymentAmount ? formatGBP(s.actualPaymentAmount) : '—'}
-          </td>
-          <td style="color:${s.actualPaymentDate ? 'var(--success)' : 'inherit'}">
-            ${s.actualPaymentDate || '—'}
-          </td>
-          <td class="r nw">
-            <button class="sm ghost" onclick="debtUI.editStatement(${s.id}, ${debtId})">Edit</button>
-            <button class="sm danger" onclick="deleteStatement(${s.id}, ${debtId})">✕</button>
-          </td>
-        </tr>
-      `).join('');
+    stmts.sort((a, b) => b.date.localeCompare(a.date));
+
+    const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '—';
+    const abbrevGBP = (pence) => {
+      if (!pence && pence !== 0) return '—';
+      const pounds = pence / 100;
+      return pounds >= 1000 ? `£${(pounds / 1000).toFixed(1)}k` : formatGBP(pence);
     };
 
-    renderTo(document.getElementById(`stmtBody-${debtId}`));
+    container.innerHTML = stmts.map(s => safeHTML`
+      <tr>
+        <td>${fmtDate(s.date)}</td>
+        <td class="r">${abbrevGBP(s.openingBalance)}</td>
+        <td class="r">${abbrevGBP(s.amount)}</td>
+        <td class="r">${formatGBP(s.interest)}</td>
+        <td class="r">${formatGBP(s.fees)}</td>
+        <td class="r">${formatGBP(s.minimumPayment)}</td>
+        <td>${s.paymentDueDate ? fmtDate(s.paymentDueDate) : '—'}</td>
+        <td class="r" style="color:${s.actualPaymentAmount ? 'var(--success)' : 'inherit'}">
+          ${s.actualPaymentAmount ? formatGBP(s.actualPaymentAmount) : '—'}
+        </td>
+        <td style="color:${s.actualPaymentDate ? 'var(--success)' : 'inherit'}">
+          ${s.actualPaymentDate ? fmtDate(s.actualPaymentDate) : '—'}
+        </td>
+        <td class="r nw">
+          <button class="sm ghost" title="Edit statement" onclick="debtUI.editStatement(${s.id}, ${debtId})">✏️</button>
+          <button class="sm danger" onclick="deleteStatement(${s.id}, ${debtId})">✕</button>
+        </td>
+      </tr>
+    `).join('');
   }
 };
 
