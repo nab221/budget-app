@@ -83,6 +83,7 @@ vi.mock('../utils/finance.js', () => ({
 
 import { debtUI } from './debts.js';
 import { modalUI } from './render.js';
+import { debtRepository } from '../db/repository.js';
 
 describe('debtUI modal scaffold', () => {
   beforeEach(() => {
@@ -156,5 +157,121 @@ describe('debtUI modal scaffold', () => {
       (el) => el === nameInput || (el && el.id === 'debtNameInput')
     );
     expect(focusedOnNameInput).toBe(true);
+  });
+});
+
+describe('debtUI type-specific fieldsets', () => {
+  // Shared DOM setup: inject 4 fieldset divs + type select into document.body
+  function buildFieldsetDOM() {
+    document.body.innerHTML = '';
+    document.body.style.overflow = '';
+
+    // Fieldsets — credit-card starts visible (no hidden class), others hidden
+    const fieldsets = [
+      { id: 'fieldset-credit-card', hidden: false },
+      { id: 'fieldset-mortgage', hidden: true },
+      { id: 'fieldset-loan', hidden: true },
+      { id: 'fieldset-other', hidden: true },
+    ];
+    for (const { id, hidden } of fieldsets) {
+      const div = document.createElement('div');
+      div.id = id;
+      if (hidden) div.classList.add('hidden');
+      document.body.appendChild(div);
+    }
+
+    // Type select with all 4 options, defaulting to credit-card
+    const select = document.createElement('select');
+    select.id = 'debtTypeInput';
+    for (const val of ['credit-card', 'mortgage', 'loan', 'other']) {
+      const opt = document.createElement('option');
+      opt.value = val;
+      if (val === 'credit-card') opt.selected = true;
+      select.appendChild(opt);
+    }
+    document.body.appendChild(select);
+
+    // Name input (required by openDebtModal focus call)
+    const nameInput = document.createElement('input');
+    nameInput.id = 'debtNameInput';
+    document.body.appendChild(nameInput);
+
+    // Reset editingId
+    debtUI.editingId = null;
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    buildFieldsetDOM();
+  });
+
+  it('TYPE-01: selecting credit-card shows fieldset-credit-card and hides others', () => {
+    const typeSelect = document.getElementById('debtTypeInput');
+    typeSelect.value = 'credit-card';
+
+    debtUI._onTypeChange();
+
+    expect(document.getElementById('fieldset-credit-card').classList.contains('hidden')).toBe(false);
+    expect(document.getElementById('fieldset-mortgage').classList.contains('hidden')).toBe(true);
+    expect(document.getElementById('fieldset-loan').classList.contains('hidden')).toBe(true);
+    expect(document.getElementById('fieldset-other').classList.contains('hidden')).toBe(true);
+  });
+
+  it('TYPE-02: selecting mortgage shows fieldset-mortgage and hides others', () => {
+    const typeSelect = document.getElementById('debtTypeInput');
+    typeSelect.value = 'mortgage';
+
+    debtUI._onTypeChange();
+
+    expect(document.getElementById('fieldset-mortgage').classList.contains('hidden')).toBe(false);
+    expect(document.getElementById('fieldset-credit-card').classList.contains('hidden')).toBe(true);
+    expect(document.getElementById('fieldset-loan').classList.contains('hidden')).toBe(true);
+    expect(document.getElementById('fieldset-other').classList.contains('hidden')).toBe(true);
+  });
+
+  it('TYPE-03: selecting loan shows fieldset-loan and hides others', () => {
+    const typeSelect = document.getElementById('debtTypeInput');
+    typeSelect.value = 'loan';
+
+    debtUI._onTypeChange();
+
+    expect(document.getElementById('fieldset-loan').classList.contains('hidden')).toBe(false);
+    expect(document.getElementById('fieldset-credit-card').classList.contains('hidden')).toBe(true);
+    expect(document.getElementById('fieldset-mortgage').classList.contains('hidden')).toBe(true);
+    expect(document.getElementById('fieldset-other').classList.contains('hidden')).toBe(true);
+  });
+
+  it('TYPE-04: selecting other shows fieldset-other and hides others', () => {
+    const typeSelect = document.getElementById('debtTypeInput');
+    typeSelect.value = 'other';
+
+    debtUI._onTypeChange();
+
+    expect(document.getElementById('fieldset-other').classList.contains('hidden')).toBe(false);
+    expect(document.getElementById('fieldset-credit-card').classList.contains('hidden')).toBe(true);
+    expect(document.getElementById('fieldset-mortgage').classList.contains('hidden')).toBe(true);
+    expect(document.getElementById('fieldset-loan').classList.contains('hidden')).toBe(true);
+  });
+
+  it('EDIT-03: openDebtModal(id) pre-shows correct fieldset for stored debt type', async () => {
+    // Override debtRepository.get to return a mortgage debt
+    debtRepository.get.mockResolvedValueOnce({
+      id: 1,
+      debtType: 'mortgage',
+      name: 'My Mortgage',
+      apr: 0,
+      creditLimit: 0,
+      currentBalance: 0,
+      promoEndDate: '',
+      postPromoApr: 0,
+    });
+
+    await debtUI.openDebtModal(1);
+
+    expect(document.getElementById('debtTypeInput').value).toBe('mortgage');
+    expect(document.getElementById('fieldset-mortgage').classList.contains('hidden')).toBe(false);
+    expect(document.getElementById('fieldset-credit-card').classList.contains('hidden')).toBe(true);
+    expect(document.getElementById('fieldset-loan').classList.contains('hidden')).toBe(true);
+    expect(document.getElementById('fieldset-other').classList.contains('hidden')).toBe(true);
   });
 });
