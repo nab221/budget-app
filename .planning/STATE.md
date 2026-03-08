@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: Debt Tab UX Overhaul
 status: ready_to_plan
-stopped_at: "Checkpoint: 11-modal-scaffold 11-02 Task 3 human-verify"
-last_updated: "2026-03-08T09:06:42.838Z"
+stopped_at: Completed 11-modal-scaffold 11-02-PLAN.md
+last_updated: "2026-03-08T09:16:43.391Z"
 last_activity: 2026-03-07 — Roadmap created for v2.5 (4 phases, 13 requirements mapped)
 progress:
   total_phases: 4
@@ -58,6 +58,8 @@ Progress: [██░░░░░░░░] 17%
 - [Phase 11-modal-scaffold]: Mock render.js show() to apply scroll-lock side effect in jsdom tests so MODAL-03 can assert body overflow without a real overlay
 - [Phase 11-modal-scaffold]: Scoped Esc listener per openDebtModal() call (self-removing) intercepts before modalUI global Esc handler — ensures editingId reset, no listener stacking
 - [Phase 11-modal-scaffold]: editDebt(id) old discard guard removed — openDebtModal always sets editingId fresh; save-state discard belongs in Phase 13
+- [Phase 11-modal-scaffold]: Scoped self-removing Esc listener in openDebtModal() intercepts before global modalUI Esc handler to ensure editingId reset without listener stacking
+- [Phase 11-modal-scaffold]: editDebt(id) old discard guard removed — openDebtModal always sets editingId fresh, save-state discard belongs in Phase 13
 
 ### Pending Todos
 
@@ -70,6 +72,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-08T09:06:33.755Z
-Stopped at: Checkpoint: 11-modal-scaffold 11-02 Task 3 human-verify
+Last session: 2026-03-08T09:16:36.722Z
+Stopped at: Completed 11-modal-scaffold 11-02-PLAN.md
 Resume file: None
