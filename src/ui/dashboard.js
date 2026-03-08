@@ -8,6 +8,7 @@ import {
   expectedIncomeRepository,
   childcareRepository,
   categoryRepository,
+  getYearlyDailyIncome,
   getYearlyDailySpending
 } from '../db/repository.js';
 import { getDailyRollingData, calculateForecast } from '../utils/cashflow.js';
@@ -362,7 +363,46 @@ export async function renderDashboard() {
     container.appendChild(item);
   }
 
-  // 5. Render Spending Heatmap
+  // 5. Render Income Heatmap
+  try {
+    const year = parseInt(_selectedMonth.slice(0, 4));
+    const prevYear = year - 1;
+
+    const [currentYearData, prevYearData] = await Promise.all([
+      getYearlyDailyIncome(year),
+      getYearlyDailyIncome(prevYear)
+    ]);
+
+    const hasPrevYearData = Object.values(prevYearData).some(d => d.total > 0);
+    const allData = { ...currentYearData, ...prevYearData };
+
+    renderSpendingHeatmap('incomeHeatmapContainer', year, currentYearData, {
+      allYearsData: allData
+    });
+
+    if (hasPrevYearData) {
+      const container = document.getElementById('incomeHeatmapContainer');
+
+      const spacer = document.createElement('div');
+      spacer.style.height = '20px';
+      container.appendChild(spacer);
+
+      const prevLabel = document.createElement('div');
+      prevLabel.className = 'chart-title';
+      prevLabel.style.textAlign = 'center';
+      prevLabel.textContent = `Prior Year (${prevYear})`;
+      container.appendChild(prevLabel);
+
+      renderSpendingHeatmap('incomeHeatmapContainer', prevYear, prevYearData, {
+        clear: false,
+        allYearsData: allData
+      });
+    }
+  } catch (err) {
+    console.warn('Could not render income heatmap:', err);
+  }
+
+  // 6. Render Spending Heatmap
   try {
     const year = parseInt(_selectedMonth.slice(0, 4));
     const prevYear = year - 1;

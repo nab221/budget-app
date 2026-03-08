@@ -154,7 +154,13 @@ vi.mock('./schema.js', () => {
 });
 
 // After mock is declared, import the repository (Vitest hoists vi.mock calls)
-const { balanceSnapshotRepository, categoryRepository, statementRepository, getYearlyDailySpending } = await import('./repository.js');
+const {
+  balanceSnapshotRepository,
+  categoryRepository,
+  statementRepository,
+  getYearlyDailySpending,
+  getYearlyDailyIncome
+} = await import('./repository.js');
 const { db } = await import('./schema.js');
 
 // ---------------------------------------------------------------------------
@@ -486,6 +492,42 @@ describe('getYearlyDailySpending', () => {
 
     expect(result['2026-02-03']?.total).toBe(2000);
     expect(result['2026-02-03']?.topCategory).toBe('Transport');
+  });
+});
+
+describe('getYearlyDailyIncome', () => {
+  beforeEach(() => {
+    clearTable(db.income);
+    clearTable(db.categories);
+  });
+
+  it('aggregates income totals by day', async () => {
+    const salaryId = await db.categories.add({ name: 'Salary' });
+
+    await db.income.add({ date: '2026-03-01', amount: 100000, source: 'Employer A', categoryId: salaryId });
+    await db.income.add({ date: '2026-03-01', amount: 5000, source: 'Bonus', categoryId: salaryId });
+
+    const result = await getYearlyDailyIncome(2026);
+    expect(result['2026-03-01']?.total).toBe(105000);
+  });
+
+  it('uses source as top category label when available', async () => {
+    const salaryId = await db.categories.add({ name: 'Salary' });
+
+    await db.income.add({ date: '2026-02-14', amount: 20000, source: 'Freelance', categoryId: salaryId });
+    await db.income.add({ date: '2026-02-14', amount: 10000, source: 'Gift', categoryId: salaryId });
+
+    const result = await getYearlyDailyIncome(2026);
+    expect(result['2026-02-14']?.topCategory).toBe('Freelance');
+  });
+
+  it('filters out income entries outside the target year', async () => {
+    const salaryId = await db.categories.add({ name: 'Salary' });
+
+    await db.income.add({ date: '2025-12-31', amount: 9999, source: 'Old Year', categoryId: salaryId });
+
+    const result = await getYearlyDailyIncome(2026);
+    expect(Object.keys(result)).toHaveLength(0);
   });
 });
 
