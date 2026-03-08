@@ -1,8 +1,13 @@
 import { debtRepository, statementRepository, incomeRepository, categoryRepository } from '../db/repository.js';
 import { formatGBP, fromPence } from '../utils/currency.js';
 import { calcMinPayment, calcUtilization, simulatePayoff } from '../utils/finance.js';
-import { safeHTML, renderTabSummary } from './render.js';
+import { safeHTML, renderTabSummary, modalUI } from './render.js';
 import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
+
+const FIELD_IDS = {
+  name: 'debtNameInput',
+  type: 'debtTypeInput',
+};
 
 /**
  * Debt UI Module
@@ -18,6 +23,7 @@ export const debtUI = {
    * Initialize Debt UI.
    */
   async init() {
+    modalUI.init();  // Sets up Esc key, X button, and backdrop click
     this.setupEventListeners();
     window.addEventListener('app:refresh', () => this.render());
     await this.render();
@@ -29,7 +35,7 @@ export const debtUI = {
   setupEventListeners() {
     const addDebtBtn = document.getElementById('addDebtBtn');
     if (addDebtBtn) {
-      addDebtBtn.onclick = () => this.toggleDebtForm();
+      addDebtBtn.onclick = () => this.openDebtModal();
     }
 
     const stmtPdfFile = document.getElementById('stmtPdfFile');
@@ -104,6 +110,68 @@ export const debtUI = {
     };
 
     window.editDebt = (id) => this.editDebt(id);
+  },
+
+  openDebtModal(id = null) {
+    this.editingId = id;
+
+    const title = id === null ? 'Add Debt Account' : 'Edit Debt Account';
+    const formHTML = this._buildFormHTML();
+
+    const buttons = [
+      { label: 'Cancel', className: 'ghost', onClick: () => this._closeDebtModal() },
+      // Save button added in Phase 13
+    ];
+
+    modalUI.show(title, formHTML, buttons);
+
+    // MODAL-04: auto-focus name field (show() is synchronous — DOM is ready)
+    document.getElementById(FIELD_IDS.name)?.focus();
+
+    // Wire X button to _closeDebtModal so editingId is cleared (not just modalUI.close)
+    if (modalUI.elements.close) {
+      modalUI.elements.close.onclick = () => this._closeDebtModal();
+    }
+
+    // Wire Esc key to _closeDebtModal so editingId is cleared (mirrors X button override above).
+    // modalUI.init() sets a global Esc listener that calls modalUI.close() directly — that path
+    // skips editingId reset. This scoped listener intercepts Escape first, calls _closeDebtModal()
+    // (which resets editingId then calls modalUI.close()), and removes itself so it does not stack
+    // on subsequent openDebtModal() calls.
+    const escHandler = (e) => {
+      if (e.key === 'Escape') {
+        document.removeEventListener('keydown', escHandler);
+        this._closeDebtModal();
+      }
+    };
+    document.addEventListener('keydown', escHandler);
+  },
+
+  _closeDebtModal() {
+    this.editingId = null;
+    modalUI.close();
+  },
+
+  _buildFormHTML() {
+    // Phase 11: minimal scaffold — name and type fields only
+    // Phases 12-13 expand this into type-specific fieldsets
+    return safeHTML`
+      <div class="form-row">
+        <div>
+          <label for="${FIELD_IDS.name}">Name</label>
+          <input id="${FIELD_IDS.name}" type="text" placeholder="e.g. TSB Credit Card"/>
+        </div>
+        <div>
+          <label for="${FIELD_IDS.type}">Type</label>
+          <select id="${FIELD_IDS.type}">
+            <option value="credit-card">Credit Card</option>
+            <option value="loan">Personal Loan</option>
+            <option value="mortgage">Mortgage</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+      </div>
+    `;
   },
 
   toggleDebtForm(show = true) {
@@ -331,12 +399,8 @@ export const debtUI = {
     this.toggleDebtForm(false);
   },
 
-  async editDebt(id) {
-    if (this.editingId && this.editingId !== id) {
-      if (!confirm('Discard changes to the current item?')) return;
-    }
-    this.editingId = id;
-    this.toggleDebtForm(true);
+  editDebt(id) {
+    this.openDebtModal(id);
   },
 
   async toggleStmtForm(debtId, show = true) {
