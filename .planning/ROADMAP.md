@@ -74,7 +74,12 @@ Plans:
   3. Opening Add New Debt always shows an empty, reset form regardless of previous modal use
   4. All fields for an existing debt (including type-specific fields) are pre-populated when the Edit modal opens
   5. Required-field validation errors appear as inline text below the relevant field, not as alert popups
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 13-01-PLAN.md — (legacy UAT plan — superseded by 13-02 and 13-03)
+- [ ] 13-02-PLAN.md — Tests (RED): failing unit tests for ADD-01, ADD-02, ADD-03, EDIT-01, EDIT-02
+- [ ] 13-03-PLAN.md — Implementation: _saveDebt, _populateEditFields, inline validation, Save/Add button wiring
 
 ### Phase 14: Cleanup and Polish
 **Goal**: The codebase contains no dead debt form code and the modal delivers polished form interactions including auto-focus and placeholder hints
@@ -103,5 +108,5 @@ Plans:
 | 10. Spending Heatmap | v2.4 | 2/2 | Complete | 2026-03-07 |
 | 11. Modal Scaffold | 2/2 | Complete    | 2026-03-08 | - |
 | 12. Type-Specific Field Logic | 2/2 | Complete    | 2026-03-08 | - |
-| 13. Save, Edit, and Validation | v2.5 | 0/TBD | Not started | - |
+| 13. Save, Edit, and Validation | v2.5 | 0/3 | Not started | - |
 | 14. Cleanup and Polish | v2.5 | 0/TBD | Not started | - |
