@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: Debt Tab UX Overhaul
 status: ready_to_plan
-stopped_at: Completed 12-type-specific-field-logic 12-01-PLAN.md
-last_updated: "2026-03-08T10:24:09.874Z"
+stopped_at: Completed 12-type-specific-field-logic 12-02-PLAN.md
+last_updated: "2026-03-08T10:27:33.267Z"
 last_activity: 2026-03-07 — Roadmap created for v2.5 (4 phases, 13 requirements mapped)
 progress:
   total_phases: 4
@@ -62,6 +62,8 @@ Progress: [██░░░░░░░░] 17%
 - [Phase 11-modal-scaffold]: editDebt(id) old discard guard removed — openDebtModal always sets editingId fresh, save-state discard belongs in Phase 13
 - [Phase 12-type-specific-field-logic]: Tests inject fieldsets manually into document.body (not via openDebtModal) because modalUI.show is mocked and doesn't set innerHTML
 - [Phase 12-type-specific-field-logic]: EDIT-03 uses mockResolvedValueOnce on debtRepository.get to override default mock for async openDebtModal(id) path
+- [Phase 12-type-specific-field-logic]: _onTypeChange() called after modalUI.show() in all paths (Add and Edit) — fieldset elements created by show(), do not exist before it
+- [Phase 12-type-specific-field-logic]: toggleDebtTypeFields() removed entirely — referenced ccOnlyFields/loanOnlyFields IDs belonging to old inline form, dead code once _onTypeChange() in place
 
 ### Pending Todos
 
@@ -74,6 +76,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-08T10:24:09.870Z
-Stopped at: Completed 12-type-specific-field-logic 12-01-PLAN.md
+Last session: 2026-03-08T10:27:27.292Z
+Stopped at: Completed 12-type-specific-field-logic 12-02-PLAN.md
 Resume file: None
