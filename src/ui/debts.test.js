@@ -399,4 +399,95 @@ describe('debtUI save and edit', () => {
     expect(document.getElementById('mortgageRateInput').value).toBe('4.2');
     expect(document.getElementById('mortgageTermInput').value).toBe('300');
   });
+
+  it('EDIT-04a: populates credit-card fields when editing a credit-card debt', async () => {
+    debtRepository.get.mockResolvedValueOnce({
+      id: 2,
+      name: 'TSB Credit Card',
+      debtType: 'credit-card',
+      currentBalance: 50000,   // £500 in pence
+      apr: 19.9,
+      creditLimit: 200000,     // £2000 in pence
+      minPayment: 2500,        // £25 in pence — stored as pence but displayed as-is via set()
+      promoEndDate: '2025-12-31',
+      postPromoApr: 24.9,
+    });
+
+    modalUI.show.mockImplementationOnce((title, content) => {
+      document.body.innerHTML = content;
+    });
+
+    await debtUI.openDebtModal(2);
+
+    expect(document.getElementById('ccBalanceInput').value).toBe('500');
+    expect(document.getElementById('ccAprInput').value).toBe('19.9');
+    expect(document.getElementById('ccLimitInput').value).toBe('2000');
+    expect(document.getElementById('ccPromoEndInput').value).toBe('2025-12-31');
+    expect(document.getElementById('ccPostAprInput').value).toBe('24.9');
+  });
+
+  it('EDIT-04b: populates mortgage fields when editing a mortgage debt', async () => {
+    debtRepository.get.mockResolvedValueOnce({
+      id: 3,
+      name: 'Home Mortgage',
+      debtType: 'mortgage',
+      currentBalance: 25000000, // £250,000 in pence
+      propertyValue: 40000000,  // £400,000 in pence
+      termMonths: 240,
+      interestRate: 3.5,
+      earlyRepaymentFee: 50000, // £500 in pence
+    });
+
+    modalUI.show.mockImplementationOnce((title, content) => {
+      document.body.innerHTML = content;
+    });
+
+    await debtUI.openDebtModal(3);
+
+    expect(document.getElementById('mortgagePropertyValueInput').value).toBe('400000');
+    expect(document.getElementById('mortgageBalanceInput').value).toBe('250000');
+    expect(document.getElementById('mortgageTermInput').value).toBe('240');
+    expect(document.getElementById('mortgageRateInput').value).toBe('3.5');
+    expect(document.getElementById('mortgageErcInput').value).toBe('500');
+  });
+
+  it('EDIT-04c: populates loan fields when editing a loan debt', async () => {
+    debtRepository.get.mockResolvedValueOnce({
+      id: 4,
+      name: 'Car Loan',
+      debtType: 'loan',
+      currentBalance: 800000,     // £8,000 in pence
+      originalPrincipal: 1500000, // £15,000 in pence
+      termMonths: 60,
+      interestRate: 6.9,
+    });
+
+    modalUI.show.mockImplementationOnce((title, content) => {
+      document.body.innerHTML = content;
+    });
+
+    await debtUI.openDebtModal(4);
+
+    expect(document.getElementById('loanOriginalInput').value).toBe('15000');
+    expect(document.getElementById('loanBalanceInput').value).toBe('8000');
+    expect(document.getElementById('loanTermInput').value).toBe('60');
+    expect(document.getElementById('loanRateInput').value).toBe('6.9');
+  });
+
+  it('EDIT-04d: populates other fields when editing an other debt', async () => {
+    debtRepository.get.mockResolvedValueOnce({
+      id: 5,
+      name: 'Family Loan',
+      debtType: 'other',
+      currentBalance: 300000, // £3,000 in pence
+    });
+
+    modalUI.show.mockImplementationOnce((title, content) => {
+      document.body.innerHTML = content;
+    });
+
+    await debtUI.openDebtModal(5);
+
+    expect(document.getElementById('otherBalanceInput').value).toBe('3000');
+  });
 });
