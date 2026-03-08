@@ -37,9 +37,15 @@ function createMockTable(initialRows = []) {
         rows = rows.filter(r => r[field] !== value);
       }
     }),
-    startsWith: (value) => ({
-      toArray: async () => rows.filter(r => r[field].startsWith(value))
-    }),
+    startsWith: (value) => {
+      const matched = () => rows.filter(r => r[field] && r[field].startsWith(value));
+      return {
+        toArray: async () => matched(),
+        filter: (fn) => ({
+          toArray: async () => matched().filter(fn)
+        })
+      };
+    },
     below: (value) => ({
       reverse: () => ({
         first: async () => [...rows].filter(r => r[field] < value).sort((a, b) => b[field].localeCompare(a[field]))[0]
@@ -157,6 +163,7 @@ vi.mock('./schema.js', () => {
 const {
   balanceSnapshotRepository,
   categoryRepository,
+  recurrentExpenseRepository,
   statementRepository,
   getYearlyDailySpending,
   getYearlyDailyIncome
@@ -419,14 +426,68 @@ describe('statementRepository', () => {
       const expenseAfter = await db.recurrentExpenses.get(expenseId);
       expect(expenseAfter.status).toBe('paid');
       expect(expenseAfter.amount).toBe(3000);
-      expect(expenseAfter.cycleCurrent).toBe(0);
       expect(expenseAfter.date).toBe('2026-02-01');
+      // nextDate must NOT be advanced — item stays in its original month
+      expect(expenseAfter.nextDate).toBe('2026-02-05');
     });
 
     it('throws error if statement not found', async () => {
       await expect(statementRepository.recordPayment(999, 10, '2026-01-01'))
         .rejects.toThrow('Statement not found');
     });
+  });
+});
+
+describe('recurrentExpenseRepository.markAllAsPaid', () => {
+  beforeEach(() => {
+    clearTable(db.recurrentExpenses);
+    clearTable(db.categories);
+    clearTable(db.statements);
+  });
+
+  it('marks all pending items for the current month as paid without changing nextDate', async () => {
+    const monthStr = new Date().toISOString().slice(0, 7);
+    const nextDate = `${monthStr}-10`;
+
+    await db.recurrentExpenses.add({ status: 'pending', amount: 1000, nextDate, cycleTotal: 0 });
+    await db.recurrentExpenses.add({ status: 'pending', amount: 2000, nextDate, cycleTotal: 0 });
+
+    await recurrentExpenseRepository.markAllAsPaid();
+
+    const all = await db.recurrentExpenses.toArray();
+    for (const item of all) {
+      expect(item.status).toBe('paid');
+      expect(item.nextDate).toBe(nextDate); // must NOT advance
+    }
+  });
+
+  it('does not affect items that are already paid', async () => {
+    const monthStr = new Date().toISOString().slice(0, 7);
+    const nextDate = `${monthStr}-05`;
+
+    await db.recurrentExpenses.add({ status: 'paid', amount: 500, nextDate, cycleTotal: 0 });
+
+    await recurrentExpenseRepository.markAllAsPaid();
+
+    const all = await db.recurrentExpenses.toArray();
+    expect(all[0].status).toBe('paid'); // still paid, untouched
+  });
+
+  it('increments cycleCurrent only when cycleTotal > 0', async () => {
+    const monthStr = new Date().toISOString().slice(0, 7);
+    const nextDate = `${monthStr}-15`;
+
+    await db.recurrentExpenses.add({ status: 'pending', amount: 800, nextDate, cycleTotal: 12, cycleCurrent: 3 });
+    await db.recurrentExpenses.add({ status: 'pending', amount: 900, nextDate, cycleTotal: 0, cycleCurrent: 0 });
+
+    await recurrentExpenseRepository.markAllAsPaid();
+
+    const all = await db.recurrentExpenses.toArray();
+    const withCycle = all.find(i => i.cycleTotal === 12);
+    const withoutCycle = all.find(i => i.cycleTotal === 0);
+
+    expect(withCycle.cycleCurrent).toBe(4); // incremented
+    expect(withoutCycle.cycleCurrent).toBe(0); // unchanged
   });
 });
 

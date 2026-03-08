@@ -63,6 +63,9 @@ vi.mock('../db/repository.js', () => ({
     add: vi.fn(async () => 99),
     update: vi.fn(),
   },
+  recurrentExpenseRepository: {
+    update: vi.fn(),
+  },
 }));
 
 // Mock db schema for category lookup used by confirmMarkPaid
@@ -100,7 +103,7 @@ vi.mock('../utils/finance.js', () => ({
 
 import { debtUI } from './debts.js';
 import { modalUI } from './render.js';
-import { debtRepository, statementRepository } from '../db/repository.js';
+import { debtRepository, statementRepository, recurrentExpenseRepository, oneOffExpenseRepository } from '../db/repository.js';
 
 describe('debtUI modal scaffold', () => {
   beforeEach(() => {
@@ -687,6 +690,8 @@ describe('HIST-03: Mark Paid inline action', () => {
     vi.clearAllMocks();
     document.body.innerHTML = '';
     statementRepository.getAll.mockResolvedValue([]);
+    // Default: statement has no linkedExpenseId (old/fallback path)
+    statementRepository.get.mockResolvedValue({ linkedExpenseId: null });
     // Register global handlers (showMarkPaidPrompt, cancelMarkPaid, etc.)
     debtUI.setupEventListeners();
   });
@@ -867,5 +872,40 @@ describe('HIST-03: Mark Paid inline action', () => {
 
     renderStatementsSpy.mockRestore();
     renderSpy.mockRestore();
+  });
+
+  it('HIST-03i: confirmMarkPaid updates existing linked expense when linkedExpenseId present (no duplicate one-off)', async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    document.body.innerHTML = `
+      <input id="markPaidAmt-40" type="number" value="75.00" />
+      <input id="markPaidDate-40" type="date" value="${today}" />
+    `;
+
+    debtRepository.get.mockResolvedValueOnce({
+      id: 70,
+      name: 'My Card',
+      currentBalance: 20000,
+    });
+
+    // Statement already has a linked recurrent expense
+    statementRepository.get.mockResolvedValueOnce({ linkedExpenseId: 55 });
+
+    await window.confirmMarkPaid(40, 70);
+
+    // Must update the existing linked expense — NOT create a new one-off
+    expect(recurrentExpenseRepository.update).toHaveBeenCalledWith(55, expect.objectContaining({
+      status: 'paid',
+      amount: 75,
+      date: today,
+    }));
+    expect(oneOffExpenseRepository.add).not.toHaveBeenCalled();
+
+    // Statement update must preserve linkedExpenseId (not overwrite it)
+    expect(statementRepository.update).toHaveBeenCalledWith(40, expect.objectContaining({
+      actualPaymentAmount: 75,
+      actualPaymentDate: today,
+    }));
+    const updateCall = statementRepository.update.mock.calls[0][1];
+    expect(updateCall.linkedExpenseId).toBeUndefined();
   });
 });
