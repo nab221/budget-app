@@ -23,14 +23,14 @@ Requirements for the Debt Tab UX Overhaul milestone.
 
 ### Add Flow
 
-- [ ] **ADD-01**: User can add a new debt — clicking Add saves the form and closes the modal
-- [ ] **ADD-02**: Validation errors appear inline below the relevant field (not as alert popups)
-- [ ] **ADD-03**: Form opens empty/reset each time Add New Debt is clicked
+- [x] **ADD-01**: User can add a new debt — clicking Add saves the form and closes the modal
+- [x] **ADD-02**: Validation errors appear inline below the relevant field (not as alert popups)
+- [x] **ADD-03**: Form opens empty/reset each time Add New Debt is clicked
 
 ### Edit Flow
 
-- [ ] **EDIT-01**: User can save an edited debt — clicking Save works for all debt types and closes the modal
-- [ ] **EDIT-02**: All fields are pre-populated from the existing debt data when the edit modal opens
+- [x] **EDIT-01**: User can save an edited debt — clicking Save works for all debt types and closes the modal
+- [x] **EDIT-02**: All fields are pre-populated from the existing debt data when the edit modal opens
 - [x] **EDIT-03**: The correct type-specific fields auto-show for the debt's existing type (no switch-away needed)
 
 ## Future Requirements
@@ -65,11 +65,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TYPE-03 | Phase 12 | Complete |
 | TYPE-04 | Phase 12 | Complete |
 | EDIT-03 | Phase 12 | Complete |
-| ADD-01 | Phase 13 | Pending |
-| ADD-02 | Phase 13 | Pending |
-| ADD-03 | Phase 13 | Pending |
-| EDIT-01 | Phase 13 | Pending |
-| EDIT-02 | Phase 13 | Pending |
+| ADD-01 | Phase 13 | Complete |
+| ADD-02 | Phase 13 | Complete |
+| ADD-03 | Phase 13 | Complete |
+| EDIT-01 | Phase 13 | Complete |
+| EDIT-02 | Phase 13 | Complete |
 
 **Coverage:**
 - v2.5 requirements: 13 total

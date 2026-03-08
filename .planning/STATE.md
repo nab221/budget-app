@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: Debt Tab UX Overhaul
 status: ready_to_plan
-stopped_at: Completed 12-type-specific-field-logic 12-02-PLAN.md
-last_updated: "2026-03-08T10:30:48.370Z"
-last_activity: 2026-03-07 — Roadmap created for v2.5 (4 phases, 13 requirements mapped)
+stopped_at: Completed 13-02-PLAN.md
+last_updated: "2026-03-08T11:29:10.073Z"
+last_activity: "2026-03-08 — Added Phase 15: Statement History Modal to v2.5"
 progress:
-  total_phases: 4
+  total_phases: 5
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 17
+  total_plans: 2
+  completed_plans: 1
+  percent: 25
 ---
 
 ---
@@ -19,7 +19,23 @@ gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: Debt Tab UX Overhaul
 status: ready_to_plan
-last_updated: "2026-03-07"
+stopped_at: Completed 12-type-specific-field-logic 12-02-PLAN.md
+last_updated: "2026-03-08T11:15:00.000Z"
+last_activity: 2026-03-08 — Added Phase 15: Statement History Modal to v2.5; Milestone v2.5 now has 5 phases
+progress:
+  [███░░░░░░░] 25%
+  completed_phases: 2
+  total_plans: 7
+  completed_plans: 4
+  percent: 40
+---
+
+---
+gsd_state_version: 1.0
+milestone: v2.5
+milestone_name: Debt Tab UX Overhaul
+status: ready_to_plan
+last_updated: "2026-03-08"
 ---
 
 ## Project State: Budget App
@@ -29,16 +45,16 @@ last_updated: "2026-03-07"
 See: .planning/PROJECT.md (updated 2026-03-07)
 
 **Core value:** A personal budget tracker that helps a UK household track income, expenses, debts, assets, and forecast cash flow — fully offline, PWA-ready, no server required.
-**Current focus:** Milestone v2.5 — Phase 11: Modal Scaffold
+**Current focus:** Milestone v2.5 — Phase 13: Save, Edit, and Validation
 
 ## Current Position
 
-Phase: 11 of 14 (Modal Scaffold)
+Phase: 13 of 15 (Save, Edit, and Validation)
 Plan: — (not yet planned)
 Status: Ready to plan
-Last activity: 2026-03-07 — Roadmap created for v2.5 (4 phases, 13 requirements mapped)
+Last activity: 2026-03-08 — Added Phase 15: Statement History Modal to v2.5
 
-Progress: [██░░░░░░░░] 17%
+Progress: [████░░░░░░] 40%
 
 ## Completed Milestones
 
@@ -76,6 +92,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-08T10:27:27.292Z
-Stopped at: Completed 12-type-specific-field-logic 12-02-PLAN.md
+Last session: 2026-03-08T11:29:10.067Z
+Stopped at: Completed 13-02-PLAN.md
 Resume file: None

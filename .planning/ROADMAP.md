@@ -4,7 +4,7 @@
 
 - ✅ **v2.3 Advanced Analytics & Mobile Polish** — Phases 1-7 (shipped 2026-03-07)
 - ✅ **v2.4 UX Polish & Spending Insights** — Phases 8-10 (shipped 2026-03-07) [Details](.planning/milestones/v2.4-ROADMAP.md)
-- 🚧 **v2.5 Debt Tab UX Overhaul** — Phases 11-14 (in progress)
+- 🚧 **v2.5 Debt Tab UX Overhaul** — Phases 11-15 (in progress)
 
 ## Phases
 
@@ -30,6 +30,7 @@ Full archive: `.planning/milestones/v2.4-ROADMAP.md`
 - [x] **Phase 12: Type-Specific Field Logic** — All four debt type fieldsets with correct show/hide on type change and on modal open (completed 2026-03-08)
 - [ ] **Phase 13: Save, Edit, and Validation** — Fully working Add and Edit flows for all debt types with inline validation errors
 - [ ] **Phase 14: Cleanup and Polish** — Remove dead `#debtFormContainer` HTML, auto-focus, and numeric placeholder hints
+- [ ] **Phase 15: Statement History Modal** — Statement history view migrated from inline tab to consistent modal-driven UX
 
 ## Phase Details
 
@@ -90,9 +91,19 @@ Plans:
   2. Numeric input fields display placeholder hints (e.g. "0.00", "2.50%") so users know the expected format
 **Plans**: TBD
 
+### Phase 15: Statement History Modal
+**Goal**: Users can view a debt's statement history in a modal dialog, replacing the old inline tab behavior for consistency with the new modal-driven UX.
+**Depends on**: Phase 14
+**Requirements**: (TBD)
+**Success Criteria** (what must be TRUE):
+  1. Clicking "View History" for a debt opens a modal dialog (using `modalUI`) containing the full statement table.
+  2. The history modal does not interfere with the active debt edit modal (if any).
+  3. The modal can be dismissed using the standard backdrop click or Esc key.
+**Plans**: TBD
+
 ## Progress
 
-**Execution Order:** Phases execute in numeric order: 11 → 12 → 13 → 14
+**Execution Order:** Phases execute in numeric order: 11 → 12 → 13 → 14 → 15
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 | ----- | --------- | -------------- | ------ | --------- |
@@ -108,5 +119,6 @@ Plans:
 | 10. Spending Heatmap | v2.4 | 2/2 | Complete | 2026-03-07 |
 | 11. Modal Scaffold | 2/2 | Complete    | 2026-03-08 | - |
 | 12. Type-Specific Field Logic | 2/2 | Complete    | 2026-03-08 | - |
-| 13. Save, Edit, and Validation | v2.5 | 0/3 | Not started | - |
+| 13. Save, Edit, and Validation | 1/2 | In Progress|  | - |
 | 14. Cleanup and Polish | v2.5 | 0/TBD | Not started | - |
+| 15. Statement History Modal | v2.5 | 0/TBD | Not started | - |
