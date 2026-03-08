@@ -7,6 +7,26 @@ import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
 const FIELD_IDS = {
   name: 'debtNameInput',
   type: 'debtTypeInput',
+  // Phase 12: credit card fieldset
+  ccBalance:             'ccBalanceInput',
+  ccApr:                 'ccAprInput',
+  ccLimit:               'ccLimitInput',
+  ccMinPayment:          'ccMinPaymentInput',
+  ccPromoEnd:            'ccPromoEndInput',
+  ccPostApr:             'ccPostAprInput',
+  // Phase 12: mortgage fieldset
+  mortgagePropertyValue: 'mortgagePropertyValueInput',
+  mortgageBalance:       'mortgageBalanceInput',
+  mortgageTerm:          'mortgageTermInput',
+  mortgageRate:          'mortgageRateInput',
+  mortgageErc:           'mortgageErcInput',
+  // Phase 12: personal loan fieldset
+  loanOriginal:          'loanOriginalInput',
+  loanBalance:           'loanBalanceInput',
+  loanTerm:              'loanTermInput',
+  loanRate:              'loanRateInput',
+  // Phase 12: other fieldset
+  otherBalance:          'otherBalanceInput',
 };
 
 /**
@@ -112,7 +132,7 @@ export const debtUI = {
     window.editDebt = (id) => this.editDebt(id);
   },
 
-  openDebtModal(id = null) {
+  async openDebtModal(id = null) {
     this.editingId = id;
 
     const title = id === null ? 'Add Debt Account' : 'Edit Debt Account';
@@ -145,6 +165,16 @@ export const debtUI = {
       }
     };
     document.addEventListener('keydown', escHandler);
+
+    // Phase 12: pre-select correct fieldset
+    if (id !== null) {
+      const debt = await debtRepository.get(id);
+      if (debt?.debtType) {
+        const typeSelect = document.getElementById(FIELD_IDS.type);
+        if (typeSelect) typeSelect.value = debt.debtType;
+      }
+    }
+    this._onTypeChange();
   },
 
   _closeDebtModal() {
@@ -152,9 +182,21 @@ export const debtUI = {
     modalUI.close();
   },
 
+  _onTypeChange() {
+    const type = document.getElementById(FIELD_IDS.type)?.value;
+    const fieldsets = {
+      'credit-card': document.getElementById('fieldset-credit-card'),
+      'mortgage':    document.getElementById('fieldset-mortgage'),
+      'loan':        document.getElementById('fieldset-loan'),
+      'other':       document.getElementById('fieldset-other'),
+    };
+    for (const [key, el] of Object.entries(fieldsets)) {
+      if (!el) continue;
+      el.classList[key === type ? 'remove' : 'add']('hidden');
+    }
+  },
+
   _buildFormHTML() {
-    // Phase 11: minimal scaffold — name and type fields only
-    // Phases 12-13 expand this into type-specific fieldsets
     return safeHTML`
       <div class="form-row">
         <div>
@@ -163,12 +205,102 @@ export const debtUI = {
         </div>
         <div>
           <label for="${FIELD_IDS.type}">Type</label>
-          <select id="${FIELD_IDS.type}">
+          <select id="${FIELD_IDS.type}" onchange="debtUI._onTypeChange()">
             <option value="credit-card">Credit Card</option>
-            <option value="loan">Personal Loan</option>
             <option value="mortgage">Mortgage</option>
+            <option value="loan">Personal Loan</option>
             <option value="other">Other</option>
           </select>
+        </div>
+      </div>
+
+      <div id="fieldset-credit-card">
+        <div class="form-row">
+          <div>
+            <label for="${FIELD_IDS.ccBalance}">Current Balance (£)</label>
+            <input id="${FIELD_IDS.ccBalance}" type="number" step="0.01"/>
+          </div>
+          <div>
+            <label for="${FIELD_IDS.ccApr}">APR (%)</label>
+            <input id="${FIELD_IDS.ccApr}" type="number" step="0.1"/>
+          </div>
+          <div>
+            <label for="${FIELD_IDS.ccLimit}">Credit Limit (£)</label>
+            <input id="${FIELD_IDS.ccLimit}" type="number" step="0.01"/>
+          </div>
+        </div>
+        <div class="form-row">
+          <div>
+            <label for="${FIELD_IDS.ccMinPayment}">Min Monthly Payment (£)</label>
+            <input id="${FIELD_IDS.ccMinPayment}" type="number" step="0.01"/>
+          </div>
+          <div>
+            <label for="${FIELD_IDS.ccPromoEnd}">Promo End Date</label>
+            <input id="${FIELD_IDS.ccPromoEnd}" type="date"/>
+          </div>
+          <div>
+            <label for="${FIELD_IDS.ccPostApr}">Post-Promo APR (%)</label>
+            <input id="${FIELD_IDS.ccPostApr}" type="number" step="0.1"/>
+          </div>
+        </div>
+      </div>
+
+      <div id="fieldset-mortgage" class="hidden">
+        <div class="form-row">
+          <div>
+            <label for="${FIELD_IDS.mortgagePropertyValue}">Property Value (£)</label>
+            <input id="${FIELD_IDS.mortgagePropertyValue}" type="number" step="0.01"/>
+          </div>
+          <div>
+            <label for="${FIELD_IDS.mortgageBalance}">Remaining Balance (£)</label>
+            <input id="${FIELD_IDS.mortgageBalance}" type="number" step="0.01"/>
+          </div>
+          <div>
+            <label for="${FIELD_IDS.mortgageTerm}">Term (Months)</label>
+            <input id="${FIELD_IDS.mortgageTerm}" type="number"/>
+          </div>
+        </div>
+        <div class="form-row">
+          <div>
+            <label for="${FIELD_IDS.mortgageRate}">Interest Rate (%)</label>
+            <input id="${FIELD_IDS.mortgageRate}" type="number" step="0.1"/>
+          </div>
+          <div>
+            <label for="${FIELD_IDS.mortgageErc}">Early Repayment Charge (£)</label>
+            <input id="${FIELD_IDS.mortgageErc}" type="number" step="0.01"/>
+          </div>
+        </div>
+      </div>
+
+      <div id="fieldset-loan" class="hidden">
+        <div class="form-row">
+          <div>
+            <label for="${FIELD_IDS.loanOriginal}">Original Amount (£)</label>
+            <input id="${FIELD_IDS.loanOriginal}" type="number" step="0.01"/>
+          </div>
+          <div>
+            <label for="${FIELD_IDS.loanBalance}">Remaining Balance (£)</label>
+            <input id="${FIELD_IDS.loanBalance}" type="number" step="0.01"/>
+          </div>
+          <div>
+            <label for="${FIELD_IDS.loanTerm}">Term (Months)</label>
+            <input id="${FIELD_IDS.loanTerm}" type="number"/>
+          </div>
+        </div>
+        <div class="form-row">
+          <div>
+            <label for="${FIELD_IDS.loanRate}">Interest Rate (%)</label>
+            <input id="${FIELD_IDS.loanRate}" type="number" step="0.1"/>
+          </div>
+        </div>
+      </div>
+
+      <div id="fieldset-other" class="hidden">
+        <div class="form-row">
+          <div>
+            <label for="${FIELD_IDS.otherBalance}">Current Balance (£)</label>
+            <input id="${FIELD_IDS.otherBalance}" type="number" step="0.01"/>
+          </div>
         </div>
       </div>
     `;
@@ -183,26 +315,6 @@ export const debtUI = {
     } else {
       container.classList.add('hidden');
       this.editingId = null;
-    }
-  },
-
-  /**
-   * Toggle field visibility based on debt type.
-   */
-  toggleDebtTypeFields() {
-    const type = document.getElementById('debtTypeInput').value;
-    const ccFields = document.getElementById('ccOnlyFields');
-    const loanFields = document.getElementById('loanOnlyFields');
-    
-    if (type === 'credit-card') {
-      ccFields?.classList.remove('hidden');
-      loanFields?.classList.add('hidden');
-    } else if (type === 'loan' || type === 'mortgage') {
-      ccFields?.classList.add('hidden');
-      loanFields?.classList.remove('hidden');
-    } else {
-      ccFields?.classList.add('hidden');
-      loanFields?.classList.add('hidden');
     }
   },
 
