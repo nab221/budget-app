@@ -975,7 +975,7 @@ export const debtUI = {
     modalUI.close();
   },
 
-  async _renderStatementCharts(stmts, debt) {
+  _renderStatementCharts(stmts, debt) {
     const container = document.getElementById('stmtChartsContainer');
     if (!container) return;
 
@@ -995,7 +995,10 @@ export const debtUI = {
     renderStatementPaymentChart('stmt-chart-payments', sorted);
 
     // Utilisation only relevant for credit cards with a limit
-    if (debt && debt.debtType === 'credit-card' && debt.creditLimit > 0) {
+    const utilisationPanel = document.getElementById('stmt-chart-utilisation-panel');
+    const showUtilisation = debt && debt.debtType === 'credit-card' && debt.creditLimit > 0;
+    if (utilisationPanel) utilisationPanel.style.display = showUtilisation ? '' : 'none';
+    if (showUtilisation) {
       renderStatementUtilisationChart('stmt-chart-utilisation', sorted, debt.creditLimit);
     }
   },
@@ -1033,7 +1036,7 @@ export const debtUI = {
             <div style="font-size:0.75rem; color:var(--text-soft); margin-bottom:6px">Payment Behaviour</div>
             <div style="height:160px; position:relative"><canvas id="stmt-chart-payments"></canvas></div>
           </div>
-          <div style="background:var(--bg-alt); border:1px solid var(--border-light); border-radius:8px; padding:12px">
+          <div id="stmt-chart-utilisation-panel" style="background:var(--bg-alt); border:1px solid var(--border-light); border-radius:8px; padding:12px">
             <div style="font-size:0.75rem; color:var(--text-soft); margin-bottom:6px">Credit Utilisation</div>
             <div style="height:160px; position:relative"><canvas id="stmt-chart-utilisation"></canvas></div>
           </div>

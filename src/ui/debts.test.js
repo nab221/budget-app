@@ -1171,4 +1171,19 @@ describe('debtUI statement charts', () => {
     debtUI._closeHistoryModal();
     expect(destroyStatementCharts).toHaveBeenCalledOnce();
   });
+
+  it('CHART-05: renderStatements does NOT call utilisation chart for non-credit-card debt', async () => {
+    statementRepository.getAll.mockResolvedValueOnce([
+      { id: 1, debtId: 2, date: '2025-01-01', amount: 100000, openingBalance: 120000, interest: 500, fees: 0, minimumPayment: 5000 },
+      { id: 2, debtId: 2, date: '2025-02-01', amount: 95000, openingBalance: 100000, interest: 480, fees: 0, minimumPayment: 4800 },
+    ]);
+    debtRepository.get.mockResolvedValue({
+      id: 2, debtType: 'loan', currentBalance: 95000, creditLimit: 0
+    });
+
+    await debtUI.renderStatements(2);
+
+    expect(renderStatementUtilisationChart).not.toHaveBeenCalled();
+    expect(renderStatementBalanceChart).toHaveBeenCalledOnce();
+  });
 });
