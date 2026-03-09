@@ -481,6 +481,26 @@ db.version(16).stores({
   });
 });
 
+db.version(17).stores({
+  income: '++id, date, source, amount, categoryId, isCleared, isReconciled',
+  recurrentExpenses: '++id, date, categoryId, label, amount, status, frequency, nextDate, predictedPaymentDate, isEssential, cycleTotal, cycleCurrent, endDate, isDebtPayment, linkedStatementId, isRecurring, recurrenceId, parentDate, debtType, isCleared, isReconciled, linkedDebtId',
+  oneOffExpenses: '++id, date, categoryId, note, amount, isRecurring, frequency, recurrenceId, parentDate, isCleared, isReconciled',
+  debts: '++id, name, debtType, apr, creditLimit, currentBalance, promoEndDate, postPromoApr, originalPrincipal, termMonths, fixedMonthlyPayment, interestRate, earlyRepaymentFee, earlyRepaymentFeeIsPercent, earlyRepaymentAllowed, isInterestOnly',
+  statements: '++id, debtId, date, amount, interest, fees, actualPaymentDate, linkedExpenseId',
+  assets: '++id, name, type, asOfDate, currentBalance',
+  categories: '++id, name, group',
+  targets: '++id, bucket, amount',
+  netWorthSnapshots: '++id, month, totalAssets, totalDebt, netWorth',
+  categoryMappings: '++id, description, categoryId',
+  childcareAccounts: '++id, childName, targetMonthlySpend, entitlementStart, isDisabled, openingBalance',
+  childcareLedger: '++id, accountId, date, type, amount, runningBalance',
+  balanceSnapshots: '++id, month, openingBalance, closingBalance, incomeTotal, expenseTotal',
+  dailyBalanceSnapshots: '++id, date, openingBalance, closingBalance, incomeTotal, expenseTotal',
+  expectedIncome: '++id, date, source, amount, categoryId, status',
+  bankHolidayOverrides: '++id, date, isOpen'
+});
+// No upgrade() needed — Dexie auto-indexes the existing data.
+
 // Handle schema updates in other tabs
 db.on('versionchange', function() {
   db.close();
