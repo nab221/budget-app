@@ -149,7 +149,7 @@ describe('destroyStatementCharts', () => {
 
     // Should not throw
     expect(() => destroyStatementCharts()).not.toThrow();
-    // Re-rendering after destroy should work (Chart called 4 more times = 8 total)
+    // Re-rendering after destroy should work (Chart called 1 more time = 5 total)
     renderStatementBalanceChart('stmt-chart-balance', TWO_STMTS);
     expect(Chart).toHaveBeenCalledTimes(5); // 4 initial + 1 re-render
   });

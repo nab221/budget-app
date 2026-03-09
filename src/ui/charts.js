@@ -888,7 +888,7 @@ export function renderStatementPaymentChart(canvasId, statements) {
  * @param {number} creditLimit - in pence
  */
 export function renderStatementUtilisationChart(canvasId, statements, creditLimit) {
-  if (!statements || statements.length < 2 || !creditLimit || creditLimit === 0) return;
+  if (!statements || statements.length < 2 || !creditLimit || creditLimit <= 0) return;
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
 
