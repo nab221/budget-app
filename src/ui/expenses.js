@@ -172,6 +172,15 @@ export const expensesUI = {
       const item = await repo.get(id);
       if (!item) return;
 
+      // Phase 18: Prevent deletion of debt-linked expenses from Expenses tab
+      if (item.isDebtPayment) {
+        alertWithHaptic(
+          'This expense is managed by the Debts tab. Delete the debt or its statement instead.',
+          'info'
+        );
+        return;
+      }
+
       const label = item.label || item.note || 'this expense';
 
       if (item.isRecurring && item.recurrenceId) {
