@@ -645,3 +645,303 @@ export function renderCashFlowChart(canvasId, snapshots) {
   _chartInstances.set(canvasId, chart);
   return chart;
 }
+
+// ---------------------------------------------------------------------------
+// Statement history charts — used by debtUI history modal
+// ---------------------------------------------------------------------------
+
+/**
+ * Canvas IDs used by statement charts. Exported so debtUI can clean up.
+ */
+export const STMT_CHART_IDS = [
+  'stmt-chart-balance',
+  'stmt-chart-interest',
+  'stmt-chart-payments',
+  'stmt-chart-utilisation',
+];
+
+/**
+ * Destroy all statement chart instances (call on modal close).
+ */
+export function destroyStatementCharts() {
+  STMT_CHART_IDS.forEach(id => {
+    if (_chartInstances.has(id)) {
+      _chartInstances.get(id).destroy();
+      _chartInstances.delete(id);
+    }
+  });
+}
+
+/**
+ * Balance Over Time — line chart of closing balance (pence → pounds).
+ * Only renders when statements.length >= 2.
+ *
+ * @param {string} canvasId
+ * @param {Array} statements - sorted chronologically (oldest first)
+ */
+export function renderStatementBalanceChart(canvasId, statements) {
+  if (!statements || statements.length < 2) return;
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+
+  if (_chartInstances.has(canvasId)) {
+    _chartInstances.get(canvasId).destroy();
+    _chartInstances.delete(canvasId);
+  }
+
+  const labels = statements.map(s => new Date(s.date).toLocaleDateString('en-GB', { month: 'short', year: '2-digit' }));
+  const data   = statements.map(s => s.amount / 100);
+
+  const color = OKABE_ITO.debt[0]; // Blue
+
+  const chart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Closing Balance',
+        data,
+        borderColor: color,
+        backgroundColor: color + '22',
+        fill: true,
+        tension: 0.2,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        borderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` Balance: £${ctx.parsed.y.toFixed(2)}`
+          }
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+        y: {
+          beginAtZero: false,
+          ticks: { font: { size: 10 }, callback: v => `£${v.toFixed(0)}` },
+          grid: { color: 'rgba(148,163,184,0.15)' }
+        }
+      }
+    }
+  });
+
+  _chartInstances.set(canvasId, chart);
+  return chart;
+}
+
+/**
+ * Cumulative Interest + Fees — line chart accumulating interest and fees over time.
+ * Only renders when statements.length >= 2.
+ *
+ * @param {string} canvasId
+ * @param {Array} statements - sorted chronologically (oldest first)
+ */
+export function renderStatementInterestChart(canvasId, statements) {
+  if (!statements || statements.length < 2) return;
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+
+  if (_chartInstances.has(canvasId)) {
+    _chartInstances.get(canvasId).destroy();
+    _chartInstances.delete(canvasId);
+  }
+
+  const labels = statements.map(s => new Date(s.date).toLocaleDateString('en-GB', { month: 'short', year: '2-digit' }));
+
+  let cumulative = 0;
+  const data = statements.map(s => {
+    cumulative += ((s.interest || 0) + (s.fees || 0)) / 100;
+    return cumulative;
+  });
+
+  const color = OKABE_ITO.debt[1]; // Vermilion
+
+  const chart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Cumulative Interest & Fees',
+        data,
+        borderColor: color,
+        backgroundColor: color + '22',
+        fill: true,
+        tension: 0.2,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        borderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` Cumulative: £${ctx.parsed.y.toFixed(2)}`
+          }
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+        y: {
+          beginAtZero: true,
+          ticks: { font: { size: 10 }, callback: v => `£${v.toFixed(0)}` },
+          grid: { color: 'rgba(148,163,184,0.15)' }
+        }
+      }
+    }
+  });
+
+  _chartInstances.set(canvasId, chart);
+  return chart;
+}
+
+/**
+ * Payment Behaviour — grouped bar chart comparing min due vs actual payment.
+ * Only renders when statements.length >= 2.
+ *
+ * @param {string} canvasId
+ * @param {Array} statements - sorted chronologically (oldest first)
+ */
+export function renderStatementPaymentChart(canvasId, statements) {
+  if (!statements || statements.length < 2) return;
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+
+  if (_chartInstances.has(canvasId)) {
+    _chartInstances.get(canvasId).destroy();
+    _chartInstances.delete(canvasId);
+  }
+
+  const labels   = statements.map(s => new Date(s.date).toLocaleDateString('en-GB', { month: 'short', year: '2-digit' }));
+  const minDue   = statements.map(s => (s.minimumPayment || 0) / 100);
+  const actual   = statements.map(s => s.actualPaymentAmount ? s.actualPaymentAmount / 100 : 0);
+
+  const chart = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Min Due',
+          data: minDue,
+          backgroundColor: OKABE_ITO.debt[0] + 'BB', // Blue
+          borderColor: OKABE_ITO.debt[0],
+          borderWidth: 1,
+        },
+        {
+          label: 'Paid',
+          data: actual,
+          backgroundColor: OKABE_ITO.debt[2] + 'BB', // Bluish-green
+          borderColor: OKABE_ITO.debt[2],
+          borderWidth: 1,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          position: 'top',
+          labels: { font: { size: 10 }, usePointStyle: true, boxWidth: 8 }
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${ctx.dataset.label}: £${ctx.parsed.y.toFixed(2)}`
+          }
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+        y: {
+          beginAtZero: true,
+          ticks: { font: { size: 10 }, callback: v => `£${v.toFixed(0)}` },
+          grid: { color: 'rgba(148,163,184,0.15)' }
+        }
+      }
+    }
+  });
+
+  _chartInstances.set(canvasId, chart);
+  return chart;
+}
+
+/**
+ * Credit Utilisation % — line chart showing balance/limit ratio over time.
+ * Only renders when statements.length >= 2 AND creditLimit > 0.
+ *
+ * @param {string} canvasId
+ * @param {Array} statements - sorted chronologically (oldest first)
+ * @param {number} creditLimit - in pence
+ */
+export function renderStatementUtilisationChart(canvasId, statements, creditLimit) {
+  if (!statements || statements.length < 2 || !creditLimit || creditLimit === 0) return;
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+
+  if (_chartInstances.has(canvasId)) {
+    _chartInstances.get(canvasId).destroy();
+    _chartInstances.delete(canvasId);
+  }
+
+  const labels = statements.map(s => new Date(s.date).toLocaleDateString('en-GB', { month: 'short', year: '2-digit' }));
+  const data   = statements.map(s => parseFloat(((s.amount / creditLimit) * 100).toFixed(1)));
+
+  const color = OKABE_ITO.debt[3]; // Reddish-purple
+
+  const chart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Utilisation %',
+        data,
+        borderColor: color,
+        backgroundColor: color + '22',
+        fill: true,
+        tension: 0.2,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        borderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` Utilisation: ${ctx.parsed.y.toFixed(1)}%`
+          }
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+        y: {
+          beginAtZero: true,
+          max: 100,
+          ticks: { font: { size: 10 }, callback: v => `${v}%` },
+          grid: { color: 'rgba(148,163,184,0.15)' }
+        }
+      }
+    }
+  });
+
+  _chartInstances.set(canvasId, chart);
+  return chart;
+}
