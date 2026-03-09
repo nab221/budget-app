@@ -174,6 +174,7 @@ vi.mock('./schema.js', () => {
 const {
   balanceSnapshotRepository,
   categoryRepository,
+  debtRepository,
   recurrentExpenseRepository,
   statementRepository,
   getYearlyDailySpending,
@@ -640,6 +641,41 @@ describe('triggerSync', () => {
 // ---------------------------------------------------------------------------
 // getDashboardData tests
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// debtRepository.generateLoanPayments tests
+// ---------------------------------------------------------------------------
+
+describe('debtRepository.generateLoanPayments', () => {
+  beforeEach(() => {
+    clearTable(db.debts);
+    clearTable(db.recurrentExpenses);
+    clearTable(db.categories);
+  });
+
+  it('uses paymentStartDate when provided (phase-18 regression)', async () => {
+    const debtId = await db.debts.add({
+      name: 'Test Loan',
+      debtType: 'loan',
+      fixedMonthlyPayment: 20000,
+      paymentStartDate: '2026-06-01',
+    });
+
+    await debtRepository.generateLoanPayments(debtId, {
+      name: 'Test Loan',
+      debtType: 'loan',
+      fixedMonthlyPayment: 20000,
+      paymentStartDate: '2026-06-01',
+    });
+
+    const expenses = await db.recurrentExpenses
+      .where('linkedDebtId').equals(debtId).toArray();
+
+    expect(expenses.length).toBe(12);
+    const dates = expenses.map(e => e.nextDate).sort();
+    expect(dates[0]).toBe('2026-06-01');
+  });
+});
 
 describe('getDashboardData', () => {
   beforeEach(async () => {

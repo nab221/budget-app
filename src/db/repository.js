@@ -213,13 +213,18 @@ export const debtRepository = {
     const category = await db.categories.where('name').equals('Credit Cards & Loans').first();
     const categoryId = category ? category.id : null;
 
-    const startDate = new Date().toISOString().slice(0, 10);
+    const startDate = debt.paymentStartDate || new Date().toISOString().slice(0, 10);
+    // generateInstances adds 1+ months to its base date, so pass one month prior
+    // so that the first generated instance falls exactly on startDate.
+    const baseD = new Date(startDate);
+    baseD.setMonth(baseD.getMonth() - 1);
+    const baseDate = baseD.toISOString().slice(0, 10);
     const label = `${debt.debtType === 'mortgage' ? 'Mortgage' : 'Loan'} Payment: ${debt.name}`;
-    
+
     const baseItem = {
       label,
       amount: fromPence(debt.fixedMonthlyPayment || 0),
-      date: startDate,
+      date: baseDate,
       nextDate: startDate,
       categoryId,
       isRecurring: true,
