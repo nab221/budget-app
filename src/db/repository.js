@@ -186,8 +186,9 @@ export const debtRepository = {
     await db.debts.update(id, toUpdate);
     const updated = await db.debts.get(id);
 
-    if (existing.debtType !== updated.debtType || 
+    if (existing.debtType !== updated.debtType ||
         existing.fixedMonthlyPayment !== updated.fixedMonthlyPayment ||
+        existing.paymentStartDate !== updated.paymentStartDate ||
         existing.name !== updated.name) {
       
       await this.deleteLinkedExpenses(id);
