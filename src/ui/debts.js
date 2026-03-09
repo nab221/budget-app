@@ -322,7 +322,6 @@ export const debtUI = {
         currentBalance: val(FIELD_IDS.ccBalance),
         apr,
         creditLimit: val(FIELD_IDS.ccLimit),
-        minPayment: val(FIELD_IDS.ccMinPayment),
         promoEndDate: str(FIELD_IDS.ccPromoEnd) || null,
         postPromoApr: (postAprVal === '' || postAprVal === undefined) ? apr : parseFloat(postAprVal)
       };
