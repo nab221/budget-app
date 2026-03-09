@@ -265,12 +265,14 @@ export const debtUI = {
 
     const type = debt.debtType;
     if (type === 'credit-card') {
-      set(FIELD_IDS.ccBalance,    fromPence(debt.currentBalance));
-      set(FIELD_IDS.ccApr,        debt.apr);
-      set(FIELD_IDS.ccLimit,      fromPence(debt.creditLimit));
-      set(FIELD_IDS.ccMinPayment, debt.minPayment ?? '');
-      set(FIELD_IDS.ccPromoEnd,   debt.promoEndDate ?? '');
-      set(FIELD_IDS.ccPostApr,    debt.postPromoApr ?? debt.apr);
+      const balancePounds = fromPence(debt.currentBalance);
+      set(FIELD_IDS.ccBalance, balancePounds);
+      const displayEl = document.getElementById('ccBalanceDisplay');
+      if (displayEl) displayEl.textContent = formatGBP(debt.currentBalance);
+      set(FIELD_IDS.ccApr,      debt.apr);
+      set(FIELD_IDS.ccLimit,    fromPence(debt.creditLimit));
+      set(FIELD_IDS.ccPromoEnd, debt.promoEndDate ?? '');
+      set(FIELD_IDS.ccPostApr,  debt.postPromoApr ?? debt.apr);
     } else if (type === 'mortgage') {
       set(FIELD_IDS.mortgagePropertyValue, fromPence(debt.propertyValue ?? 0));
       set(FIELD_IDS.mortgageBalance,       fromPence(debt.currentBalance));
@@ -426,11 +428,17 @@ export const debtUI = {
       </div>
 
       <div id="fieldset-credit-card">
+        ${this.editingId !== null
+          ? `<div style="margin-bottom:10px; padding:8px 10px; background:var(--bg-alt); border-radius:6px; font-size:0.85rem">
+               Current Balance: <strong id="ccBalanceDisplay">—</strong>
+               <input id="${FIELD_IDS.ccBalance}" type="hidden" value="0"/>
+             </div>`
+          : `<p class="hint" style="margin:0 0 10px; font-size:0.85rem">
+               Balance and minimum payment are tracked automatically via your statement history.
+               <input id="${FIELD_IDS.ccBalance}" type="hidden" value="0"/>
+             </p>`
+        }
         <div class="form-row">
-          <div>
-            <label for="${FIELD_IDS.ccBalance}">Current Balance (£)</label>
-            <input id="${FIELD_IDS.ccBalance}" type="number" step="0.01"/>
-          </div>
           <div>
             <label for="${FIELD_IDS.ccApr}">APR (%)</label>
             <input id="${FIELD_IDS.ccApr}" type="number" step="0.1"/>
@@ -441,10 +449,6 @@ export const debtUI = {
           </div>
         </div>
         <div class="form-row">
-          <div>
-            <label for="${FIELD_IDS.ccMinPayment}">Min Monthly Payment (£)</label>
-            <input id="${FIELD_IDS.ccMinPayment}" type="number" step="0.01"/>
-          </div>
           <div>
             <label for="${FIELD_IDS.ccPromoEnd}">Promo End Date</label>
             <input id="${FIELD_IDS.ccPromoEnd}" type="date"/>
@@ -533,7 +537,7 @@ export const debtUI = {
       <div id="fieldset-other" class="hidden">
         <div class="form-row">
           <div>
-            <label for="${FIELD_IDS.otherBalance}">Current Balance (£)</label>
+            <label for="${FIELD_IDS.otherBalance}">Outstanding Balance (£)</label>
             <input id="${FIELD_IDS.otherBalance}" type="number" step="0.01"/>
           </div>
         </div>

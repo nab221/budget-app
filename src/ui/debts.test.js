@@ -510,6 +510,63 @@ describe('debtUI save and edit', () => {
 
     expect(document.getElementById('otherBalanceInput').value).toBe('3000');
   });
+
+  it('FORM-01: _buildFormHTML() in add mode hides ccBalanceInput and ccMinPaymentInput', () => {
+    debtUI.editingId = null;
+    const html = debtUI._buildFormHTML();
+    // No visible balance label for new cards
+    expect(html).not.toContain('Current Balance (£)');
+    expect(html).not.toContain('Min Monthly Payment');
+    // Hint text is present
+    expect(html).toContain('tracked automatically');
+    // A hidden input for ccBalanceInput must exist so _saveDebt can read it
+    expect(html).toContain('id="ccBalanceInput"');
+    expect(html).toContain('type="hidden"');
+  });
+
+  it('FORM-02: _buildFormHTML() in edit mode includes read-only balance display and hidden input', () => {
+    debtUI.editingId = 99; // non-null = editing
+    const html = debtUI._buildFormHTML();
+    // Hidden input for balance preservation
+    expect(html).toContain('id="ccBalanceInput"');
+    expect(html).toContain('type="hidden"');
+    // Read-only display span
+    expect(html).toContain('id="ccBalanceDisplay"');
+    // No min payment field in edit mode either
+    expect(html).not.toContain('Min Monthly Payment');
+  });
+
+  it('FORM-03: _populateEditFields sets ccBalanceInput and ccBalanceDisplay for credit-card', () => {
+    debtUI.editingId = 5;
+
+    // Build and inject the edit-mode form HTML
+    const html = debtUI._buildFormHTML();
+    document.body.innerHTML = html;
+
+    // Set up type select
+    const typeSelect = document.getElementById('debtTypeInput');
+    if (typeSelect) typeSelect.value = 'credit-card';
+
+    debtUI._populateEditFields({
+      name: 'Test CC',
+      debtType: 'credit-card',
+      currentBalance: 75000, // £750 in pence
+      apr: 21.9,
+      creditLimit: 300000, // £3000 in pence
+      promoEndDate: null,
+      postPromoApr: 21.9,
+    });
+
+    // Hidden input should have the pounds value (fromPence)
+    const hiddenInput = document.getElementById('ccBalanceInput');
+    expect(hiddenInput).not.toBeNull();
+    expect(hiddenInput.value).toBe('750');
+
+    // Display span should show formatted balance
+    const display = document.getElementById('ccBalanceDisplay');
+    expect(display).not.toBeNull();
+    expect(display.textContent).toContain('750');
+  });
 });
 
 describe('HIST-01: history table layout — column widths, sticky columns, scroll UX', () => {
