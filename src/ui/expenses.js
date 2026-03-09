@@ -307,6 +307,23 @@ export const expensesUI = {
       this.editingType = null;
     }
 
+    // Phase 18: Guard — debt-linked expenses cannot be edited via generic form
+    if (this.editingId && this.editingType === 'recurrent') {
+      const item = await recurrentExpenseRepository.get(this.editingId);
+      if (item && item.isDebtPayment) {
+        alertWithHaptic(
+          'This expense is linked to a debt account. Please edit it from the Debts tab.',
+          'info'
+        );
+        this.editingId = null;
+        this.editingType = null;
+        if (window.app && window.app.showTab) {
+          window.app.showTab('debts');
+        }
+        return;
+      }
+    }
+
     if (this.reconciliationMode) this.toggleReconciliationMode();
 
     const categories = await categoryRepository.getCategories();
