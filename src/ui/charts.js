@@ -1,11 +1,13 @@
 import {
   Chart,
   LineController,
+  BarController,
   DoughnutController,
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
   ArcElement,
   Filler,
   Tooltip,
@@ -15,11 +17,13 @@ import {
 // Register only the components needed for charts
 Chart.register(
   LineController,
+  BarController,
   DoughnutController,
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
   ArcElement,
   Filler,
   Tooltip,
