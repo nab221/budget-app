@@ -602,11 +602,11 @@ export async function getDashboardData(periodType = 'month', targetMonth) {
     },
     childcareSummary,
     ccPayments: debts
-      .filter(d => d.type === 'credit-card' || !d.type)
+      .filter(d => d.debtType === 'credit-card' || !d.debtType)
       .reduce((sum, d) => sum + calcMinPayment(d.currentBalance, d.apr, 0, new Date(), d.promoEndDate), 0),
     loanPayments: debts
-      .filter(d => d.type === 'loan' || d.type === 'mortgage')
-      .reduce((sum, d) => sum + (d.monthlyPayment || 0), 0),
+      .filter(d => d.debtType === 'loan' || d.debtType === 'mortgage')
+      .reduce((sum, d) => sum + (d.fixedMonthlyPayment || 0), 0),
     extraPayment: (parseFloat(localStorage.getItem('payoffExtra')) || 0) * 100
   };
 }

@@ -18,6 +18,17 @@ const scheduleAutoSaveMock = vi.fn();
 globalThis.window = globalThis.window || {};
 globalThis.window.scheduleAutoSave = scheduleAutoSaveMock;
 
+// Stub localStorage for tests (not available in Node/Vitest environment)
+if (typeof globalThis.localStorage === 'undefined') {
+  const localStorageStore = {};
+  globalThis.localStorage = {
+    getItem: (key) => localStorageStore[key] ?? null,
+    setItem: (key, value) => { localStorageStore[key] = String(value); },
+    removeItem: (key) => { delete localStorageStore[key]; },
+    clear: () => { Object.keys(localStorageStore).forEach(k => delete localStorageStore[k]); }
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Mock the Dexie db so tests run without IndexedDB
 // ---------------------------------------------------------------------------
@@ -166,7 +177,8 @@ const {
   recurrentExpenseRepository,
   statementRepository,
   getYearlyDailySpending,
-  getYearlyDailyIncome
+  getYearlyDailyIncome,
+  getDashboardData
 } = await import('./repository.js');
 const { db } = await import('./schema.js');
 
@@ -622,5 +634,35 @@ describe('triggerSync', () => {
       month: '2026-01', openingBalance: 0, closingBalance: 100, incomeTotal: 100, expenseTotal: 0
     });
     expect(scheduleAutoSaveMock).toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getDashboardData tests
+// ---------------------------------------------------------------------------
+
+describe('getDashboardData', () => {
+  beforeEach(async () => {
+    await db.debts.clear();
+    await db.assets.clear();
+    await db.income.clear();
+    await db.recurrentExpenses.clear();
+    await db.oneOffExpenses.clear();
+    await db.childcareAccounts.clear();
+    await db.childcareLedger.clear();
+    await db.categories.clear();
+    await db.balanceSnapshots.clear();
+  });
+
+  it('uses debtType field for ccPayments and loanPayments (phase-18 regression)', async () => {
+    await db.debts.bulkAdd([
+      { debtType: 'credit-card', currentBalance: 100000, apr: 20, creditLimit: 200000 },
+      { debtType: 'loan', fixedMonthlyPayment: 20000 },
+      { debtType: 'mortgage', fixedMonthlyPayment: 138900 },
+    ]);
+
+    const data = await getDashboardData('month');
+    expect(data.ccPayments).toBeGreaterThan(0);
+    expect(data.loanPayments).toBe(20000 + 138900);
   });
 });
