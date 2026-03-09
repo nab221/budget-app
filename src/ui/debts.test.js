@@ -981,7 +981,7 @@ describe('Phase 18: mortgage/loan payment fields', () => {
     await debtUI._saveDebt();
 
     expect(debtRepository.add).toHaveBeenCalledWith(expect.objectContaining({
-      fixedMonthlyPayment: 1389,
+      fixedMonthlyPayment: 1389, // pounds — toPence() applied inside real repo (mocked here)
       paymentStartDate: '2026-05-01',
       isInterestOnly: true,
     }));
@@ -999,7 +999,7 @@ describe('Phase 18: mortgage/loan payment fields', () => {
     await debtUI._saveDebt();
 
     expect(debtRepository.add).toHaveBeenCalledWith(expect.objectContaining({
-      fixedMonthlyPayment: 200,
+      fixedMonthlyPayment: 200, // pounds — toPence() applied inside real repo (mocked here)
       paymentStartDate: '2026-04-01',
     }));
   });
