@@ -750,7 +750,9 @@ export const expensesUI = {
                   onclick="toggleExpCleared(${item.id}, '${item.type}', ${isCleared})"/>
               </div>
             ` : `
-              <button class="sm ghost" ${isReconciled ? 'disabled title="Reconciled items cannot be edited"' : ''} onclick="expensesUI.editExpense(${item.id}, '${item.type}')">Edit</button>
+              <button class="sm ghost" ${isReconciled ? 'disabled title="Reconciled items cannot be edited"' : ''} onclick="expensesUI.editExpense(${item.id}, '${item.type}')" title="${item.isDebtPayment ? 'Edit in Debts tab' : 'Edit'}">
+                ${item.isDebtPayment ? '↗ Debts' : 'Edit'}
+              </button>
               <button class="sm danger" ${isReconciled ? 'disabled title="Reconciled items cannot be deleted"' : ''} onclick="deleteExpense(${item.id}, '${item.type}')">✕</button>
             `}
           </td>
