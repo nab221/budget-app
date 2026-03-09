@@ -36,5 +36,17 @@ export async function importBackupData(data) {
         await table.bulkAdd(data[table.name]);
       }
     }
+
+    // Backups can reintroduce legacy category groups even on newer schema versions.
+    await db.categories.toCollection().modify(category => {
+      if (category.group === 'fixed' || category.group === 'variable') {
+        category.group = 'expenses';
+      }
+    });
+
+    const incomeCount = await db.categories.where('group').equals('income').count();
+    if (incomeCount === 0) {
+      await db.categories.add({ name: 'Salary', group: 'income' });
+    }
   });
 }

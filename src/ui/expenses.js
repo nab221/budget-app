@@ -363,8 +363,14 @@ export const expensesUI = {
       }
     }
 
-    const categoryOptions = categories
-      .map(c => `<option value="${c.id}" ${Number(data.categoryId) === c.id ? 'selected' : ''}>${c.name} (${c.group})</option>`)
+    const expenseCategories = categories.filter(c => c.group === 'expenses');
+    const selectedCategory = categories.find(c => Number(data.categoryId) === c.id);
+    const formCategories = selectedCategory && selectedCategory.group !== 'expenses'
+      ? [selectedCategory, ...expenseCategories.filter(c => c.id !== selectedCategory.id)]
+      : expenseCategories;
+
+    const categoryOptions = formCategories
+      .map(c => `<option value="${c.id}" ${Number(data.categoryId) === c.id ? 'selected' : ''}>${c.name}${c.group !== 'expenses' ? ' (Legacy)' : ''}</option>`)
       .join('');
 
     const frequencyOptions = `
@@ -540,6 +546,7 @@ export const expensesUI = {
     if (!container) return;
 
     const categories = await categoryRepository.getCategories();
+    const expenseCategories = categories.filter(c => c.group === 'expenses');
     
     container.innerHTML = safeHTML`
       <div class="custom-select" style="position:relative">
@@ -548,7 +555,7 @@ export const expensesUI = {
         </button>
         <div id="catDropdown" class="card hidden" style="position:absolute; top:100%; right:0; z-index:100; min-width:200px; padding:12px; margin-top:5px; box-shadow: var(--shadow); border: 1px solid var(--border)">
           <div style="max-height: 200px; overflow-y: auto; margin-bottom: 10px">
-            ${categories.map(c => `
+            ${expenseCategories.map(c => `
               <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px">
                 <input type="checkbox" id="filter-cat-${c.id}" value="${c.id}" 
                   ${this.selectedCategories.includes(c.id) ? 'checked' : ''}

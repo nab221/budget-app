@@ -11,6 +11,7 @@ export const pdfImportUI = {
     categories: [],
     rawPdfRows: [], // For manual mapping
     mode: 'transactions', // 'transactions' or 'statement'
+    expenseImportType: 'oneoff', // 'oneoff' or 'recurrent' for expense categories
   },
 
   async init() {
@@ -299,6 +300,10 @@ export const pdfImportUI = {
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px">
           <h3 style="font-size:1rem">New Transactions</h3>
           <div style="display:flex; gap:8px; align-items:center">
+             <select id="expenseImportType" onchange="window.pdfImportUI.updateExpenseImportType(this.value)" style="padding:4px" title="How expense categories should be imported">
+               <option value="oneoff" ${this.state.expenseImportType === 'oneoff' ? 'selected' : ''}>Expenses -> One-off</option>
+               <option value="recurrent" ${this.state.expenseImportType === 'recurrent' ? 'selected' : ''}>Expenses -> Recurrent</option>
+             </select>
              <select id="bulkCatSelect" style="padding:4px">
                <option value="">-- Bulk Category --</option>
                ${catOptions}
@@ -336,15 +341,21 @@ export const pdfImportUI = {
   },
 
   getCategoryOptionsHTML(selectedId = null) {
-    const fixed = this.state.categories.filter(c => c.group === 'fixed');
-    const variable = this.state.categories.filter(c => c.group === 'variable');
+    const income = this.state.categories.filter(c => c.group === 'income');
+    const expenses = this.state.categories.filter(c => c.group === 'expenses');
     
-    let html = `<optgroup label="Fixed">`;
-    fixed.forEach(c => html += `<option value="${c.id}" ${c.id == selectedId ? 'selected' : ''}>${sanitize(c.name)}</option>`);
-    html += `</optgroup><optgroup label="Variable">`;
-    variable.forEach(c => html += `<option value="${c.id}" ${c.id == selectedId ? 'selected' : ''}>${sanitize(c.name)}</option>`);
+    let html = `<optgroup label="Expense Categories">`;
+    expenses.forEach(c => html += `<option value="${c.id}" ${c.id == selectedId ? 'selected' : ''}>${sanitize(c.name)}</option>`);
+    html += `</optgroup><optgroup label="Income Categories">`;
+    income.forEach(c => html += `<option value="${c.id}" ${c.id == selectedId ? 'selected' : ''}>${sanitize(c.name)}</option>`);
     html += `</optgroup>`;
     return html;
+  },
+
+  updateExpenseImportType(value) {
+    if (value === 'recurrent' || value === 'oneoff') {
+      this.state.expenseImportType = value;
+    }
   },
 
   toggleAll(event, isConflict) {
@@ -436,24 +447,26 @@ export const pdfImportUI = {
         amount: Math.abs(tx.amount) // Store positive amounts, group dictates logic
       };
 
-      if (category.group === 'fixed') {
-        // 'fixed' category group -> recurrent expense (imported as essential, monthly by default)
-        await recurrentExpenseRepository.add({
-          ...txData,
-          label: tx.description,
-          status: 'paid',
-          frequency: 'monthly',
-          nextDate: tx.date,
-          isEssential: true,
-          cycleTotal: 0,
-          cycleCurrent: 0
-        });
-      } else if (category.group === 'variable') {
-        // 'variable' category group -> one-off expense
-        await oneOffExpenseRepository.add({ ...txData, note: tx.description });
-      } else {
-        // Fallback if income mapping
+      if (category.group === 'income') {
         await incomeRepository.add({ ...txData, source: tx.description });
+      } else if (category.group === 'expenses') {
+        if (this.state.expenseImportType === 'recurrent') {
+          await recurrentExpenseRepository.add({
+            ...txData,
+            label: tx.description,
+            status: 'paid',
+            frequency: 'monthly',
+            nextDate: tx.date,
+            isEssential: true,
+            cycleTotal: 0,
+            cycleCurrent: 0
+          });
+        } else {
+          await oneOffExpenseRepository.add({ ...txData, note: tx.description });
+        }
+      } else {
+        // Keep unknown/system categories from being dropped.
+        await oneOffExpenseRepository.add({ ...txData, note: tx.description });
       }
       
       learningData.push({ description: tx.description, categoryId: tx.categoryId });

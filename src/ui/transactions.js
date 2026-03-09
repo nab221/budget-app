@@ -193,6 +193,11 @@ export const transactionUI = {
     }
 
     const isUpdate = !!this.editingId;
+    const incomeCategories = categories.filter(c => c.group === 'income');
+    const selectedCategory = categories.find(c => Number(data.categoryId) === c.id);
+    const formCategories = selectedCategory && selectedCategory.group !== 'income'
+      ? [selectedCategory, ...incomeCategories.filter(c => c.id !== selectedCategory.id)]
+      : incomeCategories;
     
     const content = safeHTML`
       <div class="form-row">
@@ -203,7 +208,7 @@ export const transactionUI = {
         <div><label>Category</label>
           <select id="incCat">
             <option value="">— Category —</option>
-            ${categories.map(c => `<option value="${c.id}" ${Number(data.categoryId) === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
+            ${formCategories.map(c => `<option value="${c.id}" ${Number(data.categoryId) === c.id ? 'selected' : ''}>${c.name}${c.group !== 'income' ? ' (Legacy)' : ''}</option>`).join('')}
           </select>
         </div>
         <div><label>Amount (£)</label><input id="incAmount" type="number" step="0.01" value="${data.amount}" placeholder="0.00"/></div>
@@ -364,9 +369,7 @@ export const transactionUI = {
     if (!container) return;
 
     const categories = await categoryRepository.getCategories();
-    // Income usually uses both fixed (Salary) and variable (Gifts) groups depending on setup,
-    // but we'll show all categories for filtering.
-    const incomeCats = categories; 
+    const incomeCats = categories.filter(c => c.group === 'income');
 
     container.innerHTML = safeHTML`
       <div class="custom-select" style="position:relative">

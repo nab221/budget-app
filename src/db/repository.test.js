@@ -348,7 +348,7 @@ describe('statementRepository', () => {
   describe('addWithExpense', () => {
     it('creates a statement and a linked recurrent expense', async () => {
       // 1. Setup category (matching repository's search name)
-      const categoryId = await db.categories.add({ name: 'Credit Cards & Loans', group: 'fixed' });
+      const categoryId = await db.categories.add({ name: 'Credit Cards & Loans', group: 'expenses' });
 
       // 2. Add statement
       const statementData = {
@@ -383,7 +383,7 @@ describe('statementRepository', () => {
     });
 
     it('falls back to statement date if paymentDueDate is missing', async () => {
-      await db.categories.add({ name: 'Credit Cards & Loans', group: 'fixed' });
+      await db.categories.add({ name: 'Credit Cards & Loans', group: 'expenses' });
 
       const statementId = await statementRepository.addWithExpense({
         debtId: 1,
@@ -415,7 +415,7 @@ describe('statementRepository', () => {
   describe('recordPayment', () => {
     it('updates both statement and linked expense', async () => {
       // 1. Setup
-      await db.categories.add({ name: 'Credit Cards & Loans', group: 'fixed' });
+      await db.categories.add({ name: 'Credit Cards & Loans', group: 'expenses' });
       const statementId = await statementRepository.addWithExpense({
         debtId: 1,
         date: '2026-01-15',
@@ -619,7 +619,7 @@ describe('triggerSync', () => {
   });
 
   it('is called when adding a category', async () => {
-    await categoryRepository.add({ group: 'fixed', name: 'Test Sync' });
+    await categoryRepository.add({ group: 'expenses', name: 'Test Sync' });
     expect(scheduleAutoSaveMock).toHaveBeenCalled();
   });
 
@@ -635,6 +635,60 @@ describe('triggerSync', () => {
       month: '2026-01', openingBalance: 0, closingBalance: 100, incomeTotal: 100, expenseTotal: 0
     });
     expect(scheduleAutoSaveMock).toHaveBeenCalled();
+  });
+});
+
+describe('categoryRepository compatibility and grouping', () => {
+  beforeEach(() => {
+    clearTable(db.categories);
+    clearTable(db.income);
+    clearTable(db.recurrentExpenses);
+    clearTable(db.oneOffExpenses);
+  });
+
+  it('adds and deletes categories via compatibility wrappers', async () => {
+    const id = await categoryRepository.addCategory('income', 'Freelance');
+    const created = await db.categories.get(id);
+    expect(created.name).toBe('Freelance');
+    expect(created.group).toBe('income');
+
+    await categoryRepository.deleteCategory(id);
+    const deleted = await db.categories.get(id);
+    expect(deleted).toBeUndefined();
+  });
+
+  it('reports category usage across income and expense tables', async () => {
+    const usedId = await db.categories.add({ name: 'Salary', group: 'income' });
+    const freeId = await db.categories.add({ name: 'Unused', group: 'expenses' });
+    await db.income.add({ date: '2026-01-01', source: 'Employer', amount: 50000, categoryId: usedId });
+
+    await expect(categoryRepository.isCategoryInUse(usedId)).resolves.toBe(true);
+    await expect(categoryRepository.isCategoryInUse(freeId)).resolves.toBe(false);
+  });
+
+  it('seeds income and expense defaults for an empty database', async () => {
+    const seeded = await categoryRepository.seedDefaultCategories();
+    const categories = await db.categories.toArray();
+
+    expect(seeded).toBe(true);
+    expect(categories.some(c => c.group === 'income' && c.name === 'Salary')).toBe(true);
+    expect(categories.some(c => c.group === 'expenses')).toBe(true);
+    expect(categories.some(c => c.group === 'system' && c.name === 'Opening Balance')).toBe(true);
+  });
+
+  it('normalizes legacy fixed/variable groups to expenses and ensures income exists', async () => {
+    await db.categories.bulkAdd([
+      { name: 'Legacy Fixed', group: 'fixed' },
+      { name: 'Legacy Variable', group: 'variable' },
+      { name: 'Opening Balance', group: 'system' }
+    ]);
+
+    await categoryRepository.normalizeLegacyGroups();
+    const categories = await db.categories.toArray();
+
+    const legacy = categories.filter(c => c.name === 'Legacy Fixed' || c.name === 'Legacy Variable');
+    expect(legacy.every(c => c.group === 'expenses')).toBe(true);
+    expect(categories.some(c => c.group === 'income' && c.name === 'Salary')).toBe(true);
   });
 });
 

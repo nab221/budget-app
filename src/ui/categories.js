@@ -102,21 +102,21 @@ export const categoryUI = {
   },
 
   /**
-   * Render the fixed and variable category lists in settings.
-   * @param {Array} categories 
+   * Render income and expense category lists in settings.
+   * @param {Array} categories
    */
   renderCategoryLists(categories) {
-    const fixedList = document.getElementById('fixedCatList');
-    const varList = document.getElementById('varCatList');
+    const incomeList = document.getElementById('incomeCatList');
+    const expenseList = document.getElementById('expenseCatList');
 
-    if (fixedList) {
-      const fixedCats = categories.filter(c => c.group === 'fixed');
-      fixedList.innerHTML = fixedCats.map(c => this.getCategoryTagHTML(c)).join('');
+    if (incomeList) {
+      const incomeCats = categories.filter(c => c.group === 'income');
+      incomeList.innerHTML = incomeCats.map(c => this.getCategoryTagHTML(c)).join('');
     }
 
-    if (varList) {
-      const varCats = categories.filter(c => c.group === 'variable');
-      varList.innerHTML = varCats.map(c => this.getCategoryTagHTML(c)).join('');
+    if (expenseList) {
+      const expenseCats = categories.filter(c => c.group === 'expenses');
+      expenseList.innerHTML = expenseCats.map(c => this.getCategoryTagHTML(c)).join('');
     }
   },
 
@@ -138,34 +138,14 @@ export const categoryUI = {
   },
 
   /**
-   * Update all category dropdowns in the app.
-   * @param {Array} categories 
+   * Update category dropdowns in active views.
+   * @param {Array} categories
    */
   updateDropdowns(categories) {
-    const fixCatDropdown = document.getElementById('fixCat');
-    const varCatDropdown = document.getElementById('varCat');
-    const subCatDropdown = document.getElementById('subCat');
-
-    if (fixCatDropdown) {
-      const fixedCats = categories.filter(c => c.group === 'fixed');
-      this.populateDropdown(fixCatDropdown, fixedCats);
+    // Emit a global event so tab modules can re-render any category filters on demand.
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('categories:updated', { detail: { categories } }));
     }
-
-    if (varCatDropdown) {
-      const varCats = categories.filter(c => c.group === 'variable');
-      this.populateDropdown(varCatDropdown, varCats);
-    }
-
-    if (subCatDropdown) {
-      // Subscriptions are usually fixed categories
-      const fixedCats = categories.filter(c => c.group === 'fixed');
-      this.populateDropdown(subCatDropdown, fixedCats);
-    }
-    
-    // Phase 1 Task 2.4: "Implement a way to populate the Fixed and Variable spending dropdowns 
-    // across the app whenever categories change. Note: Since spending forms are in Phase 2, 
-    // implement the logic in src/ui/categories.js and verify it by creating a small 
-    // temporary 'test dropdown' in the settings view."
     
     const testDropdown = document.getElementById('testDropdown');
     if (testDropdown) {

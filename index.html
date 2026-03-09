@@ -356,9 +356,9 @@
           <!-- SETTINGS -->
           <div class="tab-panel" data-panel="settings">
             <h3 style="font-size:.9rem;margin-bottom:8px">Manage Categories</h3>
-            <div class="hint">Categories appear in the dropdowns for Fixed Spends and Variable expenses. Add, rename or delete as needed.</div>
+            <div class="hint">Categories appear in income and expense dropdowns across the app. Add, rename or delete as needed.</div>
             <div class="form-row" style="margin-bottom:8px">
-              <div><label>Group</label><select id="catGroup"><option value="fixed">Fixed</option><option value="variable">Variable</option></select></div>
+              <div><label>Group</label><select id="catGroup"><option value="income">Income</option><option value="expenses">Expenses</option></select></div>
               <div><label>Category name</label><input id="catName" type="text" placeholder="e.g. Housing, Groceries"/></div>
               <div style="display:flex;align-items:flex-end"><button id="addCatBtn" class="primary">+ Add Category</button></div>
               <div style="display:flex;align-items:flex-end"><button id="seedCatsBtn" class="ghost">Seed defaults</button></div>
@@ -366,12 +366,12 @@
             
             <div class="grid2">
               <div>
-                <h4 style="font-size:.8rem;color:var(--text-soft);margin-bottom:4px">Fixed Categories</h4>
-                <div id="fixedCatList"></div>
+                <h4 style="font-size:.8rem;color:var(--text-soft);margin-bottom:4px">Income Categories</h4>
+                <div id="incomeCatList"></div>
               </div>
               <div>
-                <h4 style="font-size:.8rem;color:var(--text-soft);margin-bottom:4px">Variable Categories</h4>
-                <div id="varCatList"></div>
+                <h4 style="font-size:.8rem;color:var(--text-soft);margin-bottom:4px">Expense Categories</h4>
+                <div id="expenseCatList"></div>
               </div>
             </div>
 

@@ -442,27 +442,63 @@ export const categoryRepository = {
   ...createBaseRepository(db.categories),
   async getCategories() { return await db.categories.toArray(); },
   async getByGroup(group) { return await db.categories.where('group').equals(group).toArray(); },
+  async normalizeLegacyGroups() {
+    const categories = await db.categories.toArray();
+    for (const category of categories) {
+      if (category.group === 'fixed' || category.group === 'variable') {
+        await db.categories.update(category.id, { group: 'expenses' });
+      }
+    }
+
+    const incomeCount = await db.categories.where('group').equals('income').count();
+    if (incomeCount === 0) {
+      await db.categories.add({ group: 'income', name: 'Salary' });
+    }
+  },
+  async addCategory(group, name) {
+    if (!group || !name) {
+      throw new Error('Group and name are required');
+    }
+    return this.add({ group, name });
+  },
+  async isCategoryInUse(id) {
+    const categoryId = Number(id);
+    if (!Number.isFinite(categoryId)) return false;
+
+    const [incomeRefs, recurrentRefs, oneOffRefs] = await Promise.all([
+      db.income.where('categoryId').equals(categoryId).count(),
+      db.recurrentExpenses.where('categoryId').equals(categoryId).count(),
+      db.oneOffExpenses.where('categoryId').equals(categoryId).count()
+    ]);
+
+    return (incomeRefs + recurrentRefs + oneOffRefs) > 0;
+  },
+  async deleteCategory(id) {
+    await this.delete(Number(id));
+  },
   async seedDefaultCategories() {
     const count = await db.categories.count();
-    if (count > 0) return;
+    if (count > 0) return false;
 
     const defaults = [
-      { group: 'fixed', name: 'Housing (Rent/Mortgage)' },
-      { group: 'fixed', name: 'Utilities (Gas/Elec/Water)' },
-      { group: 'fixed', name: 'Council Tax' },
-      { group: 'fixed', name: 'Insurance' },
-      { group: 'fixed', name: 'Subscriptions' },
-      { group: 'fixed', name: 'Credit Cards & Loans' },
-      { group: 'variable', name: 'Groceries' },
-      { group: 'variable', name: 'Transport/Fuel' },
-      { group: 'variable', name: 'Dining & Takeaway' },
-      { group: 'variable', name: 'Leisure & Hobbies' },
-      { group: 'variable', name: 'Health & Beauty' },
-      { group: 'variable', name: 'Shopping' },
+      { group: 'income', name: 'Salary' },
+      { group: 'expenses', name: 'Housing (Rent/Mortgage)' },
+      { group: 'expenses', name: 'Utilities (Gas/Elec/Water)' },
+      { group: 'expenses', name: 'Council Tax' },
+      { group: 'expenses', name: 'Insurance' },
+      { group: 'expenses', name: 'Subscriptions' },
+      { group: 'expenses', name: 'Credit Cards & Loans' },
+      { group: 'expenses', name: 'Groceries' },
+      { group: 'expenses', name: 'Transport/Fuel' },
+      { group: 'expenses', name: 'Dining & Takeaway' },
+      { group: 'expenses', name: 'Leisure & Hobbies' },
+      { group: 'expenses', name: 'Health & Beauty' },
+      { group: 'expenses', name: 'Shopping' },
       { group: 'system', name: 'Opening Balance' }
     ];
     await db.categories.bulkAdd(defaults);
     triggerSync();
+    return true;
   }
 };
 
