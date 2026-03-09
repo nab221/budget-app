@@ -675,6 +675,28 @@ describe('debtRepository.generateLoanPayments', () => {
     const dates = expenses.map(e => e.nextDate).sort();
     expect(dates[0]).toBe('2026-06-01');
   });
+
+  it('falls back to today when paymentStartDate is not set', async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const debtId = await db.debts.add({
+      name: 'Fallback Loan',
+      debtType: 'loan',
+      fixedMonthlyPayment: 10000,
+    });
+
+    await debtRepository.generateLoanPayments(debtId, {
+      name: 'Fallback Loan',
+      debtType: 'loan',
+      fixedMonthlyPayment: 10000,
+    });
+
+    const expenses = await db.recurrentExpenses
+      .where('linkedDebtId').equals(debtId).toArray();
+
+    expect(expenses.length).toBe(12);
+    const dates = expenses.map(e => e.nextDate).sort();
+    expect(dates[0]).toBe(today);
+  });
 });
 
 describe('getDashboardData', () => {

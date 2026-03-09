@@ -6,6 +6,7 @@ import { calculateTopUp, getEntitlementPeriod, calculateFundingGap } from '../ut
 import { calcMinPayment, calculateBalanceChain, simulatePayoff } from '../utils/finance.js';
 export { calcMinPayment, calculateBalanceChain, simulatePayoff };
 import { advanceNextDate } from '../utils/recurrence.js';
+import { format, subMonths, parseISO } from 'date-fns';
 
 // ---------------------------------------------------------------------------
 // Sync trigger hook
@@ -216,9 +217,7 @@ export const debtRepository = {
     const startDate = debt.paymentStartDate || new Date().toISOString().slice(0, 10);
     // generateInstances adds 1+ months to its base date, so pass one month prior
     // so that the first generated instance falls exactly on startDate.
-    const baseD = new Date(startDate);
-    baseD.setMonth(baseD.getMonth() - 1);
-    const baseDate = baseD.toISOString().slice(0, 10);
+    const baseDate = format(subMonths(parseISO(startDate), 1), 'yyyy-MM-dd');
     const label = `${debt.debtType === 'mortgage' ? 'Mortgage' : 'Loan'} Payment: ${debt.name}`;
 
     const baseItem = {
