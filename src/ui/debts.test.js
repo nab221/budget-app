@@ -909,3 +909,97 @@ describe('HIST-03: Mark Paid inline action', () => {
     expect(updateCall.linkedExpenseId).toBeUndefined();
   });
 });
+
+describe('Phase 18: mortgage/loan payment fields', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    document.body.innerHTML = '';
+  });
+
+  // Test A — form HTML has new inputs
+  it('mortgage fieldset includes monthly payment, start date and interest-only inputs', () => {
+    document.body.innerHTML = debtUI._buildFormHTML();
+    expect(document.getElementById('mortgageMonthlyPaymentInput')).not.toBeNull();
+    expect(document.getElementById('mortgagePaymentStartInput')).not.toBeNull();
+    expect(document.getElementById('mortgageInterestOnlyInput')).not.toBeNull();
+  });
+
+  it('loan fieldset includes monthly payment and start date inputs', () => {
+    document.body.innerHTML = debtUI._buildFormHTML();
+    expect(document.getElementById('loanMonthlyPaymentInput')).not.toBeNull();
+    expect(document.getElementById('loanPaymentStartInput')).not.toBeNull();
+  });
+
+  // Test B — populate fills new fields
+  it('populates mortgage monthly payment, start date and interest-only on edit', () => {
+    document.body.innerHTML = debtUI._buildFormHTML();
+    debtUI._populateEditFields({
+      debtType: 'mortgage',
+      name: 'My House',
+      propertyValue: 30000000,
+      currentBalance: 25000000,
+      termMonths: 300,
+      interestRate: 4.5,
+      earlyRepaymentFee: 0,
+      fixedMonthlyPayment: 138900,
+      paymentStartDate: '2026-05-01',
+      isInterestOnly: true,
+    });
+    expect(document.getElementById('mortgageMonthlyPaymentInput').value).toBe('1389');
+    expect(document.getElementById('mortgagePaymentStartInput').value).toBe('2026-05-01');
+    expect(document.getElementById('mortgageInterestOnlyInput').checked).toBe(true);
+  });
+
+  it('populates loan monthly payment and start date on edit', () => {
+    document.body.innerHTML = debtUI._buildFormHTML();
+    debtUI._populateEditFields({
+      debtType: 'loan',
+      name: 'Car Loan',
+      originalPrincipal: 1000000,
+      currentBalance: 800000,
+      termMonths: 60,
+      interestRate: 5,
+      fixedMonthlyPayment: 20000,
+      paymentStartDate: '2026-04-01',
+    });
+    expect(document.getElementById('loanMonthlyPaymentInput').value).toBe('200');
+    expect(document.getElementById('loanPaymentStartInput').value).toBe('2026-04-01');
+  });
+
+  // Test C — save payload includes new fields
+  it('mortgage save payload includes fixedMonthlyPayment, paymentStartDate, isInterestOnly', async () => {
+    document.body.innerHTML = debtUI._buildFormHTML();
+    document.getElementById('debtNameInput').value = 'My House';
+    document.getElementById('debtTypeInput').value = 'mortgage';
+    document.getElementById('mortgageBalanceInput').value = '250000';
+    document.getElementById('mortgageRateInput').value = '4.5';
+    document.getElementById('mortgageMonthlyPaymentInput').value = '1389';
+    document.getElementById('mortgagePaymentStartInput').value = '2026-05-01';
+    document.getElementById('mortgageInterestOnlyInput').checked = true;
+
+    await debtUI._saveDebt();
+
+    expect(debtRepository.add).toHaveBeenCalledWith(expect.objectContaining({
+      fixedMonthlyPayment: 138900,
+      paymentStartDate: '2026-05-01',
+      isInterestOnly: true,
+    }));
+  });
+
+  it('loan save payload includes fixedMonthlyPayment and paymentStartDate', async () => {
+    document.body.innerHTML = debtUI._buildFormHTML();
+    document.getElementById('debtNameInput').value = 'Car Loan';
+    document.getElementById('debtTypeInput').value = 'loan';
+    document.getElementById('loanBalanceInput').value = '8000';
+    document.getElementById('loanRateInput').value = '5';
+    document.getElementById('loanMonthlyPaymentInput').value = '200';
+    document.getElementById('loanPaymentStartInput').value = '2026-04-01';
+
+    await debtUI._saveDebt();
+
+    expect(debtRepository.add).toHaveBeenCalledWith(expect.objectContaining({
+      fixedMonthlyPayment: 20000,
+      paymentStartDate: '2026-04-01',
+    }));
+  });
+});

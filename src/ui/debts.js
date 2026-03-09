@@ -21,11 +21,18 @@ const FIELD_IDS = {
   mortgageTerm:          'mortgageTermInput',
   mortgageRate:          'mortgageRateInput',
   mortgageErc:           'mortgageErcInput',
+  // Phase 18: loan/mortgage monthly payment & start date
+  mortgageMonthlyPayment: 'mortgageMonthlyPaymentInput',
+  mortgagePaymentStart:   'mortgagePaymentStartInput',
+  mortgageInterestOnly:   'mortgageInterestOnlyInput',
   // Phase 12: personal loan fieldset
   loanOriginal:          'loanOriginalInput',
   loanBalance:           'loanBalanceInput',
   loanTerm:              'loanTermInput',
   loanRate:              'loanRateInput',
+  // Phase 18: loan monthly payment & start date
+  loanMonthlyPayment:     'loanMonthlyPaymentInput',
+  loanPaymentStart:       'loanPaymentStartInput',
   // Phase 12: other fieldset
   otherBalance:          'otherBalanceInput',
 };
