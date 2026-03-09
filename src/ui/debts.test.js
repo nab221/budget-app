@@ -967,6 +967,35 @@ describe('Phase 18: mortgage/loan payment fields', () => {
     expect(document.getElementById('loanPaymentStartInput').value).toBe('2026-04-01');
   });
 
+  it('populates mortgage monthly payment as empty string when fixedMonthlyPayment is not set', () => {
+    document.body.innerHTML = debtUI._buildFormHTML();
+    debtUI._populateEditFields({
+      debtType: 'mortgage',
+      name: 'My House',
+      propertyValue: 30000000,
+      currentBalance: 25000000,
+      termMonths: 300,
+      interestRate: 4.5,
+      earlyRepaymentFee: 0,
+      // fixedMonthlyPayment deliberately absent
+    });
+    expect(document.getElementById('mortgageMonthlyPaymentInput').value).toBe('');
+  });
+
+  it('populates loan monthly payment as empty string when fixedMonthlyPayment is not set', () => {
+    document.body.innerHTML = debtUI._buildFormHTML();
+    debtUI._populateEditFields({
+      debtType: 'loan',
+      name: 'Car Loan',
+      originalPrincipal: 1000000,
+      currentBalance: 800000,
+      termMonths: 60,
+      interestRate: 5,
+      // fixedMonthlyPayment deliberately absent
+    });
+    expect(document.getElementById('loanMonthlyPaymentInput').value).toBe('');
+  });
+
   // Test C — save payload includes new fields
   it('mortgage save payload includes fixedMonthlyPayment, paymentStartDate, isInterestOnly', async () => {
     document.body.innerHTML = debtUI._buildFormHTML();
