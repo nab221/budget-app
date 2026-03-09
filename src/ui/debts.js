@@ -4,6 +4,13 @@ import { formatGBP, fromPence } from '../utils/currency.js';
 import { calcMinPayment, calcUtilization, simulatePayoff } from '../utils/finance.js';
 import { safeHTML, renderTabSummary, modalUI } from './render.js';
 import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
+import {
+  renderStatementBalanceChart,
+  renderStatementInterestChart,
+  renderStatementPaymentChart,
+  renderStatementUtilisationChart,
+  destroyStatementCharts,
+} from './charts.js';
 
 const FIELD_IDS = {
   name: 'debtNameInput',
@@ -964,7 +971,33 @@ export const debtUI = {
   _closeHistoryModal() {
     this.activeStmtDebtId = null;
     this.editingStmtId = null;
+    destroyStatementCharts();
     modalUI.close();
+  },
+
+  async _renderStatementCharts(stmts, debt) {
+    const container = document.getElementById('stmtChartsContainer');
+    if (!container) return;
+
+    if (!stmts || stmts.length < 2) {
+      container.classList.add('hidden');
+      return;
+    }
+
+    // Show container and render all 4 charts
+    container.classList.remove('hidden');
+
+    // Sort chronologically (oldest first) for chart X-axis
+    const sorted = [...stmts].sort((a, b) => a.date.localeCompare(b.date));
+
+    renderStatementBalanceChart('stmt-chart-balance', sorted);
+    renderStatementInterestChart('stmt-chart-interest', sorted);
+    renderStatementPaymentChart('stmt-chart-payments', sorted);
+
+    // Utilisation only relevant for credit cards with a limit
+    if (debt && debt.debtType === 'credit-card' && debt.creditLimit > 0) {
+      renderStatementUtilisationChart('stmt-chart-utilisation', sorted, debt.creditLimit);
+    }
   },
 
   _buildHistoryModalHTML(debt) {
@@ -982,6 +1015,30 @@ export const debtUI = {
 
       <!-- Statement Form Placeholder (Inside Modal) -->
       <div id="stmtFormContainer-modal" class="card hidden" style="margin-bottom:16px; background:var(--bg-alt); border: 1px solid var(--border-light);"></div>
+
+      <!-- Statement Analytics Charts (shown when >= 2 statements) -->
+      <div id="stmtChartsContainer" class="hidden" style="margin-bottom:16px">
+        <div class="grid2" style="gap:12px; margin-bottom:12px">
+          <div style="background:var(--bg-alt); border:1px solid var(--border-light); border-radius:8px; padding:12px">
+            <div style="font-size:0.75rem; color:var(--text-soft); margin-bottom:6px">Balance Over Time</div>
+            <div style="height:160px; position:relative"><canvas id="stmt-chart-balance"></canvas></div>
+          </div>
+          <div style="background:var(--bg-alt); border:1px solid var(--border-light); border-radius:8px; padding:12px">
+            <div style="font-size:0.75rem; color:var(--text-soft); margin-bottom:6px">Cumulative Interest &amp; Fees</div>
+            <div style="height:160px; position:relative"><canvas id="stmt-chart-interest"></canvas></div>
+          </div>
+        </div>
+        <div class="grid2" style="gap:12px">
+          <div style="background:var(--bg-alt); border:1px solid var(--border-light); border-radius:8px; padding:12px">
+            <div style="font-size:0.75rem; color:var(--text-soft); margin-bottom:6px">Payment Behaviour</div>
+            <div style="height:160px; position:relative"><canvas id="stmt-chart-payments"></canvas></div>
+          </div>
+          <div style="background:var(--bg-alt); border:1px solid var(--border-light); border-radius:8px; padding:12px">
+            <div style="font-size:0.75rem; color:var(--text-soft); margin-bottom:6px">Credit Utilisation</div>
+            <div style="height:160px; position:relative"><canvas id="stmt-chart-utilisation"></canvas></div>
+          </div>
+        </div>
+      </div>
 
       <div style="position:relative">
         <div id="stmtScrollHint" style="position:absolute;right:0;top:0;bottom:0;width:48px;background:linear-gradient(to right,transparent,var(--bg) 70%);display:flex;align-items:center;justify-content:flex-end;padding-right:4px;pointer-events:none;font-size:0.7rem;color:var(--text-soft);opacity:0;transition:opacity 0.5s;z-index:5">→</div>
@@ -1023,6 +1080,8 @@ export const debtUI = {
 
     if (stmts.length === 0) {
       container.innerHTML = '<tr><td colspan="10" class="hint" style="text-align:center">No statements logged yet.</td></tr>';
+      const chartsEl = document.getElementById('stmtChartsContainer');
+      if (chartsEl) chartsEl.classList.add('hidden');
       return;
     }
 
@@ -1058,6 +1117,10 @@ export const debtUI = {
         </td>
       </tr>
     `).join('');
+
+    // Render analytics charts
+    const debt = await debtRepository.get(debtId);
+    await this._renderStatementCharts(stmts, debt);
   }
 };
 

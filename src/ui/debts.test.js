@@ -87,6 +87,15 @@ vi.mock('../utils/haptics.js', () => ({
   alertWithHaptic: vi.fn(),
 }));
 
+// Mock charts.js — stub statement chart functions
+vi.mock('./charts.js', () => ({
+  renderStatementBalanceChart: vi.fn(),
+  renderStatementInterestChart: vi.fn(),
+  renderStatementPaymentChart: vi.fn(),
+  renderStatementUtilisationChart: vi.fn(),
+  destroyStatementCharts: vi.fn(),
+}));
+
 // Mock currency utils
 vi.mock('../utils/currency.js', () => ({
   formatGBP: (p) => `£${(p / 100).toFixed(2)}`,
@@ -104,6 +113,13 @@ vi.mock('../utils/finance.js', () => ({
 import { debtUI } from './debts.js';
 import { modalUI } from './render.js';
 import { debtRepository, statementRepository, recurrentExpenseRepository, oneOffExpenseRepository } from '../db/repository.js';
+import {
+  renderStatementBalanceChart,
+  renderStatementInterestChart,
+  renderStatementPaymentChart,
+  renderStatementUtilisationChart,
+  destroyStatementCharts,
+} from './charts.js';
 
 describe('debtUI modal scaffold', () => {
   beforeEach(() => {
@@ -1088,5 +1104,71 @@ describe('Phase 18: mortgage/loan payment fields', () => {
       fixedMonthlyPayment: 200, // pounds — toPence() applied inside real repo (mocked here)
       paymentStartDate: '2026-04-01',
     }));
+  });
+});
+
+describe('debtUI statement charts', () => {
+  function buildModalDOM() {
+    document.body.innerHTML = `
+      <div id="stmtChartsContainer" class="hidden"></div>
+      <table><tbody id="stmtBody-modal"></tbody></table>
+    `;
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    buildModalDOM();
+    debtUI.activeStmtDebtId = null;
+  });
+
+  it('CHART-01: renderStatements calls chart functions when >= 2 statements exist', async () => {
+    statementRepository.getAll.mockResolvedValueOnce([
+      { id: 1, debtId: 1, date: '2025-01-01', amount: 50000, openingBalance: 60000, interest: 1500, fees: 0, minimumPayment: 2500, actualPaymentAmount: null },
+      { id: 2, debtId: 1, date: '2025-02-01', amount: 48000, openingBalance: 50000, interest: 1400, fees: 0, minimumPayment: 2400, actualPaymentAmount: null },
+    ]);
+    debtRepository.get.mockResolvedValue({
+      id: 1, debtType: 'credit-card', currentBalance: 48000, creditLimit: 200000
+    });
+
+    await debtUI.renderStatements(1);
+
+    expect(renderStatementBalanceChart).toHaveBeenCalledOnce();
+    expect(renderStatementInterestChart).toHaveBeenCalledOnce();
+    expect(renderStatementPaymentChart).toHaveBeenCalledOnce();
+    expect(renderStatementUtilisationChart).toHaveBeenCalledOnce();
+  });
+
+  it('CHART-02: renderStatements does NOT call chart functions when < 2 statements', async () => {
+    statementRepository.getAll.mockResolvedValueOnce([
+      { id: 1, debtId: 1, date: '2025-01-01', amount: 50000, openingBalance: 60000, interest: 1500, fees: 0, minimumPayment: 2500 },
+    ]);
+    debtRepository.get.mockResolvedValue({
+      id: 1, debtType: 'credit-card', currentBalance: 50000, creditLimit: 200000
+    });
+
+    await debtUI.renderStatements(1);
+
+    expect(renderStatementBalanceChart).not.toHaveBeenCalled();
+  });
+
+  it('CHART-03: charts container is shown when >= 2 statements', async () => {
+    statementRepository.getAll.mockResolvedValueOnce([
+      { id: 1, debtId: 1, date: '2025-01-01', amount: 50000, openingBalance: 60000, interest: 1500, fees: 0, minimumPayment: 2500 },
+      { id: 2, debtId: 1, date: '2025-02-01', amount: 48000, openingBalance: 50000, interest: 1400, fees: 0, minimumPayment: 2400 },
+    ]);
+    debtRepository.get.mockResolvedValue({
+      id: 1, debtType: 'credit-card', currentBalance: 48000, creditLimit: 200000
+    });
+
+    await debtUI.renderStatements(1);
+
+    const container = document.getElementById('stmtChartsContainer');
+    expect(container.classList.contains('hidden')).toBe(false);
+  });
+
+  it('CHART-04: _closeHistoryModal calls destroyStatementCharts', () => {
+    debtUI.activeStmtDebtId = 1;
+    debtUI._closeHistoryModal();
+    expect(destroyStatementCharts).toHaveBeenCalledOnce();
   });
 });
