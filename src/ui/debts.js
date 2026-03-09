@@ -470,6 +470,20 @@ export const debtUI = {
             <input id="${FIELD_IDS.mortgageErc}" type="number" step="0.01"/>
           </div>
         </div>
+        <div class="form-row">
+          <div>
+            <label for="${FIELD_IDS.mortgageMonthlyPayment}">Monthly Payment (£)</label>
+            <input id="${FIELD_IDS.mortgageMonthlyPayment}" type="number" step="0.01" placeholder="e.g. 1200"/>
+          </div>
+          <div>
+            <label for="${FIELD_IDS.mortgagePaymentStart}">First Payment Date</label>
+            <input id="${FIELD_IDS.mortgagePaymentStart}" type="date"/>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;padding-top:18px">
+            <input id="${FIELD_IDS.mortgageInterestOnly}" type="checkbox"/>
+            <label for="${FIELD_IDS.mortgageInterestOnly}" style="margin:0">Interest Only</label>
+          </div>
+        </div>
       </div>
 
       <div id="fieldset-loan" class="hidden">
@@ -491,6 +505,16 @@ export const debtUI = {
           <div>
             <label for="${FIELD_IDS.loanRate}">Interest Rate (%)</label>
             <input id="${FIELD_IDS.loanRate}" type="number" step="0.1"/>
+          </div>
+        </div>
+        <div class="form-row">
+          <div>
+            <label for="${FIELD_IDS.loanMonthlyPayment}">Monthly Payment (£)</label>
+            <input id="${FIELD_IDS.loanMonthlyPayment}" type="number" step="0.01" placeholder="e.g. 200"/>
+          </div>
+          <div>
+            <label for="${FIELD_IDS.loanPaymentStart}">First Payment Date</label>
+            <input id="${FIELD_IDS.loanPaymentStart}" type="date"/>
           </div>
         </div>
       </div>
