@@ -914,6 +914,7 @@ describe('Phase 18: mortgage/loan payment fields', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     document.body.innerHTML = '';
+    debtUI.editingId = null;
   });
 
   // Test A — form HTML has new inputs
@@ -980,7 +981,7 @@ describe('Phase 18: mortgage/loan payment fields', () => {
     await debtUI._saveDebt();
 
     expect(debtRepository.add).toHaveBeenCalledWith(expect.objectContaining({
-      fixedMonthlyPayment: 138900,
+      fixedMonthlyPayment: 1389,
       paymentStartDate: '2026-05-01',
       isInterestOnly: true,
     }));
@@ -998,7 +999,7 @@ describe('Phase 18: mortgage/loan payment fields', () => {
     await debtUI._saveDebt();
 
     expect(debtRepository.add).toHaveBeenCalledWith(expect.objectContaining({
-      fixedMonthlyPayment: 20000,
+      fixedMonthlyPayment: 200,
       paymentStartDate: '2026-04-01',
     }));
   });

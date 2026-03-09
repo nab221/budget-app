@@ -332,8 +332,11 @@ export const debtUI = {
         currentBalance: val(FIELD_IDS.mortgageBalance),
         termMonths: parseInt(document.getElementById(FIELD_IDS.mortgageTerm)?.value) || 0,
         interestRate: rate,
-        apr: rate, // Sync for strategy sorting
-        earlyRepaymentFee: val(FIELD_IDS.mortgageErc)
+        apr: rate,
+        earlyRepaymentFee: val(FIELD_IDS.mortgageErc),
+        fixedMonthlyPayment: val(FIELD_IDS.mortgageMonthlyPayment),
+        paymentStartDate: str(FIELD_IDS.mortgagePaymentStart) || null,
+        isInterestOnly: document.getElementById(FIELD_IDS.mortgageInterestOnly)?.checked || false
       };
     } else if (type === 'loan') {
       const rate = val(FIELD_IDS.loanRate);
@@ -343,7 +346,9 @@ export const debtUI = {
         currentBalance: val(FIELD_IDS.loanBalance),
         termMonths: parseInt(document.getElementById(FIELD_IDS.loanTerm)?.value) || 0,
         interestRate: rate,
-        apr: rate // Sync for strategy sorting
+        apr: rate,
+        fixedMonthlyPayment: val(FIELD_IDS.loanMonthlyPayment),
+        paymentStartDate: str(FIELD_IDS.loanPaymentStart) || null
       };
     } else {
       payload = {
