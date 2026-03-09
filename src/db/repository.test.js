@@ -697,6 +697,39 @@ describe('debtRepository.generateLoanPayments', () => {
     const dates = expenses.map(e => e.nextDate).sort();
     expect(dates[0]).toBe(today);
   });
+
+  it('regenerates loan payments when paymentStartDate changes on edit (phase-18 regression)', async () => {
+    // Use debtRepository.add (passes pounds; internally converts to pence)
+    // so that initial payments are generated and fixedMonthlyPayment is
+    // stored correctly in pence.
+    const debtId = await debtRepository.add({
+      name: 'Test Loan',
+      debtType: 'loan',
+      fixedMonthlyPayment: 200,  // £200 → stored as 20000 pence
+      paymentStartDate: '2026-06-01',
+    });
+
+    // Verify initial payments start June
+    let expenses = await db.recurrentExpenses
+      .where('linkedDebtId').equals(debtId).toArray();
+    expect(expenses.map(e => e.nextDate).sort()[0]).toBe('2026-06-01');
+
+    // Simulate the UI edit: pass pound values (same as form input) so that
+    // toPence(200) = 20000 matches the stored value — only paymentStartDate
+    // changes. Without the fix, this should NOT trigger regeneration.
+    await debtRepository.update(debtId, {
+      name: 'Test Loan',
+      debtType: 'loan',
+      fixedMonthlyPayment: 200,  // same £200 → toPence → 20000 (unchanged)
+      paymentStartDate: '2026-09-01',
+    });
+
+    // Verify payments were regenerated with new start date
+    expenses = await db.recurrentExpenses
+      .where('linkedDebtId').equals(debtId).toArray();
+    expect(expenses.length).toBe(12);
+    expect(expenses.map(e => e.nextDate).sort()[0]).toBe('2026-09-01');
+  });
 });
 
 describe('getDashboardData', () => {
