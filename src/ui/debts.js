@@ -277,11 +277,17 @@ export const debtUI = {
       set(FIELD_IDS.mortgageTerm,          debt.termMonths);
       set(FIELD_IDS.mortgageRate,          debt.interestRate);
       set(FIELD_IDS.mortgageErc,           fromPence(debt.earlyRepaymentFee ?? 0));
+      set(FIELD_IDS.mortgageMonthlyPayment, fromPence(debt.fixedMonthlyPayment ?? 0));
+      set(FIELD_IDS.mortgagePaymentStart, debt.paymentStartDate ?? '');
+      const ioCheckbox = document.getElementById(FIELD_IDS.mortgageInterestOnly);
+      if (ioCheckbox) ioCheckbox.checked = !!debt.isInterestOnly;
     } else if (type === 'loan') {
       set(FIELD_IDS.loanOriginal, fromPence(debt.originalPrincipal ?? 0));
       set(FIELD_IDS.loanBalance,  fromPence(debt.currentBalance));
       set(FIELD_IDS.loanTerm,     debt.termMonths);
       set(FIELD_IDS.loanRate,     debt.interestRate);
+      set(FIELD_IDS.loanMonthlyPayment, fromPence(debt.fixedMonthlyPayment ?? 0));
+      set(FIELD_IDS.loanPaymentStart, debt.paymentStartDate ?? '');
     } else {
       set(FIELD_IDS.otherBalance, fromPence(debt.currentBalance));
     }
