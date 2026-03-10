@@ -13,12 +13,16 @@ import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
 import { db } from '../db/schema.js';
 
 export const cloudSyncUI = {
+  _initialized: false,
+
   /**
    * Initialise cloud sync UI. No-ops silently if Supabase is not configured,
    * keeping the section hidden and the app fully functional.
    */
   async init() {
     if (!isConfigured()) return;
+    if (this._initialized) return;
+    this._initialized = true;
 
     this._bindAuthListener();
     this._bindPreviewListener();
@@ -174,9 +178,12 @@ export const cloudSyncUI = {
         year: 'numeric',
       });
 
+      const escapeHtml = (s) =>
+        String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
       const countLines = Object.entries(counts)
         .filter(([, n]) => n > 0)
-        .map(([t, n]) => `${n} ${t}`)
+        .map(([t, n]) => `${n} ${escapeHtml(t)}`)
         .join(' · ');
 
       const body = `
