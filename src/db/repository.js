@@ -117,6 +117,10 @@ export const recurrentExpenseRepository = {
     const processedUpdates = { ...updates };
     penceFields.forEach(f => { if (processedUpdates[f] !== undefined) processedUpdates[f] = toPence(processedUpdates[f]); });
 
+    // Strip temporal and identity fields to preserve each instance's own dates
+    const temporalFields = ['id', 'date', 'nextDate', 'predictedPaymentDate', 'parentDate', 'recurrenceId'];
+    temporalFields.forEach(f => delete processedUpdates[f]);
+
     for (const item of toUpdate) {
       await db.recurrentExpenses.update(item.id, processedUpdates);
     }
