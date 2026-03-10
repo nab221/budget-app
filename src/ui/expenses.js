@@ -753,8 +753,8 @@ export const expensesUI = {
           <td class="r nw"><span class="privacy-blur">${formatGBP(item.amount)}</span></td>
           <td>
             ${item.type === 'recurrent' ? `
-              <button class="sm ${isPaid ? '' : 'ghost'}" style="${isPaid ? 'color:var(--success)' : ''}" ${this.reconciliationMode || isReconciled ? 'disabled' : ''} onclick="toggleExpenseStatus(${item.id}, 'recurrent', '${item.status}')">
-                ${isPaid ? '✓ Paid' : '☐ Mark Paid'}
+              <button class="sm ${isPaid ? 'success' : 'ghost'}" ${this.reconciliationMode || isReconciled ? 'disabled' : ''} onclick="toggleExpenseStatus(${item.id}, 'recurrent', '${item.status}')" title="${isPaid ? 'Paid' : 'Mark as Paid'}">
+                ${isPaid ? '✓ Paid' : '○ Pending'}
               </button>
             ` : '<span class="hint">—</span>'}
           </td>
