@@ -237,20 +237,12 @@ async function loadFromFile(handle) {
 
       // Re-use legacy strip pattern
       const strip = arr => (arr || []).map(({ id, ...rest }) => rest);
-      
-      // Batch operations
+
+      // Batch operations — restore any table present in the JSON payload
       await db.transaction('rw', db.tables, async () => {
-        if (data.income) await db.income.bulkAdd(strip(data.income));
-        if (data.recurrentExpenses) await db.recurrentExpenses.bulkAdd(strip(data.recurrentExpenses));
-        if (data.oneOffExpenses) await db.oneOffExpenses.bulkAdd(strip(data.oneOffExpenses));
-        if (data.categories) await db.categories.bulkAdd(strip(data.categories));
-        if (data.debts) await db.debts.bulkAdd(strip(data.debts));
-        if (data.assets) await db.assets.bulkAdd(strip(data.assets));
-        if (data.statements) await db.statements.bulkAdd(strip(data.statements));
-        if (data.balanceSnapshots) await db.balanceSnapshots.bulkAdd(strip(data.balanceSnapshots));
-        if (data.childcareAccounts) await db.childcareAccounts.bulkAdd(strip(data.childcareAccounts));
-        if (data.childcareLedger) await db.childcareLedger.bulkAdd(strip(data.childcareLedger));
-        if (data.expectedIncome) await db.expectedIncome.bulkAdd(strip(data.expectedIncome));
+        for (const table of db.tables) {
+          if (data[table.name]) await table.bulkAdd(strip(data[table.name]));
+        }
       });
     }
 

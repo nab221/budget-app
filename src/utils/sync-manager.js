@@ -50,23 +50,16 @@ export const SyncManager = {
       }
 
       // 2. Prepare payload
+      const tableData = Object.fromEntries(
+        await Promise.all(db.tables.map(async t => [t.name, await t.toArray()]))
+      );
       const payload = {
-        meta: { 
-          version: 2, 
+        meta: {
+          version: 2,
           exportedAt: new Date().toISOString(),
           app: 'Budget Console'
         },
-        income: await db.income.toArray(),
-        recurrentExpenses: await db.recurrentExpenses.toArray(),
-        oneOffExpenses: await db.oneOffExpenses.toArray(),
-        categories: await db.categories.toArray(),
-        debts: await db.debts.toArray(),
-        assets: await db.assets.toArray(),
-        statements: await db.statements.toArray(),
-        balanceSnapshots: await db.balanceSnapshots.toArray(),
-        childcareAccounts: await db.childcareAccounts.toArray(),
-        childcareLedger: await db.childcareLedger.toArray(),
-        expectedIncome: await db.expectedIncome.toArray()
+        ...tableData
       };
 
       // 3. Write to file
