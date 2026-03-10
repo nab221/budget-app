@@ -70,42 +70,43 @@ export const cloudSyncUI = {
       <div class="hint" style="margin-top:6px;font-size:.75rem">${lastSyncText}</div>
     `;
 
-    document.getElementById('cloudSignOutBtn')?.addEventListener('click', async () => {
+    const signOutBtn = document.getElementById('cloudSignOutBtn');
+    if (signOutBtn) signOutBtn.onclick = async () => {
       await supabase.auth.signOut();
       triggerHaptic('tap');
-    });
+    };
 
-    document.getElementById('cloudPushBtn')?.addEventListener('click', async () => {
-      const btn = document.getElementById('cloudPushBtn');
+    const pushBtn = document.getElementById('cloudPushBtn');
+    if (pushBtn) pushBtn.onclick = async () => {
       try {
-        btn.textContent = 'Pushing...';
-        btn.disabled = true;
+        pushBtn.textContent = 'Pushing...';
+        pushBtn.disabled = true;
         await pushSnapshot();
         triggerHaptic('success');
         await this._refreshSection();
       } catch (err) {
         console.error('[cloudSyncUI] Push failed:', err);
         alertWithHaptic('Push failed: ' + err.message);
-        btn.textContent = 'Push to Cloud';
-        btn.disabled = false;
+        pushBtn.textContent = 'Push to Cloud';
+        pushBtn.disabled = false;
       }
-    });
+    };
 
-    document.getElementById('cloudPullBtn')?.addEventListener('click', async () => {
-      const btn = document.getElementById('cloudPullBtn');
+    const pullBtn = document.getElementById('cloudPullBtn');
+    if (pullBtn) pullBtn.onclick = async () => {
       try {
-        btn.textContent = 'Fetching...';
-        btn.disabled = true;
+        pullBtn.textContent = 'Fetching...';
+        pullBtn.disabled = true;
         await pullSnapshot();
         // Event dispatched by pullSnapshot(); UI takes over from the preview listener.
+        // Button stays disabled until the modal is dismissed (cancel) or page reloads (confirm).
       } catch (err) {
         console.error('[cloudSyncUI] Pull failed:', err);
         alertWithHaptic('Pull failed: ' + err.message);
-      } finally {
-        btn.textContent = 'Pull from Cloud';
-        btn.disabled = false;
+        pullBtn.textContent = 'Pull from Cloud';
+        pullBtn.disabled = false;
       }
-    });
+    };
   },
 
   _renderSignedOut(statusEl, actionsEl) {
@@ -123,26 +124,26 @@ export const cloudSyncUI = {
       <div class="hint">A sign-in link will be emailed to you. No password required.</div>
     `;
 
-    document.getElementById('cloudMagicLinkBtn')?.addEventListener('click', async () => {
+    const magicLinkBtn = document.getElementById('cloudMagicLinkBtn');
+    if (magicLinkBtn) magicLinkBtn.onclick = async () => {
       const email = document.getElementById('cloudSyncEmail')?.value?.trim();
       if (!email) {
         alertWithHaptic('Please enter your email address.');
         return;
       }
-      const btn = document.getElementById('cloudMagicLinkBtn');
       try {
-        btn.textContent = 'Sending...';
-        btn.disabled = true;
+        magicLinkBtn.textContent = 'Sending...';
+        magicLinkBtn.disabled = true;
         await signIn(email);
-        btn.textContent = 'Link Sent!';
+        magicLinkBtn.textContent = 'Link Sent!';
         alertWithHaptic('Check your email for a sign-in link.', 'success');
       } catch (err) {
         console.error('[cloudSyncUI] Sign-in failed:', err);
         alertWithHaptic('Sign-in failed: ' + err.message);
-        btn.textContent = 'Send Magic Link';
-        btn.disabled = false;
+        magicLinkBtn.textContent = 'Send Magic Link';
+        magicLinkBtn.disabled = false;
       }
-    });
+    };
   },
 
   /**
@@ -194,13 +195,26 @@ export const cloudSyncUI = {
       `;
 
       const footer = `
-        <button class="ghost" onclick="window.templateUI.closeModal()">Cancel</button>
+        <button class="ghost" id="cancelCloudImportBtn">Cancel</button>
         <button class="danger" id="confirmCloudImportBtn">Replace Local Data</button>
       `;
 
       templateUI.showModal('Cloud Snapshot Preview', body, footer);
 
-      document.getElementById('confirmCloudImportBtn')?.addEventListener('click', async () => {
+      const restorePullBtn = () => {
+        const pullBtn = document.getElementById('cloudPullBtn');
+        if (pullBtn) {
+          pullBtn.textContent = 'Pull from Cloud';
+          pullBtn.disabled = false;
+        }
+      };
+
+      document.getElementById('cancelCloudImportBtn').onclick = () => {
+        templateUI.closeModal();
+        restorePullBtn();
+      };
+
+      document.getElementById('confirmCloudImportBtn').onclick = async () => {
         templateUI.closeModal();
         try {
           await importBackupData(tableData);
@@ -211,8 +225,9 @@ export const cloudSyncUI = {
         } catch (err) {
           console.error('[cloudSyncUI] Import failed:', err);
           alertWithHaptic('Import failed: ' + err.message);
+          restorePullBtn();
         }
-      });
+      };
     });
   },
 };
