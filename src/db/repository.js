@@ -9,11 +9,12 @@ import { advanceNextDate } from '../utils/recurrence.js';
 import { format, subMonths, parseISO } from 'date-fns';
 
 // ---------------------------------------------------------------------------
-// Sync trigger hook
+// Sync trigger — dispatches a CustomEvent so any registered listener
+// (e.g. SyncManager) can react without a global function assignment.
 // ---------------------------------------------------------------------------
 const triggerSync = () => {
-  if (typeof window !== 'undefined' && window.scheduleAutoSave) {
-    window.scheduleAutoSave();
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('db:mutated'));
   }
 };
 

@@ -3,6 +3,7 @@ import { db } from '../db/schema.js';
 let fileHandle = null;
 let saveTimeout = null;
 let statusCallback = null;
+let _mutationListener = null;
 
 /**
  * SyncManager handles automatic persistence to a local file.
@@ -16,10 +17,15 @@ export const SyncManager = {
   initialize(handle, onStatusChange) {
     fileHandle = handle;
     statusCallback = onStatusChange;
-    
-    // Set up the global hook for the repository to call
+
+    // Listen for DB mutations via CustomEvent, replacing the old window.scheduleAutoSave hook.
+    // Remove any previous listener first to avoid duplicates on re-initialization.
     if (typeof window !== 'undefined') {
-      window.scheduleAutoSave = () => this.scheduleAutoSave();
+      if (_mutationListener) {
+        window.removeEventListener('db:mutated', _mutationListener);
+      }
+      _mutationListener = () => this.scheduleAutoSave();
+      window.addEventListener('db:mutated', _mutationListener);
     }
   },
 

@@ -12,6 +12,10 @@ import {
   HAPTICS_ENABLED_KEY
 } from '../utils/storage.js';
 
+// Holds the parsed backup content between promptImportConfirmation() and the
+// delegated click handler — avoids embedding large JSON in an inline onclick.
+let _pendingImportContent = null;
+
 export const backupUI = {
   elements: {
     exportBtn: document.getElementById('exportBtn'),
@@ -21,6 +25,16 @@ export const backupUI = {
 
   async init() {
     this.setupEventListeners();
+
+    // Delegated click handler for modal buttons that use data-backup-action
+    // attributes — avoids exposing backupUI on window.
+    document.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-backup-action]');
+      if (!btn) return;
+      const action = btn.dataset.backupAction;
+      if (action === 'execute-export') await this.executeExport();
+      if (action === 'execute-import') await this.executeImport(_pendingImportContent);
+    });
   },
 
   setupEventListeners() {
@@ -43,7 +57,7 @@ export const backupUI = {
 
     const footer = `
       <button class="ghost" onclick="window.templateUI.closeModal()">Cancel</button>
-      <button class="primary" onclick="window.backupUI.executeExport()">Download Backup</button>
+      <button class="primary" data-backup-action="execute-export">Download Backup</button>
     `;
 
     templateUI.showModal('Export Data', content, footer);
@@ -149,9 +163,11 @@ export const backupUI = {
       `;
     }
 
+    _pendingImportContent = content;
+
     const footer = `
       <button class="ghost" onclick="window.templateUI.closeModal()">Cancel</button>
-      <button class="danger" onclick="window.backupUI.executeImport(${JSON.stringify(content).replace(/"/g, '&quot;')})">Confirm Import</button>
+      <button class="danger" data-backup-action="execute-import">Confirm Import</button>
     `;
 
     templateUI.showModal('Import Data', message, footer);
@@ -223,5 +239,3 @@ export const backupUI = {
   }
 };
 
-// Make it globally accessible
-window.backupUI = backupUI;

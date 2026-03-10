@@ -11,12 +11,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ---------------------------------------------------------------------------
-// Mock the global scheduleAutoSave
+// Mock window.dispatchEvent to capture db:mutated CustomEvents
 // ---------------------------------------------------------------------------
-const scheduleAutoSaveMock = vi.fn();
-// Use globalThis for Vitest compatibility
+const dispatchEventMock = vi.fn();
+// Use globalThis for Vitest (Node) compatibility
 globalThis.window = globalThis.window || {};
-globalThis.window.scheduleAutoSave = scheduleAutoSaveMock;
+globalThis.window.dispatchEvent = dispatchEventMock;
+
+// CustomEvent polyfill for Node/Vitest environments
+if (typeof globalThis.CustomEvent === 'undefined') {
+  globalThis.CustomEvent = class CustomEvent {
+    constructor(type, init) {
+      this.type = type;
+      this.detail = init?.detail ?? null;
+    }
+  };
+}
 
 // Stub localStorage for tests (not available in Node/Vitest environment)
 if (typeof globalThis.localStorage === 'undefined') {
@@ -611,30 +621,33 @@ describe('getYearlyDailyIncome', () => {
 
 describe('triggerSync', () => {
   beforeEach(() => {
-    scheduleAutoSaveMock.mockClear();
+    dispatchEventMock.mockClear();
     clearTable(db.categories);
     clearTable(db.statements);
     clearTable(db.recurrentExpenses);
     clearTable(db.balanceSnapshots);
   });
 
-  it('is called when adding a category', async () => {
+  it('dispatches db:mutated when adding a category', async () => {
     await categoryRepository.add({ group: 'expenses', name: 'Test Sync' });
-    expect(scheduleAutoSaveMock).toHaveBeenCalled();
+    expect(dispatchEventMock).toHaveBeenCalled();
+    expect(dispatchEventMock.mock.calls[0][0].type).toBe('db:mutated');
   });
 
-  it('is called when adding a statement with expense', async () => {
+  it('dispatches db:mutated when adding a statement with expense', async () => {
     await statementRepository.addWithExpense({
       debtId: 1, date: '2026-01-01', amount: 100, minimumPayment: 10
     }, 'Test Debt');
-    expect(scheduleAutoSaveMock).toHaveBeenCalled();
+    expect(dispatchEventMock).toHaveBeenCalled();
+    expect(dispatchEventMock.mock.calls[0][0].type).toBe('db:mutated');
   });
 
-  it('is called when saving a balance snapshot', async () => {
+  it('dispatches db:mutated when saving a balance snapshot', async () => {
     await balanceSnapshotRepository.save({
       month: '2026-01', openingBalance: 0, closingBalance: 100, incomeTotal: 100, expenseTotal: 0
     });
-    expect(scheduleAutoSaveMock).toHaveBeenCalled();
+    expect(dispatchEventMock).toHaveBeenCalled();
+    expect(dispatchEventMock.mock.calls[0][0].type).toBe('db:mutated');
   });
 });
 
