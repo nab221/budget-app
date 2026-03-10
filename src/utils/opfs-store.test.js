@@ -1,6 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { OPFSStore } from './opfs-store.js';
 
+vi.mock('../db/schema.js', () => ({
+  db: {
+    tables: [
+      { name: 'income', toArray: async () => [{ id: 1 }] },
+    ],
+  },
+}));
+
 function makeOPFSMock(existingContent = null) {
   let stored = existingContent;
 
@@ -74,15 +82,6 @@ describe('OPFSStore', () => {
     const { root, writable } = makeOPFSMock();
     mockNavigatorStorage(root);
 
-    // Mock the db import
-    vi.mock('../db/schema.js', () => ({
-      db: {
-        tables: [
-          { name: 'income', toArray: async () => [{ id: 1 }] },
-        ],
-      },
-    }));
-
     await OPFSStore.saveToFile();
 
     expect(writable.write).toHaveBeenCalledOnce();
@@ -107,5 +106,32 @@ describe('OPFSStore', () => {
     await vi.runAllTimersAsync();
     expect(saveSpy).toHaveBeenCalledOnce();
     vi.useRealTimers();
+  });
+
+  it('scheduleAutoSave calls status callback with pending immediately', () => {
+    vi.useFakeTimers();
+    const cb = vi.fn();
+    OPFSStore.initialize(cb);
+    const saveSpy = vi.spyOn(OPFSStore, 'saveToFile').mockResolvedValue();
+    OPFSStore.scheduleAutoSave();
+    expect(cb).toHaveBeenCalledWith('pending', 'Saving...');
+    vi.useRealTimers();
+  });
+
+  it('initialize removes previous db:mutated listener to avoid duplicates', () => {
+    const addedListeners = [];
+    const removedListeners = [];
+
+    vi.stubGlobal('window', {
+      addEventListener: vi.fn((event, listener) => addedListeners.push({ event, listener })),
+      removeEventListener: vi.fn((event, listener) => removedListeners.push({ event, listener })),
+    });
+
+    OPFSStore.initialize(vi.fn());
+    OPFSStore.initialize(vi.fn()); // second call should remove first listener
+
+    // After second initialize, removeEventListener must have been called for db:mutated
+    const removedForMutation = removedListeners.some(({ event }) => event === 'db:mutated');
+    expect(removedForMutation).toBe(true);
   });
 });
