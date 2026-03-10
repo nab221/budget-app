@@ -57,6 +57,7 @@ export async function initFileSyncUI() {
   // ── Branch 2: Origin Private File System (mobile) ───────────────────────
   if (checkOPFSSupport()) {
     _opfsMode = true;
+    let loadSucceeded = true;
 
     try {
       const existing = await OPFSStore.readFile();
@@ -65,10 +66,13 @@ export async function initFileSyncUI() {
       }
     } catch (err) {
       console.error('[FileSyncUI] OPFS read failed:', err);
+      loadSucceeded = false;
     }
 
     OPFSStore.initialize(updateFileSyncToolbar);
-    await OPFSStore.saveToFile();
+    if (loadSucceeded) {
+      await OPFSStore.saveToFile();
+    }
     await updateFileSyncToolbar();
     return;
   }
