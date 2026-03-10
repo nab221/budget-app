@@ -249,10 +249,11 @@ async function loadFromData(data) {
     (await db.recurrentExpenses.count()) +
     (await db.oneOffExpenses.count());
 
+  let overwrite = false;
   if (localCount > 0) {
     const choice = confirm('File contains data. Overwrite local data? (Cancel to Merge)');
     if (choice) {
-      await Promise.all(Object.values(db.tables).map(table => table.clear()));
+      overwrite = true;
       triggerHaptic('delete');
     } else {
       triggerHaptic('tap');
@@ -261,6 +262,9 @@ async function loadFromData(data) {
 
   await db.transaction('rw', db.tables, async () => {
     for (const table of db.tables) {
+      if (overwrite) {
+        await table.clear();
+      }
       if (data[table.name]) {
         try {
           await table.bulkPut(data[table.name]);
