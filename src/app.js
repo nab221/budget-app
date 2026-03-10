@@ -15,6 +15,7 @@ import { templateUI } from './ui/templates.js';
 import { pdfImportUI } from './ui/pdf-import.js';
 import { targetsUI } from './ui/targets.js';
 import { backupUI } from './ui/backup.js';
+import { cloudSyncUI } from './ui/cloud-sync.js';
 import { initDashboard, renderDashboard } from './ui/dashboard.js';
 import { renderPayoffPlanner } from './ui/payoff.js';
 import { initPWA, installApp, checkExportReminder } from './ui/pwa-ux.js';
@@ -231,6 +232,7 @@ async function init() {
     categoryUI.init(),
     targetsUI.init(),
     backupUI.init(),
+    cloudSyncUI.init(),
     initDashboard()
   ]);
 
