@@ -48,7 +48,12 @@ describe('OPFSStore', () => {
     vi.restoreAllMocks();
   });
 
-  it('getFileName returns budget-data.json', () => {
+  it('getFileName returns null before initialize', () => {
+    expect(OPFSStore.getFileName()).toBeNull();
+  });
+
+  it('getFileName returns budget-data.json after initialize', () => {
+    OPFSStore.initialize(vi.fn());
     expect(OPFSStore.getFileName()).toBe('budget-data.json');
   });
 
@@ -99,6 +104,7 @@ describe('OPFSStore', () => {
 
   it('scheduleAutoSave debounces and calls saveToFile', async () => {
     vi.useFakeTimers();
+    OPFSStore.initialize(vi.fn());
     const saveSpy = vi.spyOn(OPFSStore, 'saveToFile').mockResolvedValue();
     OPFSStore.scheduleAutoSave();
     OPFSStore.scheduleAutoSave();
@@ -115,6 +121,23 @@ describe('OPFSStore', () => {
     const saveSpy = vi.spyOn(OPFSStore, 'saveToFile').mockResolvedValue();
     OPFSStore.scheduleAutoSave();
     expect(cb).toHaveBeenCalledWith('pending', 'Saving...');
+    vi.useRealTimers();
+  });
+
+  it('disconnect cancels a pending auto-save', async () => {
+    vi.useFakeTimers();
+    OPFSStore.initialize(vi.fn());
+    const saveSpy = vi.spyOn(OPFSStore, 'saveToFile').mockResolvedValue();
+    OPFSStore.scheduleAutoSave();
+
+    // Mock navigator so disconnect doesn't fail
+    const { root } = makeOPFSMock();
+    mockNavigatorStorage(root);
+
+    await OPFSStore.disconnect();
+    await vi.runAllTimersAsync();
+
+    expect(saveSpy).not.toHaveBeenCalled();
     vi.useRealTimers();
   });
 

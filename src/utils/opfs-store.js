@@ -3,21 +3,24 @@ import { db } from '../db/schema.js';
 let _statusCallback = null;
 let _saveTimeout = null;
 let _mutationListener = null;
+let _initialized = false;
 
 export const OPFSStore = {
   _fileName: 'budget-data.json',
 
   _reset() {
     _statusCallback = null;
+    clearTimeout(_saveTimeout);
     _saveTimeout = null;
     if (_mutationListener && typeof window !== 'undefined') {
       window.removeEventListener('db:mutated', _mutationListener);
     }
     _mutationListener = null;
+    _initialized = false;
   },
 
   getFileName() {
-    return this._fileName;
+    return _initialized ? this._fileName : null;
   },
 
   async _getRoot() {
@@ -41,6 +44,7 @@ export const OPFSStore = {
 
   initialize(onStatusChange) {
     _statusCallback = onStatusChange;
+    _initialized = true;
 
     if (typeof window !== 'undefined') {
       if (_mutationListener) {
@@ -52,12 +56,14 @@ export const OPFSStore = {
   },
 
   scheduleAutoSave() {
+    if (!_initialized) return;
     if (_statusCallback) _statusCallback('pending', 'Saving...');
     clearTimeout(_saveTimeout);
     _saveTimeout = setTimeout(() => this.saveToFile(), 500);
   },
 
   async saveToFile() {
+    let writable = null;
     try {
       const tableData = Object.fromEntries(
         await Promise.all(db.tables.map(async t => [t.name, await t.toArray()]))
@@ -73,7 +79,7 @@ export const OPFSStore = {
 
       const root = await this._getRoot();
       const handle = await root.getFileHandle(this._fileName, { create: true });
-      const writable = await handle.createWritable();
+      writable = await handle.createWritable();
       await writable.write(JSON.stringify(payload, null, 2));
       await writable.close();
 
@@ -82,12 +88,16 @@ export const OPFSStore = {
         if (_statusCallback) _statusCallback('idle', '');
       }, 2000);
     } catch (err) {
+      if (writable) await writable.abort().catch(() => {});
       console.error('[OPFSStore] saveToFile failed:', err);
       if (_statusCallback) _statusCallback('error', '⚠ Save Failed');
     }
   },
 
   async disconnect() {
+    clearTimeout(_saveTimeout);
+    _saveTimeout = null;
+    _initialized = false;
     if (_mutationListener && typeof window !== 'undefined') {
       window.removeEventListener('db:mutated', _mutationListener);
       _mutationListener = null;
