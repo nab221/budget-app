@@ -5,6 +5,12 @@ import { LAST_EXPORT_KEY } from './pwa-ux.js';
 import { importBackupData } from '../db/backup.js';
 import { SyncManager } from '../utils/sync-manager.js';
 import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
+import {
+  BALANCE_START_DATE_KEY,
+  BALANCE_OPENING_AMOUNT_KEY,
+  PRIVACY_MODE_KEY,
+  HAPTICS_ENABLED_KEY
+} from '../utils/storage.js';
 
 export const backupUI = {
   elements: {
@@ -46,12 +52,26 @@ export const backupUI = {
   async executeExport() {
     const password = document.getElementById('exportPass').value;
     const data = {};
-    
+
     // Collect all data from all tables
     const tableNames = db.tables.map(t => t.name);
     for (const name of tableNames) {
       data[name] = await db.table(name).toArray();
     }
+
+    // Collect localStorage settings so they survive a backup/restore cycle
+    const settingKeys = [
+      BALANCE_START_DATE_KEY,
+      BALANCE_OPENING_AMOUNT_KEY,
+      PRIVACY_MODE_KEY,
+      HAPTICS_ENABLED_KEY,
+      LAST_EXPORT_KEY
+    ];
+    const settings = Object.fromEntries(
+      settingKeys
+        .filter(k => localStorage.getItem(k) !== null)
+        .map(k => [k, localStorage.getItem(k)])
+    );
 
     let exportContent;
     let fileName = `budget-backup-${new Date().toISOString().split('T')[0]}`;
@@ -60,6 +80,7 @@ export const backupUI = {
       exportContent = JSON.stringify({
         version: 1,
         encrypted: true,
+        settings,
         data: await encryptData(data, password)
       });
       fileName += '.enc.json';
@@ -67,6 +88,7 @@ export const backupUI = {
       exportContent = JSON.stringify({
         version: 1,
         encrypted: false,
+        settings,
         data: data
       }, null, 2);
       fileName += '.json';
@@ -162,6 +184,14 @@ export const backupUI = {
 
     try {
       await importBackupData(data);
+
+      // Restore localStorage settings if present in the backup envelope
+      if (content.settings && typeof content.settings === 'object') {
+        for (const [key, value] of Object.entries(content.settings)) {
+          localStorage.setItem(key, value);
+        }
+      }
+
       alertWithHaptic('Import successful! The app will now reload.', 'success');
       window.location.reload();
     } catch (err) {
