@@ -16,6 +16,15 @@ export const pdfImportUI = {
 
   async init() {
     this.state.categories = await categoryRepository.getCategories();
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('categories:updated', (event) => {
+        const updated = event?.detail?.categories;
+        if (Array.isArray(updated)) {
+          this.state.categories = updated;
+        }
+      });
+    }
   },
 
   /**
@@ -24,6 +33,7 @@ export const pdfImportUI = {
    */
   async handleFileUpload(file) {
     this.state.mode = 'transactions';
+    this.state.categories = await categoryRepository.getCategories();
     return this._processFile(file);
   },
 
@@ -33,6 +43,7 @@ export const pdfImportUI = {
    */
   async handleStatementUpload(file) {
     this.state.mode = 'statement';
+    this.state.categories = await categoryRepository.getCategories();
     return this._processFile(file);
   },
 
