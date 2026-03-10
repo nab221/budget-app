@@ -32,7 +32,7 @@ export function safeHTML(strings, ...values) {
       'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'br', 'hr', 'ul', 'ol', 'li',
       'b', 'strong', 'i', 'em', 'u', 'span', 'div', 'table', 'thead', 'tbody',
       'tr', 'th', 'td', 'button', 'input', 'select', 'option', 'label', 'textarea',
-      'section', 'header', 'footer', 'main', 'span', 'i'
+      'section', 'header', 'footer', 'main', 'span', 'i', 'canvas'
     ],
     ALLOWED_ATTR: [
       'class', 'id', 'data-*', 'type', 'value', 'placeholder', 'step', 'min', 'max',
