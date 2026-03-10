@@ -235,13 +235,21 @@ async function loadFromFile(handle) {
         }
       }
 
-      // Re-use legacy strip pattern
-      const strip = arr => (arr || []).map(({ id, ...rest }) => rest);
-
-      // Batch operations — restore any table present in the JSON payload
+      // Restore all tables present in the payload, preserving original IDs to
+      // maintain FK relationships (e.g. statements.debtId, childcareLedger.accountId).
       await db.transaction('rw', db.tables, async () => {
         for (const table of db.tables) {
-          if (data[table.name]) await table.bulkAdd(strip(data[table.name]));
+          if (data[table.name]) {
+            try {
+              await table.bulkPut(data[table.name]);
+            } catch (e) {
+              if (e.failures) {
+                console.error(`[loadFromFile] ${table.name}: ${e.failures.length} record(s) failed to import`, e.failures);
+              } else {
+                throw e;
+              }
+            }
+          }
         }
       });
     }

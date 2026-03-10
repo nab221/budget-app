@@ -33,7 +33,17 @@ export async function importBackupData(data) {
     for (const table of db.tables) {
       if (data[table.name]) {
         await table.clear();
-        await table.bulkAdd(data[table.name]);
+        // Use bulkPut to preserve original IDs and maintain FK integrity.
+        // BulkErrors are reported rather than silently ignored.
+        try {
+          await table.bulkPut(data[table.name]);
+        } catch (e) {
+          if (e.failures) {
+            console.error(`[importBackupData] ${table.name}: ${e.failures.length} record(s) failed to import`, e.failures);
+          } else {
+            throw e;
+          }
+        }
       }
     }
 
