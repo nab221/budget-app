@@ -2,57 +2,83 @@ import { checkFileSupport, HandleStore, ensurePersistence } from '../utils/stora
 import { SyncManager } from '../utils/sync-manager.js';
 import { db } from '../db/schema.js';
 import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
+import { OPFSStore } from '../utils/opfs-store.js';
+
+/** True when the session is using OPFS instead of File System Access API. */
+let _opfsMode = false;
+
+function checkOPFSSupport() {
+  return (
+    typeof navigator !== 'undefined' &&
+    'storage' in navigator &&
+    'getDirectory' in navigator.storage
+  );
+}
 
 /**
  * Initialize the File Sync UI and logic.
  */
 export async function initFileSyncUI() {
-  const isSupported = checkFileSupport();
   const toolbar = document.querySelector('.toolbar');
-  
-  if (!isSupported) {
-    // Show a hint for unsupported browsers
-    const hint = document.createElement('div');
-    hint.className = 'hint';
-    hint.style.marginRight = '10px';
-    hint.innerHTML = '💡 On desktop Chrome/Edge: auto-save available';
-    toolbar.prepend(hint);
+
+  // ── Branch 1: File System Access API (desktop Chrome/Edge) ──────────────
+  if (checkFileSupport()) {
+    setupModalHandlers();
+
+    const enablePersistenceBtn = document.getElementById('enablePersistenceBtn');
+    if (enablePersistenceBtn) {
+      enablePersistenceBtn.onclick = async () => {
+        const isPersisted = await ensurePersistence();
+        if (isPersisted) {
+          triggerHaptic('success');
+          await refreshPersistenceWarning();
+          await updateFileSyncToolbar();
+        } else {
+          alertWithHaptic('Browser refused to enable persistence. Try adding the app to your Home Screen or Bookmarks first.');
+        }
+      };
+    }
+
+    try {
+      const savedHandle = await HandleStore.get();
+      if (savedHandle) {
+        SyncManager.initialize(savedHandle, updateFileSyncToolbar);
+        await updateFileSyncToolbar();
+      } else {
+        await updateFileSyncToolbar();
+      }
+    } catch (err) {
+      console.error('[FileSyncUI] Init failed:', err);
+      await updateFileSyncToolbar();
+    }
     return;
   }
 
-  // 1. Setup Modal Event Listeners
-  setupModalHandlers();
+  // ── Branch 2: Origin Private File System (mobile) ───────────────────────
+  if (checkOPFSSupport()) {
+    _opfsMode = true;
 
-  // 3. Setup Persistence Toggle
-  const enablePersistenceBtn = document.getElementById('enablePersistenceBtn');
-  if (enablePersistenceBtn) {
-    enablePersistenceBtn.onclick = async () => {
-      const isPersisted = await ensurePersistence();
-      if (isPersisted) {
-        triggerHaptic('success');
-        await refreshPersistenceWarning();
-        await updateFileSyncToolbar();
-      } else {
-        alertWithHaptic('Browser refused to enable persistence. Try adding the app to your Home Screen or Bookmarks first.');
+    try {
+      const existing = await OPFSStore.readFile();
+      if (existing) {
+        await loadFromData(existing);
       }
-    };
+    } catch (err) {
+      console.error('[FileSyncUI] OPFS read failed:', err);
+    }
+
+    OPFSStore.initialize(updateFileSyncToolbar);
+    await OPFSStore.saveToFile();
+    await updateFileSyncToolbar();
+    return;
   }
 
-  // 2. Check for saved handle
-  try {
-    const savedHandle = await HandleStore.get();
-    if (savedHandle) {
-      // Initialize manager but status will stay 'error' or 'idle' until next mutation or manual trigger
-      SyncManager.initialize(savedHandle, updateFileSyncToolbar);
-      await updateFileSyncToolbar();
-    } else {
-      // First launch or reset: show button to open modal
-      await updateFileSyncToolbar();
-    }
-  } catch (err) {
-    console.error('[FileSyncUI] Init failed:', err);
-    await updateFileSyncToolbar();
-  }
+  // ── Branch 3: Neither API available ─────────────────────────────────────
+  const hint = document.createElement('div');
+  hint.className = 'hint';
+  hint.style.marginRight = '10px';
+  hint.innerHTML = '💡 On desktop Chrome/Edge: auto-save available';
+  toolbar.prepend(hint);
 }
 
 /**
@@ -64,7 +90,7 @@ export async function refreshPersistenceWarning() {
   
   // Just check, don't request, to avoid console spam or unwanted popups
   const isPersisted = await navigator.storage.persisted();
-  const fileName = SyncManager.getFileName();
+  const fileName = _opfsMode ? OPFSStore.getFileName() : SyncManager.getFileName();
   const warning = document.getElementById('persistence-warning');
   if (warning) {
     if (!isPersisted && !fileName) {
@@ -81,7 +107,7 @@ export async function refreshPersistenceWarning() {
  */
 async function updateFileSyncToolbar(status = 'idle', statusText = '') {
   const toolbar = document.querySelector('.toolbar');
-  const fileName = SyncManager.getFileName();
+  const fileName = _opfsMode ? OPFSStore.getFileName() : SyncManager.getFileName();
   const headerHint = document.querySelector('header .hint');
 
   // Refresh persistence warning visibility whenever sync status changes
@@ -125,7 +151,7 @@ async function updateFileSyncToolbar(status = 'idle', statusText = '') {
     toolbar.prepend(indicator);
 
     // If permission is missing, provide a Reconnect button
-    if (status === 'error' && statusText === '⚠ Reconnect Needed') {
+    if (!_opfsMode && status === 'error' && statusText === '⚠ Reconnect Needed') {
       const reconnectBtn = document.createElement('button');
       reconnectBtn.id = 'reconnectFileBtn';
       reconnectBtn.className = 'primary sm';
@@ -215,52 +241,53 @@ function setupModalHandlers() {
   };
 }
 
+async function loadFromData(data) {
+  if (!data) return;
+
+  const localCount =
+    (await db.income.count()) +
+    (await db.recurrentExpenses.count()) +
+    (await db.oneOffExpenses.count());
+
+  if (localCount > 0) {
+    const choice = confirm('File contains data. Overwrite local data? (Cancel to Merge)');
+    if (choice) {
+      await Promise.all(Object.values(db.tables).map(table => table.clear()));
+      triggerHaptic('delete');
+    } else {
+      triggerHaptic('tap');
+    }
+  }
+
+  await db.transaction('rw', db.tables, async () => {
+    for (const table of db.tables) {
+      if (data[table.name]) {
+        try {
+          await table.bulkPut(data[table.name]);
+        } catch (e) {
+          if (e.failures) {
+            console.error(`[loadFromData] ${table.name}: ${e.failures.length} record(s) failed`, e.failures);
+          } else {
+            throw e;
+          }
+        }
+      }
+    }
+  });
+
+  window.dispatchEvent(new CustomEvent('app:refresh'));
+}
+
 async function loadFromFile(handle) {
   try {
     const file = await handle.getFile();
     const content = await file.text();
-    
     if (content.trim()) {
-      const data = JSON.parse(content);
-      const localCount = await db.income.count() + await db.recurrentExpenses.count() + await db.oneOffExpenses.count();
-
-      if (localCount > 0) {
-        const choice = confirm('File contains data. Overwrite local data? (Cancel to Merge)');
-        if (choice) {
-          // Clear all before merging
-          await Promise.all(Object.values(db.tables).map(table => table.clear()));
-          triggerHaptic('delete');
-        } else {
-          triggerHaptic('tap');
-        }
-      }
-
-      // Restore all tables present in the payload, preserving original IDs to
-      // maintain FK relationships (e.g. statements.debtId, childcareLedger.accountId).
-      await db.transaction('rw', db.tables, async () => {
-        for (const table of db.tables) {
-          if (data[table.name]) {
-            try {
-              await table.bulkPut(data[table.name]);
-            } catch (e) {
-              if (e.failures) {
-                console.error(`[loadFromFile] ${table.name}: ${e.failures.length} record(s) failed to import`, e.failures);
-              } else {
-                throw e;
-              }
-            }
-          }
-        }
-      });
+      await loadFromData(JSON.parse(content));
     }
-
     SyncManager.initialize(handle, updateFileSyncToolbar);
     await HandleStore.set(handle);
-    
-    // Refresh the whole app
-    window.dispatchEvent(new CustomEvent('app:refresh'));
     await updateFileSyncToolbar();
-    
   } catch (err) {
     console.error('[FileSyncUI] Load failed:', err);
     alertWithHaptic('Failed to load file: ' + err.message);
@@ -270,9 +297,12 @@ async function loadFromFile(handle) {
 async function handleDisconnectFile() {
   if (!confirm('Stop auto-saving to this file? Your data stays in the browser.')) return;
   triggerHaptic('delete');
-  await HandleStore.clear();
-  // We can't easily "un-initialize" SyncManager but we can stop its effect
-  location.reload(); 
+  if (_opfsMode) {
+    await OPFSStore.disconnect();
+  } else {
+    await HandleStore.clear();
+  }
+  location.reload();
 }
 
 function showFileSyncModal() {
