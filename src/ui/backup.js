@@ -274,21 +274,11 @@ export const backupUI = {
 
     try {
       // Call importBackupData with selected mode
-      // In overwrite mode, restore settings; in merge, preserve local settings
+      // Settings are restored by importBackupData based on restoreSettings option
       await importBackupData(data, {
         mode: _pendingImportMode,
         restoreSettings: _pendingImportMode === 'overwrite'
       });
-
-      // For merge mode, keep local settings (don't restore from backup)
-      // For overwrite mode, settings were restored by importBackupData via options
-      // However, we still check content.settings here for backward compatibility
-      if (_pendingImportMode === 'overwrite' && content.settings && typeof content.settings === 'object') {
-        // Already handled in DB layer if restoreSettings was true, but as fallback:
-        for (const [key, value] of Object.entries(content.settings)) {
-          localStorage.setItem(key, value);
-        }
-      }
 
       alertWithHaptic('Import successful! The app will now reload.', 'success');
       window.location.reload();

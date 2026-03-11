@@ -175,4 +175,11 @@ export async function importBackupData(data, options = {}) {
       await db.categories.add({ name: 'Salary', group: 'income' });
     }
   });
+
+  // Restore localStorage settings if requested and available in backup
+  if (restoreSettings && data.settings && typeof data.settings === 'object') {
+    for (const [key, value] of Object.entries(data.settings)) {
+      localStorage.setItem(key, value);
+    }
+  }
 }
