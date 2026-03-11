@@ -15,9 +15,76 @@ import {
   PAYOFF_STRATEGY_KEY
 } from '../utils/storage.js';
 
-// Holds the parsed backup content between promptImportConfirmation() and the
+// Holds the parsed backup content between promptImportMode() and the
 // delegated click handler — avoids embedding large JSON in an inline onclick.
 let _pendingImportContent = null;
+let _pendingImportMode = 'merge'; // Default to merge mode
+
+/**
+ * Presents a unified modal to choose between Overwrite and Merge import modes.
+ * If local data exists and file contains data, shows both options.
+ * If local is empty, defaults to merge (effectively overwrite since there's nothing to lose).
+ */
+async function promptImportMode(content) {
+  const localCount =
+    (await db.income.count()) +
+    (await db.recurrentExpenses.count()) +
+    (await db.oneOffExpenses.count());
+
+  // If local is empty, default to merge (safe since there's nothing to lose)
+  if (localCount === 0) {
+    _pendingImportMode = 'merge';
+    backupUI.promptImportConfirmation(content);
+    return;
+  }
+
+  // Local data exists: allow user to choose
+  const htmlContent = `
+    <p style="margin-bottom:20px">
+      You have existing budget data. How would you like to import?
+    </p>
+    <div style="display:flex;flex-direction:column;gap:15px;margin-bottom:20px">
+      <div style="padding:10px;border:1px solid var(--border-color);border-radius:4px;cursor:pointer" data-mode="overwrite">
+        <strong style="color:var(--danger)">📭 Overwrite (Replace All)</strong>
+        <p style="margin:5px 0 0;color:var(--text-soft);font-size:0.85rem">Delete all local data and use the imported file as-is. Useful for restoring a complete backup.</p>
+      </div>
+      <div style="padding:10px;border:1px solid var(--border-color);border-radius:4px;cursor:pointer" data-mode="merge">
+        <strong style="color:var(--success)">➕ Merge (Keep Local, Add New)</strong>
+        <p style="margin:5px 0 0;color:var(--text-soft);font-size:0.85rem">Keep your local data and add imported records. Duplicate categories are detected and reused — incoming transactions use local IDs.</p>
+      </div>
+    </div>
+  `;
+  
+  if (content.encrypted) {
+    htmlContent += `
+      <div class="form-row">
+        <div>
+          <label>Decryption Password</label>
+          <input type="password" id="importPass" placeholder="Enter password used for export"/>
+        </div>
+      </div>
+    `;
+  }
+
+  _pendingImportContent = content;
+
+  const footer = `
+    <button class="ghost" onclick="window.templateUI.closeModal()">Cancel</button>
+  `;
+
+  templateUI.showModal('Choose Import Mode', htmlContent, footer);
+
+  // Add click handlers for mode selection
+  setTimeout(() => {
+    document.querySelectorAll('[data-mode]').forEach(btn => {
+      btn.onclick = () => {
+        _pendingImportMode = btn.dataset.mode;
+        triggerHaptic('tap');
+        backupUI.promptImportConfirmation(content);
+      };
+    });
+  }, 0);
+}
 
 export const backupUI = {
   elements: {
@@ -100,6 +167,7 @@ export const backupUI = {
       exportContent = JSON.stringify({
         version: 1,
         encrypted: true,
+        schema_version: db.verno,
         settings,
         data: await encryptData(data, password)
       });
@@ -108,6 +176,7 @@ export const backupUI = {
       exportContent = JSON.stringify({
         version: 1,
         encrypted: false,
+        schema_version: db.verno,
         settings,
         data: data
       }, null, 2);
@@ -144,7 +213,8 @@ export const backupUI = {
       }
 
       try {
-        this.promptImportConfirmation(content);
+        // Show unified mode selection prompt
+        await promptImportMode(content);
       } catch (err) {
         console.error('Import prompt error:', err);
         alertWithHaptic('An error occurred while preparing the import prompt.');
@@ -156,10 +226,10 @@ export const backupUI = {
   },
 
   promptImportConfirmation(content) {
-    let message = '<p style="margin-bottom:15px">Are you sure you want to import this backup? <strong>This will replace ALL current data.</strong></p>';
+    let modalContent = `<p style="margin-bottom:15px">Ready to import via <strong>${_pendingImportMode === 'overwrite' ? 'Overwrite' : 'Merge'}</strong> mode.</p>`;
     
     if (content.encrypted) {
-      message += `
+      modalContent += `
         <div class="form-row">
           <div>
             <label>Decryption Password</label>
@@ -169,14 +239,12 @@ export const backupUI = {
       `;
     }
 
-    _pendingImportContent = content;
-
     const footer = `
       <button class="ghost" onclick="window.templateUI.closeModal()">Cancel</button>
-      <button class="danger" data-backup-action="execute-import">Confirm Import</button>
+      <button class="primary" data-backup-action="execute-import">Confirm Import</button>
     `;
 
-    templateUI.showModal('Import Data', message, footer);
+    templateUI.showModal('Confirm Import', modalContent, footer);
   },
 
   async executeImport(content) {
@@ -205,20 +273,18 @@ export const backupUI = {
     }
 
     try {
-      await importBackupData(data);
-
-      // Restore localStorage settings if present in the backup envelope
-      if (content.settings && typeof content.settings === 'object') {
-        for (const [key, value] of Object.entries(content.settings)) {
-          localStorage.setItem(key, value);
-        }
-      }
+      // Call importBackupData with selected mode
+      // Settings are restored by importBackupData based on restoreSettings option
+      await importBackupData(data, {
+        mode: _pendingImportMode,
+        restoreSettings: _pendingImportMode === 'overwrite'
+      });
 
       alertWithHaptic('Import successful! The app will now reload.', 'success');
       window.location.reload();
     } catch (err) {
       console.error('Import error:', err);
-      alertWithHaptic('Failed to import data. The backup might be corrupted or incompatible.');
+      alertWithHaptic(`Failed to import data: ${err.message}`);
     }
   },
 

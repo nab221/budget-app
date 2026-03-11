@@ -1,6 +1,7 @@
 import { checkFileSupport, HandleStore, ensurePersistence } from '../utils/storage.js';
 import { SyncManager } from '../utils/sync-manager.js';
 import { db } from '../db/schema.js';
+import { importBackupData } from '../db/backup.js';
 import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
 import { OPFSStore } from '../utils/opfs-store.js';
 
@@ -248,42 +249,19 @@ function setupModalHandlers() {
 async function loadFromData(data) {
   if (!data) return;
 
-  const localCount =
-    (await db.income.count()) +
-    (await db.recurrentExpenses.count()) +
-    (await db.oneOffExpenses.count());
-
-  let overwrite = false;
-  if (localCount > 0) {
-    const choice = confirm('File contains data. Overwrite local data? (Cancel to Merge)');
-    if (choice) {
-      overwrite = true;
-      triggerHaptic('delete');
-    } else {
-      triggerHaptic('tap');
-    }
+  try {
+    // File-sync always uses merge mode (preserve local, add file data)
+    // and never restores settings (keep browser settings as-is)
+    await importBackupData(data, {
+      mode: 'merge',
+      restoreSettings: false
+    });
+    
+    window.dispatchEvent(new CustomEvent('app:refresh'));
+  } catch (err) {
+    console.error('[loadFromData] Import failed:', err);
+    alertWithHaptic(`Failed to merge file data: ${err.message}`);
   }
-
-  await db.transaction('rw', db.tables, async () => {
-    for (const table of db.tables) {
-      if (overwrite) {
-        await table.clear();
-      }
-      if (data[table.name]) {
-        try {
-          await table.bulkPut(data[table.name]);
-        } catch (e) {
-          if (e.failures) {
-            console.error(`[loadFromData] ${table.name}: ${e.failures.length} record(s) failed`, e.failures);
-          } else {
-            throw e;
-          }
-        }
-      }
-    }
-  });
-
-  window.dispatchEvent(new CustomEvent('app:refresh'));
 }
 
 async function loadFromFile(handle) {
