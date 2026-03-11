@@ -20,6 +20,17 @@ export const PRIVACY_MODE_KEY = 'budget_privacy_mode';
 export const HAPTICS_ENABLED_KEY = 'budget_haptics_enabled';
 
 /**
+ * localStorage key for App Theme (light/dark).
+ */
+export const THEME_KEY = 'budget_app_theme';
+
+/**
+ * localStorage keys for Debt Payoff Planner preferences.
+ */
+export const PAYOFF_EXTRA_KEY = 'payoffExtra';
+export const PAYOFF_STRATEGY_KEY = 'budget_payoff_preference';
+
+/**
  * Checks if the File System Access API is supported by the current browser.
  * @returns {boolean}
  */

@@ -2,6 +2,7 @@ import { debtRepository } from '../db/repository.js';
 import { simulatePayoff, simulateLoanPayoff, modelBalanceTransfer } from '../utils/finance.js';
 import { formatGBP, toPence } from '../utils/currency.js';
 import { renderDebtPayoffChart } from './charts.js';
+import { PAYOFF_EXTRA_KEY, PAYOFF_STRATEGY_KEY } from '../utils/storage.js';
 
 /**
  * Renders the dual-section Debt Payoff Planner view.
@@ -13,7 +14,7 @@ export async function renderPayoffPlanner() {
   if (!extraPaymentInput) return;
 
   // Load persistent extra payment
-  const savedExtra = localStorage.getItem('payoffExtra');
+  const savedExtra = localStorage.getItem(PAYOFF_EXTRA_KEY);
   if (savedExtra !== null) extraPaymentInput.value = savedExtra;
 
   if (!allDebts || allDebts.length === 0) {
@@ -28,7 +29,7 @@ export async function renderPayoffPlanner() {
 
   const updateAll = () => {
     const totalExtraPence = toPence(parseFloat(extraPaymentInput.value) || 0);
-    localStorage.setItem('payoffExtra', extraPaymentInput.value);
+    localStorage.setItem(PAYOFF_EXTRA_KEY, extraPaymentInput.value);
 
     // 1. Credit Card Payoff
     let ccResult = null;

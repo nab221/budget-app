@@ -11,6 +11,7 @@
  */
 
 import { registerSW } from 'virtual:pwa-register';
+import { isConfigured } from '../utils/supabase-sync.js';
 
 /** LocalStorage key that backup.js writes after a successful export. */
 export const LAST_EXPORT_KEY = 'last_export_timestamp';
@@ -174,7 +175,11 @@ function _hideInstallButton() {
 function _showExportReminder(daysSince) {
   const el = document.getElementById('export-reminder');
   if (el) {
-    el.textContent = `Your last data export was ${daysSince} days ago. Export now to keep your data safe.`;
+    let msg = `Your last data export was ${daysSince} days ago. Export now to keep your data safe.`;
+    if (isConfigured()) {
+      msg += ' Your transactions are backed up, but app settings (theme, privacy mode) are stored locally only and not included in cloud sync.';
+    }
+    el.textContent = msg;
     el.classList.remove('hidden');
   }
 }

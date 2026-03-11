@@ -9,7 +9,10 @@ import {
   BALANCE_START_DATE_KEY,
   BALANCE_OPENING_AMOUNT_KEY,
   PRIVACY_MODE_KEY,
-  HAPTICS_ENABLED_KEY
+  HAPTICS_ENABLED_KEY,
+  THEME_KEY,
+  PAYOFF_EXTRA_KEY,
+  PAYOFF_STRATEGY_KEY
 } from '../utils/storage.js';
 
 // Holds the parsed backup content between promptImportConfirmation() and the
@@ -79,6 +82,9 @@ export const backupUI = {
       BALANCE_OPENING_AMOUNT_KEY,
       PRIVACY_MODE_KEY,
       HAPTICS_ENABLED_KEY,
+      THEME_KEY,
+      PAYOFF_EXTRA_KEY,
+      PAYOFF_STRATEGY_KEY,
       LAST_EXPORT_KEY
     ];
     const settings = Object.fromEntries(

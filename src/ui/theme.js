@@ -1,4 +1,4 @@
-const THEME_KEY = 'budget_app_theme';
+import { THEME_KEY } from '../utils/storage.js';
 
 /**
  * Initializes the theme based on saved preference or system settings.
