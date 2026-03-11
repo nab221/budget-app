@@ -16,6 +16,22 @@ const DEBOUNCE_MS = 300;
 const HAPTICS_STORAGE_KEY = 'budget_haptics_enabled';
 
 /**
+ * Resets internal debounce timers. Used for testing.
+ */
+export function resetHapticTimers() {
+  lastPulseTime.clear();
+}
+
+/**
+ * Initialize Haptics from localStorage.
+ */
+export function initHaptics() {
+  const isEnabled = localStorage.getItem(HAPTICS_STORAGE_KEY) !== 'false';
+  const checkbox = document.getElementById('hapticsEnabledCheckbox');
+  if (checkbox) checkbox.checked = isEnabled;
+}
+
+/**
  * Triggers a haptic vibration if enabled and not debounced.
  * @param {string} type - Key from HAPTIC_PATTERNS ('tap', 'success', 'delete', 'error')
  */

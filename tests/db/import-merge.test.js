@@ -76,9 +76,15 @@ describe('importBackupData - Specification Tests', () => {
 
   describe('Category Deduplication (Key Feature)', () => {
     it('specifies: build categoryIdMap (incoming ID -> local ID by name)', () => {
-      // if (mode === 'merge' && data.categories)
-      //   Build map matching categories by name
-      //   localCategoryMap = new Map(categories.map(c => [c.name, c.id]))
+      // 1. Exact name match
+      // 2. Case-insensitive name match (e.g., "Food" === "food")
+      // 3. Fuzzy name match with threshold >= 0.9 (e.g., "Grocery" === "Groceries")
+      expect(true).toBe(true);
+    });
+
+    it('specifies: use findBestMatch for fuzzy category deduplication', () => {
+      // If no exact match, use string-similarity to find best local candidate.
+      // If rating >= 0.9, map incoming category to existing local category.
       expect(true).toBe(true);
     });
 

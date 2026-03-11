@@ -1,4 +1,5 @@
 import { initTheme, toggleTheme } from './ui/theme.js';
+import { initPrivacyMode, togglePrivacyMode } from './ui/privacy.js';
 import { modalUI } from './ui/render.js';
 import { categoryUI } from './ui/categories.js';
 import { 
@@ -29,7 +30,7 @@ import {
   HAPTICS_ENABLED_KEY
 } from './utils/storage.js';
 import { RecurrenceManager } from './utils/recurrence.js';
-import { triggerHaptic } from './utils/haptics.js';
+import { triggerHaptic, initHaptics } from './utils/haptics.js';
 
 export { BALANCE_START_DATE_KEY };
 
@@ -237,39 +238,6 @@ async function init() {
   ]);
 
   console.log('Budget App initialized successfully.');
-}
-
-/**
- * Initialize Privacy Mode from localStorage.
- */
-function initPrivacyMode() {
-  const isEnabled = localStorage.getItem(PRIVACY_MODE_KEY) === 'true';
-  document.body.classList.toggle('privacy-enabled', isEnabled);
-  const btn = document.getElementById('privacyToggle');
-  if (btn) btn.classList.toggle('active', isEnabled);
-}
-
-/**
- * Toggle Privacy Mode and persist.
- */
-function togglePrivacyMode() {
-  const isEnabled = !document.body.classList.contains('privacy-enabled');
-  document.body.classList.toggle('privacy-enabled', isEnabled);
-  localStorage.setItem(PRIVACY_MODE_KEY, isEnabled.toString());
-  const btn = document.getElementById('privacyToggle');
-  if (btn) btn.classList.toggle('active', isEnabled);
-  
-  // Add haptic feedback for security state change
-  triggerHaptic('tap');
-}
-
-/**
- * Initialize Haptics from localStorage.
- */
-function initHaptics() {
-  const isEnabled = localStorage.getItem(HAPTICS_ENABLED_KEY) !== 'false';
-  const checkbox = document.getElementById('hapticsEnabledCheckbox');
-  if (checkbox) checkbox.checked = isEnabled;
 }
 
 // Start the application
