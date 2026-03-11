@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
+  base: '/budget-app/',
   plugins: [
     VitePWA({
       registerType: 'prompt',
@@ -9,34 +10,23 @@ export default defineConfig({
         name: 'Budget Console',
         short_name: 'Budget',
         description: 'Local-first personal budget tracker with offline support.',
-        start_url: '/',
+        start_url: '/budget-app/',
+        scope: '/budget-app/',
         display: 'standalone',
         background_color: '#0b1120',
         theme_color: '#0b1120',
         icons: [
           {
-            src: '/icons/icon-192.png',
+            src: '/budget-app/icons/icon-192.png',
             sizes: '192x192',
             type: 'image/png',
-            purpose: 'any',
+            purpose: 'any maskable',
           },
           {
-            src: '/icons/icon-192.png',
-            sizes: '192x192',
-            type: 'image/png',
-            purpose: 'maskable',
-          },
-          {
-            src: '/icons/icon-512.png',
+            src: '/budget-app/icons/icon-512.png',
             sizes: '512x512',
             type: 'image/png',
-            purpose: 'any',
-          },
-          {
-            src: '/icons/icon-512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'maskable',
+            purpose: 'any maskable',
           },
         ],
       },
