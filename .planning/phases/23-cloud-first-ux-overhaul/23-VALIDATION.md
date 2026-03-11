@@ -38,9 +38,11 @@ created: 2026-03-11
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 23-01-01 | 01 | 1 | SYNC-UX-01 | Manual | `n/a` | ✅ | ⬜ pending |
-| 23-01-02 | 01 | 1 | SYNC-UX-01 | Unit | `npm test -- src/ui/cloud-sync.js` | ✅ | ⬜ pending |
-| 23-01-03 | 01 | 1 | SYNC-UX-01 | Manual/E2E | `n/a` | ✅ | ⬜ pending |
+| 23-01-01 | 01 | 1 | SYNC-UX-01 | Unit | `npm test src/ui/cloud-sync.test.js` | ✅ | ⬜ pending |
+| 23-01-02 | 01 | 1 | SYNC-UX-01 | Manual | `n/a` | ✅ | ⬜ pending |
+| 23-01-03 | 01 | 1 | SYNC-UX-01 | Manual | `n/a` | ✅ | ⬜ pending |
+| 23-01-04 | 01 | 2 | SYNC-UX-01 | Unit | `npm test src/ui/cloud-sync.test.js` | ✅ | ⬜ pending |
+| 23-01-05 | 01 | 3 | SYNC-UX-01 | Manual | `n/a` | ✅ | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -48,7 +50,7 @@ created: 2026-03-11
 
 ## Wave 0 Requirements
 
-- [ ] `tests/ui/cloud-sync.ui.test.js` — DOM verification for cloud sync header
+- [ ] `src/ui/cloud-sync.test.js` — Unit test for cloud sync UI logic
 
 *If none: "Existing infrastructure covers all phase requirements."*
 
@@ -60,6 +62,7 @@ created: 2026-03-11
 |----------|-------------|------------|-------------------|
 | Header Visuals | SYNC-UX-01 | Visual layout | Verify `#cloudSyncActionsHeader` appears in the top bar with correct icons. |
 | Button Visibility | SYNC-UX-01 | UI State | Verify local Export/Import buttons hide when Supabase is configured. |
+| Tab Redirection | SYNC-UX-01 | Interactive behavior | Verify "Sign In" button in header redirects to Settings tab. |
 
 ---
 
