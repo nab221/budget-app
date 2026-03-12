@@ -120,8 +120,8 @@ export const cloudSyncUI = {
         triggerHaptic('tap');
       });
 
-      exportBtn?.classList.remove('hidden');
-      importLabel?.classList.remove('hidden');
+      exportBtn?.classList.add('hidden');
+      importLabel?.classList.add('hidden');
       this._updateLocalFileIndicator();
       return;
     }

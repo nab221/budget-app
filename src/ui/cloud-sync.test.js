@@ -111,14 +111,14 @@ describe('cloud-sync header actions (Phase 23)', () => {
     expect(document.getElementById('headerLocalMenuBtn')).not.toBeNull();
   });
 
-  it('shows configure cloud action and keeps local import/export when cloud is not configured', () => {
+  it('shows configure cloud action and hides legacy local import/export when cloud is not configured', () => {
     configured = false;
     cloudSyncUI._renderHeaderActions(null);
 
     expect(document.getElementById('cloudSyncActionsHeader').classList.contains('hidden')).toBe(false);
     expect(document.getElementById('headerCloudConfigureBtn')).not.toBeNull();
-    expect(document.getElementById('exportBtn').classList.contains('hidden')).toBe(false);
-    expect(document.querySelector('label[for="importFile"]').classList.contains('hidden')).toBe(false);
+    expect(document.getElementById('exportBtn').classList.contains('hidden')).toBe(true);
+    expect(document.querySelector('label[for="importFile"]').classList.contains('hidden')).toBe(true);
   });
 
   it('rebinds auth listener when Supabase client changes', () => {
