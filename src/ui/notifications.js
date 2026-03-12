@@ -4,6 +4,13 @@
  * Phase 25.3: Core notification infrastructure
  */
 
+const NOTIFICATION_COLORS = {
+  success: { bg: '#10b981', text: '#fff' },
+  warning: { bg: '#f59e0b', text: '#fff' },
+  error: { bg: '#ef4444', text: '#fff' },
+  info: { bg: '#3b82f6', text: '#fff' },
+};
+
 export const notificationUI = {
   _queue: [],
   _container: null,
@@ -60,13 +67,7 @@ export const notificationUI = {
     `;
 
     // Determine colors based on level
-    const colors = {
-      success: { bg: '#10b981', text: '#fff' },     // Green
-      warning: { bg: '#f59e0b', text: '#fff' },     // Amber
-      error: { bg: '#ef4444', text: '#fff' },       // Red
-      info: { bg: '#3b82f6', text: '#fff' }         // Blue
-    };
-    const color = colors[level] || colors.info;
+    const color = NOTIFICATION_COLORS[level] || NOTIFICATION_COLORS.info;
 
     // Build message section
     const messageEl = document.createElement('div');
@@ -214,6 +215,8 @@ export const notificationUI = {
    */
   dismissAll() {
     const notifs = [...this._queue];
-    notifs.forEach(notif => this.dismiss(notif));
+    notifs.forEach(notif => {
+      this.dismiss(notif);
+    });
   }
 };
