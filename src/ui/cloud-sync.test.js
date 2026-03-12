@@ -267,6 +267,67 @@ describe('cloud-sync intelligent sync logic (Phase 24)', () => {
     expect(supabaseSync.pullSnapshot).not.toHaveBeenCalled();
   });
 
+  it('auto-pulls on load when no local last-sync value exists and cloud has a valid timestamp', async () => {
+    vi.mocked(supabaseSync.getSession).mockResolvedValue({ user: { id: 'u1' } });
+    vi.mocked(supabaseSync.getLatestSnapshotMeta).mockResolvedValue({
+      updated_at: new Date(Date.now()).toISOString(),
+      schema_version: 1,
+    });
+
+    await cloudSyncUI._runAutoPullCheckOnLoad();
+
+    expect(supabaseSync.pullSnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  it('treats malformed local last-sync values as stale and auto-pulls', async () => {
+    localStorage.setItem('budget_cloud_last_sync', 'not-a-timestamp');
+
+    vi.mocked(supabaseSync.getSession).mockResolvedValue({ user: { id: 'u1' } });
+    vi.mocked(supabaseSync.getLatestSnapshotMeta).mockResolvedValue({
+      updated_at: new Date(Date.now()).toISOString(),
+      schema_version: 1,
+    });
+
+    await cloudSyncUI._runAutoPullCheckOnLoad();
+
+    expect(supabaseSync.pullSnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips auto-pull when the cloud timestamp is invalid', async () => {
+    vi.mocked(supabaseSync.getSession).mockResolvedValue({ user: { id: 'u1' } });
+    vi.mocked(supabaseSync.getLatestSnapshotMeta).mockResolvedValue({
+      updated_at: 'not-a-date',
+      schema_version: 1,
+    });
+
+    await cloudSyncUI._runAutoPullCheckOnLoad();
+
+    expect(supabaseSync.pullSnapshot).not.toHaveBeenCalled();
+  });
+
+  it('skips auto-pull when there is no active session', async () => {
+    vi.mocked(supabaseSync.getSession).mockResolvedValue(null);
+
+    await cloudSyncUI._runAutoPullCheckOnLoad();
+
+    expect(supabaseSync.getLatestSnapshotMeta).not.toHaveBeenCalled();
+    expect(supabaseSync.pullSnapshot).not.toHaveBeenCalled();
+  });
+
+  it('only performs the auto-pull comparison once per load cycle', async () => {
+    vi.mocked(supabaseSync.getSession).mockResolvedValue({ user: { id: 'u1' } });
+    vi.mocked(supabaseSync.getLatestSnapshotMeta).mockResolvedValue({
+      updated_at: new Date(Date.now()).toISOString(),
+      schema_version: 1,
+    });
+
+    await cloudSyncUI._runAutoPullCheckOnLoad();
+    await cloudSyncUI._runAutoPullCheckOnLoad();
+
+    expect(supabaseSync.getLatestSnapshotMeta).toHaveBeenCalledTimes(1);
+    expect(supabaseSync.pullSnapshot).toHaveBeenCalledTimes(1);
+  });
+
   it('auto-pushes on exit when dirty and signed in', async () => {
     cloudSyncUI._isDirty = true;
     vi.mocked(supabaseSync.getSession).mockResolvedValue({ user: { id: 'u1' } });
