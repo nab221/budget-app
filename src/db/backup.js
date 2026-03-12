@@ -10,6 +10,13 @@
  */
 
 import { db } from './schema.js';
+import { findBestMatch } from '../utils/string-similarity.js';
+
+/**
+ * Similarity threshold for category name deduplication (0-1).
+ * Matches above this threshold will be considered the same category.
+ */
+const CATEGORY_MATCH_THRESHOLD = 0.9;
 
 /**
  * Imports backup data into IndexedDB with validation and flexible merge/overwrite modes.
@@ -69,15 +76,27 @@ export async function importBackupData(data, options = {}) {
 
   // 5. Perform import transaction
   await db.transaction('rw', db.tables, async () => {
-    // Build category ID mapping for merge mode (matched by name)
+    // Build category ID mapping for merge mode (matched by name or fuzzy match)
     let categoryIdMap = {}; // incoming ID -> local ID
     if (mode === 'merge' && data.categories) {
       const localCategories = await db.categories.toArray();
-      const localCategoryMap = new Map(localCategories.map(c => [c.name, c.id]));
+      const localNames = localCategories.map(c => c.name);
+      const localNameMap = new Map(localCategories.map(c => [c.name.toLowerCase(), c.id]));
 
       for (const incomingCategory of data.categories) {
-        if (incomingCategory.name && localCategoryMap.has(incomingCategory.name)) {
-          categoryIdMap[incomingCategory.id] = localCategoryMap.get(incomingCategory.name);
+        if (!incomingCategory.name) continue;
+        const incomingNameLower = incomingCategory.name.toLowerCase();
+
+        // 1. Case-insensitive exact match
+        if (localNameMap.has(incomingNameLower)) {
+          categoryIdMap[incomingCategory.id] = localNameMap.get(incomingNameLower);
+          continue;
+        }
+
+        // 2. Fuzzy match for minor typos/pluralization
+        const { target, rating } = findBestMatch(incomingCategory.name, localNames);
+        if (target && rating >= CATEGORY_MATCH_THRESHOLD) {
+          categoryIdMap[incomingCategory.id] = localNameMap.get(target.toLowerCase());
         }
       }
     }
@@ -93,10 +112,9 @@ export async function importBackupData(data, options = {}) {
 
       // For merge mode with categories, skip direct import (we handle manually below)
       if (mode === 'merge' && table.name === 'categories') {
-        // Only add categories that don't already exist (by name)
-        const existingNames = new Set((await db.categories.toArray()).map(c => c.name));
+        // Only add categories that don't already exist (by name or fuzzy match in map)
         for (const incomingCategory of data.categories) {
-          if (!existingNames.has(incomingCategory.name)) {
+          if (!categoryIdMap[incomingCategory.id]) {
             try {
               await db.categories.add(incomingCategory);
             } catch (e) {
