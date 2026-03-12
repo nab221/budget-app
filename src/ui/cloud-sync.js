@@ -427,70 +427,41 @@ export const cloudSyncUI = {
   },
 
   /**
-   * Phase 23.1: Show unified sync menu modal with Push/Pull/Sign-Out options.
+   * Phase 23.1: Show unified sync menu modal with panel-based actions.
    */
   async _showSyncMenuModal() {
+    const session = await getSession();
+    const email = session?.user?.email || 'Unknown account';
+    const escHtml = (s) => String(s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
     return new Promise((resolve) => {
       const body = `
-        <p style="margin-bottom:12px;font-size:.9rem">Choose an action:</p>
+        <div style="display:flex;flex-direction:column;gap:14px">
+
+          <div style="border:1px solid var(--border);border-radius:8px;padding:12px">
+            <p style="margin:0 0 6px;font-size:.75rem;font-weight:600;color:var(--text-soft);text-transform:uppercase;letter-spacing:.06em">☁ Cloud Sync</p>
+            <p style="font-size:.8rem;color:var(--text-soft);margin:0 0 10px">Push your current budget to the cloud or pull the latest cloud snapshot.</p>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <button id="_cloudPushBtn" class="primary sm">Push to Cloud</button>
+              <button id="_cloudPullBtn" class="ghost sm">Pull from Cloud</button>
+            </div>
+          </div>
+
+          <div style="border:1px solid var(--border);border-radius:8px;padding:12px">
+            <p style="margin:0 0 6px;font-size:.75rem;font-weight:600;color:var(--text-soft);text-transform:uppercase;letter-spacing:.06em">👤 Signed In</p>
+            <p style="font-size:.85rem;margin:4px 0 10px"><strong>${escHtml(email)}</strong></p>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <button id="_cloudSignOutBtn" class="danger sm">Sign Out</button>
+            </div>
+          </div>
+
+        </div>
       `;
 
       const footer = [
         {
-          label: 'Push to Cloud',
-          className: 'primary',
-          onClick: async () => {
-            try {
-              this._syncInProgress = true;
-              templateUI.closeModal();
-              alertWithHaptic('Pushing to cloud...');
-              await pushSnapshot();
-              this._isDirty = false;
-              localStorage.setItem(CLOUD_IS_DIRTY_KEY, 'false');
-              this._updateStatusIndicator();
-              alertWithHaptic('Synced successfully!', 'success');
-              await this._refreshSection();
-            } catch (err) {
-              console.error('[cloudSyncUI] Push failed:', err);
-              alertWithHaptic('Push failed: ' + err.message);
-            } finally {
-              this._syncInProgress = false;
-              resolve();
-            }
-          }
-        },
-        {
-          label: 'Pull from Cloud',
-          className: 'ghost',
-          onClick: async () => {
-            try {
-              this._syncInProgress = true;
-              templateUI.closeModal();
-              alertWithHaptic('Fetching from cloud...');
-              await pullSnapshot();
-              // pullSnapshot dispatches an event that shows a preview modal
-              // UI takes over from there
-            } catch (err) {
-              console.error('[cloudSyncUI] Pull failed:', err);
-              alertWithHaptic('Pull failed: ' + err.message);
-            } finally {
-              this._syncInProgress = false;
-              resolve();
-            }
-          }
-        },
-        {
-          label: 'Sign Out',
-          className: 'danger',
-          onClick: async () => {
-            templateUI.closeModal();
-            await supabase.auth.signOut();
-            alertWithHaptic('Signed out');
-            resolve();
-          }
-        },
-        {
-          label: 'Cancel',
+          label: 'Close',
           className: 'ghost',
           onClick: () => {
             templateUI.closeModal();
@@ -499,7 +470,51 @@ export const cloudSyncUI = {
         }
       ];
 
-      templateUI.showModal('Cloud Sync', body, footer);
+      templateUI.showModal('☁ Cloud', body, footer);
+
+      document.getElementById('_cloudPushBtn')?.addEventListener('click', async () => {
+        try {
+          this._syncInProgress = true;
+          templateUI.closeModal();
+          alertWithHaptic('Pushing to cloud...');
+          await pushSnapshot();
+          this._isDirty = false;
+          localStorage.setItem(CLOUD_IS_DIRTY_KEY, 'false');
+          this._updateStatusIndicator();
+          alertWithHaptic('Synced successfully!', 'success');
+          await this._refreshSection();
+        } catch (err) {
+          console.error('[cloudSyncUI] Push failed:', err);
+          alertWithHaptic('Push failed: ' + err.message);
+        } finally {
+          this._syncInProgress = false;
+          resolve();
+        }
+      });
+
+      document.getElementById('_cloudPullBtn')?.addEventListener('click', async () => {
+        try {
+          this._syncInProgress = true;
+          templateUI.closeModal();
+          alertWithHaptic('Fetching from cloud...');
+          await pullSnapshot();
+          // pullSnapshot dispatches an event that shows a preview modal
+          // UI takes over from there
+        } catch (err) {
+          console.error('[cloudSyncUI] Pull failed:', err);
+          alertWithHaptic('Pull failed: ' + err.message);
+        } finally {
+          this._syncInProgress = false;
+          resolve();
+        }
+      });
+
+      document.getElementById('_cloudSignOutBtn')?.addEventListener('click', async () => {
+        templateUI.closeModal();
+        await supabase.auth.signOut();
+        alertWithHaptic('Signed out');
+        resolve();
+      });
     });
   },
 
