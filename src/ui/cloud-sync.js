@@ -553,15 +553,37 @@ export const cloudSyncUI = {
     notificationUI.error(message, actions);
   },
 
-  async _executePushSync({ button = null, closeModal = false, announceStart = false, successAlert = false } = {}) {
-    const originalText = button?.textContent || 'Push to Cloud';
+  _setSyncButtonBusy(button, isBusy, busyLabel = null) {
+    if (!button) return;
 
+    if (isBusy) {
+      button.dataset.syncOriginalText = button.textContent || '';
+      button.dataset.syncWasDisabled = button.disabled ? 'true' : 'false';
+      if (busyLabel) {
+        button.textContent = busyLabel;
+      }
+      button.disabled = true;
+      button.setAttribute('aria-busy', 'true');
+      button.classList.add('sync-action-busy');
+      return;
+    }
+
+    const originalText = button.dataset.syncOriginalText;
+    if (originalText) {
+      button.textContent = originalText;
+    }
+
+    button.disabled = button.dataset.syncWasDisabled === 'true';
+    button.removeAttribute('aria-busy');
+    button.classList.remove('sync-action-busy');
+    delete button.dataset.syncOriginalText;
+    delete button.dataset.syncWasDisabled;
+  },
+
+  async _executePushSync({ button = null, closeModal = false, announceStart = false, successAlert = false } = {}) {
     try {
       this._syncInProgress = true;
-      if (button) {
-        button.textContent = 'Pushing...';
-        button.disabled = true;
-      }
+      this._setSyncButtonBusy(button, true, 'Pushing...');
       if (closeModal) {
         templateUI.closeModal();
       }
@@ -592,23 +614,14 @@ export const cloudSyncUI = {
       return err;
     } finally {
       this._syncInProgress = false;
-      if (button) {
-        button.textContent = originalText;
-        button.disabled = false;
-      }
+      this._setSyncButtonBusy(button, false);
     }
   },
 
-  async _executePullSync({ button = null, closeModal = false, announceStart = false, keepButtonDisabledOnSuccess = false } = {}) {
-    const originalText = button?.textContent || 'Pull from Cloud';
-    let restoreButton = true;
-
+  async _executePullSync({ button = null, closeModal = false, announceStart = false } = {}) {
     try {
       this._syncInProgress = true;
-      if (button) {
-        button.textContent = 'Fetching...';
-        button.disabled = true;
-      }
+      this._setSyncButtonBusy(button, true, 'Fetching...');
       if (closeModal) {
         templateUI.closeModal();
       }
@@ -618,9 +631,7 @@ export const cloudSyncUI = {
 
       await pullSnapshot();
       this._clearErrorState();
-      if (button && keepButtonDisabledOnSuccess) {
-        restoreButton = false;
-      }
+      await this._refreshSection();
       return null;
     } catch (err) {
       if (this._isNoCloudSnapshotError(err)) {
@@ -632,10 +643,7 @@ export const cloudSyncUI = {
       return err;
     } finally {
       this._syncInProgress = false;
-      if (button && restoreButton) {
-        button.textContent = originalText;
-        button.disabled = false;
-      }
+      this._setSyncButtonBusy(button, false);
     }
   },
 
@@ -1016,7 +1024,7 @@ export const cloudSyncUI = {
     const pullBtn = document.getElementById('cloudPullBtn');
     if (pullBtn) {
       const runPull = async (isRetry = false) => {
-        const err = await this._executePullSync({ button: pullBtn, keepButtonDisabledOnSuccess: true });
+        const err = await this._executePullSync({ button: pullBtn });
         if (!err) return;
 
         const message = isRetry ? 'Retry failed: ' + err.message : err.message;
