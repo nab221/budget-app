@@ -308,15 +308,16 @@ describe('cloud-sync intelligent sync logic (Phase 24)', () => {
 });
 
 describe('cloud-sync sync visibility (Phase 25)', () => {
-  const CLOUD_LAST_ERROR_KEY = 'budget_cloud_last_error';
-  const CLOUD_LAST_ERROR_TIME_KEY = 'budget_cloud_last_error_time';
-  const CLOUD_LAST_ERROR_CODE_KEY = 'budget_cloud_last_error_code';
+  const CLOUD_LAST_ERROR_KEY = 'budget_cloud_last_error:anonymous';
+  const CLOUD_LAST_ERROR_TIME_KEY = 'budget_cloud_last_error_time:anonymous';
+  const CLOUD_LAST_ERROR_CODE_KEY = 'budget_cloud_last_error_code:anonymous';
 
   beforeEach(() => {
     configured = true;
     localStorage.clear();
     vi.clearAllMocks();
     cloudSyncUI._lastError = null;
+    cloudSyncUI._errorStorageUserScope = null;
     cloudSyncUI._isDirty = false;
     document.body.innerHTML = `
       <div id="cloudSyncActionsHeader">
@@ -460,6 +461,18 @@ describe('cloud-sync sync visibility (Phase 25)', () => {
       expect(localStorage.getItem(CLOUD_LAST_ERROR_KEY)).toBeNull();
       expect(localStorage.getItem(CLOUD_LAST_ERROR_CODE_KEY)).toBeNull();
       refreshSpy.mockRestore();
+    });
+
+    it('does not persist error state for no-snapshot pull case', async () => {
+      vi.mocked(supabaseSync.pullSnapshot).mockRejectedValue(new Error('No cloud snapshot found'));
+
+      const err = await cloudSyncUI._executePullSync();
+
+      expect(err).toBeNull();
+      expect(localStorage.getItem(CLOUD_LAST_ERROR_KEY)).toBeNull();
+      expect(localStorage.getItem(CLOUD_LAST_ERROR_TIME_KEY)).toBeNull();
+      expect(localStorage.getItem(CLOUD_LAST_ERROR_CODE_KEY)).toBeNull();
+      expect(cloudSyncUI._lastError).toBeNull();
     });
   });
 });

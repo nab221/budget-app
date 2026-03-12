@@ -20,8 +20,8 @@ export const notificationUI = {
     this._container = document.createElement('div');
     this._container.id = 'notificationContainer';
     this._container.setAttribute('role', 'region');
-    this._container.setAttribute('aria-live', 'polite');
-    this._container.setAttribute('aria-atomic', 'true');
+    this._container.setAttribute('aria-live', 'off');
+    this._container.setAttribute('aria-atomic', 'false');
     this._container.style.cssText = `
       position: fixed;
       top: 20px;
@@ -51,6 +51,9 @@ export const notificationUI = {
     // Create notification element
     const notif = document.createElement('div');
     notif.className = `notification notification-${level}`;
+    notif.setAttribute('role', level === 'error' ? 'alert' : 'status');
+    notif.setAttribute('aria-live', level === 'error' ? 'assertive' : 'polite');
+    notif.setAttribute('aria-atomic', 'true');
     notif.style.cssText = `
       pointer-events: auto;
       animation: slideIn 0.3s ease-out forwards;

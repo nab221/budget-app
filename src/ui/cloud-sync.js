@@ -24,6 +24,7 @@ const CLOUD_IS_DIRTY_KEY = 'budget_cloud_is_dirty';
 const CLOUD_LAST_ERROR_KEY = 'budget_cloud_last_error';
 const CLOUD_LAST_ERROR_TIME_KEY = 'budget_cloud_last_error_time';
 const CLOUD_LAST_ERROR_CODE_KEY = 'budget_cloud_last_error_code';
+const NO_CLOUD_SNAPSHOT_MESSAGE = 'No cloud snapshot found';
 
 export const cloudSyncUI = {
   _initialized: false,
@@ -36,6 +37,7 @@ export const cloudSyncUI = {
   _didAutoPullCheckOnLoad: false,
   _lastError: null, // { message, code, timestamp }
   _errorDismissed: false,
+  _errorStorageUserScope: null,
   _lastAutoPullSessionUserId: null,
   _autoPullTriggered: false,
   _visibilityChangeHandler: null,
@@ -181,6 +183,8 @@ export const cloudSyncUI = {
         session = null;
       }
     }
+
+    this._setErrorStorageScope(session || null);
 
     this._renderHeaderActions(session || null);
     this._updateStatusIndicator();
@@ -450,9 +454,9 @@ export const cloudSyncUI = {
    * Restores _lastError and validates timestamp.
    */
   _loadErrorState() {
-    const savedError = localStorage.getItem(CLOUD_LAST_ERROR_KEY);
-    const savedTime = localStorage.getItem(CLOUD_LAST_ERROR_TIME_KEY);
-    const savedCode = localStorage.getItem(CLOUD_LAST_ERROR_CODE_KEY);
+    const savedError = localStorage.getItem(this._getErrorStorageKey(CLOUD_LAST_ERROR_KEY));
+    const savedTime = localStorage.getItem(this._getErrorStorageKey(CLOUD_LAST_ERROR_TIME_KEY));
+    const savedCode = localStorage.getItem(this._getErrorStorageKey(CLOUD_LAST_ERROR_CODE_KEY));
 
     this._lastError = null;
 
@@ -480,12 +484,12 @@ export const cloudSyncUI = {
       timestamp: now
     };
 
-    localStorage.setItem(CLOUD_LAST_ERROR_KEY, errorMessage);
-    localStorage.setItem(CLOUD_LAST_ERROR_TIME_KEY, String(now));
+    localStorage.setItem(this._getErrorStorageKey(CLOUD_LAST_ERROR_KEY), errorMessage);
+    localStorage.setItem(this._getErrorStorageKey(CLOUD_LAST_ERROR_TIME_KEY), String(now));
     if (errorCode) {
-      localStorage.setItem(CLOUD_LAST_ERROR_CODE_KEY, errorCode);
+      localStorage.setItem(this._getErrorStorageKey(CLOUD_LAST_ERROR_CODE_KEY), errorCode);
     } else {
-      localStorage.removeItem(CLOUD_LAST_ERROR_CODE_KEY);
+      localStorage.removeItem(this._getErrorStorageKey(CLOUD_LAST_ERROR_CODE_KEY));
     }
     this._errorDismissed = false;
     this._updateStatusIndicator();
@@ -498,10 +502,35 @@ export const cloudSyncUI = {
   _clearErrorState() {
     this._lastError = null;
     this._errorDismissed = false;
-    localStorage.removeItem(CLOUD_LAST_ERROR_KEY);
-    localStorage.removeItem(CLOUD_LAST_ERROR_TIME_KEY);
-    localStorage.removeItem(CLOUD_LAST_ERROR_CODE_KEY);
+    localStorage.removeItem(this._getErrorStorageKey(CLOUD_LAST_ERROR_KEY));
+    localStorage.removeItem(this._getErrorStorageKey(CLOUD_LAST_ERROR_TIME_KEY));
+    localStorage.removeItem(this._getErrorStorageKey(CLOUD_LAST_ERROR_CODE_KEY));
     this._updateStatusIndicator();
+  },
+
+  _deriveErrorStorageScope(session) {
+    const user = session?.user;
+    const rawScope = user?.id || user?.email || 'anonymous';
+    return encodeURIComponent(String(rawScope));
+  },
+
+  _setErrorStorageScope(session) {
+    const nextScope = this._deriveErrorStorageScope(session);
+    if (nextScope === this._errorStorageUserScope) return;
+    this._errorStorageUserScope = nextScope;
+    this._loadErrorState();
+  },
+
+  _getErrorStorageKey(baseKey) {
+    const scope = this._errorStorageUserScope || 'anonymous';
+    return `${baseKey}:${scope}`;
+  },
+
+  _isNoCloudSnapshotError(err) {
+    if (!err) return false;
+    const code = String(err.code || '').toLowerCase();
+    const message = String(err.message || '').toLowerCase();
+    return code === 'no_cloud_snapshot' || message.includes(NO_CLOUD_SNAPSHOT_MESSAGE.toLowerCase());
   },
 
   _buildExportBackupAction() {
@@ -594,6 +623,10 @@ export const cloudSyncUI = {
       }
       return null;
     } catch (err) {
+      if (this._isNoCloudSnapshotError(err)) {
+        this._clearErrorState();
+        return null;
+      }
       console.error('[cloudSyncUI] Pull failed:', err);
       this._saveErrorState(err.message, err.code || 'PULL_ERROR');
       return err;
@@ -1037,6 +1070,7 @@ export const cloudSyncUI = {
 
       if (!session) {
         this._lastAutoPullSessionUserId = null;
+        this._setErrorStorageScope(null);
         return;
       }
 
