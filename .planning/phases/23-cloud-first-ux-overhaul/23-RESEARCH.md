@@ -1,4 +1,4 @@
-# Phase 23: Cloud-First UX Overhaul (Consolidation) - Research
+﻿# Phase 23: Cloud-First UX Overhaul (Consolidation) - Research
 
 ## Objective
 Replace legacy local Export/Import in the top bar with Cloud Sync actions when Supabase is enabled. This consolidates sync actions into the primary interface for users who have opted into cloud storage.
@@ -11,8 +11,8 @@ Replace legacy local Export/Import in the top bar with Cloud Sync actions when S
 
 ## Current UI State (Top Bar)
 - **Local Buttons (to be hidden if Cloud is active):**
-  - `<button id="exportBtn" class="ghost">⬇ Export</button>`
-  - `<label for="importFile">... ⬆ Import ...</label>`
+  - `<button id="exportBtn" class="ghost">⬇️ Export</button>`
+  - `<label for="importFile">... ⬆️ Import ...</label>`
 - **Toolbar Container:** `<div class="toolbar">` in `header`.
 
 ## Findings
@@ -28,8 +28,8 @@ Replace legacy local Export/Import in the top bar with Cloud Sync actions when S
 - `cloudSyncUI.init()`: Needs to check if `#cloudSyncActionsHeader` exists and initiate its refresh cycle.
 - `_refreshSection()`: Currently only refreshes `#cloudSyncSection` (the settings tab view). It should be updated to also refresh `#cloudSyncActionsHeader`.
 - **Auth State Handling:**
-  - **Signed Out:** Show a single "☁️ Sign In" button. Clicking this should navigate the user to the Settings tab or open the cloud sync section to enter their email. (Recommendation: Redirect to Settings tab for consistency with existing email input).
-  - **Signed In:** Show compact "☁️ Push" and "☁️ Pull" buttons.
+  - **Signed Out:** Show a single "☁️ Sign In" button. Clicking this triggers a modal overlay for email entry, keeping the user in the current view.
+  - **Signed In:** Show compact "☁️ Sync" icon (triggers a unified menu).
 
 ### 4. Visibility Toggling
 - In `cloud-sync.js:init()`, if `isConfigured()` is true:
@@ -40,15 +40,16 @@ Replace legacy local Export/Import in the top bar with Cloud Sync actions when S
   - Ensure local Export/Import buttons remain visible.
 
 ### 5. Interaction Design
-- **Push Button:** Triggers `pushSnapshot()`. Should show a "Pushing..." loading state.
-- **Pull Button:** Triggers `pullSnapshot()`. Should show a "Fetching..." loading state. The existing preview modal listener in `cloud-sync.js` will handle the confirmation flow automatically.
+- **Sign In Button:** Triggers `_showSignInModal()`.
+- **Sync Icon:** Triggers `_showSyncMenu()` with Push/Pull/Sign-Out options.
+- **Loading States:** The icon should pulse or show a spinner during active sync.
 
 ## Planning "Consolidated Top-Bar Actions" (SYNC-UX-01)
 To plan this well, the following must be addressed:
-- **Mobile Responsiveness:** The top bar is crowded. Buttons in the header must be compact (icons + short text).
-- **Redirection vs. Inline:** For "Sign In", since it requires an email input, redirecting the user to the Settings tab's cloud sync section is cleaner than trying to fit an input into the top bar.
+- **Mobile Responsiveness:** The top bar is crowded. Buttons in the header must be compact (icons + short text).      
+- **Modal Overlay:** For "Sign In", since it requires an email input, use a modal overlay (via `templateUI.showModal`) to keep the user context.
 - **Loading States:** Ensure buttons are disabled and show feedback during async operations.
-- **Haptics:** Maintain consistency with existing `triggerHaptic('tap')` and `triggerHaptic('success')` calls.
+- **Haptics:** Maintain consistency with existing `triggerHaptic('tap')` and `triggerHaptic('success')` calls.        
 
 ## Next Steps
 1.  **Task 23.1:** Add `#cloudSyncActionsHeader` to `index.html`.

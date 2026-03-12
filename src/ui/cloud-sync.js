@@ -12,8 +12,13 @@ import { templateUI } from './templates.js';
 import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
 import { db } from '../db/schema.js';
 
+// Phase 23.1: Constants for dirty-state tracking and timestamps
+const CLOUD_IS_DIRTY_KEY = 'budget_cloud_is_dirty';
+
 export const cloudSyncUI = {
   _initialized: false,
+  _isDirty: false,
+  _syncInProgress: false,
 
   /**
    * Initialise cloud sync UI. No-ops silently if Supabase is not configured,
@@ -23,6 +28,9 @@ export const cloudSyncUI = {
     if (!isConfigured()) return;
     if (this._initialized) return;
     this._initialized = true;
+
+    // Phase 23.1: Initialize dirty-state tracking
+    this._initDirtyStateTracking();
 
     this._bindAuthListener();
     this._bindPreviewListener();
@@ -38,6 +46,9 @@ export const cloudSyncUI = {
     if (!section) return;
 
     const session = await getSession();
+    this._renderHeaderActions(session);
+    this._updateStatusIndicator();
+
     const statusEl = section.querySelector('#cloudSyncStatus');
     const actionsEl = section.querySelector('#cloudSyncActions');
     if (!statusEl || !actionsEl) return;
@@ -47,6 +58,293 @@ export const cloudSyncUI = {
     } else {
       this._renderSignedOut(statusEl, actionsEl);
     }
+  },
+
+  _renderHeaderActions(session) {
+    const headerActionsEl = document.getElementById('cloudSyncActionsHeader');
+    const exportBtn = document.getElementById('exportBtn');
+    const importLabel = document.querySelector('label[for="importFile"]');
+
+    if (!headerActionsEl || !exportBtn || !importLabel) return;
+
+    if (!isConfigured()) {
+      headerActionsEl.classList.add('hidden');
+      headerActionsEl.innerHTML = '';
+      exportBtn.classList.remove('hidden');
+      importLabel.classList.remove('hidden');
+      return;
+    }
+
+    exportBtn.classList.add('hidden');
+    importLabel.classList.add('hidden');
+    headerActionsEl.classList.remove('hidden');
+
+    if (session) {
+      // Phase 23.1: Show unified sync menu with status indicator and timestamp
+      headerActionsEl.innerHTML = `
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <span id="syncStatusDot" class="sync-status-indicator" title="Synced" style="display:inline-block;width:0.6em;height:0.6em;border-radius:50%;background:#22c55e;margin:0 4px"></span>
+          <span id="lastSyncedTime" style="font-size:.75rem;color:var(--text-soft)">Last synced: never</span>
+          <button id="headerSyncMenuBtn" class="ghost">☁ Sync</button>
+          <button id="headerCloudSignOutBtn" class="ghost">Sign Out</button>
+        </div>
+      `;
+
+      const menuBtn = headerActionsEl.querySelector('#headerSyncMenuBtn');
+      const signOutBtn = headerActionsEl.querySelector('#headerCloudSignOutBtn');
+
+      if (menuBtn) {
+        menuBtn.onclick = async () => {
+          await this._showSyncMenuModal();
+          triggerHaptic('tap');
+        };
+      }
+
+      if (signOutBtn) {
+        signOutBtn.onclick = async () => {
+          await supabase.auth.signOut();
+          triggerHaptic('tap');
+        };
+      }
+
+      return;
+    }
+
+    // Phase 23.1: Show sign-in button (will open modal on click)
+    headerActionsEl.innerHTML = `
+      <button id="headerCloudSignInBtn" class="primary">☁ Cloud Sign In</button>
+    `;
+
+    const signInBtn = headerActionsEl.querySelector('#headerCloudSignInBtn');
+    if (signInBtn) {
+      signInBtn.onclick = async () => {
+        await this._showSignInModal();
+        triggerHaptic('tap');
+      };
+    }
+  },
+
+  /**
+   * Phase 23.1: Initialize dirty-state tracking.
+   * Loads initial dirty state from localStorage and sets up Dexie mutation listener.
+   */
+  _initDirtyStateTracking() {
+    // Load initial state from localStorage
+    this._isDirty = localStorage.getItem(CLOUD_IS_DIRTY_KEY) === 'true';
+
+    // Listen for Dexie mutations (all table writes)
+    if (db.on) {
+      db.on('mutated', (event) => {
+        if (!this._isDirty && !this._syncInProgress) {
+          this._isDirty = true;
+          localStorage.setItem(CLOUD_IS_DIRTY_KEY, 'true');
+          this._updateStatusIndicator();
+          console.log('[cloudSyncUI] Marked as dirty via Dexie mutation');
+        }
+      });
+    }
+  },
+
+  /**
+   * Phase 23.1: Update status indicator dot color and animation.
+   * Synced (🟢) -> Dirty (🟡 with pulse) -> Error (🔴)
+   */
+  _updateStatusIndicator() {
+    const dot = document.getElementById('syncStatusDot');
+    if (!dot) return;
+
+    let state = 'synced';
+    let title = 'All changes saved to cloud';
+
+    if (this._isDirty) {
+      state = 'dirty';
+      title = 'Unsaved changes (click Sync to sync)';
+    }
+
+    // Update dot styling
+    if (state === 'dirty') {
+      dot.style.background = '#eab308';
+      dot.style.animation = 'pulse 1.5s infinite';
+    } else if (state === 'synced') {
+      dot.style.background = '#22c55e';
+      dot.style.animation = 'none';
+    } else {
+      dot.style.background = '#ef4444';
+      dot.style.animation = 'none';
+    }
+
+    dot.title = title;
+    this._updateTimestampDisplay();
+  },
+
+  /**
+   * Phase 23.1: Format last synced timestamp as relative time (e.g., "5 min ago").
+   */
+  _formatLastSynced(timestamp) {
+    if (!timestamp) return 'Never';
+
+    const date = new Date(parseInt(timestamp));
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+  },
+
+  /**
+   * Phase 23.1: Update the last synced timestamp display.
+   */
+  _updateTimestampDisplay() {
+    const timeEl = document.getElementById('lastSyncedTime');
+    if (!timeEl) return;
+
+    const timestamp = localStorage.getItem(CLOUD_LAST_SYNC_KEY);
+    const formatted = this._formatLastSynced(timestamp);
+    timeEl.textContent = `Last synced: ${formatted}`;
+  },
+
+  /**
+   * Phase 23.1: Show sign-in modal with email input.
+   */
+  async _showSignInModal() {
+    return new Promise((resolve) => {
+      const body = `
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <input 
+            type="email" 
+            id="signInEmailInput" 
+            placeholder="your@email.com" 
+            style="padding:8px;font-size:.9rem;min-width:250px"
+            autocomplete="email"
+          />
+          <p style="font-size:.85rem;color:var(--text-soft);margin:0">
+            A sign-in link will be sent to this email. No password required.
+          </p>
+        </div>
+      `;
+
+      const footer = [
+        {
+          label: 'Send Link',
+          className: 'primary',
+          onClick: async () => {
+            const email = document.getElementById('signInEmailInput')?.value?.trim();
+            if (!email) {
+              alertWithHaptic('Please enter your email address.');
+              return;
+            }
+            try {
+              await signIn(email);
+              alertWithHaptic('Check your email for a sign-in link.', 'success');
+              templateUI.closeModal();
+              resolve();
+            } catch (err) {
+              console.error('[cloudSyncUI] Sign-in failed:', err);
+              alertWithHaptic('Sign-in failed: ' + err.message);
+            }
+          }
+        },
+        {
+          label: 'Cancel',
+          className: 'ghost',
+          onClick: () => {
+            templateUI.closeModal();
+            resolve();
+          }
+        }
+      ];
+
+      templateUI.showModal('Sign In to Cloud', body, footer);
+
+      // Auto-focus email input
+      setTimeout(() => {
+        document.getElementById('signInEmailInput')?.focus();
+      }, 100);
+    });
+  },
+
+  /**
+   * Phase 23.1: Show unified sync menu modal with Push/Pull/Sign-Out options.
+   */
+  async _showSyncMenuModal() {
+    return new Promise((resolve) => {
+      const body = `
+        <p style="margin-bottom:12px;font-size:.9rem">Choose an action:</p>
+      `;
+
+      const footer = [
+        {
+          label: 'Push to Cloud',
+          className: 'primary',
+          onClick: async () => {
+            try {
+              this._syncInProgress = true;
+              templateUI.closeModal();
+              alertWithHaptic('Pushing to cloud...');
+              await pushSnapshot();
+              this._isDirty = false;
+              localStorage.setItem(CLOUD_IS_DIRTY_KEY, 'false');
+              this._updateStatusIndicator();
+              alertWithHaptic('Synced successfully!', 'success');
+              await this._refreshSection();
+            } catch (err) {
+              console.error('[cloudSyncUI] Push failed:', err);
+              alertWithHaptic('Push failed: ' + err.message);
+            } finally {
+              this._syncInProgress = false;
+              resolve();
+            }
+          }
+        },
+        {
+          label: 'Pull from Cloud',
+          className: 'ghost',
+          onClick: async () => {
+            try {
+              this._syncInProgress = true;
+              templateUI.closeModal();
+              alertWithHaptic('Fetching from cloud...');
+              await pullSnapshot();
+              // pullSnapshot dispatches an event that shows a preview modal
+              // UI takes over from there
+            } catch (err) {
+              console.error('[cloudSyncUI] Pull failed:', err);
+              alertWithHaptic('Pull failed: ' + err.message);
+            } finally {
+              this._syncInProgress = false;
+              resolve();
+            }
+          }
+        },
+        {
+          label: 'Sign Out',
+          className: 'danger',
+          onClick: async () => {
+            templateUI.closeModal();
+            await supabase.auth.signOut();
+            alertWithHaptic('Signed out');
+            resolve();
+          }
+        },
+        {
+          label: 'Cancel',
+          className: 'ghost',
+          onClick: () => {
+            templateUI.closeModal();
+            resolve();
+          }
+        }
+      ];
+
+      templateUI.showModal('Cloud Sync', body, footer);
+    });
   },
 
   _renderSignedIn(session, statusEl, actionsEl) {
@@ -112,38 +410,19 @@ export const cloudSyncUI = {
   _renderSignedOut(statusEl, actionsEl) {
     statusEl.innerHTML = '';
     actionsEl.innerHTML = `
-      <div class="form-row" style="margin-bottom:8px">
-        <div>
-          <label for="cloudSyncEmail">Email</label>
-          <input type="email" id="cloudSyncEmail" placeholder="your@email.com" style="font-size:.85rem"/>
-        </div>
-        <div style="display:flex;align-items:flex-end">
-          <button id="cloudMagicLinkBtn" class="primary">Send Magic Link</button>
-        </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <p style="font-size:.85rem;margin:0">Sign in to the cloud to sync your budget across devices.</p>
+        <button id="settingsCloudSignInBtn" class="primary">Send Magic Link Via Email</button>
       </div>
-      <div class="hint">A sign-in link will be emailed to you. No password required.</div>
     `;
 
-    const magicLinkBtn = document.getElementById('cloudMagicLinkBtn');
-    if (magicLinkBtn) magicLinkBtn.onclick = async () => {
-      const email = document.getElementById('cloudSyncEmail')?.value?.trim();
-      if (!email) {
-        alertWithHaptic('Please enter your email address.');
-        return;
-      }
-      try {
-        magicLinkBtn.textContent = 'Sending...';
-        magicLinkBtn.disabled = true;
-        await signIn(email);
-        magicLinkBtn.textContent = 'Link Sent!';
-        alertWithHaptic('Check your email for a sign-in link.', 'success');
-      } catch (err) {
-        console.error('[cloudSyncUI] Sign-in failed:', err);
-        alertWithHaptic('Sign-in failed: ' + err.message);
-        magicLinkBtn.textContent = 'Send Magic Link';
-        magicLinkBtn.disabled = false;
-      }
-    };
+    const signInBtn = document.getElementById('settingsCloudSignInBtn');
+    if (signInBtn) {
+      signInBtn.onclick = async () => {
+        await this._showSignInModal();
+        triggerHaptic('tap');
+      };
+    }
   },
 
   /**
@@ -202,10 +481,16 @@ export const cloudSyncUI = {
       templateUI.showModal('Cloud Snapshot Preview', body, footer);
 
       const restorePullBtn = () => {
-        const pullBtn = document.getElementById('cloudPullBtn');
-        if (pullBtn) {
-          pullBtn.textContent = 'Pull from Cloud';
-          pullBtn.disabled = false;
+        const settingsPullBtn = document.getElementById('cloudPullBtn');
+        if (settingsPullBtn) {
+          settingsPullBtn.textContent = 'Pull from Cloud';
+          settingsPullBtn.disabled = false;
+        }
+
+        const headerPullBtn = document.getElementById('headerCloudPullBtn');
+        if (headerPullBtn) {
+          headerPullBtn.textContent = '☁ Pull';
+          headerPullBtn.disabled = false;
         }
       };
 

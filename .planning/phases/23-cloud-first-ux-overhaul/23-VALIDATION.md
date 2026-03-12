@@ -1,4 +1,4 @@
----
+﻿---
 phase: 23
 slug: cloud-first-ux-overhaul
 status: draft
@@ -39,10 +39,12 @@ created: 2026-03-11
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
 | 23-01-01 | 01 | 1 | SYNC-UX-01 | Unit | `npm test src/ui/cloud-sync.test.js` | ✅ | ⬜ pending |
-| 23-01-02 | 01 | 1 | SYNC-UX-01 | Manual | `n/a` | ✅ | ⬜ pending |
+| 23-01-02 | 01 | 1 | SYNC-UX-01, SYNC-UX-02 | Manual | `n/a` | ✅ | ⬜ pending |
 | 23-01-03 | 01 | 1 | SYNC-UX-01 | Manual | `n/a` | ✅ | ⬜ pending |
-| 23-01-04 | 01 | 2 | SYNC-UX-01 | Unit | `npm test src/ui/cloud-sync.test.js` | ✅ | ⬜ pending |
-| 23-01-05 | 01 | 3 | SYNC-UX-01 | Manual | `n/a` | ✅ | ⬜ pending |
+| 23-02-01 | 02 | 2 | SYNC-UX-01 | Manual | `n/a` | ✅ | ⬜ pending |
+| 23-02-02 | 02 | 2 | SYNC-UX-01 | Manual | `n/a` | ✅ | ⬜ pending |
+| 23-02-03 | 02 | 2 | SYNC-UX-01 | Manual | `n/a` | ✅ | ⬜ pending |
+| 23-03-01 | 03 | 3 | SYNC-UX-01, SYNC-UX-02 | Unit | `npm test src/ui/cloud-sync.test.js` | ✅ | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -61,8 +63,8 @@ created: 2026-03-11
 | Behavior | Requirement | Why Manual | Test Instructions |
 |----------|-------------|------------|-------------------|
 | Header Visuals | SYNC-UX-01 | Visual layout | Verify `#cloudSyncActionsHeader` appears in the top bar with correct icons. |
-| Button Visibility | SYNC-UX-01 | UI State | Verify local Export/Import buttons hide when Supabase is configured. |
-| Tab Redirection | SYNC-UX-01 | Interactive behavior | Verify "Sign In" button in header redirects to Settings tab. |
+| Button Visibility | SYNC-UX-01 | UI State | Verify local Export/Import buttons hide when Supabase is configured. |  
+| Sign-In Modal | SYNC-UX-01 | Interactive behavior | Verify "Sign In" button in header triggers a modal overlay (not a redirect). |
 
 ---
 
