@@ -80,18 +80,18 @@ export const cloudSyncUI = {
     headerActionsEl.classList.remove('hidden');
 
     if (session) {
-      // Phase 23.1: Show unified sync menu with status indicator and timestamp
+      // Phase 23.2: Status dot + timestamp + Sync button only (Sign Out moved inside sync modal)
       headerActionsEl.innerHTML = `
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <span id="syncStatusDot" class="sync-status-indicator" title="Synced" style="display:inline-block;width:0.6em;height:0.6em;border-radius:50%;background:#22c55e;margin:0 4px"></span>
           <span id="lastSyncedTime" style="font-size:.75rem;color:var(--text-soft)">Last synced: never</span>
           <button id="headerSyncMenuBtn" class="ghost">☁ Sync</button>
-          <button id="headerCloudSignOutBtn" class="ghost">Sign Out</button>
+          <button id="headerLocalMenuBtn" class="ghost">📁 Local</button>
         </div>
       `;
 
       const menuBtn = headerActionsEl.querySelector('#headerSyncMenuBtn');
-      const signOutBtn = headerActionsEl.querySelector('#headerCloudSignOutBtn');
+      const localBtn = headerActionsEl.querySelector('#headerLocalMenuBtn');
 
       if (menuBtn) {
         menuBtn.onclick = async () => {
@@ -100,9 +100,9 @@ export const cloudSyncUI = {
         };
       }
 
-      if (signOutBtn) {
-        signOutBtn.onclick = async () => {
-          await supabase.auth.signOut();
+      if (localBtn) {
+        localBtn.onclick = async () => {
+          await this._showLocalModal();
           triggerHaptic('tap');
         };
       }
@@ -111,8 +111,12 @@ export const cloudSyncUI = {
     }
 
     // Phase 23.1: Show sign-in button (will open modal on click)
+    // Phase 23.2: Also show Local button when signed out so local backup is always accessible
     headerActionsEl.innerHTML = `
-      <button id="headerCloudSignInBtn" class="primary">☁ Cloud Sign In</button>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button id="headerCloudSignInBtn" class="primary">☁ Cloud Sign In</button>
+        <button id="headerLocalMenuBtn" class="ghost">📁 Local</button>
+      </div>
     `;
 
     const signInBtn = headerActionsEl.querySelector('#headerCloudSignInBtn');
@@ -122,26 +126,91 @@ export const cloudSyncUI = {
         triggerHaptic('tap');
       };
     }
+
+    const localBtn = headerActionsEl.querySelector('#headerLocalMenuBtn');
+    if (localBtn) {
+      localBtn.onclick = async () => {
+        await this._showLocalModal();
+        triggerHaptic('tap');
+      };
+    }
+  },
+
+  /**
+   * Phase 23.2: Show local backup modal with Export, Import and Cancel options.
+   */
+  _showLocalModal() {
+    return new Promise((resolve) => {
+      const body = `
+        <p style="font-size:.9rem;margin-bottom:12px">Manage a local backup of your budget data (no server required).</p>
+        <ul style="font-size:.8rem;color:var(--text-soft);margin:0;padding-left:1.2em;line-height:1.7">
+          <li><strong>Export</strong> — download your data as a backup file.</li>
+          <li><strong>Import</strong> — restore data from a previous backup file.</li>
+        </ul>
+      `;
+
+      const footer = [
+        {
+          label: '💾 Export',
+          className: 'primary',
+          onClick: () => {
+            templateUI.closeModal();
+            // Delegate to the existing backupUI export flow
+            document.getElementById('exportBtn')?.click();
+            resolve();
+          }
+        },
+        {
+          label: '📂 Import',
+          className: 'ghost',
+          onClick: () => {
+            templateUI.closeModal();
+            // Trigger the hidden file input
+            document.getElementById('importFile')?.click();
+            resolve();
+          }
+        },
+        {
+          label: 'Cancel',
+          className: 'ghost',
+          onClick: () => {
+            templateUI.closeModal();
+            resolve();
+          }
+        }
+      ];
+
+      templateUI.showModal('📁 Local Backup', body, footer);
+    });
   },
 
   /**
    * Phase 23.1: Initialize dirty-state tracking.
-   * Loads initial dirty state from localStorage and sets up Dexie mutation listener.
+   * Loads initial dirty state from localStorage and hooks into Dexie table writes.
    */
   _initDirtyStateTracking() {
     // Load initial state from localStorage
     this._isDirty = localStorage.getItem(CLOUD_IS_DIRTY_KEY) === 'true';
 
-    // Listen for Dexie mutations (all table writes)
-    if (db.on) {
-      db.on('mutated', (event) => {
-        if (!this._isDirty && !this._syncInProgress) {
-          this._isDirty = true;
-          localStorage.setItem(CLOUD_IS_DIRTY_KEY, 'true');
-          this._updateStatusIndicator();
-          console.log('[cloudSyncUI] Marked as dirty via Dexie mutation');
-        }
-      });
+    const markDirty = () => {
+      if (!this._isDirty && !this._syncInProgress) {
+        this._isDirty = true;
+        localStorage.setItem(CLOUD_IS_DIRTY_KEY, 'true');
+        this._updateStatusIndicator();
+      }
+    };
+
+    // Dexie 3 doesn't have a db.on('mutated') event; use per-table hooks instead.
+    try {
+      if (db.tables && db.tables.length > 0) {
+        db.tables.forEach(table => {
+          table.hook('creating', markDirty);
+          table.hook('updating', markDirty);
+          table.hook('deleting', markDirty);
+        });
+      }
+    } catch (err) {
+      console.warn('[cloudSyncUI] Could not bind Dexie mutation hooks:', err.message);
     }
   },
 

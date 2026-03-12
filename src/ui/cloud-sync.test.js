@@ -67,6 +67,8 @@ describe('cloud-sync header actions (Phase 23)', () => {
     expect(document.querySelector('label[for="importFile"]').classList.contains('hidden')).toBe(true);
     expect(document.getElementById('cloudSyncActionsHeader').classList.contains('hidden')).toBe(false);
     expect(document.getElementById('headerCloudSignInBtn')).not.toBeNull();
+    // Phase 23.2: Local button always present
+    expect(document.getElementById('headerLocalMenuBtn')).not.toBeNull();
   });
 
   it('shows push/pull actions when configured and signed in', () => {
@@ -76,7 +78,9 @@ describe('cloud-sync header actions (Phase 23)', () => {
     expect(document.getElementById('syncStatusDot')).not.toBeNull();
     expect(document.getElementById('lastSyncedTime')).not.toBeNull();
     expect(document.getElementById('headerSyncMenuBtn')).not.toBeNull();
-    expect(document.getElementById('headerCloudSignOutBtn')).not.toBeNull();
+    // Phase 23.2: Sign Out removed from header; Local button present instead
+    expect(document.getElementById('headerCloudSignOutBtn')).toBeNull();
+    expect(document.getElementById('headerLocalMenuBtn')).not.toBeNull();
   });
 
   it('restores local import/export and hides cloud header when cloud is not configured', () => {
