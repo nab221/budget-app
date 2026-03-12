@@ -1,9 +1,9 @@
 ---
 phase: 26
-verified: 2026-03-12T00:00:00Z
+verified: 2026-03-12T23:19:31Z
 status: in-progress
-manual_status: protocol-created
-automated_status: pending
+manual_status: pending-human-run
+automated_status: passed
 ---
 
 # Phase 26: Milestone v2.7 Verification & Polish Verification Report
@@ -31,11 +31,17 @@ The canonical Phase 26 execution and verification records for milestone v2.7 are
 
 ### Task 26.2: Unit Tests For Auto-Pull Comparison Logic
 
-- PENDING: targeted test expansion not yet recorded in this file
+- PASS: Added coverage for missing local last-sync values with valid cloud timestamps
+- PASS: Added coverage for malformed local last-sync values
+- PASS: Added coverage for invalid cloud `updated_at` values and no-session early exits
+- PASS: Added one-shot guard coverage to confirm the auto-pull comparison runs once per load cycle
 
 ### Task 26.3: Final UI Polish
 
-- PENDING: final loading-state and reduced-motion verification not yet recorded in this file
+- PASS: Sync buttons now expose a shared busy-state contract with disabled state, restored labels, and `aria-busy`
+- PASS: Successful pull flows now refresh the sync section after completion and do not leave the button stuck in a loading state
+- PASS: CSS includes reduced-motion handling for sync pulse, notification motion, and busy-state affordances
+- PASS: Added targeted tests for push/pull loading-state semantics
 
 ## Manual Run
 
@@ -57,7 +63,20 @@ The canonical Phase 26 execution and verification records for milestone v2.7 are
 
 ## Automated Verification
 
-- Pending until Tasks 26.2 and 26.3 are complete.
+- PASS: `npm test -- src/ui/cloud-sync.test.js --run`
+	- Result: 34/34 tests passed in `src/ui/cloud-sync.test.js`
+- PASS: `npm test -- --run`
+	- Result: 24/24 test files passed, 354/354 tests passed
+- PASS: `npm run build`
+	- Result: production build succeeded
+
+## Atomic Commits
+
+- `b5a88b5` `docs(phase-26): add sync verification protocol and canonical docs`
+- `1525ca8` `test(phase-26): cover auto-pull comparison edge cases`
+- `0b2d801` `feat(phase-26): standardize sync loading states`
+- `b19d731` `style(phase-26): add reduced-motion sync polish`
+- `b4bbcb9` `test(phase-26): verify sync loading state contracts`
 
 ## Current Blockers
 
