@@ -63,6 +63,7 @@ vi.mock('./notifications.js', () => ({
 }));
 
 import { cloudSyncUI } from './cloud-sync.js';
+import { notificationUI } from './notifications.js';
 import * as supabaseSync from '../utils/supabase-sync.js';
 
 describe('cloud-sync header actions (Phase 23)', () => {
@@ -309,6 +310,7 @@ describe('cloud-sync intelligent sync logic (Phase 24)', () => {
 describe('cloud-sync sync visibility (Phase 25)', () => {
   const CLOUD_LAST_ERROR_KEY = 'budget_cloud_last_error';
   const CLOUD_LAST_ERROR_TIME_KEY = 'budget_cloud_last_error_time';
+  const CLOUD_LAST_ERROR_CODE_KEY = 'budget_cloud_last_error_code';
 
   beforeEach(() => {
     configured = true;
@@ -327,10 +329,11 @@ describe('cloud-sync sync visibility (Phase 25)', () => {
   describe('error state tracking', () => {
     it('saves error state to localStorage on push failure', () => {
       const errorMsg = 'Network error during push';
-      cloudSyncUI._saveErrorState(errorMsg);
+      cloudSyncUI._saveErrorState(errorMsg, 'PUSH_ERROR');
 
       expect(localStorage.getItem(CLOUD_LAST_ERROR_KEY)).toBe(errorMsg);
       expect(localStorage.getItem(CLOUD_LAST_ERROR_TIME_KEY)).toBeTruthy();
+      expect(localStorage.getItem(CLOUD_LAST_ERROR_CODE_KEY)).toBe('PUSH_ERROR');
     });
 
     it('loads error state from localStorage on initialization', () => {
@@ -338,11 +341,13 @@ describe('cloud-sync sync visibility (Phase 25)', () => {
       const now = Date.now();
       localStorage.setItem(CLOUD_LAST_ERROR_KEY, errorMsg);
       localStorage.setItem(CLOUD_LAST_ERROR_TIME_KEY, String(now));
+      localStorage.setItem(CLOUD_LAST_ERROR_CODE_KEY, 'PULL_ERROR');
 
       cloudSyncUI._loadErrorState();
 
       expect(cloudSyncUI._lastError).not.toBeNull();
       expect(cloudSyncUI._lastError.message).toBe(errorMsg);
+      expect(cloudSyncUI._lastError.code).toBe('PULL_ERROR');
       expect(cloudSyncUI._lastError.timestamp).toBe(now);
     });
 
@@ -354,6 +359,7 @@ describe('cloud-sync sync visibility (Phase 25)', () => {
 
       expect(localStorage.getItem(CLOUD_LAST_ERROR_KEY)).toBeNull();
       expect(localStorage.getItem(CLOUD_LAST_ERROR_TIME_KEY)).toBeNull();
+      expect(localStorage.getItem(CLOUD_LAST_ERROR_CODE_KEY)).toBeNull();
       expect(cloudSyncUI._lastError).toBeNull();
     });
 
@@ -419,18 +425,41 @@ describe('cloud-sync sync visibility (Phase 25)', () => {
   });
 
   describe('notification integration', () => {
-    it('wires push error to notification system', async () => {
-      const error = new Error('Push failed');
-      cloudSyncUI._saveErrorState(error.message);
+    it('shows push error notification with retry and export fallback actions', () => {
+      const retryAction = vi.fn();
 
-      expect(localStorage.getItem(CLOUD_LAST_ERROR_KEY)).toBe('Push failed');
+      cloudSyncUI._showPushErrorNotification('Push failed', retryAction);
+
+      expect(notificationUI.error).toHaveBeenCalledWith(
+        'Push failed',
+        expect.arrayContaining([
+          expect.objectContaining({ label: '💾 Export Backup' }),
+          expect.objectContaining({ label: '↻ Retry', onClick: retryAction }),
+        ])
+      );
     });
 
-    it('clears error state after successful sync notification', () => {
-      cloudSyncUI._saveErrorState('temp error');
-      cloudSyncUI._clearErrorState();
+    it('emits success notification after successful push helper run', async () => {
+      const refreshSpy = vi.spyOn(cloudSyncUI, '_refreshSection').mockResolvedValue(undefined);
+      vi.mocked(supabaseSync.pushSnapshot).mockResolvedValue(undefined);
+
+      const err = await cloudSyncUI._executePushSync();
+
+      expect(err).toBeNull();
+      expect(notificationUI.success).toHaveBeenCalledWith('Budget synced to cloud', [], 2000);
+      refreshSpy.mockRestore();
+    });
+
+    it('clears persisted error state after successful sync helper run', async () => {
+      const refreshSpy = vi.spyOn(cloudSyncUI, '_refreshSection').mockResolvedValue(undefined);
+      vi.mocked(supabaseSync.pushSnapshot).mockResolvedValue(undefined);
+      cloudSyncUI._saveErrorState('temp error', 'PUSH_ERROR');
+
+      await cloudSyncUI._executePushSync();
 
       expect(localStorage.getItem(CLOUD_LAST_ERROR_KEY)).toBeNull();
+      expect(localStorage.getItem(CLOUD_LAST_ERROR_CODE_KEY)).toBeNull();
+      refreshSpy.mockRestore();
     });
   });
 });

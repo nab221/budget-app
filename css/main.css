@@ -685,38 +685,6 @@ body.privacy-enabled #expensesTabHeatmapSection:hover #expensesTabHeatmapContain
   }
 }
 
-/*  NOTIFICATIONS & ANIMATIONS  */
-@keyframes slideIn {
-  from {
-    transform: translateX(400px);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-@keyframes slideOut {
-  from {
-    transform: translateX(0);
-    opacity: 1;
-  }
-  to {
-    transform: translateX(400px);
-    opacity: 0;
-  }
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
 .notification {
   animation: slideIn 300ms ease-out;
   position: fixed;
@@ -732,7 +700,7 @@ body.privacy-enabled #expensesTabHeatmapSection:hover #expensesTabHeatmapContain
   justify-content: space-between;
   align-items: flex-start;
   gap: 12px;
-  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .notification.exiting {

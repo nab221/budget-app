@@ -11,7 +11,7 @@ import {
   CLOUD_LAST_SYNC_KEY,
 } from '../utils/supabase-sync.js';
 import { getFileSyncState, openSelectFileDialog, disconnectFileSyncFile } from './file-sync.js';
-import { importBackupData, exportBackupData } from '../db/backup.js';
+import { importBackupData } from '../db/backup.js';
 import { templateUI } from './templates.js';
 import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
 import { notificationUI } from './notifications.js';
@@ -23,6 +23,7 @@ const CLOUD_IS_DIRTY_KEY = 'budget_cloud_is_dirty';
 // Phase 25.1: Constants for error-state tracking
 const CLOUD_LAST_ERROR_KEY = 'budget_cloud_last_error';
 const CLOUD_LAST_ERROR_TIME_KEY = 'budget_cloud_last_error_time';
+const CLOUD_LAST_ERROR_CODE_KEY = 'budget_cloud_last_error_code';
 
 export const cloudSyncUI = {
   _initialized: false,
@@ -451,19 +452,18 @@ export const cloudSyncUI = {
   _loadErrorState() {
     const savedError = localStorage.getItem(CLOUD_LAST_ERROR_KEY);
     const savedTime = localStorage.getItem(CLOUD_LAST_ERROR_TIME_KEY);
-    
+    const savedCode = localStorage.getItem(CLOUD_LAST_ERROR_CODE_KEY);
+
+    this._lastError = null;
+
     if (savedError && savedTime) {
-      try {
-        const timestamp = parseInt(savedTime, 10);
-        if (Number.isFinite(timestamp)) {
-          this._lastError = {
-            message: savedError,
-            timestamp: timestamp
-          };
-        }
-      } catch (err) {
-        console.warn('[cloudSyncUI] Error parsing saved error state:', err.message);
-        this._lastError = null;
+      const timestamp = parseInt(savedTime, 10);
+      if (Number.isFinite(timestamp)) {
+        this._lastError = {
+          message: savedError,
+          code: savedCode || null,
+          timestamp,
+        };
       }
     }
   },
@@ -479,9 +479,14 @@ export const cloudSyncUI = {
       code: errorCode,
       timestamp: now
     };
-    
+
     localStorage.setItem(CLOUD_LAST_ERROR_KEY, errorMessage);
     localStorage.setItem(CLOUD_LAST_ERROR_TIME_KEY, String(now));
+    if (errorCode) {
+      localStorage.setItem(CLOUD_LAST_ERROR_CODE_KEY, errorCode);
+    } else {
+      localStorage.removeItem(CLOUD_LAST_ERROR_CODE_KEY);
+    }
     this._errorDismissed = false;
     this._updateStatusIndicator();
   },
@@ -495,7 +500,111 @@ export const cloudSyncUI = {
     this._errorDismissed = false;
     localStorage.removeItem(CLOUD_LAST_ERROR_KEY);
     localStorage.removeItem(CLOUD_LAST_ERROR_TIME_KEY);
+    localStorage.removeItem(CLOUD_LAST_ERROR_CODE_KEY);
     this._updateStatusIndicator();
+  },
+
+  _buildExportBackupAction() {
+    return {
+      label: '💾 Export Backup',
+      onClick: () => document.getElementById('exportBtn')?.click(),
+    };
+  },
+
+  _showPushErrorNotification(message, retryAction = null) {
+    const actions = [this._buildExportBackupAction()];
+    if (retryAction) {
+      actions.push({ label: '↻ Retry', onClick: retryAction });
+    }
+    notificationUI.error(message, actions);
+  },
+
+  _showPullErrorNotification(message, retryAction = null) {
+    const actions = retryAction ? [{ label: '↻ Retry', onClick: retryAction }] : [];
+    notificationUI.error(message, actions);
+  },
+
+  async _executePushSync({ button = null, closeModal = false, announceStart = false, successAlert = false } = {}) {
+    const originalText = button?.textContent || 'Push to Cloud';
+
+    try {
+      this._syncInProgress = true;
+      if (button) {
+        button.textContent = 'Pushing...';
+        button.disabled = true;
+      }
+      if (closeModal) {
+        templateUI.closeModal();
+      }
+      if (announceStart) {
+        alertWithHaptic('Pushing to cloud...');
+      }
+
+      this._mutationsDuringSync = false;
+      await pushSnapshot();
+      this._isDirty = this._mutationsDuringSync;
+      this._mutationsDuringSync = false;
+      localStorage.setItem(CLOUD_IS_DIRTY_KEY, this._isDirty ? 'true' : 'false');
+      this._clearErrorState();
+      this._updateStatusIndicator();
+
+      if (successAlert) {
+        alertWithHaptic('Synced successfully!', 'success');
+      } else {
+        triggerHaptic('success');
+      }
+
+      notificationUI.success('Budget synced to cloud', [], 2000);
+      await this._refreshSection();
+      return null;
+    } catch (err) {
+      console.error('[cloudSyncUI] Push failed:', err);
+      this._saveErrorState(err.message, err.code || 'PUSH_ERROR');
+      return err;
+    } finally {
+      this._syncInProgress = false;
+      if (button) {
+        button.textContent = originalText;
+        button.disabled = false;
+      }
+    }
+  },
+
+  async _executePullSync({ button = null, closeModal = false, announceStart = false, keepButtonDisabledOnSuccess = false } = {}) {
+    const originalText = button?.textContent || 'Pull from Cloud';
+    let restoreButton = true;
+
+    try {
+      this._syncInProgress = true;
+      if (button) {
+        button.textContent = 'Fetching...';
+        button.disabled = true;
+      }
+      if (closeModal) {
+        templateUI.closeModal();
+      }
+      if (announceStart) {
+        alertWithHaptic('Fetching from cloud...');
+      }
+
+      await pullSnapshot();
+      this._clearErrorState();
+      notificationUI.success('Latest budget loaded from cloud', [], 2000);
+      if (button && keepButtonDisabledOnSuccess) {
+        restoreButton = false;
+      }
+      return null;
+    } catch (err) {
+      console.error('[cloudSyncUI] Pull failed:', err);
+      this._saveErrorState(err.message, err.code || 'PULL_ERROR');
+      return err;
+    } finally {
+      this._syncInProgress = false;
+      if (button && restoreButton) {
+        button.textContent = originalText;
+        button.disabled = false;
+      }
+    }
   },
 
   /**
@@ -776,36 +885,11 @@ export const cloudSyncUI = {
 
       document.getElementById('_cloudPushBtn')?.addEventListener('click', async () => {
         try {
-          this._syncInProgress = true;
-          templateUI.closeModal();
-          alertWithHaptic('Pushing to cloud...');
-          this._mutationsDuringSync = false;
-          await pushSnapshot();
-          this._isDirty = this._mutationsDuringSync;
-          this._mutationsDuringSync = false;
-          localStorage.setItem(CLOUD_IS_DIRTY_KEY, this._isDirty ? 'true' : 'false');
-          // Phase 25.1: Clear error state on successful push
-          this._clearErrorState();
-          this._updateStatusIndicator();
-          alertWithHaptic('Synced successfully!', 'success');
-          notificationUI.success('Budget synced to cloud', [], 2000);
-          await this._refreshSection();
-        } catch (err) {
-          console.error('[cloudSyncUI] Push failed:', err);
-          // Phase 25.1: Save error state on push failure
-          this._saveErrorState(err.message, err.code || 'PUSH_ERROR');
-          alertWithHaptic('Push failed: ' + err.message);
-          // Phase 25.3: Show error notification with fallback options
-          notificationUI.error(err.message, [
-            {
-              label: '💾 Export Backup',
-              onClick: () => document.getElementById('exportBtn')?.click()
-            },
-            {
-              label: '↻ Retry',
-              onClick: () => this._showSyncMenuModal()
-            }
-          ]);
+          const err = await this._executePushSync({ closeModal: true, announceStart: true, successAlert: true });
+          if (err) {
+            alertWithHaptic('Push failed: ' + err.message);
+            this._showPushErrorNotification(err.message, () => this._showSyncMenuModal());
+          }
         } finally {
           this._syncInProgress = false;
           resolve();
@@ -814,27 +898,11 @@ export const cloudSyncUI = {
 
       document.getElementById('_cloudPullBtn')?.addEventListener('click', async () => {
         try {
-          this._syncInProgress = true;
-          templateUI.closeModal();
-          alertWithHaptic('Fetching from cloud...');
-          await pullSnapshot();
-          // Phase 25.1: Clear error state on successful pull
-          this._clearErrorState();
-          notificationUI.success('Latest budget loaded from cloud', [], 2000);
-          // pullSnapshot dispatches an event that shows a preview modal
-          // UI takes over from there
-        } catch (err) {
-          console.error('[cloudSyncUI] Pull failed:', err);
-          // Phase 25.1: Save error state on pull failure
-          this._saveErrorState(err.message, err.code || 'PULL_ERROR');
-          alertWithHaptic('Pull failed: ' + err.message);
-          // Phase 25.3: Show error notification with retry option
-          notificationUI.error(err.message, [
-            {
-              label: '↻ Retry',
-              onClick: () => this._showSyncMenuModal()
-            }
-          ]);
+          const err = await this._executePullSync({ closeModal: true, announceStart: true });
+          if (err) {
+            alertWithHaptic('Pull failed: ' + err.message);
+            this._showPullErrorNotification(err.message, () => this._showSyncMenuModal());
+          }
         } finally {
           this._syncInProgress = false;
           resolve();
@@ -884,101 +952,32 @@ export const cloudSyncUI = {
     };
 
     const pushBtn = document.getElementById('cloudPushBtn');
-    if (pushBtn) pushBtn.onclick = async () => {
-      try {
-        pushBtn.textContent = 'Pushing...';
-        pushBtn.disabled = true;
-        await pushSnapshot();
-        // Phase 25.1: Clear error state on successful push
-        this._clearErrorState();
-        triggerHaptic('success');
-        notificationUI.success('Budget synced to cloud', [], 2000);
-        await this._refreshSection();
-      } catch (err) {
-        console.error('[cloudSyncUI] Push failed:', err);
-        // Phase 25.1: Save error state on push failure
-        this._saveErrorState(err.message, err.code || 'PUSH_ERROR');
-        alertWithHaptic('Push failed: ' + err.message);
-        // Phase 25.3: Show error notification with fallback options
-        notificationUI.error(err.message, [
-          {
-            label: '💾 Export Backup',
-            onClick: () => document.getElementById('exportBtn')?.click()
-          },
-          {
-            label: '↻ Retry',
-            onClick: async () => {
-              pushBtn.textContent = 'Pushing...';
-              pushBtn.disabled = true;
-              try {
-                await pushSnapshot();
-                this._clearErrorState();
-                triggerHaptic('success');
-                notificationUI.success('Budget synced to cloud', [], 2000);
-                await this._refreshSection();
-              } catch (retryErr) {
-                console.error('[cloudSyncUI] Retry push failed:', retryErr);
-                this._saveErrorState(retryErr.message, retryErr.code || 'PUSH_ERROR');
-                notificationUI.error('Retry failed: ' + retryErr.message, [
-                  {
-                    label: '💾 Export Backup',
-                    onClick: () => document.getElementById('exportBtn')?.click()
-                  }
-                ]);
-              } finally {
-                pushBtn.textContent = 'Push to Cloud';
-                pushBtn.disabled = false;
-              }
-            }
-          }
-        ]);
-        pushBtn.textContent = 'Push to Cloud';
-        pushBtn.disabled = false;
-      }
-    };
+    if (pushBtn) {
+      const runPush = async (isRetry = false) => {
+        const err = await this._executePushSync({ button: pushBtn });
+        if (!err) return;
+
+        const message = isRetry ? 'Retry failed: ' + err.message : err.message;
+        alertWithHaptic((isRetry ? 'Retry failed: ' : 'Push failed: ') + err.message);
+        this._showPushErrorNotification(message, () => runPush(true));
+      };
+
+      pushBtn.onclick = () => runPush(false);
+    }
 
     const pullBtn = document.getElementById('cloudPullBtn');
-    if (pullBtn) pullBtn.onclick = async () => {
-      try {
-        pullBtn.textContent = 'Fetching...';
-        pullBtn.disabled = true;
-        await pullSnapshot();
-        // Phase 25.1: Clear error state on successful pull
-        this._clearErrorState();
-        notificationUI.success('Latest budget loaded from cloud', [], 2000);
-        // Event dispatched by pullSnapshot(); UI takes over from the preview listener.
-        // Button stays disabled until the modal is dismissed (cancel) or page reloads (confirm).
-      } catch (err) {
-        console.error('[cloudSyncUI] Pull failed:', err);
-        // Phase 25.1: Save error state on pull failure
-        this._saveErrorState(err.message, err.code || 'PULL_ERROR');
-        alertWithHaptic('Pull failed: ' + err.message);
-        // Phase 25.3: Show error notification with retry option
-        notificationUI.error(err.message, [
-          {
-            label: '↻ Retry',
-            onClick: async () => {
-              pullBtn.textContent = 'Fetching...';
-              pullBtn.disabled = true;
-              try {
-                await pullSnapshot();
-                this._clearErrorState();
-                notificationUI.success('Latest budget loaded from cloud', [], 2000);
-              } catch (retryErr) {
-                console.error('[cloudSyncUI] Retry pull failed:', retryErr);
-                this._saveErrorState(retryErr.message, retryErr.code || 'PULL_ERROR');
-                notificationUI.error('Retry failed: ' + retryErr.message);
-              } finally {
-                pullBtn.textContent = 'Pull from Cloud';
-                pullBtn.disabled = false;
-              }
-            }
-          }
-        ]);
-        pullBtn.textContent = 'Pull from Cloud';
-        pullBtn.disabled = false;
-      }
-    };
+    if (pullBtn) {
+      const runPull = async (isRetry = false) => {
+        const err = await this._executePullSync({ button: pullBtn, keepButtonDisabledOnSuccess: true });
+        if (!err) return;
+
+        const message = isRetry ? 'Retry failed: ' + err.message : err.message;
+        alertWithHaptic((isRetry ? 'Retry failed: ' : 'Pull failed: ') + err.message);
+        this._showPullErrorNotification(message, () => runPull(true));
+      };
+
+      pullBtn.onclick = () => runPull(false);
+    }
   },
 
   _renderSignedOut(statusEl, actionsEl) {

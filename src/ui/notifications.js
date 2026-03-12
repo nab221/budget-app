@@ -183,10 +183,12 @@ export const notificationUI = {
    * @param {HTMLElement} notif - Notification element
    */
   dismiss(notif) {
-    if (!notif || !this._container) return;
+    if (!notif || !this._container || notif.dataset.dismissing === 'true') return;
+
+    notif.dataset.dismissing = 'true';
 
     notif.style.animation = 'slideOut 0.3s ease-in forwards';
-    
+
     setTimeout(() => {
       if (notif.parentNode === this._container) {
         this._container.removeChild(notif);
