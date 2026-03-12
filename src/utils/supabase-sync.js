@@ -65,7 +65,8 @@ export function _validateConfig(url, anonKey) {
 }
 
 /**
- * Returns true only when both Supabase env vars are present and non-empty.
+ * Returns true when effective Supabase config has non-empty url + anonKey,
+ * whether sourced from environment variables or runtime browser config.
  * When false, all cloud sync UI is hidden and no Supabase calls are made.
  */
 export function isConfigured() {

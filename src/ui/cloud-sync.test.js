@@ -8,20 +8,21 @@ const {
   mockOnAuthStateChange,
   mockSaveRuntimeConfig,
   mockUnsubscribe,
+  mockGetSession,
 } = vi.hoisted(() => ({
   mockSignOut: vi.fn(),
   mockOnAuthStateChange: vi.fn(),
   mockSaveRuntimeConfig: vi.fn(),
   mockUnsubscribe: vi.fn(),
+  mockGetSession: vi.fn(),
 }));
 
 vi.mock('../utils/supabase-sync.js', () => ({
   isConfigured: () => configured,
   getSupabaseClient: () => currentSupabaseClient,
   getRuntimeConfig: () => ({ url: '', anonKey: '', isConfigured: false }),
-  getConfigSource: () => 'none',
   saveRuntimeConfig: mockSaveRuntimeConfig,
-  getSession: vi.fn(),
+  getSession: mockGetSession,
   signIn: vi.fn(),
   pushSnapshot: vi.fn(),
   pullSnapshot: vi.fn(),
@@ -59,6 +60,8 @@ describe('cloud-sync header actions (Phase 23)', () => {
     mockOnAuthStateChange.mockReset();
     mockSaveRuntimeConfig.mockReset();
     mockUnsubscribe.mockReset();
+    mockGetSession.mockReset();
+    mockGetSession.mockResolvedValue(null);
     currentSupabaseClient = {
       auth: {
         signOut: mockSignOut,
@@ -138,5 +141,47 @@ describe('cloud-sync header actions (Phase 23)', () => {
     expect(mockUnsubscribe).toHaveBeenCalledTimes(1);
     expect(nextClient.auth.onAuthStateChange).toHaveBeenCalledTimes(1);
     expect(cloudSyncUI._authBoundClient).toBe(nextClient);
+  });
+
+  it('renders header actions even when cloud settings section is not present', async () => {
+    await cloudSyncUI._refreshSection();
+
+    expect(document.getElementById('cloudSyncActionsHeader').classList.contains('hidden')).toBe(false);
+    expect(document.getElementById('headerCloudSignInBtn')).not.toBeNull();
+    expect(document.getElementById('headerLocalMenuBtn')).not.toBeNull();
+  });
+
+  it('keeps baseline header actions when session lookup fails', async () => {
+    mockGetSession.mockRejectedValueOnce(new Error('session failed'));
+
+    await cloudSyncUI._refreshSection();
+
+    expect(document.getElementById('cloudSyncActionsHeader').classList.contains('hidden')).toBe(false);
+    expect(document.getElementById('headerCloudSignInBtn')).not.toBeNull();
+    expect(document.getElementById('headerLocalMenuBtn')).not.toBeNull();
+  });
+
+  it('uses provided session override without calling getSession', async () => {
+    mockGetSession.mockClear();
+
+    await cloudSyncUI._refreshSection({ user: { email: 'user@example.com' } });
+
+    expect(mockGetSession).not.toHaveBeenCalled();
+    expect(document.getElementById('headerSyncMenuBtn')).not.toBeNull();
+    expect(document.getElementById('headerLocalMenuBtn')).not.toBeNull();
+  });
+
+  it('renders header actions even when legacy export/import controls are missing', () => {
+    document.body.innerHTML = `
+      <div class="toolbar">
+        <div id="cloudSyncActionsHeader" class="hidden"></div>
+      </div>
+    `;
+
+    cloudSyncUI._renderHeaderActions(null);
+
+    expect(document.getElementById('cloudSyncActionsHeader').classList.contains('hidden')).toBe(false);
+    expect(document.getElementById('headerCloudSignInBtn')).not.toBeNull();
+    expect(document.getElementById('headerLocalMenuBtn')).not.toBeNull();
   });
 });

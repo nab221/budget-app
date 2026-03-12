@@ -2,7 +2,6 @@ import {
   isConfigured,
   getSupabaseClient,
   getRuntimeConfig,
-  getConfigSource,
   saveRuntimeConfig,
   getSession,
   signIn,
@@ -55,13 +54,27 @@ export const cloudSyncUI = {
   /**
    * Re-render the section contents based on current auth state.
    */
-  async _refreshSection() {
+  async _refreshSection(sessionOverride) {
     const section = document.getElementById('cloudSyncSection');
-    if (!section) return;
+    let session = sessionOverride;
 
-    const session = await getSession();
-    this._renderHeaderActions(session);
+    if (sessionOverride === undefined) {
+      this._renderHeaderActions(null);
+      this._updateStatusIndicator();
+      this._updateLocalFileIndicator();
+
+      try {
+        session = await getSession();
+      } catch {
+        session = null;
+      }
+    }
+
+    this._renderHeaderActions(session || null);
     this._updateStatusIndicator();
+    this._updateLocalFileIndicator();
+
+    if (!section) return;
 
     const statusEl = section.querySelector('#cloudSyncStatus');
     const actionsEl = section.querySelector('#cloudSyncActions');
@@ -84,7 +97,7 @@ export const cloudSyncUI = {
     const exportBtn = document.getElementById('exportBtn');
     const importLabel = document.querySelector('label[for="importFile"]');
 
-    if (!headerActionsEl || !exportBtn || !importLabel) return;
+    if (!headerActionsEl) return;
 
     if (!isConfigured()) {
       headerActionsEl.classList.remove('hidden');
@@ -107,13 +120,14 @@ export const cloudSyncUI = {
         triggerHaptic('tap');
       });
 
-      exportBtn.classList.remove('hidden');
-      importLabel.classList.remove('hidden');
+      exportBtn?.classList.remove('hidden');
+      importLabel?.classList.remove('hidden');
+      this._updateLocalFileIndicator();
       return;
     }
 
-    exportBtn.classList.add('hidden');
-    importLabel.classList.add('hidden');
+    exportBtn?.classList.add('hidden');
+    importLabel?.classList.add('hidden');
     headerActionsEl.classList.remove('hidden');
 
     if (session) {
@@ -146,6 +160,8 @@ export const cloudSyncUI = {
         };
       }
 
+      this._updateLocalFileIndicator();
+
       return;
     }
 
@@ -175,15 +191,12 @@ export const cloudSyncUI = {
         triggerHaptic('tap');
       };
     }
+
+    this._updateLocalFileIndicator();
   },
 
   _renderNotConfigured(statusEl, actionsEl) {
-    const source = getConfigSource();
-    const sourceText = source === 'runtime'
-      ? 'Configured from this browser.'
-      : 'Cloud keys are not configured yet.';
-
-    statusEl.innerHTML = `<span style="font-size:.85rem;color:var(--text-soft)">${sourceText}</span>`;
+    statusEl.innerHTML = '<span style="font-size:.85rem;color:var(--text-soft)">Cloud keys are not configured yet.</span>';
     actionsEl.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:10px">
         <p style="font-size:.85rem;margin:0">Enable cloud sync by entering your Supabase project URL and publishable anon key.</p>
@@ -742,7 +755,11 @@ export const cloudSyncUI = {
 
     this._authSubscription?.unsubscribe?.();
 
-    const authState = supabase.auth.onAuthStateChange(() => this._refreshSection());
+    const authState = supabase.auth.onAuthStateChange((_, session) => {
+      setTimeout(() => {
+        this._refreshSection(session ?? null);
+      }, 0);
+    });
     this._authSubscription = authState?.data?.subscription || authState?.subscription || null;
     this._authBoundClient = supabase;
     this._authListenerBound = true;
