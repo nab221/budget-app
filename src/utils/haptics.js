@@ -2,6 +2,7 @@
  * Centralized utility for haptic feedback patterns and vibration triggers.
  * Provides tactile reinforcement for user actions and system states.
  */
+import { HAPTICS_ENABLED_KEY } from './storage.js';
 
 export const HAPTIC_PATTERNS = {
   tap: [10],
@@ -13,7 +14,6 @@ export const HAPTIC_PATTERNS = {
 
 const lastPulseTime = new Map();
 const DEBOUNCE_MS = 300;
-const HAPTICS_STORAGE_KEY = 'budget_haptics_enabled';
 
 /**
  * Resets internal debounce timers. Used for testing.
@@ -26,7 +26,7 @@ export function resetHapticTimers() {
  * Initialize Haptics from localStorage.
  */
 export function initHaptics() {
-  const isEnabled = localStorage.getItem(HAPTICS_STORAGE_KEY) !== 'false';
+  const isEnabled = localStorage.getItem(HAPTICS_ENABLED_KEY) !== 'false';
   const checkbox = document.getElementById('hapticsEnabledCheckbox');
   if (checkbox) checkbox.checked = isEnabled;
 }
@@ -37,7 +37,7 @@ export function initHaptics() {
  */
 export function triggerHaptic(type) {
   // Check if enabled (defaults to true if not set)
-  const isEnabled = localStorage.getItem(HAPTICS_STORAGE_KEY) !== 'false';
+  const isEnabled = localStorage.getItem(HAPTICS_ENABLED_KEY) !== 'false';
   if (!isEnabled) return;
 
   // Enforce debounce per type to prevent vibration flooding

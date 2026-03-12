@@ -19,6 +19,11 @@ import { findBestMatch } from '../utils/string-similarity.js';
 const CATEGORY_MATCH_THRESHOLD = 0.9;
 
 /**
+ * Tables that contain a `categoryId` field and need remapping during merge imports.
+ */
+const TABLES_WITH_CATEGORY_ID = ['income', 'recurrentExpenses', 'oneOffExpenses', 'expectedIncome', 'recurringTemplates'];
+
+/**
  * Imports backup data into IndexedDB with validation and flexible merge/overwrite modes.
  *
  * **Validation**:
@@ -80,23 +85,31 @@ export async function importBackupData(data, options = {}) {
     let categoryIdMap = {}; // incoming ID -> local ID
     if (mode === 'merge' && data.categories) {
       const localCategories = await db.categories.toArray();
-      const localNames = localCategories.map(c => c.name);
-      const localNameMap = new Map(localCategories.map(c => [c.name.toLowerCase(), c.id]));
 
       for (const incomingCategory of data.categories) {
         if (!incomingCategory.name) continue;
         const incomingNameLower = incomingCategory.name.toLowerCase();
+        const incomingGroup = incomingCategory.group ?? incomingCategory.type ?? null;
+
+        const filteredLocalCategories = incomingGroup
+          ? localCategories.filter(localCategory => (localCategory.group ?? localCategory.type) === incomingGroup)
+          : localCategories;
+
+        const filteredLocalNames = filteredLocalCategories.map(localCategory => localCategory.name);
+        const filteredLocalNameMap = new Map(
+          filteredLocalCategories.map(localCategory => [localCategory.name.toLowerCase(), localCategory.id])
+        );
 
         // 1. Case-insensitive exact match
-        if (localNameMap.has(incomingNameLower)) {
-          categoryIdMap[incomingCategory.id] = localNameMap.get(incomingNameLower);
+        if (filteredLocalNameMap.has(incomingNameLower)) {
+          categoryIdMap[incomingCategory.id] = filteredLocalNameMap.get(incomingNameLower);
           continue;
         }
 
         // 2. Fuzzy match for minor typos/pluralization
-        const { target, rating } = findBestMatch(incomingCategory.name, localNames);
+        const { target, rating } = findBestMatch(incomingCategory.name, filteredLocalNames);
         if (target && rating >= CATEGORY_MATCH_THRESHOLD) {
-          categoryIdMap[incomingCategory.id] = localNameMap.get(target.toLowerCase());
+          categoryIdMap[incomingCategory.id] = filteredLocalNameMap.get(target.toLowerCase());
         }
       }
     }
@@ -155,15 +168,8 @@ export async function importBackupData(data, options = {}) {
         // In merge mode, remap categoryId references if applicable
         let recordsToImport = data[table.name];
         if (mode === 'merge' && Object.keys(categoryIdMap).length > 0 && table.name !== 'categories' && table.name !== 'categoryMappings') {
-          // Tables with categoryId field: income, recurrentExpenses, oneOffExpenses, expectedIncome
-          if (['income', 'recurrentExpenses', 'oneOffExpenses', 'expectedIncome'].includes(table.name)) {
-            recordsToImport = recordsToImport.map(record => ({
-              ...record,
-              categoryId: categoryIdMap[record.categoryId] ?? record.categoryId
-            }));
-          }
-          // Also handle recurringTemplates if present in backup (legacy)
-          if (table.name === 'recurringTemplates') {
+          // Tables with categoryId field: remap to local IDs
+          if (TABLES_WITH_CATEGORY_ID.includes(table.name)) {
             recordsToImport = recordsToImport.map(record => ({
               ...record,
               categoryId: categoryIdMap[record.categoryId] ?? record.categoryId

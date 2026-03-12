@@ -27,9 +27,10 @@ describe('theme.js', () => {
 
     it('falls back to system preference (light) if no saved theme', () => {
       window.matchMedia = vi.fn().mockImplementation(query => ({
-        matches: query === '(prefers-color-scheme: light)',
+        matches: false,
       }));
       initTheme();
+      expect(window.matchMedia).toHaveBeenCalledWith('(prefers-color-scheme: dark)');
       expect(document.documentElement.getAttribute('data-theme')).toBe('light');
     });
 
