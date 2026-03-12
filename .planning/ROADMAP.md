@@ -30,7 +30,6 @@
 - **Task 23.3.4:** Move "Clear All Data" from the top bar into Settings under a cautionary Danger Zone section.
 - **Task 23.3.5:** Keep the header subtitle static by removing "Auto-saving to ..." text under the app title (status remains in header indicator dots).
 
-## Phase 24: Intelligent Sync Logic (Auto-Pull & Auto-Push) ✅ COMPLETE
 ## Phase 23.4: Runtime Cloud Configuration for Hosted Builds ✅ COMPLETE
 **Goal:** Allow users to configure Supabase URL and anon key at runtime when `.env.local` is unavailable (e.g., GitHub Pages).
 - **Task 23.4.1:** Add runtime Supabase config persistence in `localStorage` and use it as fallback when `import.meta.env` is missing.

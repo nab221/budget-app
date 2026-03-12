@@ -194,12 +194,28 @@ describe('cloud-sync intelligent sync logic (Phase 24)', () => {
     localStorage.clear();
     vi.clearAllMocks();
 
+    mockSignOut.mockReset();
+    mockOnAuthStateChange.mockReset();
+    mockSaveRuntimeConfig.mockReset();
+    mockUnsubscribe.mockReset();
+    mockGetSession.mockReset();
+    mockGetSession.mockResolvedValue(null);
+    currentSupabaseClient = {
+      auth: {
+        signOut: mockSignOut,
+        onAuthStateChange: mockOnAuthStateChange.mockImplementation(() => ({
+          data: { subscription: { unsubscribe: mockUnsubscribe } },
+        })),
+      },
+    };
+
     cloudSyncUI._initialized = false;
     cloudSyncUI._isDirty = false;
     cloudSyncUI._syncInProgress = false;
     cloudSyncUI._mutationsDuringSync = false;
     cloudSyncUI._didAutoPullCheckOnLoad = false;
     cloudSyncUI._lastAutoPullSessionUserId = null;
+    cloudSyncUI._autoPullTriggered = false;
     cloudSyncUI._visibilityChangeHandler = null;
 
     vi.mocked(supabaseSync.getSession).mockResolvedValue(null);

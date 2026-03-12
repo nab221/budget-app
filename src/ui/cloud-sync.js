@@ -29,6 +29,7 @@ export const cloudSyncUI = {
   _mutationsDuringSync: false,
   _didAutoPullCheckOnLoad: false,
   _lastAutoPullSessionUserId: null,
+  _autoPullTriggered: false,
   _visibilityChangeHandler: null,
 
   /**
@@ -58,6 +59,7 @@ export const cloudSyncUI = {
   },
 
   async _runAutoPullCheckOnLoad() {
+    if (this._autoPullTriggered) return;
     if (this._didAutoPullCheckOnLoad) return;
     this._didAutoPullCheckOnLoad = true;
 
@@ -76,6 +78,7 @@ export const cloudSyncUI = {
       const hasValidLocalSync = Number.isFinite(localLastSyncMs) && localLastSyncMs > 0;
 
       if (!hasValidLocalSync || cloudUpdatedAtMs > localLastSyncMs) {
+        this._autoPullTriggered = true;
         this._syncInProgress = true;
         await pullSnapshot();
       }
@@ -124,6 +127,7 @@ export const cloudSyncUI = {
   },
 
   async _runAutoPullAfterSignIn(session) {
+    if (this._autoPullTriggered) return;
     const userId = session?.user?.id;
     if (!userId) return;
     if (this._lastAutoPullSessionUserId === userId) return;
@@ -131,6 +135,7 @@ export const cloudSyncUI = {
     this._lastAutoPullSessionUserId = userId;
 
     try {
+      this._autoPullTriggered = true;
       this._syncInProgress = true;
       await pullSnapshot();
     } catch (err) {
