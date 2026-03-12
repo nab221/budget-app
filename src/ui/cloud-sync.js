@@ -78,6 +78,7 @@ export const cloudSyncUI = {
       const hasValidLocalSync = Number.isFinite(localLastSyncMs) && localLastSyncMs > 0;
 
       if (!hasValidLocalSync || cloudUpdatedAtMs > localLastSyncMs) {
+        if (this._autoPullTriggered) return;
         this._autoPullTriggered = true;
         this._syncInProgress = true;
         await pullSnapshot();

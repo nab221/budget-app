@@ -42,7 +42,7 @@
 **Goal:** Automate sync checkpoints to reduce manual effort.
 - **Task 24.1:** Implement "Auto-Pull check" on app load; prompt user if cloud is newer.
 - **Task 24.2:** Implement "Auto-Push on Exit" via `visibilitychange` event.
-- **Task 24.3:** Auto-trigger `pullSnapshot` after successful magic link sign-in.
+- **Task 24.3:** After a successful magic-link sign-in, automatically trigger `pullSnapshot`.
 - **Verified:** 2026-03-12 via `.planning/phases/24-intelligent-sync-logic/24-VERIFICATION.md`.
 
 ## Phase 25: Sync Visibility (Dirty State & Error Handling)
