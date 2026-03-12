@@ -19,6 +19,10 @@ import { db } from '../db/schema.js';
 // Phase 23.1: Constants for dirty-state tracking and timestamps
 const CLOUD_IS_DIRTY_KEY = 'budget_cloud_is_dirty';
 
+// Phase 25.1: Constants for error-state tracking
+const CLOUD_LAST_ERROR_KEY = 'budget_cloud_last_error';
+const CLOUD_LAST_ERROR_TIME_KEY = 'budget_cloud_last_error_time';
+
 export const cloudSyncUI = {
   _initialized: false,
   _authListenerBound: false,
@@ -28,6 +32,8 @@ export const cloudSyncUI = {
   _syncInProgress: false,
   _mutationsDuringSync: false,
   _didAutoPullCheckOnLoad: false,
+  _lastError: null, // { message, code, timestamp }
+  _errorDismissed: false,
   _lastAutoPullSessionUserId: null,
   _autoPullTriggered: false,
   _visibilityChangeHandler: null,
@@ -43,6 +49,9 @@ export const cloudSyncUI = {
 
     // Phase 23.1: Initialize dirty-state tracking
     this._initDirtyStateTracking();
+
+    // Phase 25.1: Initialize error-state tracking
+    this._loadErrorState();
 
     // Listen for local file-sync status changes to update the local indicator dot
     window.addEventListener('localSync:statusChanged', () => this._updateLocalFileIndicator());
@@ -119,9 +128,13 @@ export const cloudSyncUI = {
       this._isDirty = this._mutationsDuringSync;
       this._mutationsDuringSync = false;
       localStorage.setItem(CLOUD_IS_DIRTY_KEY, this._isDirty ? 'true' : 'false');
+      // Phase 25.1: Clear error state on successful auto-push
+      this._clearErrorState();
       this._updateStatusIndicator();
     } catch (err) {
       console.warn('[cloudSyncUI] Auto-push on exit failed:', err?.message || err);
+      // Phase 25.1: Save error state on auto-push failure
+      this._saveErrorState(err?.message || 'Auto-push failed', 'AUTO_PUSH_ERROR');
     } finally {
       this._syncInProgress = false;
     }
@@ -431,8 +444,63 @@ export const cloudSyncUI = {
   },
 
   /**
+   * Phase 25.1: Load error state from localStorage on app init.
+   * Restores _lastError and validates timestamp.
+   */
+  _loadErrorState() {
+    const savedError = localStorage.getItem(CLOUD_LAST_ERROR_KEY);
+    const savedTime = localStorage.getItem(CLOUD_LAST_ERROR_TIME_KEY);
+    
+    if (savedError && savedTime) {
+      try {
+        const timestamp = parseInt(savedTime, 10);
+        if (Number.isFinite(timestamp)) {
+          this._lastError = {
+            message: savedError,
+            timestamp: timestamp
+          };
+        }
+      } catch (err) {
+        console.warn('[cloudSyncUI] Error parsing saved error state:', err.message);
+        this._lastError = null;
+      }
+    }
+  },
+
+  /**
+   * Phase 25.1: Save error state to localStorage.
+   * Called after push/pull fails to persist error for display on page reload.
+   */
+  _saveErrorState(errorMessage, errorCode = null) {
+    const now = Date.now();
+    this._lastError = {
+      message: errorMessage,
+      code: errorCode,
+      timestamp: now
+    };
+    
+    localStorage.setItem(CLOUD_LAST_ERROR_KEY, errorMessage);
+    localStorage.setItem(CLOUD_LAST_ERROR_TIME_KEY, String(now));
+    this._errorDismissed = false;
+    this._updateStatusIndicator();
+  },
+
+  /**
+   * Phase 25.1: Clear error state from memory and localStorage.
+   * Called after successful push/pull to reset to clean/synced state.
+   */
+  _clearErrorState() {
+    this._lastError = null;
+    this._errorDismissed = false;
+    localStorage.removeItem(CLOUD_LAST_ERROR_KEY);
+    localStorage.removeItem(CLOUD_LAST_ERROR_TIME_KEY);
+    this._updateStatusIndicator();
+  },
+
+  /**
    * Phase 23.1: Update status indicator dot color and animation.
-   * Synced (🟢) -> Dirty (🟡 with pulse) -> Error (🔴)
+   * Phase 25.2: Updated to show error state (RED > Yellow > Green)
+   * Priority: 🔴 Error > 🟡 Dirty > 🟢 Synced
    */
   _updateStatusIndicator() {
     const dot = document.getElementById('syncStatusDot');
@@ -441,20 +509,24 @@ export const cloudSyncUI = {
     let state = 'synced';
     let title = 'All changes saved to cloud';
 
-    if (this._isDirty) {
+    // Phase 25.2: Check error state first (highest priority)
+    if (this._lastError) {
+      state = 'error';
+      title = `Cloud sync error: ${this._lastError.message}`;
+    } else if (this._isDirty) {
       state = 'dirty';
       title = 'Unsaved changes (click Sync to sync)';
     }
 
-    // Update dot styling
-    if (state === 'dirty') {
-      dot.style.background = '#eab308';
+    // Update dot styling based on state priority
+    if (state === 'error') {
+      dot.style.background = '#ef4444'; // Red
+      dot.style.animation = 'none';
+    } else if (state === 'dirty') {
+      dot.style.background = '#eab308'; // Yellow
       dot.style.animation = 'pulse 1.5s infinite';
     } else if (state === 'synced') {
-      dot.style.background = '#22c55e';
-      dot.style.animation = 'none';
-    } else {
-      dot.style.background = '#ef4444';
+      dot.style.background = '#22c55e'; // Green
       dot.style.animation = 'none';
     }
 
@@ -711,11 +783,15 @@ export const cloudSyncUI = {
           this._isDirty = this._mutationsDuringSync;
           this._mutationsDuringSync = false;
           localStorage.setItem(CLOUD_IS_DIRTY_KEY, this._isDirty ? 'true' : 'false');
+          // Phase 25.1: Clear error state on successful push
+          this._clearErrorState();
           this._updateStatusIndicator();
           alertWithHaptic('Synced successfully!', 'success');
           await this._refreshSection();
         } catch (err) {
           console.error('[cloudSyncUI] Push failed:', err);
+          // Phase 25.1: Save error state on push failure
+          this._saveErrorState(err.message, err.code || 'PUSH_ERROR');
           alertWithHaptic('Push failed: ' + err.message);
         } finally {
           this._syncInProgress = false;
@@ -729,10 +805,14 @@ export const cloudSyncUI = {
           templateUI.closeModal();
           alertWithHaptic('Fetching from cloud...');
           await pullSnapshot();
+          // Phase 25.1: Clear error state on successful pull
+          this._clearErrorState();
           // pullSnapshot dispatches an event that shows a preview modal
           // UI takes over from there
         } catch (err) {
           console.error('[cloudSyncUI] Pull failed:', err);
+          // Phase 25.1: Save error state on pull failure
+          this._saveErrorState(err.message, err.code || 'PULL_ERROR');
           alertWithHaptic('Pull failed: ' + err.message);
         } finally {
           this._syncInProgress = false;
@@ -788,10 +868,14 @@ export const cloudSyncUI = {
         pushBtn.textContent = 'Pushing...';
         pushBtn.disabled = true;
         await pushSnapshot();
+        // Phase 25.1: Clear error state on successful push
+        this._clearErrorState();
         triggerHaptic('success');
         await this._refreshSection();
       } catch (err) {
         console.error('[cloudSyncUI] Push failed:', err);
+        // Phase 25.1: Save error state on push failure
+        this._saveErrorState(err.message, err.code || 'PUSH_ERROR');
         alertWithHaptic('Push failed: ' + err.message);
         pushBtn.textContent = 'Push to Cloud';
         pushBtn.disabled = false;
@@ -804,10 +888,14 @@ export const cloudSyncUI = {
         pullBtn.textContent = 'Fetching...';
         pullBtn.disabled = true;
         await pullSnapshot();
+        // Phase 25.1: Clear error state on successful pull
+        this._clearErrorState();
         // Event dispatched by pullSnapshot(); UI takes over from the preview listener.
         // Button stays disabled until the modal is dismissed (cancel) or page reloads (confirm).
       } catch (err) {
         console.error('[cloudSyncUI] Pull failed:', err);
+        // Phase 25.1: Save error state on pull failure
+        this._saveErrorState(err.message, err.code || 'PULL_ERROR');
         alertWithHaptic('Pull failed: ' + err.message);
         pullBtn.textContent = 'Pull from Cloud';
         pullBtn.disabled = false;
