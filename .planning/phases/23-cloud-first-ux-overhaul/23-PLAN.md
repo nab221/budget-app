@@ -144,3 +144,56 @@ This phase delivers a modern "Cloud-First" top-bar experience. It replaces legac
 - [ ] "Dirty State" tracking linked to `db:mutated`.
 - [ ] Sign-In modal using `templateUI`.
 - [ ] Rebranded local actions in Settings tab.
+
+---
+
+## Phase 23.4: Runtime Cloud Configuration for Hosted Builds
+
+<task id="23-04-01" wave="4" requirements="SYNC-UX-03">
+  <description>Add runtime Supabase config fallback storage</description>
+  <plan>
+    1. Update `src/utils/supabase-sync.js` to read a runtime config from `localStorage`.
+    2. Keep `import.meta.env` as primary source and use runtime values only when env is absent.
+    3. Export helpers to save, read, and clear runtime config.
+    4. Lazily create Supabase client from effective config to support post-load configuration.
+  </plan>
+  <verify>
+    Run `npm test -- --run src/utils/supabase-sync.test.js`.
+  </verify>
+</task>
+
+<task id="23-04-02" wave="4" requirements="SYNC-UX-03">
+  <description>Render Configure Cloud action when not configured</description>
+  <plan>
+    1. Update `src/ui/cloud-sync.js` non-configured header path to show `☁ Configure Cloud` button.
+    2. Keep local Import/Export actions visible until config is saved.
+    3. Ensure local modal remains available from the header.
+  </plan>
+  <verify>
+    Run `npm test -- --run src/ui/cloud-sync.test.js`.
+  </verify>
+</task>
+
+<task id="23-04-03" wave="4" requirements="SYNC-UX-03, SYNC-UX-04">
+  <description>Add runtime cloud setup modal with minimal instructions</description>
+  <plan>
+    1. Add `_showCloudConfigModal()` in `src/ui/cloud-sync.js`.
+    2. Collect Supabase URL + anon key, validate inputs, and save runtime config.
+    3. Include minimal guidance: values come from Supabase Project Settings → API.
+    4. Refresh cloud UI/auth listener immediately after save so user can sign in.
+  </plan>
+  <verify>
+    Manual: on hosted build with no env config, click Configure Cloud, save values, and verify sign-in action appears.
+  </verify>
+</task>
+
+<task id="23-04-04" wave="4" requirements="SYNC-UX-03">
+  <description>Extend tests for runtime config behavior</description>
+  <plan>
+    1. Update `src/utils/supabase-sync.test.js` with runtime save/read/clear assertions.
+    2. Update `src/ui/cloud-sync.test.js` to assert non-configured state now shows Configure Cloud button.
+  </plan>
+  <verify>
+    Run `npm test -- --run src/utils/supabase-sync.test.js src/ui/cloud-sync.test.js`.
+  </verify>
+</task>

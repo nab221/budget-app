@@ -2,15 +2,27 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 let configured = true;
+const {
+  mockSignOut,
+  mockOnAuthStateChange,
+  mockSaveRuntimeConfig,
+} = vi.hoisted(() => ({
+  mockSignOut: vi.fn(),
+  mockOnAuthStateChange: vi.fn(),
+  mockSaveRuntimeConfig: vi.fn(),
+}));
 
 vi.mock('../utils/supabase-sync.js', () => ({
   isConfigured: () => configured,
-  supabase: {
+  getSupabaseClient: () => ({
     auth: {
-      signOut: vi.fn(),
-      onAuthStateChange: vi.fn(),
+      signOut: mockSignOut,
+      onAuthStateChange: mockOnAuthStateChange,
     },
-  },
+  }),
+  getRuntimeConfig: () => ({ url: '', anonKey: '', isConfigured: false }),
+  getConfigSource: () => 'none',
+  saveRuntimeConfig: mockSaveRuntimeConfig,
   getSession: vi.fn(),
   signIn: vi.fn(),
   pushSnapshot: vi.fn(),
@@ -83,12 +95,12 @@ describe('cloud-sync header actions (Phase 23)', () => {
     expect(document.getElementById('headerLocalMenuBtn')).not.toBeNull();
   });
 
-  it('restores local import/export and hides cloud header when cloud is not configured', () => {
+  it('shows configure cloud action and keeps local import/export when cloud is not configured', () => {
     configured = false;
     cloudSyncUI._renderHeaderActions(null);
 
-    expect(document.getElementById('cloudSyncActionsHeader').classList.contains('hidden')).toBe(true);
-    expect(document.getElementById('cloudSyncActionsHeader').innerHTML).toBe('');
+    expect(document.getElementById('cloudSyncActionsHeader').classList.contains('hidden')).toBe(false);
+    expect(document.getElementById('headerCloudConfigureBtn')).not.toBeNull();
     expect(document.getElementById('exportBtn').classList.contains('hidden')).toBe(false);
     expect(document.querySelector('label[for="importFile"]').classList.contains('hidden')).toBe(false);
   });

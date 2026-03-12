@@ -57,6 +57,7 @@ vi.mock('../db/schema.js', () => ({
 describe('isConfigured', () => {
   afterEach(() => {
     vi.unstubAllEnvs();
+    localStorage.clear();
   });
 
   it('returns true when both env vars are present', async () => {
@@ -88,6 +89,48 @@ describe('isConfigured', () => {
     vi.stubEnv('VITE_SUPABASE_ANON_KEY', '');
     vi.resetModules();
     const { isConfigured } = await import('./supabase-sync.js');
+    expect(isConfigured()).toBe(false);
+  });
+
+  it('returns true when runtime config exists and env vars are missing', async () => {
+    vi.stubEnv('VITE_SUPABASE_URL', '');
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', '');
+    vi.resetModules();
+    const { saveRuntimeConfig, isConfigured } = await import('./supabase-sync.js');
+    saveRuntimeConfig('https://runtime.supabase.co', 'runtime-key');
+    expect(isConfigured()).toBe(true);
+  });
+});
+
+describe('runtime config', () => {
+  beforeEach(() => {
+    vi.stubEnv('VITE_SUPABASE_URL', '');
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', '');
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  it('persists and reads runtime config', async () => {
+    const { saveRuntimeConfig, getRuntimeConfig, getConfigSource } = await import('./supabase-sync.js');
+    saveRuntimeConfig('https://runtime.supabase.co', 'runtime-key');
+    expect(getRuntimeConfig()).toEqual({
+      url: 'https://runtime.supabase.co',
+      anonKey: 'runtime-key',
+      isConfigured: true,
+    });
+    expect(getConfigSource()).toBe('runtime');
+  });
+
+  it('clears runtime config', async () => {
+    const { saveRuntimeConfig, clearRuntimeConfig, getRuntimeConfig, isConfigured } = await import('./supabase-sync.js');
+    saveRuntimeConfig('https://runtime.supabase.co', 'runtime-key');
+    clearRuntimeConfig();
+    expect(getRuntimeConfig()).toEqual({ url: '', anonKey: '', isConfigured: false });
     expect(isConfigured()).toBe(false);
   });
 });

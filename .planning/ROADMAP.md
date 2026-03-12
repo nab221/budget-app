@@ -30,6 +30,14 @@
 - **Task 23.3.4:** Move "Clear All Data" from the top bar into Settings under a cautionary Danger Zone section.
 - **Task 23.3.5:** Keep the header subtitle static by removing "Auto-saving to ..." text under the app title (status remains in header indicator dots).
 
+## Phase 23.4: Runtime Cloud Configuration for Hosted Builds ✅ COMPLETE
+**Goal:** Allow users to configure Supabase URL and anon key at runtime when `.env.local` is unavailable (e.g., GitHub Pages).
+- **Task 23.4.1:** Add runtime Supabase config persistence in `localStorage` and use it as fallback when `import.meta.env` is missing.
+- **Task 23.4.2:** Show a ☁ Configure Cloud button in the header when cloud is not configured.
+- **Task 23.4.3:** Add a modal to capture `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` with minimal guidance.
+- **Task 23.4.4:** Reinitialize cloud auth/UI after runtime config save so users can sign in immediately.
+- **Task 23.4.5:** Add unit test coverage for runtime config behavior.
+
 ## Phase 24: Intelligent Sync Logic (Auto-Pull & Auto-Push)
 **Goal:** Automate sync checkpoints to reduce manual effort.
 - **Task 24.1:** Implement "Auto-Pull check" on app load; prompt user if cloud is newer.
@@ -49,4 +57,4 @@
 - **Task 26.3:** Final UI polish (animations, loading states).
 
 ---
-*Last updated: 2026-03-12* (Phase 23.3.5 cleanup documented)
+*Last updated: 2026-03-12* (Phase 23.4 runtime cloud configuration documented)

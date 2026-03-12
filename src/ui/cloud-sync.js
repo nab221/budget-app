@@ -1,6 +1,9 @@
 import {
   isConfigured,
-  supabase,
+  getSupabaseClient,
+  getRuntimeConfig,
+  getConfigSource,
+  saveRuntimeConfig,
   getSession,
   signIn,
   pushSnapshot,
@@ -18,16 +21,17 @@ const CLOUD_IS_DIRTY_KEY = 'budget_cloud_is_dirty';
 
 export const cloudSyncUI = {
   _initialized: false,
+  _authListenerBound: false,
   _isDirty: false,
   _syncInProgress: false,
   _mutationsDuringSync: false,
 
   /**
-   * Initialise cloud sync UI. No-ops silently if Supabase is not configured,
-   * keeping the section hidden and the app fully functional.
+   * Initialise cloud sync UI.
+   * When Supabase env vars are missing (e.g. hosted static builds), render a
+   * runtime "Configure Cloud" action so users can paste URL + anon key.
    */
   async init() {
-    if (!isConfigured()) return;
     if (this._initialized) return;
     this._initialized = true;
 
@@ -40,7 +44,10 @@ export const cloudSyncUI = {
     this._bindAuthListener();
     this._bindPreviewListener();
     await this._refreshSection();
-    document.getElementById('cloudSyncSection')?.classList.remove('hidden');
+
+    if (isConfigured()) {
+      document.getElementById('cloudSyncSection')?.classList.remove('hidden');
+    }
   },
 
   /**
@@ -58,6 +65,11 @@ export const cloudSyncUI = {
     const actionsEl = section.querySelector('#cloudSyncActions');
     if (!statusEl || !actionsEl) return;
 
+    if (!isConfigured()) {
+      this._renderNotConfigured(statusEl, actionsEl);
+      return;
+    }
+
     if (session) {
       this._renderSignedIn(session, statusEl, actionsEl);
     } else {
@@ -73,8 +85,26 @@ export const cloudSyncUI = {
     if (!headerActionsEl || !exportBtn || !importLabel) return;
 
     if (!isConfigured()) {
-      headerActionsEl.classList.add('hidden');
-      headerActionsEl.innerHTML = '';
+      headerActionsEl.classList.remove('hidden');
+      headerActionsEl.innerHTML = `
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button id="headerCloudConfigureBtn" class="primary">☁ Configure Cloud</button>
+          <span id="localFileSyncDot" style="display:inline-block;width:0.6em;height:0.6em;border-radius:50%;background:#6b7280;margin:0 2px" title="Local file sync"></span>
+          <span id="localFileSyncText" style="font-size:.75rem;color:var(--text-soft)">No file</span>
+          <button id="headerLocalMenuBtn" class="ghost">📁 Local</button>
+        </div>
+      `;
+
+      headerActionsEl.querySelector('#headerCloudConfigureBtn')?.addEventListener('click', async () => {
+        await this._showCloudConfigModal();
+        triggerHaptic('tap');
+      });
+
+      headerActionsEl.querySelector('#headerLocalMenuBtn')?.addEventListener('click', async () => {
+        await this._showLocalModal();
+        triggerHaptic('tap');
+      });
+
       exportBtn.classList.remove('hidden');
       importLabel.classList.remove('hidden');
       return;
@@ -143,6 +173,26 @@ export const cloudSyncUI = {
         triggerHaptic('tap');
       };
     }
+  },
+
+  _renderNotConfigured(statusEl, actionsEl) {
+    const source = getConfigSource();
+    const sourceText = source === 'runtime'
+      ? 'Configured from this browser.'
+      : 'Cloud keys are not configured yet.';
+
+    statusEl.innerHTML = `<span style="font-size:.85rem;color:var(--text-soft)">${sourceText}</span>`;
+    actionsEl.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <p style="font-size:.85rem;margin:0">Enable cloud sync by entering your Supabase project URL and publishable anon key.</p>
+        <button id="settingsCloudConfigureBtn" class="primary">Configure Cloud Sync</button>
+      </div>
+    `;
+
+    document.getElementById('settingsCloudConfigureBtn')?.addEventListener('click', async () => {
+      await this._showCloudConfigModal();
+      triggerHaptic('tap');
+    });
   },
 
   /**
@@ -432,6 +482,67 @@ export const cloudSyncUI = {
     });
   },
 
+  async _showCloudConfigModal() {
+    const runtimeConfig = getRuntimeConfig();
+
+    return new Promise((resolve) => {
+      const body = `
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <p style="font-size:.85rem;margin:0;color:var(--text-soft)">
+            GitHub Pages cannot create a <code>.env.local</code> file at runtime.
+            Paste your Supabase values below to enable cloud sync in this browser.
+          </p>
+          <label style="display:flex;flex-direction:column;gap:4px;font-size:.8rem">
+            Supabase URL
+            <input id="cloudConfigUrlInput" type="url" placeholder="https://your-project.supabase.co" value="${String(runtimeConfig.url || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;')}" style="padding:8px;font-size:.9rem" autocomplete="off" />
+          </label>
+          <label style="display:flex;flex-direction:column;gap:4px;font-size:.8rem">
+            Supabase anon key
+            <textarea id="cloudConfigKeyInput" placeholder="sb_publishable_..." style="padding:8px;font-size:.85rem;min-height:82px;resize:vertical" autocomplete="off">${String(runtimeConfig.anonKey || '').replace(/&/g, '&amp;').replace(/</g, '&lt;')}</textarea>
+          </label>
+          <p style="font-size:.78rem;color:var(--text-soft);margin:0">
+            Find both values in Supabase: Project Settings → API.
+          </p>
+        </div>
+      `;
+
+      const footer = [
+        {
+          label: 'Save & Continue',
+          className: 'primary',
+          onClick: async () => {
+            const url = document.getElementById('cloudConfigUrlInput')?.value?.trim() || '';
+            const anonKey = document.getElementById('cloudConfigKeyInput')?.value?.trim() || '';
+            try {
+              saveRuntimeConfig(url, anonKey);
+              this._bindAuthListener();
+              await this._refreshSection();
+              document.getElementById('cloudSyncSection')?.classList.remove('hidden');
+              alertWithHaptic('Cloud config saved for this browser.', 'success');
+              templateUI.closeModal();
+              resolve();
+            } catch (err) {
+              alertWithHaptic(err.message || 'Invalid Supabase configuration');
+            }
+          }
+        },
+        {
+          label: 'Cancel',
+          className: 'ghost',
+          onClick: () => {
+            templateUI.closeModal();
+            resolve();
+          }
+        }
+      ];
+
+      templateUI.showModal('☁ Configure Cloud Sync', body, footer);
+      setTimeout(() => {
+        document.getElementById('cloudConfigUrlInput')?.focus();
+      }, 100);
+    });
+  },
+
   /**
    * Phase 23.1: Show unified sync menu modal with panel-based actions.
    */
@@ -520,7 +631,8 @@ export const cloudSyncUI = {
       document.getElementById('_cloudSignOutBtn')?.addEventListener('click', async () => {
         templateUI.closeModal();
         try {
-          await supabase.auth.signOut();
+          const supabase = getSupabaseClient();
+          await supabase?.auth.signOut();
           alertWithHaptic('Signed out');
         } catch (err) {
           alertWithHaptic('Sign out failed: ' + err.message);
@@ -553,7 +665,8 @@ export const cloudSyncUI = {
 
     const signOutBtn = document.getElementById('cloudSignOutBtn');
     if (signOutBtn) signOutBtn.onclick = async () => {
-      await supabase.auth.signOut();
+      const supabase = getSupabaseClient();
+      await supabase?.auth.signOut();
       triggerHaptic('tap');
     };
 
@@ -614,7 +727,11 @@ export const cloudSyncUI = {
    * Owned here — not in supabase-sync.js — because auth state is a UI concern.
    */
   _bindAuthListener() {
+    if (this._authListenerBound) return;
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
     supabase.auth.onAuthStateChange(() => this._refreshSection());
+    this._authListenerBound = true;
   },
 
   /**
