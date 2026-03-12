@@ -52,7 +52,18 @@ vi.mock('../db/schema.js', () => ({
   },
 }));
 
+vi.mock('./notifications.js', () => ({
+  notificationUI: {
+    show: vi.fn(),
+    success: vi.fn(),
+    error: vi.fn(),
+    warning: vi.fn(),
+    info: vi.fn(),
+  },
+}));
+
 import { cloudSyncUI } from './cloud-sync.js';
+import { notificationUI } from './notifications.js';
 import * as supabaseSync from '../utils/supabase-sync.js';
 
 describe('cloud-sync header actions (Phase 23)', () => {
@@ -295,3 +306,174 @@ describe('cloud-sync intelligent sync logic (Phase 24)', () => {
     expect(supabaseSync.pullSnapshot).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('cloud-sync sync visibility (Phase 25)', () => {
+  const CLOUD_LAST_ERROR_KEY = 'budget_cloud_last_error:anonymous';
+  const CLOUD_LAST_ERROR_TIME_KEY = 'budget_cloud_last_error_time:anonymous';
+  const CLOUD_LAST_ERROR_CODE_KEY = 'budget_cloud_last_error_code:anonymous';
+
+  beforeEach(() => {
+    configured = true;
+    localStorage.clear();
+    vi.clearAllMocks();
+    cloudSyncUI._lastError = null;
+    cloudSyncUI._errorStorageUserScope = null;
+    cloudSyncUI._isDirty = false;
+    document.body.innerHTML = `
+      <div id="cloudSyncActionsHeader">
+        <span id="syncStatusDot" class="sync-status-dot"></span>
+        <span id="lastSyncedTime"></span>
+      </div>
+    `;
+  });
+
+  describe('error state tracking', () => {
+    it('saves error state to localStorage on push failure', () => {
+      const errorMsg = 'Network error during push';
+      cloudSyncUI._saveErrorState(errorMsg, 'PUSH_ERROR');
+
+      expect(localStorage.getItem(CLOUD_LAST_ERROR_KEY)).toBe(errorMsg);
+      expect(localStorage.getItem(CLOUD_LAST_ERROR_TIME_KEY)).toBeTruthy();
+      expect(localStorage.getItem(CLOUD_LAST_ERROR_CODE_KEY)).toBe('PUSH_ERROR');
+    });
+
+    it('loads error state from localStorage on initialization', () => {
+      const errorMsg = 'Previous error';
+      const now = Date.now();
+      localStorage.setItem(CLOUD_LAST_ERROR_KEY, errorMsg);
+      localStorage.setItem(CLOUD_LAST_ERROR_TIME_KEY, String(now));
+      localStorage.setItem(CLOUD_LAST_ERROR_CODE_KEY, 'PULL_ERROR');
+
+      cloudSyncUI._loadErrorState();
+
+      expect(cloudSyncUI._lastError).not.toBeNull();
+      expect(cloudSyncUI._lastError.message).toBe(errorMsg);
+      expect(cloudSyncUI._lastError.code).toBe('PULL_ERROR');
+      expect(cloudSyncUI._lastError.timestamp).toBe(now);
+    });
+
+    it('clears error state after successful push', () => {
+      cloudSyncUI._saveErrorState('temp error');
+      expect(localStorage.getItem(CLOUD_LAST_ERROR_KEY)).toBe('temp error');
+
+      cloudSyncUI._clearErrorState();
+
+      expect(localStorage.getItem(CLOUD_LAST_ERROR_KEY)).toBeNull();
+      expect(localStorage.getItem(CLOUD_LAST_ERROR_TIME_KEY)).toBeNull();
+      expect(localStorage.getItem(CLOUD_LAST_ERROR_CODE_KEY)).toBeNull();
+      expect(cloudSyncUI._lastError).toBeNull();
+    });
+
+    it('returns nothing from _loadErrorState when no error exists', () => {
+      const result = cloudSyncUI._loadErrorState();
+      expect(result).toBeUndefined();
+      expect(cloudSyncUI._lastError).toBeNull();
+    });
+
+    it('error state survives page reload through localStorage', () => {
+      cloudSyncUI._saveErrorState('Persistent error');
+      const saved = localStorage.getItem(CLOUD_LAST_ERROR_KEY);
+      
+      cloudSyncUI._lastError = null;
+      cloudSyncUI._loadErrorState();
+      
+      expect(cloudSyncUI._lastError.message).toBe(saved);
+    });
+  });
+
+  describe('visual error indicator', () => {
+    it('shows red status dot when error state exists', () => {
+      cloudSyncUI._saveErrorState('Sync failed');
+      
+      const dot = document.getElementById('syncStatusDot');
+      expect(dot.style.background).toMatch(/ef4444|rgb\(239,\s*68,\s*68\)/);
+    });
+
+    it('prioritizes error state over dirty state in status indicator', () => {
+      cloudSyncUI._saveErrorState('Recent error');
+      cloudSyncUI._isDirty = true;
+      cloudSyncUI._updateStatusIndicator();
+
+      const dot = document.getElementById('syncStatusDot');
+      expect(dot.style.background).toMatch(/ef4444|rgb\(239,\s*68,\s*68\)/);
+    });
+
+    it('shows yellow dirty indicator when no error exists', () => {
+      cloudSyncUI._lastError = null;
+      cloudSyncUI._isDirty = true;
+      cloudSyncUI._updateStatusIndicator();
+
+      const dot = document.getElementById('syncStatusDot');
+      expect(dot.style.background).toMatch(/eab308|rgb\(234,\s*179,\s*8\)/);
+    });
+
+    it('shows green synced indicator when no error or dirty state', () => {
+      cloudSyncUI._lastError = null;
+      cloudSyncUI._isDirty = false;
+      cloudSyncUI._updateStatusIndicator();
+
+      const dot = document.getElementById('syncStatusDot');
+      expect(dot.style.background).toMatch(/22c55e|rgb\(34,\s*197,\s*94\)/);
+    });
+
+    it('status indicator has error message in title attribute', () => {
+      const errorMsg = 'Failed to connect';
+      cloudSyncUI._saveErrorState(errorMsg);
+
+      const dot = document.getElementById('syncStatusDot');
+      expect(dot.getAttribute('title')).toContain(errorMsg);
+    });
+  });
+
+  describe('notification integration', () => {
+    it('shows push error notification with retry and export fallback actions', () => {
+      const retryAction = vi.fn();
+
+      cloudSyncUI._showPushErrorNotification('Push failed', retryAction);
+
+      expect(notificationUI.error).toHaveBeenCalledWith(
+        'Push failed',
+        expect.arrayContaining([
+          expect.objectContaining({ label: '💾 Export Backup' }),
+          expect.objectContaining({ label: '↻ Retry', onClick: retryAction }),
+        ])
+      );
+    });
+
+    it('emits success notification after successful push helper run', async () => {
+      const refreshSpy = vi.spyOn(cloudSyncUI, '_refreshSection').mockResolvedValue(undefined);
+      vi.mocked(supabaseSync.pushSnapshot).mockResolvedValue(undefined);
+
+      const err = await cloudSyncUI._executePushSync();
+
+      expect(err).toBeNull();
+      expect(notificationUI.success).toHaveBeenCalledWith('Budget synced to cloud', [], 2000);
+      refreshSpy.mockRestore();
+    });
+
+    it('clears persisted error state after successful sync helper run', async () => {
+      const refreshSpy = vi.spyOn(cloudSyncUI, '_refreshSection').mockResolvedValue(undefined);
+      vi.mocked(supabaseSync.pushSnapshot).mockResolvedValue(undefined);
+      cloudSyncUI._saveErrorState('temp error', 'PUSH_ERROR');
+
+      await cloudSyncUI._executePushSync();
+
+      expect(localStorage.getItem(CLOUD_LAST_ERROR_KEY)).toBeNull();
+      expect(localStorage.getItem(CLOUD_LAST_ERROR_CODE_KEY)).toBeNull();
+      refreshSpy.mockRestore();
+    });
+
+    it('does not persist error state for no-snapshot pull case', async () => {
+      vi.mocked(supabaseSync.pullSnapshot).mockRejectedValue(new Error('No cloud snapshot found'));
+
+      const err = await cloudSyncUI._executePullSync();
+
+      expect(err).toBeNull();
+      expect(localStorage.getItem(CLOUD_LAST_ERROR_KEY)).toBeNull();
+      expect(localStorage.getItem(CLOUD_LAST_ERROR_TIME_KEY)).toBeNull();
+      expect(localStorage.getItem(CLOUD_LAST_ERROR_CODE_KEY)).toBeNull();
+      expect(cloudSyncUI._lastError).toBeNull();
+    });
+  });
+});
+

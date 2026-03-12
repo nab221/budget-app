@@ -17,6 +17,7 @@ import { pdfImportUI } from './ui/pdf-import.js';
 import { targetsUI } from './ui/targets.js';
 import { backupUI } from './ui/backup.js';
 import { cloudSyncUI } from './ui/cloud-sync.js';
+import { notificationUI } from './ui/notifications.js';
 import { initDashboard, renderDashboard } from './ui/dashboard.js';
 import { renderPayoffPlanner } from './ui/payoff.js';
 import { initPWA, installApp, checkExportReminder } from './ui/pwa-ux.js';
@@ -74,6 +75,10 @@ async function init() {
           if (isEnabled) triggerHaptic('tap');
         });
       }
+    })(),
+    (async () => {
+      // Phase 25.3: Initialize global notification system
+      notificationUI.init();
     })(),
     (async () => {
       const installAppBtn = document.getElementById('installAppBtn');

@@ -2,8 +2,8 @@
 
 ## Current State
 - **Latest Version**: v2.7 (Cloud-First Sync & UX Refinement) — In Progress
-- **Status**: Milestone v2.7 active. Phase 23 and Phase 24 are complete and verified.
-- **Key Features**: Cloud-first header UX, modal-based cloud/local sync actions, startup cloud recency check, auto-push on exit, post-auth auto-pull, 323+ passing tests.
+- **Status**: Milestone v2.7 active. Phase 23, Phase 24, and Phase 25 are complete and verified.
+- **Key Features**: Cloud-first header UX, modal-based cloud/local sync actions, startup cloud recency check, auto-push on exit, post-auth auto-pull, persistent sync error visibility, global sync notifications, 345 passing tests.
 - **Codebase**: ~14,000 JS LOC | Vanilla JS + Dexie.js + Chart.js v4 + date-fns
 
 ## Current Milestone: v2.7 (Cloud-First Sync & UX Refinement)
@@ -20,7 +20,7 @@
 - [x] Sync: Auto-push on `visibilitychange` (switching away from app).
 - [x] UI: "Dirty State" indicator for unsynced local changes.
 - [x] Auth: Auto-pull from cloud upon successful email sign-in.
-- [ ] Error: Notify on sync failure and suggest local export as fallback.
+- [x] Error: Notify on sync failure and suggest local export as fallback.
 
 ### v2.6: Dashboard Invariants & Technical Polish (2026-03-11)
 - Refactored Dashboard KPIs to be navigation-invariant (+30/+90 day projections).
