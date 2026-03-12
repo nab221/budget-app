@@ -685,6 +685,29 @@ body.privacy-enabled #expensesTabHeatmapSection:hover #expensesTabHeatmapContain
   }
 }
 
+@keyframes syncSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+button.sync-action-busy {
+  opacity: 0.85;
+}
+
+button.sync-action-busy::after {
+  content: '';
+  width: 0.8rem;
+  height: 0.8rem;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 999px;
+  animation: syncSpin 700ms linear infinite;
+}
+
 .notification {
   animation: slideIn 300ms ease-out;
   min-width: 300px;
@@ -788,4 +811,25 @@ body.privacy-enabled #expensesTabHeatmapSection:hover #expensesTabHeatmapContain
 
 .sync-status-indicator.pulse {
   animation: pulse 1.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row-flash,
+  .notification,
+  .notification.exiting,
+  .sync-status-indicator.pulse,
+  button.sync-action-busy::after {
+    animation: none !important;
+  }
+
+  button,
+  .notification-action,
+  .notification-close,
+  .bar-fill,
+  body.privacy-enabled #spendingHeatmapContainer,
+  body.privacy-enabled #incomeHeatmapContainer,
+  body.privacy-enabled #incomeTabHeatmapContainer,
+  body.privacy-enabled #expensesTabHeatmapContainer {
+    transition: none !important;
+  }
 }
