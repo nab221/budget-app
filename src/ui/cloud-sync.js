@@ -20,6 +20,7 @@ export const cloudSyncUI = {
   _initialized: false,
   _isDirty: false,
   _syncInProgress: false,
+  _mutationsDuringSync: false,
 
   /**
    * Initialise cloud sync UI. No-ops silently if Supabase is not configured,
@@ -240,15 +241,20 @@ export const cloudSyncUI = {
     // Load initial state from localStorage
     this._isDirty = localStorage.getItem(CLOUD_IS_DIRTY_KEY) === 'true';
 
+    this._mutationsDuringSync = false;
     const markDirty = () => {
-      if (!this._isDirty && !this._syncInProgress) {
+      if (this._syncInProgress) {
+        this._mutationsDuringSync = true;
+        return;
+      }
+      if (!this._isDirty) {
         this._isDirty = true;
         localStorage.setItem(CLOUD_IS_DIRTY_KEY, 'true');
         this._updateStatusIndicator();
       }
     };
 
-    // Dexie 3 doesn't have a db.on('mutated') event; use per-table hooks instead.
+    // Dexie 4 (dexie@4.0.11) doesn't provide db.on('mutated'); use per-table hooks instead.
     try {
       if (db.tables && db.tables.length > 0) {
         db.tables.forEach(table => {
@@ -477,9 +483,11 @@ export const cloudSyncUI = {
           this._syncInProgress = true;
           templateUI.closeModal();
           alertWithHaptic('Pushing to cloud...');
+          this._mutationsDuringSync = false;
           await pushSnapshot();
-          this._isDirty = false;
-          localStorage.setItem(CLOUD_IS_DIRTY_KEY, 'false');
+          this._isDirty = this._mutationsDuringSync;
+          this._mutationsDuringSync = false;
+          localStorage.setItem(CLOUD_IS_DIRTY_KEY, this._isDirty ? 'true' : 'false');
           this._updateStatusIndicator();
           alertWithHaptic('Synced successfully!', 'success');
           await this._refreshSection();
@@ -511,8 +519,12 @@ export const cloudSyncUI = {
 
       document.getElementById('_cloudSignOutBtn')?.addEventListener('click', async () => {
         templateUI.closeModal();
-        await supabase.auth.signOut();
-        alertWithHaptic('Signed out');
+        try {
+          await supabase.auth.signOut();
+          alertWithHaptic('Signed out');
+        } catch (err) {
+          alertWithHaptic('Sign out failed: ' + err.message);
+        }
         resolve();
       });
     });
@@ -658,11 +670,7 @@ export const cloudSyncUI = {
           settingsPullBtn.disabled = false;
         }
 
-        const headerPullBtn = document.getElementById('headerCloudPullBtn');
-        if (headerPullBtn) {
-          headerPullBtn.textContent = '☁ Pull';
-          headerPullBtn.disabled = false;
-        }
+
       };
 
       document.getElementById('cancelCloudImportBtn').onclick = () => {

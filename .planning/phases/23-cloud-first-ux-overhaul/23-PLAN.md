@@ -1,4 +1,4 @@
-﻿---
+---
 phase: 23
 name: cloud-first-ux-overhaul
 wave: 1

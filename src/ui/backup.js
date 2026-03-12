@@ -39,7 +39,7 @@ async function promptImportMode(content) {
   }
 
   // Local data exists: allow user to choose
-  const htmlContent = `
+  let htmlContent = `
     <p style="margin-bottom:20px">
       You have existing budget data. How would you like to import?
     </p>

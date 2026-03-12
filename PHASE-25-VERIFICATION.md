@@ -20,7 +20,7 @@
 | TECH-2.1 | **Theme Logic Tests** | **PASS** | `src/ui/theme.test.js` created (9 tests). |
 | TECH-2.2 | **Haptic Feedback Tests** | **PASS** | `src/utils/haptics.test.js` created (7 tests). |
 | TECH-2.3 | **Privacy Mode Tests** | **PASS** | `src/ui/privacy.test.js` created (5 tests) after refactoring logic out of `app.js`. |
-| TECH-2.4 | **Full Suite Pass Rate** | **PASS** | `npm test` runs 338 tests with 100% success. |
+| TECH-2.4 | **Full Suite Pass Rate** | **PASS** | `npm test` runs 313 tests with 100% success. |
 | TECH-2.5 | **Environment Stability** | **PASS** | `jsdom` environment remains stable; no leaks detected between suites. |
 
 ## Core UI Coverage Summary
