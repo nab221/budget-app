@@ -2,24 +2,22 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 let configured = true;
+let currentSupabaseClient;
 const {
   mockSignOut,
   mockOnAuthStateChange,
   mockSaveRuntimeConfig,
+  mockUnsubscribe,
 } = vi.hoisted(() => ({
   mockSignOut: vi.fn(),
   mockOnAuthStateChange: vi.fn(),
   mockSaveRuntimeConfig: vi.fn(),
+  mockUnsubscribe: vi.fn(),
 }));
 
 vi.mock('../utils/supabase-sync.js', () => ({
   isConfigured: () => configured,
-  getSupabaseClient: () => ({
-    auth: {
-      signOut: mockSignOut,
-      onAuthStateChange: mockOnAuthStateChange,
-    },
-  }),
+  getSupabaseClient: () => currentSupabaseClient,
   getRuntimeConfig: () => ({ url: '', anonKey: '', isConfigured: false }),
   getConfigSource: () => 'none',
   saveRuntimeConfig: mockSaveRuntimeConfig,
@@ -57,6 +55,21 @@ import { cloudSyncUI } from './cloud-sync.js';
 describe('cloud-sync header actions (Phase 23)', () => {
   beforeEach(() => {
     configured = true;
+    mockSignOut.mockReset();
+    mockOnAuthStateChange.mockReset();
+    mockSaveRuntimeConfig.mockReset();
+    mockUnsubscribe.mockReset();
+    currentSupabaseClient = {
+      auth: {
+        signOut: mockSignOut,
+        onAuthStateChange: mockOnAuthStateChange.mockImplementation(() => ({
+          data: { subscription: { unsubscribe: mockUnsubscribe } },
+        })),
+      },
+    };
+    cloudSyncUI._authListenerBound = false;
+    cloudSyncUI._authSubscription = null;
+    cloudSyncUI._authBoundClient = null;
     document.body.innerHTML = `
       <div class="toolbar">
         <div id="cloudSyncActionsHeader" class="hidden"></div>
@@ -103,5 +116,27 @@ describe('cloud-sync header actions (Phase 23)', () => {
     expect(document.getElementById('headerCloudConfigureBtn')).not.toBeNull();
     expect(document.getElementById('exportBtn').classList.contains('hidden')).toBe(false);
     expect(document.querySelector('label[for="importFile"]').classList.contains('hidden')).toBe(false);
+  });
+
+  it('rebinds auth listener when Supabase client changes', () => {
+    cloudSyncUI._bindAuthListener();
+    expect(mockOnAuthStateChange).toHaveBeenCalledTimes(1);
+
+    const nextUnsubscribe = vi.fn();
+    const nextClient = {
+      auth: {
+        signOut: mockSignOut,
+        onAuthStateChange: vi.fn(() => ({
+          data: { subscription: { unsubscribe: nextUnsubscribe } },
+        })),
+      },
+    };
+
+    currentSupabaseClient = nextClient;
+    cloudSyncUI._bindAuthListener();
+
+    expect(mockUnsubscribe).toHaveBeenCalledTimes(1);
+    expect(nextClient.auth.onAuthStateChange).toHaveBeenCalledTimes(1);
+    expect(cloudSyncUI._authBoundClient).toBe(nextClient);
   });
 });

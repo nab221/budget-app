@@ -22,6 +22,8 @@ const CLOUD_IS_DIRTY_KEY = 'budget_cloud_is_dirty';
 export const cloudSyncUI = {
   _initialized: false,
   _authListenerBound: false,
+  _authSubscription: null,
+  _authBoundClient: null,
   _isDirty: false,
   _syncInProgress: false,
   _mutationsDuringSync: false,
@@ -727,10 +729,22 @@ export const cloudSyncUI = {
    * Owned here — not in supabase-sync.js — because auth state is a UI concern.
    */
   _bindAuthListener() {
-    if (this._authListenerBound) return;
     const supabase = getSupabaseClient();
-    if (!supabase) return;
-    supabase.auth.onAuthStateChange(() => this._refreshSection());
+    if (!supabase) {
+      this._authSubscription?.unsubscribe?.();
+      this._authSubscription = null;
+      this._authBoundClient = null;
+      this._authListenerBound = false;
+      return;
+    }
+
+    if (this._authListenerBound && this._authBoundClient === supabase) return;
+
+    this._authSubscription?.unsubscribe?.();
+
+    const authState = supabase.auth.onAuthStateChange(() => this._refreshSection());
+    this._authSubscription = authState?.data?.subscription || authState?.subscription || null;
+    this._authBoundClient = supabase;
     this._authListenerBound = true;
   },
 

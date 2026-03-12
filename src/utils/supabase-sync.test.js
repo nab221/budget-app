@@ -133,6 +133,48 @@ describe('runtime config', () => {
     expect(getRuntimeConfig()).toEqual({ url: '', anonKey: '', isConfigured: false });
     expect(isConfigured()).toBe(false);
   });
+
+  it('rejects invalid or incomplete runtime config without persisting values', async () => {
+    const {
+      saveRuntimeConfig,
+      getRuntimeConfig,
+      clearRuntimeConfig,
+      isConfigured,
+      _validateConfig,
+    } = await import('./supabase-sync.js');
+
+    expect(() => _validateConfig('http://runtime.supabase.co', 'runtime-key')).toThrow('Supabase URL must use https');
+    expect(() => _validateConfig('', 'runtime-key')).toThrow('Both Supabase URL and anon key are required');
+    expect(() => _validateConfig('https://runtime.supabase.co', '')).toThrow('Both Supabase URL and anon key are required');
+    expect(() => saveRuntimeConfig('http://runtime.supabase.co', 'runtime-key')).toThrow('Supabase URL must use https');
+    expect(() => saveRuntimeConfig('', 'runtime-key')).toThrow('Both Supabase URL and anon key are required');
+    expect(() => saveRuntimeConfig('https://runtime.supabase.co', '')).toThrow('Both Supabase URL and anon key are required');
+
+    expect(getRuntimeConfig()).toEqual({ url: '', anonKey: '', isConfigured: false });
+    expect(isConfigured()).toBe(false);
+
+    clearRuntimeConfig();
+    expect(getRuntimeConfig()).toEqual({ url: '', anonKey: '', isConfigured: false });
+  });
+
+  it('handles malformed runtime config in localStorage gracefully', async () => {
+    const {
+      _readRuntimeConfig,
+      getRuntimeConfig,
+      clearRuntimeConfig,
+      isConfigured,
+    } = await import('./supabase-sync.js');
+
+    localStorage.setItem('budget_cloud_runtime_config', '{bad json');
+
+    expect(() => _readRuntimeConfig()).not.toThrow();
+    expect(_readRuntimeConfig()).toEqual({ url: '', anonKey: '' });
+    expect(getRuntimeConfig()).toEqual({ url: '', anonKey: '', isConfigured: false });
+    expect(isConfigured()).toBe(false);
+
+    clearRuntimeConfig();
+    expect(getRuntimeConfig()).toEqual({ url: '', anonKey: '', isConfigured: false });
+  });
 });
 
 describe('getSession', () => {

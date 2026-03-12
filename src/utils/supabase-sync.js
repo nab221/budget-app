@@ -9,7 +9,7 @@ export const CLOUD_LAST_SYNC_KEY = 'budget_cloud_last_sync';
 
 let supabaseClient = null;
 
-function _readRuntimeConfig() {
+export function _readRuntimeConfig() {
   if (typeof localStorage === 'undefined') {
     return { url: '', anonKey: '' };
   }
@@ -46,7 +46,7 @@ function _getClient() {
   return supabaseClient;
 }
 
-function _validateConfig(url, anonKey) {
+export function _validateConfig(url, anonKey) {
   const nextUrl = String(url || '').trim();
   const nextKey = String(anonKey || '').trim();
   if (!nextUrl || !nextKey) {
