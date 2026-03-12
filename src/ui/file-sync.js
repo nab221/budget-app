@@ -4,7 +4,6 @@ import { db } from '../db/schema.js';
 import { importBackupData } from '../db/backup.js';
 import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
 import { OPFSStore } from '../utils/opfs-store.js';
-import { isConfigured as isCloudConfigured } from '../utils/supabase-sync.js';
 
 /** True when the session is using OPFS instead of File System Access API. */
 let _opfsMode = false;
@@ -141,11 +140,20 @@ async function updateFileSyncToolbar(status = 'idle', statusText = '') {
   toolbar.querySelector('#selectFileBtn')?.remove();
   toolbar.querySelector('#reconnectFileBtn')?.remove();
 
-  // If cloud sync is configured it manages the header; don't add standalone toolbar buttons —
+  // If cloud header actions exist they manage local controls; don't add standalone toolbar buttons —
   // those actions live inside the 📁 Local modal. Just manage export/import visibility.
-  const cloudManaged = isCloudConfigured();
+  const cloudManaged = !!document.getElementById('cloudSyncActionsHeader');
 
   if (cloudManaged) {
+    const cloudHeader = document.getElementById('cloudSyncActionsHeader');
+    const hasCloudHeaderActions = !!cloudHeader?.querySelector('button');
+
+    if (!hasCloudHeaderActions) {
+      document.getElementById('exportBtn')?.classList.remove('hidden');
+      document.querySelector('label[for="importFile"]')?.classList.remove('hidden');
+      return;
+    }
+
     if (fileName) {
       document.getElementById('exportBtn')?.classList.add('hidden');
       document.querySelector('label[for="importFile"]')?.classList.add('hidden');
