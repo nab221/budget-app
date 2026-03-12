@@ -45,11 +45,12 @@
 - **Task 24.3:** After a successful magic-link sign-in, automatically trigger `pullSnapshot`.
 - **Verified:** 2026-03-12 via `.planning/phases/24-intelligent-sync-logic/24-VERIFICATION.md`.
 
-## Phase 25: Sync Visibility (Dirty State & Error Handling)
+## Phase 25: Sync Visibility (Dirty State & Error Handling) ✅ COMPLETE
 **Goal:** Improve user awareness of sync status and failures.
 - **Task 25.1:** Implement "Dirty State" tracking (mark as dirty on Dexie writes, clear on push).
 - **Task 25.2:** Add a visual indicator (dot/label) for the dirty state in the top bar.
 - **Task 25.3:** Create a global notification system for sync failures with a local export fallback.
+- **Verified:** 2026-03-12 via `.planning/phases/25-sync-visibility/25-VERIFICATION.md`.
 
 ## Phase 26: Milestone v2.7 Verification & Polish
 **Goal:** End-to-end testing and performance audit.
@@ -58,4 +59,4 @@
 - **Task 26.3:** Final UI polish (animations, loading states).
 
 ---
-*Last updated: 2026-03-12* (Phase 23.4 and Phase 24 completed/documented)
+*Last updated: 2026-03-12* (Phase 25 completed and documented)

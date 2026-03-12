@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.7
 milestone_name: Cloud-First Sync & UX Refinement
 status: in-progress
-stopped_at: "Completed Phase 24: Intelligent Sync Logic"
-last_updated: "2026-03-12T20:30:00.000Z"
-last_activity: "2026-03-12 — Phase 24 implemented, tested, and verified"
+stopped_at: "Completed Phase 25: Sync Visibility"
+last_updated: "2026-03-12T21:55:00.000Z"
+last_activity: "2026-03-12 — Phase 25 implemented, tested, and verified"
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 4
-  completed_plans: 2
-  percent: 50
+  completed_plans: 3
+  percent: 75
 ---
 
 ## Project State: Budget App
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 
 ## Current Position
 
-Phase: 25 of 26 (Sync Visibility)
+Phase: 26 of 26 (Milestone v2.7 Verification & Polish)
 Plan: Pending execution
 Status: In Progress
-Last activity: 2026-03-12 — Completed Phase 24 implementation and verification
+Last activity: 2026-03-12 — Completed Phase 25 implementation and verification
 
-Progress: [|||||-----] 50%
+Progress: [||||||||--] 75%
 
 ## Completed Milestones
 
@@ -53,9 +53,9 @@ Progress: [|||||-----] 50%
 - Added Phase 26: Milestone v2.7 Verification & Polish
 
 ### Pending Todos
-- Implement Phase 25.3 global sync failure notification + local export fallback.
 - Complete Phase 26 manual cross-device sync checks.
 - Add any final v2.7 polish items captured during verification.
+- Review runtime-config and sync UX together during milestone closeout.
 
 ### Blockers/Concerns
 - iOS Safari background task limitations (may need `beforeunload` or limited sync window).
