@@ -7,6 +7,7 @@ import {
   signIn,
   pushSnapshot,
   pullSnapshot,
+  getLatestSnapshotMeta,
   CLOUD_LAST_SYNC_KEY,
 } from '../utils/supabase-sync.js';
 import { getFileSyncState, openSelectFileDialog, disconnectFileSyncFile } from './file-sync.js';
@@ -26,6 +27,10 @@ export const cloudSyncUI = {
   _isDirty: false,
   _syncInProgress: false,
   _mutationsDuringSync: false,
+  _didAutoPullCheckOnLoad: false,
+  _lastAutoPullSessionUserId: null,
+  _autoPullTriggered: false,
+  _visibilityChangeHandler: null,
 
   /**
    * Initialise cloud sync UI.
@@ -44,10 +49,102 @@ export const cloudSyncUI = {
 
     this._bindAuthListener();
     this._bindPreviewListener();
+    this._bindVisibilityAutoPush();
     await this._refreshSection();
+    await this._runAutoPullCheckOnLoad();
 
     if (isConfigured()) {
       document.getElementById('cloudSyncSection')?.classList.remove('hidden');
+    }
+  },
+
+  async _runAutoPullCheckOnLoad() {
+    if (this._autoPullTriggered) return;
+    if (this._didAutoPullCheckOnLoad) return;
+    this._didAutoPullCheckOnLoad = true;
+
+    try {
+      const session = await getSession();
+      if (!session) return;
+
+      const latestMeta = await getLatestSnapshotMeta();
+      if (!latestMeta?.updated_at) return;
+
+      const cloudUpdatedAtMs = Date.parse(latestMeta.updated_at);
+      if (!Number.isFinite(cloudUpdatedAtMs)) return;
+
+      const localLastSyncRaw = localStorage.getItem(CLOUD_LAST_SYNC_KEY);
+      const localLastSyncMs = Number.parseInt(localLastSyncRaw ?? '0', 10);
+      const hasValidLocalSync = Number.isFinite(localLastSyncMs) && localLastSyncMs > 0;
+
+      if (!hasValidLocalSync || cloudUpdatedAtMs > localLastSyncMs) {
+        if (this._autoPullTriggered) return;
+        this._autoPullTriggered = true;
+        this._syncInProgress = true;
+        await pullSnapshot();
+      }
+    } catch (err) {
+      if (err?.message !== 'No cloud snapshot found') {
+        console.warn('[cloudSyncUI] Auto-pull check on load skipped:', err?.message || err);
+      }
+    } finally {
+      this._syncInProgress = false;
+    }
+  },
+
+  _bindVisibilityAutoPush() {
+    if (this._visibilityChangeHandler) return;
+
+    this._visibilityChangeHandler = () => {
+      if (document.visibilityState === 'hidden') {
+        void this._autoPushOnExit();
+      }
+    };
+
+    document.addEventListener('visibilitychange', this._visibilityChangeHandler);
+  },
+
+  async _autoPushOnExit() {
+    if (this._syncInProgress || !this._isDirty) return;
+
+    try {
+      const session = await getSession();
+      if (!session) return;
+
+      this._syncInProgress = true;
+      this._mutationsDuringSync = false;
+
+      await pushSnapshot();
+
+      this._isDirty = this._mutationsDuringSync;
+      this._mutationsDuringSync = false;
+      localStorage.setItem(CLOUD_IS_DIRTY_KEY, this._isDirty ? 'true' : 'false');
+      this._updateStatusIndicator();
+    } catch (err) {
+      console.warn('[cloudSyncUI] Auto-push on exit failed:', err?.message || err);
+    } finally {
+      this._syncInProgress = false;
+    }
+  },
+
+  async _runAutoPullAfterSignIn(session) {
+    if (this._autoPullTriggered) return;
+    const userId = session?.user?.id;
+    if (!userId) return;
+    if (this._lastAutoPullSessionUserId === userId) return;
+
+    this._lastAutoPullSessionUserId = userId;
+
+    try {
+      this._autoPullTriggered = true;
+      this._syncInProgress = true;
+      await pullSnapshot();
+    } catch (err) {
+      if (err?.message !== 'No cloud snapshot found') {
+        console.warn('[cloudSyncUI] Auto-pull after sign-in failed:', err?.message || err);
+      }
+    } finally {
+      this._syncInProgress = false;
     }
   },
 
@@ -755,10 +852,17 @@ export const cloudSyncUI = {
 
     this._authSubscription?.unsubscribe?.();
 
-    const authState = supabase.auth.onAuthStateChange((_, session) => {
-      setTimeout(() => {
-        this._refreshSection(session ?? null);
-      }, 0);
+    const authState = supabase.auth.onAuthStateChange((event, session) => {
+      void this._refreshSection(session ?? null);
+
+      if (!session) {
+        this._lastAutoPullSessionUserId = null;
+        return;
+      }
+
+      if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+        void this._runAutoPullAfterSignIn(session);
+      }
     });
     this._authSubscription = authState?.data?.subscription || authState?.subscription || null;
     this._authBoundClient = supabase;

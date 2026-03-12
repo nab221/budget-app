@@ -38,11 +38,12 @@
 - **Task 23.4.4:** Reinitialize cloud auth/UI after runtime config save so users can sign in immediately.
 - **Task 23.4.5:** Add unit test coverage for runtime config behavior.
 
-## Phase 24: Intelligent Sync Logic (Auto-Pull & Auto-Push)
+## Phase 24: Intelligent Sync Logic (Auto-Pull & Auto-Push) ✅ COMPLETE
 **Goal:** Automate sync checkpoints to reduce manual effort.
 - **Task 24.1:** Implement "Auto-Pull check" on app load; prompt user if cloud is newer.
 - **Task 24.2:** Implement "Auto-Push on Exit" via `visibilitychange` event.
-- **Task 24.3:** Auto-trigger `pullSnapshot` after successful magic link sign-in.
+- **Task 24.3:** After a successful magic-link sign-in, automatically trigger `pullSnapshot`.
+- **Verified:** 2026-03-12 via `.planning/phases/24-intelligent-sync-logic/24-VERIFICATION.md`.
 
 ## Phase 25: Sync Visibility (Dirty State & Error Handling)
 **Goal:** Improve user awareness of sync status and failures.
@@ -57,4 +58,4 @@
 - **Task 26.3:** Final UI polish (animations, loading states).
 
 ---
-*Last updated: 2026-03-12* (Phase 23.4 runtime cloud configuration documented)
+*Last updated: 2026-03-12* (Phase 23.4 and Phase 24 completed/documented)

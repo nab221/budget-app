@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.7
 milestone_name: Cloud-First Sync & UX Refinement
 status: in-progress
-stopped_at: "Started Phase 23: Cloud-First UX Overhaul"
-last_updated: "2026-03-11T20:45:00.000Z"
-last_activity: "2026-03-11 — Started Milestone v2.7"
+stopped_at: "Completed Phase 24: Intelligent Sync Logic"
+last_updated: "2026-03-12T20:30:00.000Z"
+last_activity: "2026-03-12 — Phase 24 implemented, tested, and verified"
 progress:
   total_phases: 4
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  completed_phases: 2
+  total_plans: 4
+  completed_plans: 2
+  percent: 50
 ---
 
 ## Project State: Budget App
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 
 ## Current Position
 
-Phase: 23 of 26 (Cloud-First UX Overhaul)
-Plan: TBD
-Status: Context Gathered
-Last activity: 2026-03-11 — Phase 23 context gathered
+Phase: 25 of 26 (Sync Visibility)
+Plan: Pending execution
+Status: In Progress
+Last activity: 2026-03-12 — Completed Phase 24 implementation and verification
 
-Progress: [||--------] 25%
+Progress: [|||||-----] 50%
 
 ## Completed Milestones
 
@@ -53,9 +53,9 @@ Progress: [||--------] 25%
 - Added Phase 26: Milestone v2.7 Verification & Polish
 
 ### Pending Todos
-- Identify best location in header for Cloud Sync icons.
-- Verify `visibilitychange` reliability on iOS Safari.
-- Implement a global "Dirty" state tracking mechanism.
+- Implement Phase 25.3 global sync failure notification + local export fallback.
+- Complete Phase 26 manual cross-device sync checks.
+- Add any final v2.7 polish items captured during verification.
 
 ### Blockers/Concerns
 - iOS Safari background task limitations (may need `beforeunload` or limited sync window).

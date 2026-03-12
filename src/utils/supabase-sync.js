@@ -226,3 +226,32 @@ export async function pullSnapshot() {
     })
   );
 }
+
+/**
+ * Fetches only metadata for the latest cloud snapshot of the current user.
+ * Returns null when no snapshot exists.
+ * Throws when not signed in or on Supabase error.
+ */
+export async function getLatestSnapshotMeta() {
+  const supabase = _getClient();
+  if (!supabase) throw new Error('Supabase not configured');
+
+  const session = await getSession();
+  if (!session) throw new Error('Not signed in');
+
+  const { data, error } = await supabase
+    .from('budget_snapshots')
+    .select('updated_at, schema_version')
+    .eq('user_id', session.user.id)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) return null;
+
+  return {
+    updated_at: data.updated_at,
+    schema_version: data.schema_version,
+  };
+}

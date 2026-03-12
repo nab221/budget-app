@@ -368,3 +368,47 @@ describe('pullSnapshot', () => {
     await expect(pullSnapshot()).rejects.toThrow('Fetch failed');
   });
 });
+
+describe('getLatestSnapshotMeta', () => {
+  beforeEach(() => {
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://test.supabase.co');
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'test-anon-key');
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.clearAllMocks();
+  });
+
+  it('returns latest snapshot metadata when a row exists', async () => {
+    mockGetSession.mockResolvedValue({ data: { session: { user: { id: 'u1' } } } });
+    mockMaybeSingle.mockResolvedValue({
+      data: { updated_at: '2026-03-10T10:00:00Z', schema_version: 18 },
+      error: null,
+    });
+
+    const { getLatestSnapshotMeta } = await import('./supabase-sync.js');
+    const result = await getLatestSnapshotMeta();
+
+    expect(result).toEqual({ updated_at: '2026-03-10T10:00:00Z', schema_version: 18 });
+  });
+
+  it('returns null when no snapshot exists', async () => {
+    mockGetSession.mockResolvedValue({ data: { session: { user: { id: 'u1' } } } });
+    mockMaybeSingle.mockResolvedValue({ data: null, error: null });
+
+    const { getLatestSnapshotMeta } = await import('./supabase-sync.js');
+    const result = await getLatestSnapshotMeta();
+
+    expect(result).toBeNull();
+  });
+
+  it('throws when supabase returns an error', async () => {
+    mockGetSession.mockResolvedValue({ data: { session: { user: { id: 'u1' } } } });
+    mockMaybeSingle.mockResolvedValue({ data: null, error: new Error('Meta fetch failed') });
+
+    const { getLatestSnapshotMeta } = await import('./supabase-sync.js');
+    await expect(getLatestSnapshotMeta()).rejects.toThrow('Meta fetch failed');
+  });
+});
