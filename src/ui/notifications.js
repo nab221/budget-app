@@ -67,34 +67,30 @@ export const notificationUI = {
 
     // Build message section
     const messageEl = document.createElement('div');
+    messageEl.className = 'notification-message';
     messageEl.style.cssText = `
       flex: 1;
-      word-wrap: break-word;
-      overflow-wrap: break-word;
     `;
     messageEl.textContent = message;
 
+    const contentEl = document.createElement('div');
+    contentEl.className = 'notification-content';
+
     // Build actions section
     const actionsEl = document.createElement('div');
+    actionsEl.className = 'notification-actions';
     actionsEl.style.cssText = `
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
       margin-top: ${actions.length > 0 ? '8px' : '0'};
     `;
 
     actions.forEach(action => {
       const btn = document.createElement('button');
+      btn.className = 'notification-action';
       btn.textContent = action.label;
       btn.style.cssText = `
-        padding: 4px 10px;
-        font-size: 0.85rem;
         border: 1px solid rgba(255, 255, 255, 0.3);
         background: rgba(255, 255, 255, 0.1);
         color: ${color.text};
-        border-radius: 4px;
-        cursor: pointer;
-        transition: background 0.2s;
       `;
       btn.onmouseover = () => {
         btn.style.background = 'rgba(255, 255, 255, 0.2)';
@@ -114,21 +110,12 @@ export const notificationUI = {
 
     // Build close button
     const closeBtn = document.createElement('button');
+    closeBtn.className = 'notification-close';
     closeBtn.textContent = '✕';
+    closeBtn.setAttribute('aria-label', 'Close notification');
     closeBtn.style.cssText = `
-      padding: 0;
-      width: 20px;
-      min-width: 20px;
-      height: 20px;
-      border: none;
       background: transparent;
       color: ${color.text};
-      cursor: pointer;
-      font-size: 1.2rem;
-      line-height: 1;
-      opacity: 0.7;
-      transition: opacity 0.2s;
-      flex-shrink: 0;
     `;
     closeBtn.onmouseover = () => { closeBtn.style.opacity = '1'; };
     closeBtn.onmouseout = () => { closeBtn.style.opacity = '0.7'; };
@@ -144,7 +131,12 @@ export const notificationUI = {
       gap: 8px;
       align-items: flex-start;
     `;
-    headerEl.appendChild(messageEl);
+    contentEl.appendChild(messageEl);
+    if (actions.length > 0) {
+      contentEl.appendChild(actionsEl);
+    }
+
+    headerEl.appendChild(contentEl);
     headerEl.appendChild(closeBtn);
 
     notif.style.background = color.bg;
@@ -160,9 +152,6 @@ export const notificationUI = {
     notif.style.margin = '0';
 
     notif.appendChild(headerEl);
-    if (actions.length > 0) {
-      notif.appendChild(actionsEl);
-    }
 
     // Add to DOM
     this._container.appendChild(notif);

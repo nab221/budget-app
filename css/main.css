@@ -687,15 +687,11 @@ body.privacy-enabled #expensesTabHeatmapSection:hover #expensesTabHeatmapContain
 
 .notification {
   animation: slideIn 300ms ease-out;
-  position: fixed;
-  top: 20px;
-  right: 20px;
   min-width: 300px;
   max-width: 400px;
   padding: 16px;
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  z-index: 10000;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -782,6 +778,12 @@ body.privacy-enabled #expensesTabHeatmapSection:hover #expensesTabHeatmapContain
 
 .notification-close:hover {
   opacity: 1;
+}
+
+.notification-action:focus-visible,
+.notification-close:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
 }
 
 .sync-status-indicator.pulse {

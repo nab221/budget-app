@@ -91,15 +91,15 @@ export const cloudSyncUI = {
       if (!hasValidLocalSync || cloudUpdatedAtMs > localLastSyncMs) {
         if (this._autoPullTriggered) return;
         this._autoPullTriggered = true;
-        this._syncInProgress = true;
-        await pullSnapshot();
+        const err = await this._executePullSync();
+        if (err && err?.message !== 'No cloud snapshot found') {
+          console.warn('[cloudSyncUI] Auto-pull check on load skipped:', err?.message || err);
+        }
       }
     } catch (err) {
       if (err?.message !== 'No cloud snapshot found') {
         console.warn('[cloudSyncUI] Auto-pull check on load skipped:', err?.message || err);
       }
-    } finally {
-      this._syncInProgress = false;
     }
   },
 
@@ -152,14 +152,14 @@ export const cloudSyncUI = {
 
     try {
       this._autoPullTriggered = true;
-      this._syncInProgress = true;
-      await pullSnapshot();
+      const err = await this._executePullSync();
+      if (err && err?.message !== 'No cloud snapshot found') {
+        console.warn('[cloudSyncUI] Auto-pull after sign-in failed:', err?.message || err);
+      }
     } catch (err) {
       if (err?.message !== 'No cloud snapshot found') {
         console.warn('[cloudSyncUI] Auto-pull after sign-in failed:', err?.message || err);
       }
-    } finally {
-      this._syncInProgress = false;
     }
   },
 
@@ -589,7 +589,6 @@ export const cloudSyncUI = {
 
       await pullSnapshot();
       this._clearErrorState();
-      notificationUI.success('Latest budget loaded from cloud', [], 2000);
       if (button && keepButtonDisabledOnSuccess) {
         restoreButton = false;
       }
@@ -885,10 +884,18 @@ export const cloudSyncUI = {
 
       document.getElementById('_cloudPushBtn')?.addEventListener('click', async () => {
         try {
+          const retryPush = async () => {
+            const retryErr = await this._executePushSync({ announceStart: true, successAlert: true });
+            if (retryErr) {
+              alertWithHaptic('Push failed: ' + retryErr.message);
+              this._showPushErrorNotification(retryErr.message, retryPush);
+            }
+          };
+
           const err = await this._executePushSync({ closeModal: true, announceStart: true, successAlert: true });
           if (err) {
             alertWithHaptic('Push failed: ' + err.message);
-            this._showPushErrorNotification(err.message, () => this._showSyncMenuModal());
+            this._showPushErrorNotification(err.message, retryPush);
           }
         } finally {
           this._syncInProgress = false;
@@ -898,10 +905,18 @@ export const cloudSyncUI = {
 
       document.getElementById('_cloudPullBtn')?.addEventListener('click', async () => {
         try {
+          const retryPull = async () => {
+            const retryErr = await this._executePullSync({ announceStart: true });
+            if (retryErr) {
+              alertWithHaptic('Pull failed: ' + retryErr.message);
+              this._showPullErrorNotification(retryErr.message, retryPull);
+            }
+          };
+
           const err = await this._executePullSync({ closeModal: true, announceStart: true });
           if (err) {
             alertWithHaptic('Pull failed: ' + err.message);
-            this._showPullErrorNotification(err.message, () => this._showSyncMenuModal());
+            this._showPullErrorNotification(err.message, retryPull);
           }
         } finally {
           this._syncInProgress = false;
@@ -1100,6 +1115,7 @@ export const cloudSyncUI = {
         try {
           await importBackupData(tableData);
           localStorage.setItem(CLOUD_LAST_SYNC_KEY, String(Date.now()));
+          notificationUI.success('Latest budget loaded from cloud', [], 2000);
           triggerHaptic('success');
           alertWithHaptic('Import successful! The app will now reload.', 'success');
           window.location.reload();
