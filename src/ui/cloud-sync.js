@@ -7,6 +7,7 @@ import {
   pullSnapshot,
   CLOUD_LAST_SYNC_KEY,
 } from '../utils/supabase-sync.js';
+import { getFileSyncState, openSelectFileDialog, disconnectFileSyncFile } from './file-sync.js';
 import { importBackupData } from '../db/backup.js';
 import { templateUI } from './templates.js';
 import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
@@ -31,6 +32,9 @@ export const cloudSyncUI = {
 
     // Phase 23.1: Initialize dirty-state tracking
     this._initDirtyStateTracking();
+
+    // Listen for local file-sync status changes to update the local indicator dot
+    window.addEventListener('localSync:statusChanged', () => this._updateLocalFileIndicator());
 
     this._bindAuthListener();
     this._bindPreviewListener();
@@ -86,6 +90,8 @@ export const cloudSyncUI = {
           <span id="syncStatusDot" class="sync-status-indicator" title="Synced" style="display:inline-block;width:0.6em;height:0.6em;border-radius:50%;background:#22c55e;margin:0 4px"></span>
           <span id="lastSyncedTime" style="font-size:.75rem;color:var(--text-soft)">Last synced: never</span>
           <button id="headerSyncMenuBtn" class="ghost">☁ Sync</button>
+          <span id="localFileSyncDot" style="display:inline-block;width:0.6em;height:0.6em;border-radius:50%;background:#6b7280;margin:0 2px" title="Local file sync"></span>
+          <span id="localFileSyncText" style="font-size:.75rem;color:var(--text-soft)">No file</span>
           <button id="headerLocalMenuBtn" class="ghost">📁 Local</button>
         </div>
       `;
@@ -115,6 +121,8 @@ export const cloudSyncUI = {
     headerActionsEl.innerHTML = `
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <button id="headerCloudSignInBtn" class="primary">☁ Cloud Sign In</button>
+        <span id="localFileSyncDot" style="display:inline-block;width:0.6em;height:0.6em;border-radius:50%;background:#6b7280;margin:0 2px" title="Local file sync"></span>
+        <span id="localFileSyncText" style="font-size:.75rem;color:var(--text-soft)">No file</span>
         <button id="headerLocalMenuBtn" class="ghost">📁 Local</button>
       </div>
     `;
@@ -137,50 +145,90 @@ export const cloudSyncUI = {
   },
 
   /**
-   * Phase 23.2: Show local backup modal with Export, Import and Cancel options.
+   * Phase 23.2: Show local backup modal with file-sync management + Export/Import options.
    */
   _showLocalModal() {
-    return new Promise((resolve) => {
-      const body = `
-        <p style="font-size:.9rem;margin-bottom:12px">Manage a local backup of your budget data (no server required).</p>
-        <ul style="font-size:.8rem;color:var(--text-soft);margin:0;padding-left:1.2em;line-height:1.7">
-          <li><strong>Export</strong> — download your data as a backup file.</li>
-          <li><strong>Import</strong> — restore data from a previous backup file.</li>
-        </ul>
-      `;
+    const { fileName, status, statusText } = getFileSyncState();
 
-      const footer = [
-        {
-          label: '💾 Export',
-          className: 'primary',
-          onClick: () => {
-            templateUI.closeModal();
-            // Delegate to the existing backupUI export flow
-            document.getElementById('exportBtn')?.click();
-            resolve();
-          }
-        },
-        {
-          label: '📂 Import',
-          className: 'ghost',
-          onClick: () => {
-            templateUI.closeModal();
-            // Trigger the hidden file input
-            document.getElementById('importFile')?.click();
-            resolve();
-          }
-        },
-        {
-          label: 'Cancel',
-          className: 'ghost',
-          onClick: () => {
-            templateUI.closeModal();
-            resolve();
-          }
-        }
-      ];
+    // Safe HTML escaping for the file name (file names can have <, >, & etc.)
+    const escHtml = (s) => String(s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-      templateUI.showModal('📁 Local Backup', body, footer);
+    // ── File auto-save section ────────────────────────────────────────────
+    let statusDotStyle = 'display:inline-block;width:0.55em;height:0.55em;border-radius:50%;vertical-align:middle;margin-right:4px;';
+    let statusLabel = 'No file connected';
+    if (fileName) {
+      if (status === 'error') {
+        statusDotStyle += 'background:#ef4444';
+        statusLabel = escHtml(statusText || 'Error');
+      } else if (status === 'pending') {
+        statusDotStyle += 'background:#eab308';
+        statusLabel = 'Saving…';
+      } else {
+        statusDotStyle += 'background:#22c55e';
+        statusLabel = 'Auto-saving';
+      }
+    } else {
+      statusDotStyle += 'background:#6b7280';
+    }
+
+    const fileInfo = fileName
+      ? `<p style="font-size:.85rem;margin:4px 0 10px"><strong>${escHtml(fileName)}</strong></p>
+         <p style="font-size:.8rem;color:var(--text-soft);margin:0 0 10px">
+           <span style="${statusDotStyle}"></span>${statusLabel}
+         </p>`
+      : `<p style="font-size:.85rem;color:var(--text-soft);margin:4px 0 10px">
+           No budget file connected.<br>Select a file to enable automatic saving.
+         </p>`;
+
+    const fileButtons = fileName
+      ? `<button id="_localChangeFileBtn" class="ghost sm" style="margin-right:6px">📁 Change File</button>
+         <button id="_localDisconnectBtn" class="danger sm">🔗 Disconnect</button>`
+      : `<button id="_localSelectFileBtn" class="primary sm">📂 Select Budget File</button>`;
+
+    const body = `
+      <div style="display:flex;flex-direction:column;gap:14px">
+
+        <div style="border:1px solid var(--border);border-radius:8px;padding:12px">
+          <p style="margin:0 0 6px;font-size:.75rem;font-weight:600;color:var(--text-soft);text-transform:uppercase;letter-spacing:.06em">💾 File Auto-Save</p>
+          ${fileInfo}
+          <div style="display:flex;flex-wrap:wrap;gap:6px">${fileButtons}</div>
+        </div>
+
+        <div style="border:1px solid var(--border);border-radius:8px;padding:12px">
+          <p style="margin:0 0 6px;font-size:.75rem;font-weight:600;color:var(--text-soft);text-transform:uppercase;letter-spacing:.06em">📋 Manual Backup</p>
+          <p style="font-size:.8rem;color:var(--text-soft);margin:0 0 10px">One-off JSON export or restore.</p>
+          <div style="display:flex;gap:6px">
+            <button id="_localExportBtn" class="ghost sm">💾 Export</button>
+            <button id="_localImportBtn" class="ghost sm">📂 Import</button>
+          </div>
+        </div>
+
+      </div>
+    `;
+
+    templateUI.showModal('📁 Local', body, [{ label: 'Close', className: 'ghost', onClick: () => templateUI.closeModal() }]);
+
+    // Bind inline button events (body innerHTML is rendered synchronously by modalUI.show)
+    document.getElementById('_localExportBtn')?.addEventListener('click', () => {
+      templateUI.closeModal();
+      document.getElementById('exportBtn')?.click();
+    });
+    document.getElementById('_localImportBtn')?.addEventListener('click', () => {
+      templateUI.closeModal();
+      document.getElementById('importFile')?.click();
+    });
+    document.getElementById('_localSelectFileBtn')?.addEventListener('click', () => {
+      templateUI.closeModal();
+      openSelectFileDialog();
+    });
+    document.getElementById('_localChangeFileBtn')?.addEventListener('click', () => {
+      templateUI.closeModal();
+      openSelectFileDialog();
+    });
+    document.getElementById('_localDisconnectBtn')?.addEventListener('click', () => {
+      templateUI.closeModal();
+      disconnectFileSyncFile();
     });
   },
 
@@ -244,6 +292,45 @@ export const cloudSyncUI = {
 
     dot.title = title;
     this._updateTimestampDisplay();
+  },
+
+  /**
+   * Updates the local file-sync status dot and label in the header.
+   * Driven by `localSync:statusChanged` events dispatched by file-sync.js.
+   * States: no file (gray) · auto-saving / pending (orange + pulse) · saved (green) · error (red)
+   */
+  _updateLocalFileIndicator() {
+    const dot = document.getElementById('localFileSyncDot');
+    const text = document.getElementById('localFileSyncText');
+    if (!dot || !text) return;
+
+    const { fileName, status, statusText } = getFileSyncState();
+
+    if (!fileName) {
+      dot.style.background = '#6b7280';
+      dot.style.animation = 'none';
+      dot.title = 'No local file connected';
+      text.textContent = 'No file';
+      return;
+    }
+
+    if (status === 'error') {
+      dot.style.background = '#ef4444';
+      dot.style.animation = 'none';
+      dot.title = statusText || 'Local save error';
+      text.textContent = statusText || 'Error';
+    } else if (status === 'pending') {
+      dot.style.background = '#eab308';
+      dot.style.animation = 'pulse 1.5s infinite';
+      dot.title = 'Saving to local file…';
+      text.textContent = 'Saving…';
+    } else {
+      // success or idle with a connected file = auto-saving is active
+      dot.style.background = '#22c55e';
+      dot.style.animation = 'none';
+      dot.title = `Auto-saving to ${fileName}`;
+      text.textContent = 'Auto-saving';
+    }
   },
 
   /**
