@@ -1,0 +1,57 @@
+
+> budget-app@0.0.0 test
+> vitest --run
+
+
+[1m[46m RUN [49m[22m [36mv3.2.4 [39m[90mC:/Users/nab221/CODE/budget-app[39m
+
+ [32mÔ£ô[39m src/ui/debts.test.js [2m([22m[2m51 tests[22m[2m)[22m[33m 945[2mms[22m[39m
+ [32mÔ£ô[39m src/utils/supabase-sync.test.js [2m([22m[2m17 tests[22m[2m)[22m[32m 142[2mms[22m[39m
+ [32mÔ£ô[39m src/utils/pdf-parser.test.js [2m([22m[2m13 tests[22m[2m)[22m[32m 47[2mms[22m[39m
+ [31mÔØ»[39m src/ui/cloud-sync.test.js [2m([22m[2m3 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[33m 742[2mms[22m[39m
+   [32mÔ£ô[39m cloud-sync header actions (Phase 23)[2m > [22mshows cloud sign-in action and hides local import/export when configured and signed out[32m 60[2mms[22m[39m
+[31m   [31m├ù[31m cloud-sync header actions (Phase 23)[2m > [22mshows push/pull actions when configured and signed in[39m[33m 665[2mms[22m[39m
+[31m     ÔåÆ expected null not to be null[39m
+   [32mÔ£ô[39m cloud-sync header actions (Phase 23)[2m > [22mrestores local import/export and hides cloud header when cloud is not configured[32m 14[2mms[22m[39m
+ [32mÔ£ô[39m src/ui/charts.statement.test.js [2m([22m[2m11 tests[22m[2m)[22m[32m 114[2mms[22m[39m
+ [32mÔ£ô[39m src/utils/finance.test.js [2m([22m[2m31 tests[22m[2m)[22m[33m 415[2mms[22m[39m
+   [33m[2mÔ£ô[22m[39m Finance Utilities[2m > [22mPhase 12 Integration Fixes[2m > [22mrecurrentExpenseRepository ÔÇö mutation overrides (smoke test)[2m > [22mhas add/update/delete overrides that call triggerBalanceRecalc [33m 310[2mms[22m[39m
+ [32mÔ£ô[39m src/db/repository.test.js [2m([22m[2m36 tests[22m[2m)[22m[32m 114[2mms[22m[39m
+ [32mÔ£ô[39m src/utils/opfs-store.test.js [2m([22m[2m11 tests[22m[2m)[22m[32m 41[2mms[22m[39m
+ [32mÔ£ô[39m src/ui/privacy.test.js [2m([22m[2m5 tests[22m[2m)[22m[32m 44[2mms[22m[39m
+ [32mÔ£ô[39m src/utils/currency.test.js [2m([22m[2m10 tests[22m[2m)[22m[32m 90[2mms[22m[39m
+ [32mÔ£ô[39m src/utils/haptics.test.js [2m([22m[2m7 tests[22m[2m)[22m[32m 38[2mms[22m[39m
+ [32mÔ£ô[39m src/utils/recurrence.test.js [2m([22m[2m21 tests[22m[2m)[22m[32m 38[2mms[22m[39m
+ [32mÔ£ô[39m src/ui/theme.test.js [2m([22m[2m9 tests[22m[2m)[22m[32m 23[2mms[22m[39m
+ [32mÔ£ô[39m src/utils/cashflow.test.js [2m([22m[2m13 tests[22m[2m)[22m[32m 30[2mms[22m[39m
+ [32mÔ£ô[39m src/db/backup-settings.test.js [2m([22m[2m13 tests[22m[2m)[22m[32m 26[2mms[22m[39m
+ [32mÔ£ô[39m src/ui/expenses.test.js [2m([22m[2m6 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+ [32mÔ£ô[39m tests/db/import-merge.test.js [2m([22m[2m30 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32mÔ£ô[39m tests/balance/balance-ui.test.js [2m([22m[2m14 tests[22m[2m)[22m[32m 27[2mms[22m[39m
+ [32mÔ£ô[39m src/utils/filtering.test.js [2m([22m[2m5 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32mÔ£ô[39m src/utils/childcare.test.js [2m([22m[2m19 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32mÔ£ô[39m src/utils/string-similarity.test.js [2m([22m[2m5 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32mÔ£ô[39m tests/balance/dashboard-kpis.test.js [2m([22m[2m4 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32mÔ£ô[39m src/ui/heatmap.test.js [2m([22m[2m4 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32mÔ£ô[39m src/ui/dashboard.invariant.test.js [2m([22m[2m3 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+
+ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ» Failed Tests 1 ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»
+
+ FAIL  src/ui/cloud-sync.test.js > cloud-sync header actions (Phase 23) > shows push/pull actions when configured and signed in
+AssertionError: expected null not to be null
+ ÔØ» src/ui/cloud-sync.test.js:75:63
+     73|     cloudSyncUI._renderHeaderActions({ user: { email: 'user@example.coÔÇª
+     74| 
+     75|     expect(document.getElementById('headerCloudPushBtn')).not.toBeNullÔÇª
+       |                                                               ^
+     76|     expect(document.getElementById('headerCloudPullBtn')).not.toBeNullÔÇª
+     77|     expect(document.getElementById('headerCloudSignOutBtn')).not.toBeNÔÇª
+
+ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»[1/1]ÔÄ»
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m23 passed[39m[22m[90m (24)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m340 passed[39m[22m[90m (341)[39m
+[2m   Start at [22m 07:30:25
+[2m   Duration [22m 32.91s[2m (transform 1.29s, setup 0ms, collect 26.23s, tests 2.99s, environment 138.94s, prepare 12.24s)[22m
+

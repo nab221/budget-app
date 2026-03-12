@@ -11,10 +11,16 @@ describe('theme.js', () => {
   });
 
   describe('initTheme', () => {
-    it('applies saved theme from localStorage if present', () => {
+    it('applies saved dark theme from localStorage', () => {
       localStorage.setItem(THEME_KEY, 'dark');
       initTheme();
       expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+    });
+
+    it('applies saved light theme from localStorage', () => {
+      localStorage.setItem(THEME_KEY, 'light');
+      initTheme();
+      expect(document.documentElement.getAttribute('data-theme')).toBe('light');
     });
 
     it('falls back to system preference (dark) if no saved theme', () => {
@@ -27,18 +33,17 @@ describe('theme.js', () => {
 
     it('falls back to system preference (light) if no saved theme', () => {
       window.matchMedia = vi.fn().mockImplementation(query => ({
-        matches: query === '(prefers-color-scheme: light)',
+        matches: false,
       }));
       initTheme();
+      expect(window.matchMedia).toHaveBeenCalledWith('(prefers-color-scheme: dark)');
       expect(document.documentElement.getAttribute('data-theme')).toBe('light');
     });
 
     it('defaults to light if matchMedia is unavailable', () => {
-      const originalMatchMedia = window.matchMedia;
-      delete window.matchMedia;
+      vi.stubGlobal('matchMedia', undefined);
       initTheme();
       expect(document.documentElement.getAttribute('data-theme')).toBe('light');
-      window.matchMedia = originalMatchMedia;
     });
   });
 

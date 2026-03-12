@@ -8,7 +8,10 @@ export function initPrivacyMode() {
   const isEnabled = localStorage.getItem(PRIVACY_MODE_KEY) === 'true';
   document.body.classList.toggle('privacy-enabled', isEnabled);
   const btn = document.getElementById('privacyToggle');
-  if (btn) btn.classList.toggle('active', isEnabled);
+  if (btn) {
+    btn.classList.toggle('active', isEnabled);
+    btn.setAttribute('aria-pressed', String(isEnabled));
+  }
 }
 
 /**
@@ -19,8 +22,11 @@ export function togglePrivacyMode() {
   document.body.classList.toggle('privacy-enabled', isEnabled);
   localStorage.setItem(PRIVACY_MODE_KEY, isEnabled.toString());
   const btn = document.getElementById('privacyToggle');
-  if (btn) btn.classList.toggle('active', isEnabled);
-  
+  if (btn) {
+    btn.classList.toggle('active', isEnabled);
+    btn.setAttribute('aria-pressed', String(isEnabled));
+  }
+
   // Add haptic feedback for security state change
   triggerHaptic('tap');
 }

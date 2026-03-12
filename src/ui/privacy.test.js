@@ -2,6 +2,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { initPrivacyMode, togglePrivacyMode } from './privacy.js';
 import { PRIVACY_MODE_KEY } from '../utils/storage.js';
+import { triggerHaptic } from '../utils/haptics.js';
 
 // Mock haptics
 vi.mock('../utils/haptics.js', () => ({
@@ -45,6 +46,8 @@ describe('privacy.js', () => {
       expect(document.body.classList.contains('privacy-enabled')).toBe(true);
       expect(localStorage.getItem(PRIVACY_MODE_KEY)).toBe('true');
       expect(document.getElementById('privacyToggle').classList.contains('active')).toBe(true);
+      expect(triggerHaptic).toHaveBeenCalledWith('tap');
+      expect(triggerHaptic).toHaveBeenCalledTimes(1);
     });
 
     it('toggles privacy mode from on to off and persists', () => {
@@ -56,6 +59,8 @@ describe('privacy.js', () => {
       expect(document.body.classList.contains('privacy-enabled')).toBe(false);
       expect(localStorage.getItem(PRIVACY_MODE_KEY)).toBe('false');
       expect(document.getElementById('privacyToggle').classList.contains('active')).toBe(false);
+      expect(triggerHaptic).toHaveBeenCalledWith('tap');
+      expect(triggerHaptic).toHaveBeenCalledTimes(1);
     });
   });
 });

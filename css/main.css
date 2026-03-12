@@ -650,3 +650,14 @@ body.privacy-enabled #incomeTabHeatmapSection:hover #incomeTabHeatmapContainer,
 body.privacy-enabled #expensesTabHeatmapSection:hover #expensesTabHeatmapContainer {
   filter: blur(0);
 }
+
+/* Phase 23.1: Cloud Sync Status Indicator */
+/* Pulse animation for dirty state indicator */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}

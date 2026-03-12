@@ -4,9 +4,14 @@ import { db } from '../db/schema.js';
 import { importBackupData } from '../db/backup.js';
 import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
 import { OPFSStore } from '../utils/opfs-store.js';
+import { isConfigured as isCloudConfigured } from '../utils/supabase-sync.js';
 
 /** True when the session is using OPFS instead of File System Access API. */
 let _opfsMode = false;
+
+/** Last status reported by SyncManager / OPFSStore. */
+let _lastStatus = 'idle';
+let _lastStatusText = '';
 
 function checkOPFSSupport() {
   return (
@@ -109,53 +114,63 @@ export async function refreshPersistenceWarning() {
 
 /**
  * Update the header toolbar based on persistence state.
+ * When cloud is managing the header (#cloudSyncActionsHeader is visible), this function
+ * only stores state and dispatches an event for cloud-sync.js to consume. The
+ * individual Select / Change / Disconnect buttons are shown inside the 📁 Local modal.
  */
 async function updateFileSyncToolbar(status = 'idle', statusText = '') {
+  _lastStatus = status;
+  _lastStatusText = statusText;
+
   const toolbar = document.querySelector('.toolbar');
   const fileName = _opfsMode ? OPFSStore.getFileName() : SyncManager.getFileName();
   const headerHint = document.querySelector('header .hint');
 
+  // Dispatch event so cloud-sync.js can update its local status indicator
+  window.dispatchEvent(new CustomEvent('localSync:statusChanged', {
+    detail: { fileName, status, statusText }
+  }));
+
   // Refresh persistence warning visibility whenever sync status changes
   const isPersisted = await refreshPersistenceWarning();
 
-  // Remove existing file sync elements if any
-  const existingSync = toolbar.querySelector('.file-sync-indicator');
-  if (existingSync) existingSync.remove();
-  
-  const existingBtn = toolbar.querySelector('#changeFileBtn');
-  if (existingBtn) existingBtn.remove();
+  // Remove existing file sync elements from the toolbar (cleanup always)
+  toolbar.querySelector('.file-sync-indicator')?.remove();
+  toolbar.querySelector('#changeFileBtn')?.remove();
+  toolbar.querySelector('#disconnectFileBtn')?.remove();
+  toolbar.querySelector('#selectFileBtn')?.remove();
+  toolbar.querySelector('#reconnectFileBtn')?.remove();
 
-  const existingDisconnect = toolbar.querySelector('#disconnectFileBtn');
-  if (existingDisconnect) existingDisconnect.remove();
+  // If cloud sync is configured it manages the header; don't add standalone toolbar buttons —
+  // those actions live inside the 📁 Local modal. Just manage export/import visibility.
+  const cloudManaged = isCloudConfigured();
 
-  const existingSelect = toolbar.querySelector('#selectFileBtn');
-  if (existingSelect) existingSelect.remove();
+  if (cloudManaged) {
+    if (fileName) {
+      document.getElementById('exportBtn')?.classList.add('hidden');
+      document.querySelector('label[for="importFile"]')?.classList.add('hidden');
+    }
+    return;
+  }
 
-  const existingReconnect = toolbar.querySelector('#reconnectFileBtn');
-  if (existingReconnect) existingReconnect.remove();
-
+  // ── Cloud NOT configured: manage toolbar directly (legacy behaviour) ──────
   if (fileName) {
-    // Update header hint
-    if (headerHint) headerHint.textContent = `Auto-saving to ${fileName}`;
-
-    // Hide standard export/import buttons to reduce clutter in sync mode
+    // Hide standard export/import buttons to reduce clutter in file-sync mode
     document.getElementById('exportBtn')?.classList.add('hidden');
     document.querySelector('label[for="importFile"]')?.classList.add('hidden');
 
     const indicator = document.createElement('div');
     indicator.className = 'file-sync-indicator';
     indicator.style.cssText = 'display:flex;align-items:center;gap:10px;font-size:.8rem;color:var(--text-soft)';
-    
+
     let statusClass = '';
     if (status === 'success') statusClass = 'green';
     if (status === 'error') statusClass = 'red';
 
-    indicator.innerHTML = `
-      <span id="saveStatus" class="${statusClass}">${statusText}</span>
-    `;
+    indicator.innerHTML = `<span id="saveStatus" class="${statusClass}">${statusText}</span>`;
     toolbar.prepend(indicator);
 
-    // If permission is missing, provide a Reconnect button
+    // Permission missing: show a Reconnect button
     if (!_opfsMode && status === 'error' && statusText === '⚠ Reconnect Needed') {
       const reconnectBtn = document.createElement('button');
       reconnectBtn.id = 'reconnectFileBtn';
@@ -186,12 +201,10 @@ async function updateFileSyncToolbar(status = 'idle', statusText = '') {
     toolbar.appendChild(disconnectBtn);
 
   } else {
-    // Restore header hint with detailed status
     if (headerHint) {
       headerHint.textContent = `Local Storage (IndexedDB) • Persistence: ${isPersisted ? 'Active' : 'Inactive'}`;
     }
 
-    // No file connected: show "Select Budget File" button and ensure legacy buttons are visible
     document.getElementById('exportBtn')?.classList.remove('hidden');
     document.querySelector('label[for="importFile"]')?.classList.remove('hidden');
 
@@ -293,4 +306,30 @@ async function handleDisconnectFile() {
 
 function showFileSyncModal() {
   document.getElementById('fileSyncModal').classList.remove('hidden');
+}
+
+// ── Public API for cloud-sync.js to consume ───────────────────────────────────
+
+/**
+ * Returns the current local file sync state.
+ * @returns {{ fileName: string|null, status: string, statusText: string }}
+ */
+export function getFileSyncState() {
+  const fileName = _opfsMode ? OPFSStore.getFileName() : SyncManager.getFileName();
+  return { fileName, status: _lastStatus, statusText: _lastStatusText };
+}
+
+/**
+ * Opens the file-selection dialog (File System Access API only).
+ * No-op in OPFS mode since the file is managed automatically.
+ */
+export function openSelectFileDialog() {
+  if (!_opfsMode) showFileSyncModal();
+}
+
+/**
+ * Disconnects the current budget file (same as clicking Disconnect in toolbar).
+ */
+export async function disconnectFileSyncFile() {
+  await handleDisconnectFile();
 }

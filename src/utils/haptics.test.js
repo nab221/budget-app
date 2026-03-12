@@ -55,13 +55,10 @@ describe('haptics.js', () => {
     });
 
     it('handles missing navigator.vibrate gracefully', () => {
-      const originalVibrate = navigator.vibrate;
       delete navigator.vibrate;
       
       triggerHaptic('tap'); // Should not throw
       expect(console.log).toHaveBeenCalled();
-      
-      navigator.vibrate = originalVibrate;
     });
   });
 

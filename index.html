@@ -36,11 +36,11 @@
         <div class="toolbar">
           <button id="themeToggle" class="ghost" title="Toggle Light/Dark Mode">🌓 Theme</button>
           <button id="privacyToggle" class="ghost" title="Toggle Privacy Mode (Blur balances)">👁️ Privacy</button>
-          <button id="exportBtn" class="ghost">⬇ Export</button>
+          <div id="cloudSyncActionsHeader" class="hidden"></div>
+          <button id="exportBtn" class="ghost" title="Download your budget data as a local backup file">💾 Local Export</button>
           <label for="importFile" class="ghost" style="cursor:pointer;display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border:1px solid var(--border);border-radius:999px;font-size:inherit">
-            ⬆ Import <input id="importFile" type="file" accept="application/json" class="file-input"/>
+            📂 Local Import <input id="importFile" type="file" accept="application/json" class="file-input"/>
           </label>
-          <button id="resetBtn" class="danger">🗑 Clear All Data</button>
         </div>
       </header>
 
@@ -407,6 +407,12 @@
                 </div>
               </div>
               <div id="balanceStartStatus" class="hint" style="margin-top:6px;font-size:.75rem"></div>
+            </div>
+
+            <div style="margin-top:20px; padding-top:20px; border-top:1px solid var(--border)">
+              <h3 style="font-size:.9rem;margin-bottom:8px;color:var(--danger)">Danger Zone</h3>
+              <div class="hint" style="margin-bottom:10px">Use with caution. Clearing data permanently removes all budget data stored in this browser and cannot be undone.</div>
+              <button id="resetBtn" class="danger">🗑 Clear All Data</button>
             </div>
 
             <!-- Install App -->

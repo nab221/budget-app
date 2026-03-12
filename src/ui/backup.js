@@ -39,7 +39,7 @@ async function promptImportMode(content) {
   }
 
   // Local data exists: allow user to choose
-  const htmlContent = `
+  let htmlContent = `
     <p style="margin-bottom:20px">
       You have existing budget data. How would you like to import?
     </p>
@@ -108,9 +108,9 @@ export const backupUI = {
   },
 
   setupEventListeners() {
-    this.elements.exportBtn.addEventListener('click', () => this.promptExport());
-    this.elements.importFile.addEventListener('change', (e) => this.handleImport(e));
-    this.elements.resetBtn.addEventListener('click', () => this.handleReset());
+    this.elements.exportBtn?.addEventListener('click', () => this.promptExport());
+    this.elements.importFile?.addEventListener('change', (e) => this.handleImport(e));
+    this.elements.resetBtn?.addEventListener('click', () => this.handleReset());
   },
 
   promptExport() {
