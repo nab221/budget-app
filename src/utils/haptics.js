@@ -23,12 +23,21 @@ export function resetHapticTimers() {
 }
 
 /**
- * Initialize Haptics from localStorage.
+ * Returns true when haptics are enabled (defaults to true if not set).
  */
-export function initHaptics() {
-  const isEnabled = localStorage.getItem(HAPTICS_ENABLED_KEY) !== 'false';
-  const checkbox = document.getElementById('hapticsEnabledCheckbox');
-  if (checkbox) checkbox.checked = isEnabled;
+export function isHapticsEnabled() {
+  return localStorage.getItem(HAPTICS_ENABLED_KEY) !== 'false';
+}
+
+/**
+ * Initialize Haptics from localStorage.
+ * @param {HTMLInputElement} [checkbox] - Optional checkbox element to sync; falls back to
+ *   document.getElementById('hapticsEnabledCheckbox') when omitted.
+ */
+export function initHaptics(checkbox) {
+  const isEnabled = isHapticsEnabled();
+  const el = checkbox ?? document.getElementById('hapticsEnabledCheckbox');
+  if (el) el.checked = isEnabled;
 }
 
 /**
@@ -36,8 +45,7 @@ export function initHaptics() {
  * @param {string} type - Key from HAPTIC_PATTERNS ('tap', 'success', 'delete', 'error')
  */
 export function triggerHaptic(type) {
-  // Check if enabled (defaults to true if not set)
-  const isEnabled = localStorage.getItem(HAPTICS_ENABLED_KEY) !== 'false';
+  const isEnabled = isHapticsEnabled();
   if (!isEnabled) return;
 
   // Enforce debounce per type to prevent vibration flooding

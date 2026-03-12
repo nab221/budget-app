@@ -70,8 +70,9 @@ vi.mock('../../src/db/schema.js', () => {
           return mockState.categories.map(category => ({ ...category }));
         },
         async add(category) {
-          mockState.categories.push({ ...category });
-          return category.id;
+          const newId = category.id ?? (mockState.categories.reduce((max, c) => Math.max(max, c.id || 0), 0) + 1);
+          mockState.categories.push({ ...category, id: newId });
+          return newId;
         },
         toCollection() {
           return {
@@ -193,5 +194,38 @@ describe('importBackupData merge mode', () => {
     expect(mockState.oneOffExpenses).toHaveLength(1);
     expect(mockState.oneOffExpenses[0].categoryId).toBe(11);
     expect(mockState.categories).toHaveLength(2);
+  });
+
+  it('remaps categoryMappings categoryId to local IDs during merge', async () => {
+    mockState.categories = [
+      { id: 1, name: 'Groceries', group: 'expenses' }
+    ];
+
+    findBestMatch.mockReturnValue({ target: null, rating: 0 });
+
+    const backupData = {
+      version: 1,
+      schema_version: 18,
+      categories: [
+        { id: 50, name: 'Groceries', group: 'expenses' }, // exact match -> maps to local id 1
+        { id: 51, name: 'NewCategory', group: 'expenses' } // no match -> gets a fresh local id
+      ],
+      categoryMappings: [
+        { id: 'cm-1', keyword: 'tesco', categoryId: 50 },
+        { id: 'cm-2', keyword: 'lidl',  categoryId: 51 }
+      ]
+    };
+
+    await importBackupData(backupData, { mode: 'merge', restoreSettings: false });
+
+    // Exact-matched category maps to existing local id 1
+    const cm1 = mockState.categoryMappings.find(m => m.id === 'cm-1');
+    expect(cm1.categoryId).toBe(1);
+
+    // Unmatched new category got an auto-generated local id; mapping uses that id
+    const newCategory = mockState.categories.find(c => c.name === 'NewCategory');
+    expect(newCategory).toBeDefined();
+    const cm2 = mockState.categoryMappings.find(m => m.id === 'cm-2');
+    expect(cm2.categoryId).toBe(newCategory.id);
   });
 });

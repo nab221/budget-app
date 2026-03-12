@@ -129,7 +129,11 @@ export async function importBackupData(data, options = {}) {
         for (const incomingCategory of data.categories) {
           if (!categoryIdMap[incomingCategory.id]) {
             try {
-              await db.categories.add(incomingCategory);
+              // Omit the backup id so Dexie generates a new local auto-increment id,
+              // then record the mapping so downstream records get the correct local id.
+              const { id: _omitId, ...newCategoryData } = incomingCategory;
+              const newId = await db.categories.add(newCategoryData);
+              categoryIdMap[incomingCategory.id] = newId;
             } catch (e) {
               if (e.failures) {
                 console.warn(`[importBackupData] categories: ${e.failures.length} record(s) skipped (likely duplicate)`, e.failures);
