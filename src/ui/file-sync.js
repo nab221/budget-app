@@ -147,7 +147,6 @@ async function updateFileSyncToolbar(status = 'idle', statusText = '') {
 
   if (cloudManaged) {
     if (fileName) {
-      if (headerHint) headerHint.textContent = `Auto-saving to ${fileName}`;
       document.getElementById('exportBtn')?.classList.add('hidden');
       document.querySelector('label[for="importFile"]')?.classList.add('hidden');
     }
@@ -156,8 +155,6 @@ async function updateFileSyncToolbar(status = 'idle', statusText = '') {
 
   // ── Cloud NOT configured: manage toolbar directly (legacy behaviour) ──────
   if (fileName) {
-    if (headerHint) headerHint.textContent = `Auto-saving to ${fileName}`;
-
     // Hide standard export/import buttons to reduce clutter in file-sync mode
     document.getElementById('exportBtn')?.classList.add('hidden');
     document.querySelector('label[for="importFile"]')?.classList.add('hidden');

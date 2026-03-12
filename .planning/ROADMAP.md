@@ -28,6 +28,7 @@
 - **Task 23.3.2:** Add a dedicated local file-sync status indicator in the header (auto-saving, saving/dirty, error, no file).
 - **Task 23.3.3:** Restructure the ☁ Cloud modal to match the 📁 Local modal with panel-based actions, signed-in account panel, and a Close footer action.
 - **Task 23.3.4:** Move "Clear All Data" from the top bar into Settings under a cautionary Danger Zone section.
+- **Task 23.3.5:** Keep the header subtitle static by removing "Auto-saving to ..." text under the app title (status remains in header indicator dots).
 
 ## Phase 24: Intelligent Sync Logic (Auto-Pull & Auto-Push)
 **Goal:** Automate sync checkpoints to reduce manual effort.
@@ -48,4 +49,4 @@
 - **Task 26.3:** Final UI polish (animations, loading states).
 
 ---
-*Last updated: 2026-03-12* (Phase 23.1 added to capture deferred enhancements)
+*Last updated: 2026-03-12* (Phase 23.3.5 cleanup documented)
