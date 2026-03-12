@@ -535,6 +535,61 @@ describe('cloud-sync sync visibility (Phase 25)', () => {
       expect(localStorage.getItem(CLOUD_LAST_ERROR_CODE_KEY)).toBeNull();
       expect(cloudSyncUI._lastError).toBeNull();
     });
+
+    it('applies and restores busy-state semantics for push buttons', async () => {
+      const refreshSpy = vi.spyOn(cloudSyncUI, '_refreshSection').mockResolvedValue(undefined);
+      let resolvePush;
+      vi.mocked(supabaseSync.pushSnapshot).mockImplementation(() => new Promise((resolve) => {
+        resolvePush = resolve;
+      }));
+
+      const button = document.createElement('button');
+      button.textContent = 'Push to Cloud';
+
+      const syncPromise = cloudSyncUI._executePushSync({ button });
+
+      expect(button.textContent).toBe('Pushing...');
+      expect(button.disabled).toBe(true);
+      expect(button.getAttribute('aria-busy')).toBe('true');
+      expect(button.classList.contains('sync-action-busy')).toBe(true);
+
+      resolvePush();
+      await syncPromise;
+
+      expect(button.textContent).toBe('Push to Cloud');
+      expect(button.disabled).toBe(false);
+      expect(button.hasAttribute('aria-busy')).toBe(false);
+      expect(button.classList.contains('sync-action-busy')).toBe(false);
+      refreshSpy.mockRestore();
+    });
+
+    it('applies and restores busy-state semantics for pull buttons', async () => {
+      const refreshSpy = vi.spyOn(cloudSyncUI, '_refreshSection').mockResolvedValue(undefined);
+      let resolvePull;
+      vi.mocked(supabaseSync.pullSnapshot).mockImplementation(() => new Promise((resolve) => {
+        resolvePull = resolve;
+      }));
+
+      const button = document.createElement('button');
+      button.textContent = 'Pull from Cloud';
+
+      const syncPromise = cloudSyncUI._executePullSync({ button });
+
+      expect(button.textContent).toBe('Fetching...');
+      expect(button.disabled).toBe(true);
+      expect(button.getAttribute('aria-busy')).toBe('true');
+      expect(button.classList.contains('sync-action-busy')).toBe(true);
+
+      resolvePull();
+      await syncPromise;
+
+      expect(button.textContent).toBe('Pull from Cloud');
+      expect(button.disabled).toBe(false);
+      expect(button.hasAttribute('aria-busy')).toBe(false);
+      expect(button.classList.contains('sync-action-busy')).toBe(false);
+      expect(refreshSpy).toHaveBeenCalled();
+      refreshSpy.mockRestore();
+    });
   });
 });
 
