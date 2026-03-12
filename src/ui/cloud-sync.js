@@ -11,9 +11,10 @@ import {
   CLOUD_LAST_SYNC_KEY,
 } from '../utils/supabase-sync.js';
 import { getFileSyncState, openSelectFileDialog, disconnectFileSyncFile } from './file-sync.js';
-import { importBackupData } from '../db/backup.js';
+import { importBackupData, exportBackupData } from '../db/backup.js';
 import { templateUI } from './templates.js';
 import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
+import { notificationUI } from './notifications.js';
 import { db } from '../db/schema.js';
 
 // Phase 23.1: Constants for dirty-state tracking and timestamps
@@ -787,12 +788,24 @@ export const cloudSyncUI = {
           this._clearErrorState();
           this._updateStatusIndicator();
           alertWithHaptic('Synced successfully!', 'success');
+          notificationUI.success('Budget synced to cloud', [], 2000);
           await this._refreshSection();
         } catch (err) {
           console.error('[cloudSyncUI] Push failed:', err);
           // Phase 25.1: Save error state on push failure
           this._saveErrorState(err.message, err.code || 'PUSH_ERROR');
           alertWithHaptic('Push failed: ' + err.message);
+          // Phase 25.3: Show error notification with fallback options
+          notificationUI.error(err.message, [
+            {
+              label: '💾 Export Backup',
+              onClick: () => document.getElementById('exportBtn')?.click()
+            },
+            {
+              label: '↻ Retry',
+              onClick: () => this._showSyncMenuModal()
+            }
+          ]);
         } finally {
           this._syncInProgress = false;
           resolve();
@@ -807,6 +820,7 @@ export const cloudSyncUI = {
           await pullSnapshot();
           // Phase 25.1: Clear error state on successful pull
           this._clearErrorState();
+          notificationUI.success('Latest budget loaded from cloud', [], 2000);
           // pullSnapshot dispatches an event that shows a preview modal
           // UI takes over from there
         } catch (err) {
@@ -814,6 +828,13 @@ export const cloudSyncUI = {
           // Phase 25.1: Save error state on pull failure
           this._saveErrorState(err.message, err.code || 'PULL_ERROR');
           alertWithHaptic('Pull failed: ' + err.message);
+          // Phase 25.3: Show error notification with retry option
+          notificationUI.error(err.message, [
+            {
+              label: '↻ Retry',
+              onClick: () => this._showSyncMenuModal()
+            }
+          ]);
         } finally {
           this._syncInProgress = false;
           resolve();
@@ -871,12 +892,46 @@ export const cloudSyncUI = {
         // Phase 25.1: Clear error state on successful push
         this._clearErrorState();
         triggerHaptic('success');
+        notificationUI.success('Budget synced to cloud', [], 2000);
         await this._refreshSection();
       } catch (err) {
         console.error('[cloudSyncUI] Push failed:', err);
         // Phase 25.1: Save error state on push failure
         this._saveErrorState(err.message, err.code || 'PUSH_ERROR');
         alertWithHaptic('Push failed: ' + err.message);
+        // Phase 25.3: Show error notification with fallback options
+        notificationUI.error(err.message, [
+          {
+            label: '💾 Export Backup',
+            onClick: () => document.getElementById('exportBtn')?.click()
+          },
+          {
+            label: '↻ Retry',
+            onClick: async () => {
+              pushBtn.textContent = 'Pushing...';
+              pushBtn.disabled = true;
+              try {
+                await pushSnapshot();
+                this._clearErrorState();
+                triggerHaptic('success');
+                notificationUI.success('Budget synced to cloud', [], 2000);
+                await this._refreshSection();
+              } catch (retryErr) {
+                console.error('[cloudSyncUI] Retry push failed:', retryErr);
+                this._saveErrorState(retryErr.message, retryErr.code || 'PUSH_ERROR');
+                notificationUI.error('Retry failed: ' + retryErr.message, [
+                  {
+                    label: '💾 Export Backup',
+                    onClick: () => document.getElementById('exportBtn')?.click()
+                  }
+                ]);
+              } finally {
+                pushBtn.textContent = 'Push to Cloud';
+                pushBtn.disabled = false;
+              }
+            }
+          }
+        ]);
         pushBtn.textContent = 'Push to Cloud';
         pushBtn.disabled = false;
       }
@@ -890,6 +945,7 @@ export const cloudSyncUI = {
         await pullSnapshot();
         // Phase 25.1: Clear error state on successful pull
         this._clearErrorState();
+        notificationUI.success('Latest budget loaded from cloud', [], 2000);
         // Event dispatched by pullSnapshot(); UI takes over from the preview listener.
         // Button stays disabled until the modal is dismissed (cancel) or page reloads (confirm).
       } catch (err) {
@@ -897,6 +953,28 @@ export const cloudSyncUI = {
         // Phase 25.1: Save error state on pull failure
         this._saveErrorState(err.message, err.code || 'PULL_ERROR');
         alertWithHaptic('Pull failed: ' + err.message);
+        // Phase 25.3: Show error notification with retry option
+        notificationUI.error(err.message, [
+          {
+            label: '↻ Retry',
+            onClick: async () => {
+              pullBtn.textContent = 'Fetching...';
+              pullBtn.disabled = true;
+              try {
+                await pullSnapshot();
+                this._clearErrorState();
+                notificationUI.success('Latest budget loaded from cloud', [], 2000);
+              } catch (retryErr) {
+                console.error('[cloudSyncUI] Retry pull failed:', retryErr);
+                this._saveErrorState(retryErr.message, retryErr.code || 'PULL_ERROR');
+                notificationUI.error('Retry failed: ' + retryErr.message);
+              } finally {
+                pullBtn.textContent = 'Pull from Cloud';
+                pullBtn.disabled = false;
+              }
+            }
+          }
+        ]);
         pullBtn.textContent = 'Pull from Cloud';
         pullBtn.disabled = false;
       }
