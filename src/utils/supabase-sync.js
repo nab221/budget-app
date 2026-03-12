@@ -3,28 +3,132 @@ import { db } from '../db/schema.js';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+export const CLOUD_RUNTIME_CONFIG_KEY = 'budget_cloud_runtime_config';
 
 export const CLOUD_LAST_SYNC_KEY = 'budget_cloud_last_sync';
 
+let supabaseClient = null;
+
+export function _readRuntimeConfig() {
+  if (typeof localStorage === 'undefined') {
+    return { url: '', anonKey: '' };
+  }
+  try {
+    const raw = localStorage.getItem(CLOUD_RUNTIME_CONFIG_KEY);
+    if (!raw) return { url: '', anonKey: '' };
+    const parsed = JSON.parse(raw);
+    return {
+      url: String(parsed.url || '').trim(),
+      anonKey: String(parsed.anonKey || '').trim(),
+    };
+  } catch {
+    return { url: '', anonKey: '' };
+  }
+}
+
+function _getEffectiveConfig() {
+  const runtime = _readRuntimeConfig();
+  const envUrl = String(SUPABASE_URL || '').trim();
+  const envKey = String(SUPABASE_ANON_KEY || '').trim();
+
+  return {
+    url: envUrl || runtime.url,
+    anonKey: envKey || runtime.anonKey,
+    source: envUrl && envKey ? 'env' : (runtime.url && runtime.anonKey ? 'runtime' : 'none'),
+  };
+}
+
+function _getClient() {
+  if (supabaseClient) return supabaseClient;
+  const { url, anonKey } = _getEffectiveConfig();
+  if (!url || !anonKey) return null;
+  supabaseClient = createClient(url, anonKey);
+  return supabaseClient;
+}
+
+export function _validateConfig(url, anonKey) {
+  const nextUrl = String(url || '').trim();
+  const nextKey = String(anonKey || '').trim();
+  if (!nextUrl || !nextKey) {
+    throw new Error('Both Supabase URL and anon key are required');
+  }
+  let parsed;
+  try {
+    parsed = new URL(nextUrl);
+  } catch {
+    throw new Error('Supabase URL must be a valid https URL');
+  }
+  if (parsed.protocol !== 'https:') {
+    throw new Error('Supabase URL must use https');
+  }
+  return { nextUrl, nextKey };
+}
+
 /**
- * Returns true only when both Supabase env vars are present and non-empty.
+ * Returns true when effective Supabase config has non-empty url + anonKey,
+ * whether sourced from environment variables or runtime browser config.
  * When false, all cloud sync UI is hidden and no Supabase calls are made.
  */
 export function isConfigured() {
-  return !!(SUPABASE_URL && SUPABASE_ANON_KEY);
+  const { url, anonKey } = _getEffectiveConfig();
+  return !!(url && anonKey);
+}
+
+/**
+ * Returns Supabase config source for UI messaging.
+ */
+export function getConfigSource() {
+  return _getEffectiveConfig().source;
+}
+
+/**
+ * Runtime cloud configuration shown in hosted environments where .env is not available.
+ */
+export function getRuntimeConfig() {
+  const runtime = _readRuntimeConfig();
+  return {
+    url: runtime.url,
+    anonKey: runtime.anonKey,
+    isConfigured: !!(runtime.url && runtime.anonKey),
+  };
+}
+
+/**
+ * Saves runtime cloud config to localStorage and reinitializes client.
+ */
+export function saveRuntimeConfig(url, anonKey) {
+  const { nextUrl, nextKey } = _validateConfig(url, anonKey);
+  if (typeof localStorage === 'undefined') {
+    throw new Error('Cloud config can only be saved in a browser');
+  }
+  localStorage.setItem(
+    CLOUD_RUNTIME_CONFIG_KEY,
+    JSON.stringify({ url: nextUrl, anonKey: nextKey })
+  );
+  supabaseClient = null;
+}
+
+/**
+ * Clears runtime cloud config. .env-based config still applies if present.
+ */
+export function clearRuntimeConfig() {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.removeItem(CLOUD_RUNTIME_CONFIG_KEY);
+  supabaseClient = null;
 }
 
 /**
  * Supabase client. Null when not configured — callers must guard with isConfigured().
  */
-export const supabase = isConfigured()
-  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-  : null;
+export function getSupabaseClient() {
+  return _getClient();
+}
 
 /**
  * Returns the current Supabase session, or null if not signed in.
  */
 export async function getSession() {
+  const supabase = _getClient();
   if (!supabase) return null;
   const { data } = await supabase.auth.getSession();
   return data.session;
@@ -36,6 +140,7 @@ export async function getSession() {
  * @param {string} email
  */
 export async function signIn(email) {
+  const supabase = _getClient();
   if (!supabase) throw new Error('Supabase not configured');
   const { error } = await supabase.auth.signInWithOtp({ email });
   if (error) throw error;
@@ -49,6 +154,7 @@ export async function signIn(email) {
  * Throws when not signed in or on Supabase error.
  */
 export async function pushSnapshot() {
+  const supabase = _getClient();
   if (!supabase) throw new Error('Supabase not configured');
 
   const session = await getSession();
@@ -83,6 +189,7 @@ export async function pushSnapshot() {
  * Throws when not signed in, no snapshot found, or on Supabase error.
  */
 export async function pullSnapshot() {
+  const supabase = _getClient();
   if (!supabase) throw new Error('Supabase not configured');
 
   const session = await getSession();

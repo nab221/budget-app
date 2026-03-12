@@ -146,6 +146,15 @@ async function updateFileSyncToolbar(status = 'idle', statusText = '') {
   const cloudManaged = isCloudConfigured();
 
   if (cloudManaged) {
+    const cloudHeader = document.getElementById('cloudSyncActionsHeader');
+    const hasCloudHeaderActions = !!cloudHeader?.querySelector('button');
+
+    if (!hasCloudHeaderActions) {
+      document.getElementById('exportBtn')?.classList.remove('hidden');
+      document.querySelector('label[for="importFile"]')?.classList.remove('hidden');
+      return;
+    }
+
     if (fileName) {
       document.getElementById('exportBtn')?.classList.add('hidden');
       document.querySelector('label[for="importFile"]')?.classList.add('hidden');

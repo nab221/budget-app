@@ -55,3 +55,32 @@ To plan this well, the following must be addressed:
 1.  **Task 23.1:** Add `#cloudSyncActionsHeader` to `index.html`.
 2.  **Task 23.2:** Update `cloud-sync.js` to manage the header UI and auth state changes.
 3.  **Task 23.3:** Implement visibility logic for local buttons based on `isConfigured()`.
+
+---
+
+## Phase 23.4 Research Addendum: Runtime Cloud Config for Hosted Deployments
+
+### Problem Observed
+- On GitHub Pages, users cannot create or edit `.env.local` at runtime.
+- Existing `isConfigured()` in `src/utils/supabase-sync.js` originally depended on build-time `import.meta.env.*` values only.
+- Result: hosted builds default to local-only controls when env vars were not baked into the build.
+
+### Root Cause
+- Vite environment variables are compile-time substitutions, not runtime writable settings.
+- A browser app cannot create a real `.env.local` file in the deployed static site.
+
+### Recommended Runtime Strategy
+1. Store Supabase URL + anon key in browser `localStorage` as a runtime fallback.
+2. Keep env vars as highest-priority source for local/dev and CI builds.
+3. Lazily create the Supabase client from the effective config (env first, then runtime).
+4. Expose a cloud setup modal so users can paste values from Supabase Project Settings → API.
+
+### Security / UX Constraints
+- Anon key is publishable by design; it is acceptable in client-side config.
+- Runtime config should be explicitly labeled as browser-local (device/browser scoped).
+- Validation should enforce non-empty values and `https` Supabase URL.
+
+### Verification Scope
+- Unit test runtime config save/read/clear behavior.
+- Unit test header fallback: show Configure Cloud button when not configured.
+- Regression test cloud sign-in/push/pull paths continue to work when configured.
