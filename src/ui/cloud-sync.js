@@ -1241,6 +1241,7 @@ export const cloudSyncUI = {
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button id="cloudPushBtn" class="ghost">Push to Cloud</button>
         <button id="cloudPullBtn" class="ghost">Pull from Cloud</button>
+        <button id="settingsCloudEditConfigBtn" class="ghost">Edit Cloud Config</button>
       </div>
       <div class="hint" style="margin-top:6px;font-size:.75rem">${lastSyncText}</div>
     `;
@@ -1278,6 +1279,14 @@ export const cloudSyncUI = {
       pullBtn.onclick = () => runPull(false);
     }
 
+    const editConfigBtn = document.getElementById('settingsCloudEditConfigBtn');
+    if (editConfigBtn) {
+      editConfigBtn.onclick = async () => {
+        await this._showCloudConfigModal();
+        triggerHaptic('tap');
+      };
+    }
+
     this._renderLocalSettingsActions(actionsEl);
   },
 
@@ -1286,7 +1295,10 @@ export const cloudSyncUI = {
     actionsEl.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:10px">
         <p style="font-size:.85rem;margin:0">Sign in to the cloud to sync your budget across devices.</p>
-        <button id="settingsCloudSignInBtn" class="primary">Send Magic Link Via Email</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button id="settingsCloudSignInBtn" class="primary">Send Magic Link Via Email</button>
+          <button id="settingsCloudEditConfigBtn" class="ghost">Edit Cloud Config</button>
+        </div>
       </div>
     `;
 
@@ -1294,6 +1306,14 @@ export const cloudSyncUI = {
     if (signInBtn) {
       signInBtn.onclick = async () => {
         await this._showSignInModal();
+        triggerHaptic('tap');
+      };
+    }
+
+    const editConfigBtn = document.getElementById('settingsCloudEditConfigBtn');
+    if (editConfigBtn) {
+      editConfigBtn.onclick = async () => {
+        await this._showCloudConfigModal();
         triggerHaptic('tap');
       };
     }

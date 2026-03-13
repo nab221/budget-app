@@ -24,8 +24,6 @@ let deferredInstallPrompt = null;
 
 /** Reference to the DOM button used to trigger installation. */
 let installBtn = null;
-let updateNowBtn = null;
-let triggerServiceWorkerUpdate = null;
 
 /**
  * Initialise PWA lifecycle listeners.
@@ -34,7 +32,6 @@ let triggerServiceWorkerUpdate = null;
 export function initPWA() {
   _registerUpdateListener();
   _registerInstallListener();
-  _registerUpdateButtonListener();
 }
 
 /**
@@ -117,10 +114,7 @@ export function checkExportReminder() {
 // ─── Private helpers ───────────────────────────────────────────────────────
 
 function _registerUpdateListener() {
-  triggerServiceWorkerUpdate = registerSW({
-    onNeedRefresh() {
-      _showUpdateBar();
-    },
+  registerSW({
     onOfflineReady() {
       console.log('[PWA] App ready for offline use.');
       _showOfflineReadyStatus();
@@ -139,28 +133,6 @@ function _registerUpdateListener() {
   });
 }
 
-function _registerUpdateButtonListener() {
-  updateNowBtn = updateNowBtn || document.getElementById('updateNowBtn');
-  if (!updateNowBtn || updateNowBtn.dataset.bound === 'true') return;
-
-  updateNowBtn.dataset.bound = 'true';
-  updateNowBtn.addEventListener('click', async () => {
-    updateNowBtn.disabled = true;
-    try {
-      if (typeof triggerServiceWorkerUpdate === 'function') {
-        await triggerServiceWorkerUpdate(true);
-      } else {
-        window.location.reload();
-      }
-    } catch (error) {
-      console.warn('[PWA] Failed to apply service worker update, reloading page.', error);
-      window.location.reload();
-    } finally {
-      updateNowBtn.disabled = false;
-    }
-  });
-}
-
 function _registerInstallListener() {
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
@@ -174,13 +146,6 @@ function _registerInstallListener() {
     deferredInstallPrompt = null;
     _hideInstallButton();
   });
-}
-
-function _showUpdateBar() {
-  const bar = document.getElementById('update-bar');
-  if (bar) {
-    bar.classList.remove('hidden');
-  }
 }
 
 function _showInstallButton() {
