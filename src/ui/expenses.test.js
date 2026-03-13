@@ -53,7 +53,6 @@ vi.mock('../db/repository.js', () => ({
 // Mock haptics
 vi.mock('../utils/haptics.js', () => ({
   triggerHaptic: vi.fn(),
-  alertWithHaptic: vi.fn(),
 }));
 
 // Mock currency utils
@@ -118,7 +117,6 @@ vi.mock('../utils/filtering.js', () => ({
 
 import { expensesUI } from './expenses.js';
 import { recurrentExpenseRepository, oneOffExpenseRepository } from '../db/repository.js';
-import { alertWithHaptic } from '../utils/haptics.js';
 import { notificationUI } from './notifications.js';
 import { modalUI } from './render.js';
 
@@ -177,14 +175,13 @@ describe('expenses Phase-18 guards', () => {
       });
       // categoryRepository returns empty — openForm will proceed past the guard
       // It will then try to render a modal, which may fail — we just confirm
-      // alertWithHaptic was NOT called
       try {
         await expensesUI.openForm(55, 'recurrent');
       } catch {
         // Ignore downstream DOM/modal errors — we only care about the guard
       }
 
-      expect(alertWithHaptic).not.toHaveBeenCalled();
+      expect(notificationUI.info).not.toHaveBeenCalled();
       expect(window._mockDebtsTab.click).not.toHaveBeenCalled();
     });
 
@@ -197,7 +194,7 @@ describe('expenses Phase-18 guards', () => {
 
       // recurrentExpenseRepository.get should NOT have been called for guard check
       // (guard only runs when type === 'recurrent')
-      expect(alertWithHaptic).not.toHaveBeenCalled();
+      expect(notificationUI.info).not.toHaveBeenCalled();
     });
   });
 
@@ -252,7 +249,7 @@ describe('expenses Phase-18 guards', () => {
 
       await window.deleteExpense(55, 'recurrent');
 
-      expect(alertWithHaptic).not.toHaveBeenCalled();
+      expect(notificationUI.info).not.toHaveBeenCalled();
 
       modalUI.confirm = origConfirm;
     });

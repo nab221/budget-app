@@ -55,7 +55,6 @@ vi.mock('./templates.js', () => ({
 
 vi.mock('../utils/haptics.js', () => ({
   triggerHaptic: vi.fn(),
-  alertWithHaptic: vi.fn(),
 }));
 
 vi.mock('../db/schema.js', () => ({
