@@ -2,7 +2,8 @@ import { childcareRepository, categoryRepository } from '../db/repository.js';
 import { formatGBP, fromPence } from '../utils/currency.js';
 import { calculateFundingGap, getEntitlementPeriod } from '../utils/childcare.js';
 import { safeHTML, modalUI, renderTabSummary } from './render.js';
-import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
+import { triggerHaptic } from '../utils/haptics.js';
+import { notificationUI } from './notifications.js';
 
 /**
  * Childcare UI Module
@@ -56,7 +57,7 @@ export const childcareUI = {
         if (window.app) window.app.renderAll();
       } catch (err) {
         console.error('Failed to delete childcare account:', err);
-        alertWithHaptic('Failed to delete account: ' + err.message);
+        notificationUI.error('Failed to delete account: ' + err.message);
       }
     };
   },
@@ -358,7 +359,7 @@ export const childcareUI = {
     const isDisabled = document.getElementById('modalChildcareIsDisabled')?.checked || false;
 
     if (!childName || !entitlementStart) {
-      alertWithHaptic("Please enter Name and Entitlement Start Date.");
+      notificationUI.warning('Please enter Name and Entitlement Start Date.');
       return;
     }
 
@@ -378,7 +379,7 @@ export const childcareUI = {
       if (window.app) window.app.renderAll();
     } catch (err) {
       console.error('Failed to save childcare account:', err);
-      alertWithHaptic('Error: ' + err.message);
+      notificationUI.error('Error: ' + err.message);
     }
   },
 
@@ -392,7 +393,7 @@ export const childcareUI = {
     const categoryId = categoryIdRaw ? parseInt(categoryIdRaw) : null;
 
     if (!date || isNaN(amount) || amount <= 0) {
-      alertWithHaptic('Please enter valid date and amount.');
+      notificationUI.warning('Please enter valid date and amount.');
       return;
     }
 
@@ -404,10 +405,10 @@ export const childcareUI = {
       modalUI.close();
       await this.render();
       if (window.app) window.app.renderAll();
-      alertWithHaptic(`Deposit logged.${topUpMsg}`, 'success');
+      notificationUI.success(`Deposit logged.${topUpMsg}`);
     } catch (err) {
       console.error('Failed to log deposit:', err);
-      alertWithHaptic('Error: ' + err.message);
+      notificationUI.error('Error: ' + err.message);
     }
   },
 
@@ -420,7 +421,7 @@ export const childcareUI = {
     const description = (document.getElementById('modalChildcareSpendDescription')?.value || '').trim();
 
     if (!date || isNaN(amount) || amount <= 0) {
-      alertWithHaptic('Please enter valid date and amount.');
+      notificationUI.warning('Please enter valid date and amount.');
       return;
     }
 
@@ -432,7 +433,7 @@ export const childcareUI = {
       if (window.app) window.app.renderAll();
     } catch (err) {
       console.error('Failed to log spend:', err);
-      alertWithHaptic('Error: ' + err.message);
+      notificationUI.error('Error: ' + err.message);
     }
   }
 };

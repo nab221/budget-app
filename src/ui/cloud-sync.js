@@ -13,7 +13,7 @@ import {
 import { getFileSyncState, openSelectFileDialog, disconnectFileSyncFile } from './file-sync.js';
 import { importBackupData } from '../db/backup.js';
 import { templateUI } from './templates.js';
-import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
+import { triggerHaptic } from '../utils/haptics.js';
 import { notificationUI } from './notifications.js';
 import { db } from '../db/schema.js';
 

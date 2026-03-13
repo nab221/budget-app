@@ -3,7 +3,8 @@ import { db } from '../db/schema.js';
 import { formatGBP, fromPence } from '../utils/currency.js';
 import { calcMinPayment, calcUtilization, simulatePayoff } from '../utils/finance.js';
 import { safeHTML, renderTabSummary, modalUI } from './render.js';
-import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
+import { triggerHaptic } from '../utils/haptics.js';
+import { notificationUI } from './notifications.js';
 import {
   renderStatementBalanceChart,
   renderStatementInterestChart,
@@ -101,7 +102,7 @@ export const debtUI = {
         await this.render();
       } catch (error) {
         console.error('Failed to delete debt:', error);
-        alertWithHaptic('Failed to delete debt: ' + error.message, 'error');
+        notificationUI.error('Failed to delete debt: ' + error.message);
       }
     };
 
@@ -678,7 +679,7 @@ export const debtUI = {
     const paidAmt = paidAmtRaw && paidAmtRaw !== '' ? parseFloat(paidAmtRaw) : null;
 
     if (!date || isNaN(balance) || isNaN(openingBalance)) {
-      alertWithHaptic('Please fill in Date, Opening Balance, and New Balance.', 'error');
+      notificationUI.warning('Please fill in Date, Opening Balance, and New Balance.');
       return;
     }
 
@@ -741,7 +742,7 @@ export const debtUI = {
       if (window.app) window.app.renderAll();
     } catch (error) {
       console.error('Failed to save statement:', error);
-      alertWithHaptic('Failed to save statement: ' + error.message, 'error');
+      notificationUI.error('Failed to save statement: ' + error.message);
     }
   },
 
@@ -765,7 +766,7 @@ export const debtUI = {
     // pdfImport sets activeStmtDebtId before triggering file input
     const debtId = this.activeStmtDebtId;
     if (!debtId) {
-       alertWithHaptic('No active debt selected for import.', 'error');
+       notificationUI.error('No active debt selected for import.');
        return;
     }
 
@@ -776,7 +777,7 @@ export const debtUI = {
       container = document.getElementById('stmtFormContainer-modal') || document.getElementById(`stmtFormContainer-${debtId}`);
     }
     if (!container) {
-      alertWithHaptic('Could not open statement form for pre-fill.', 'error');
+      notificationUI.error('Could not open statement form for pre-fill.');
       return;
     }
 

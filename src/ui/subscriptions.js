@@ -1,7 +1,8 @@
 import { subscriptionRepository, categoryRepository } from '../db/repository.js';
 import { formatGBP, toPence, fromPence } from '../utils/currency.js';
 import { safeHTML } from './render.js';
-import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
+import { triggerHaptic } from '../utils/haptics.js';
+import { notificationUI } from './notifications.js';
 
 /**
  * Subscription UI Module
@@ -34,7 +35,7 @@ export const subscriptionUI = {
         await this.render();
       } catch (error) {
         console.error('Failed to delete subscription:', error);
-        alertWithHaptic('Failed to delete subscription: ' + error.message);
+        notificationUI.error('Failed to delete subscription: ' + error.message);
       }
     };
   },
@@ -48,7 +49,7 @@ export const subscriptionUI = {
     const nextDate = document.getElementById('subNextDate').value;
 
     if (!name || isNaN(amount) || !nextDate) {
-      alertWithHaptic('Please fill in Name, Amount, and Next Date.');
+      notificationUI.warning('Please fill in Name, Amount, and Next Date.');
       return;
     }
 
@@ -71,7 +72,7 @@ export const subscriptionUI = {
       await this.render();
     } catch (error) {
       console.error('Failed to add subscription:', error);
-      alertWithHaptic('Failed to add subscription: ' + error.message);
+      notificationUI.error('Failed to add subscription: ' + error.message);
     }
   },
 

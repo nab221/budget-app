@@ -6,7 +6,8 @@ import {
 import { formatGBP, fromPence } from '../utils/currency.js';
 import { safeHTML, renderTabSummary, modalUI } from './render.js';
 import { filterTransactions } from '../utils/filtering.js';
-import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
+import { triggerHaptic } from '../utils/haptics.js';
+import { notificationUI } from './notifications.js';
 import { renderSpendingHeatmap } from './heatmap.js';
 
 /**
@@ -124,7 +125,7 @@ export const transactionUI = {
         await this.render();
       } catch (error) {
         console.error(`Failed to delete ${type}:`, error);
-        alertWithHaptic(`Failed to delete ${type}: ` + error.message);
+        notificationUI.error(`Failed to delete ${type}: ` + error.message);
       }
     };
 
@@ -242,7 +243,7 @@ export const transactionUI = {
     const amount = parseFloat(amountInput.value);
 
     if (!date || !source || isNaN(amount)) {
-      alertWithHaptic('Please fill in all fields correctly.');
+      notificationUI.warning('Please fill in all fields correctly.');
       return;
     }
 
@@ -274,7 +275,7 @@ export const transactionUI = {
       }
     } catch (error) {
       console.error('Failed to save income:', error);
-      alertWithHaptic('Failed to save income: ' + error.message);
+      notificationUI.error('Failed to save income: ' + error.message);
     }
   },
 
@@ -501,7 +502,7 @@ export const transactionUI = {
     const cleared = items.filter(i => i.isCleared && !i.isReconciled);
 
     if (cleared.length === 0) {
-      alertWithHaptic('No cleared items to reconcile.');
+      notificationUI.info('No cleared items to reconcile.');
       return;
     }
 
@@ -513,12 +514,12 @@ export const transactionUI = {
       for (const item of cleared) {
         await incomeRepository.update(item.id, { isReconciled: true });
       }
-      alertWithHaptic('Reconciliation finalized successfully.', 'success');
+      notificationUI.success('Reconciliation finalized successfully.');
       this.toggleReconciliationMode();
       await this.render();
     } catch (err) {
       console.error('Failed to finalize reconciliation:', err);
-      alertWithHaptic('Failed: ' + err.message);
+      notificationUI.error('Failed: ' + err.message);
     }
     },
 
