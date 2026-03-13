@@ -42,7 +42,14 @@ function _getClient() {
   if (supabaseClient) return supabaseClient;
   const { url, anonKey } = _getEffectiveConfig();
   if (!url || !anonKey) return null;
-  supabaseClient = createClient(url, anonKey);
+  supabaseClient = createClient(url, anonKey, {
+    auth: {
+      detectSessionInUrl: true,
+      persistSession: true,
+      autoRefreshToken: true,
+      flowType: 'pkce',
+    },
+  });
   return supabaseClient;
 }
 
