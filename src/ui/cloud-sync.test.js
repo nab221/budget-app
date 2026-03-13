@@ -381,6 +381,8 @@ describe('cloud-sync sync visibility (Phase 25)', () => {
     cloudSyncUI._lastError = null;
     cloudSyncUI._errorStorageUserScope = null;
     cloudSyncUI._isDirty = false;
+    cloudSyncUI._syncInProgress = false;
+    cloudSyncUI._mutationsDuringSync = false;
     document.body.innerHTML = `
       <div id="cloudSyncActionsHeader">
         <span id="syncStatusDot" class="sync-status-dot"></span>
