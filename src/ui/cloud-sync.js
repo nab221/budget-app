@@ -25,6 +25,7 @@ const CLOUD_LAST_ERROR_KEY = 'budget_cloud_last_error';
 const CLOUD_LAST_ERROR_TIME_KEY = 'budget_cloud_last_error_time';
 const CLOUD_LAST_ERROR_CODE_KEY = 'budget_cloud_last_error_code';
 const CLOUD_LAST_PREVIEWED_SNAPSHOT_KEY = 'budget_cloud_last_previewed_snapshot';
+const CLOUD_SYNC_DIAGNOSTICS_KEY = 'budget_cloud_sync_diagnostics';
 const NO_CLOUD_SNAPSHOT_MESSAGE = 'No cloud snapshot found';
 
 export const cloudSyncUI = {
@@ -42,6 +43,36 @@ export const cloudSyncUI = {
   _lastAutoPullSessionUserId: null,
   _autoPullTriggered: false,
   _visibilityChangeHandler: null,
+
+  _isDiagnosticsEnabled() {
+    try {
+      return import.meta.env.DEV || localStorage.getItem(CLOUD_SYNC_DIAGNOSTICS_KEY) === 'true';
+    } catch {
+      return !!import.meta.env.DEV;
+    }
+  },
+
+  _logDiagnostics(context, extra = {}) {
+    if (!this._isDiagnosticsEnabled()) return;
+
+    const dot = document.getElementById('syncStatusDot');
+    const timeEl = document.getElementById('lastSyncedTime');
+    const payload = {
+      context,
+      isDirtyMemory: this._isDirty,
+      isDirtyPersisted: localStorage.getItem(CLOUD_IS_DIRTY_KEY),
+      syncInProgress: this._syncInProgress,
+      mutationsDuringSync: this._mutationsDuringSync,
+      lastSync: localStorage.getItem(CLOUD_LAST_SYNC_KEY),
+      lastPreviewedSnapshot: localStorage.getItem(CLOUD_LAST_PREVIEWED_SNAPSHOT_KEY),
+      dotBackground: dot?.style?.background || null,
+      dotAnimation: dot?.style?.animation || null,
+      dotTitle: dot?.getAttribute?.('title') || null,
+      timestampText: timeEl?.textContent || null,
+      ...extra,
+    };
+    console.info('[cloudSyncUI][diag]', payload);
+  },
 
   /**
    * Initialise cloud sync UI.
@@ -66,6 +97,17 @@ export const cloudSyncUI = {
     this._bindVisibilityAutoPush();
     await this._refreshSection();
     await this._runAutoPullCheckOnLoad();
+
+    this._logDiagnostics('init:complete');
+
+    if (this._isDiagnosticsEnabled()) {
+      window.__cloudSyncDebug = () => this._logDiagnostics('manual:window.__cloudSyncDebug()');
+      window.__setCloudSyncDiagnostics = (enabled) => {
+        localStorage.setItem(CLOUD_SYNC_DIAGNOSTICS_KEY, enabled ? 'true' : 'false');
+        this._logDiagnostics('manual:window.__setCloudSyncDiagnostics', { enabled });
+      };
+      console.info('[cloudSyncUI][diag] Helpers: window.__cloudSyncDebug(), window.__setCloudSyncDiagnostics(true|false)');
+    }
 
     if (isConfigured()) {
       document.getElementById('cloudSyncSection')?.classList.remove('hidden');
@@ -451,11 +493,13 @@ export const cloudSyncUI = {
     const markDirty = () => {
       if (this._syncInProgress) {
         this._mutationsDuringSync = true;
+        this._logDiagnostics('dirty:mutation-during-sync');
         return;
       }
       this._isDirty = true;
       localStorage.setItem(CLOUD_IS_DIRTY_KEY, 'true');
       this._updateStatusIndicator();
+      this._logDiagnostics('dirty:marked');
     };
 
     // Dexie 4 (dexie@4.0.11) doesn't provide db.on('mutated'); use per-table hooks instead.
@@ -479,6 +523,7 @@ export const cloudSyncUI = {
       // Defensive refresh: if header was re-rendered by other UI flows,
       // force sync indicator and timestamp to pick up the latest dirty state.
       this._updateStatusIndicator();
+      this._logDiagnostics('event:db:mutated');
     });
   },
 
@@ -733,6 +778,7 @@ export const cloudSyncUI = {
 
     dot.title = title;
     this._updateTimestampDisplay();
+    this._logDiagnostics('indicator:updated', { state, title });
   },
 
   /**
