@@ -336,6 +336,8 @@ export const cloudSyncUI = {
 
           if (action === 'pull') {
             this._showPullErrorNotification(message, () => runSmartSync(true));
+          } else if (action === 'meta') {
+            this._showPullErrorNotification(message, () => runSmartSync(true));
           } else {
             this._showPushErrorNotification(message, () => runSmartSync(true));
           }
@@ -781,7 +783,7 @@ export const cloudSyncUI = {
       if (!this._isNoCloudSnapshotError(err)) {
         console.error('[cloudSyncUI] Smart sync metadata check failed:', err);
         this._saveErrorState(err.message, err.code || 'META_ERROR');
-        return { action: 'meta', err: null };
+        return { action: 'meta', err };
       }
     }
 
@@ -1242,7 +1244,6 @@ export const cloudSyncUI = {
         if (!err) return;
 
         const message = isRetry ? 'Retry failed: ' + err.message : err.message;
-        notificationUI.error((isRetry ? 'Retry failed: ' : 'Push failed: ') + err.message);
         this._showPushErrorNotification(message, () => runPush(true));
       };
 
@@ -1256,7 +1257,6 @@ export const cloudSyncUI = {
         if (!err) return;
 
         const message = isRetry ? 'Retry failed: ' + err.message : err.message;
-        notificationUI.error((isRetry ? 'Retry failed: ' : 'Pull failed: ') + err.message);
         this._showPullErrorNotification(message, () => runPull(true));
       };
 
