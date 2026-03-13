@@ -64,6 +64,7 @@ vi.mock('./notifications.js', () => ({
 
 import { cloudSyncUI } from './cloud-sync.js';
 import { notificationUI } from './notifications.js';
+import { templateUI } from './templates.js';
 import * as supabaseSync from '../utils/supabase-sync.js';
 
 describe('cloud-sync header actions (Phase 23)', () => {
@@ -591,6 +592,32 @@ describe('cloud-sync sync visibility (Phase 25)', () => {
       refreshSpy.mockRestore();
     });
 
+    it('restores empty button labels after clearing busy state', () => {
+      const button = document.createElement('button');
+      button.textContent = '';
+
+      cloudSyncUI._setSyncButtonBusy(button, true, 'Fetching...');
+      cloudSyncUI._setSyncButtonBusy(button, false);
+
+      expect(button.textContent).toBe('');
+      expect(button.disabled).toBe(false);
+    });
+
+    it('does not change button disabled state when clearing without saved metadata', () => {
+      const button = document.createElement('button');
+      button.textContent = 'Pull from Cloud';
+      button.disabled = true;
+      button.setAttribute('aria-busy', 'true');
+      button.classList.add('sync-action-busy');
+
+      cloudSyncUI._setSyncButtonBusy(button, false);
+
+      expect(button.textContent).toBe('Pull from Cloud');
+      expect(button.disabled).toBe(true);
+      expect(button.hasAttribute('aria-busy')).toBe(false);
+      expect(button.classList.contains('sync-action-busy')).toBe(false);
+    });
+
     it('skips push execution when another sync is already in progress', async () => {
       cloudSyncUI._syncInProgress = true;
 
@@ -607,6 +634,38 @@ describe('cloud-sync sync visibility (Phase 25)', () => {
 
       expect(err).toBeNull();
       expect(supabaseSync.pullSnapshot).not.toHaveBeenCalled();
+    });
+
+    it('does not clear the shared sync lock when modal push exits early', async () => {
+      mockGetSession.mockResolvedValue({ user: { email: 'user@example.com' } });
+      vi.mocked(templateUI.showModal).mockImplementation((_title, body) => {
+        document.body.innerHTML += body;
+      });
+      cloudSyncUI._syncInProgress = true;
+
+      const modalPromise = cloudSyncUI._showSyncMenuModal();
+      await Promise.resolve();
+
+      document.getElementById('_cloudPushBtn')?.click();
+      await modalPromise;
+
+      expect(cloudSyncUI._syncInProgress).toBe(true);
+    });
+
+    it('does not clear the shared sync lock when modal pull exits early', async () => {
+      mockGetSession.mockResolvedValue({ user: { email: 'user@example.com' } });
+      vi.mocked(templateUI.showModal).mockImplementation((_title, body) => {
+        document.body.innerHTML += body;
+      });
+      cloudSyncUI._syncInProgress = true;
+
+      const modalPromise = cloudSyncUI._showSyncMenuModal();
+      await Promise.resolve();
+
+      document.getElementById('_cloudPullBtn')?.click();
+      await modalPromise;
+
+      expect(cloudSyncUI._syncInProgress).toBe(true);
     });
   });
 });

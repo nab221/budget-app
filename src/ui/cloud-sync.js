@@ -572,12 +572,13 @@ export const cloudSyncUI = {
       return;
     }
 
-    const originalText = button.dataset.syncOriginalText;
-    if (originalText) {
-      button.textContent = originalText;
+    if (Object.prototype.hasOwnProperty.call(button.dataset, 'syncOriginalText')) {
+      button.textContent = button.dataset.syncOriginalText;
     }
 
-    button.disabled = button.dataset.syncWasDisabled === 'true';
+    if (Object.prototype.hasOwnProperty.call(button.dataset, 'syncWasDisabled')) {
+      button.disabled = button.dataset.syncWasDisabled === 'true';
+    }
     button.removeAttribute('aria-busy');
     button.classList.remove('sync-action-busy');
     delete button.dataset.syncOriginalText;
@@ -951,7 +952,6 @@ export const cloudSyncUI = {
             this._showPushErrorNotification(err.message, retryPush);
           }
         } finally {
-          this._syncInProgress = false;
           resolve();
         }
       });
@@ -972,7 +972,6 @@ export const cloudSyncUI = {
             this._showPullErrorNotification(err.message, retryPull);
           }
         } finally {
-          this._syncInProgress = false;
           resolve();
         }
       });
