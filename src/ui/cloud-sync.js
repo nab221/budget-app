@@ -1093,7 +1093,7 @@ export const cloudSyncUI = {
         return;
       }
 
-      if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+      if (event === 'SIGNED_IN') {
         void this._runAutoPullAfterSignIn(session);
       }
     });
