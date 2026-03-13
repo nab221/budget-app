@@ -8,6 +8,7 @@ vi.mock('./render.js', () => ({
     init: vi.fn(),
     show: vi.fn(),
     close: vi.fn(),
+    confirm: vi.fn().mockResolvedValue(false),
   },
   safeHTML: (strings, ...values) =>
     strings.reduce((acc, str, i) => acc + str + (values[i] !== undefined ? String(values[i]) : ''), ''),
@@ -119,6 +120,7 @@ import { expensesUI } from './expenses.js';
 import { recurrentExpenseRepository, oneOffExpenseRepository } from '../db/repository.js';
 import { alertWithHaptic } from '../utils/haptics.js';
 import { notificationUI } from './notifications.js';
+import { modalUI } from './render.js';
 
 describe('expenses Phase-18 guards', () => {
   beforeEach(() => {
@@ -244,15 +246,15 @@ describe('expenses Phase-18 guards', () => {
         isRecurring: false,
       });
 
-      // Mock confirmWithHaptic / confirm so deletion proceeds without UI
-      const origConfirm = window.confirm;
-      window.confirm = vi.fn(() => false); // user cancels — avoids actual delete
+      // Mock modalUI.confirm so deletion proceeds without UI
+      const origConfirm = modalUI.confirm;
+      modalUI.confirm = vi.fn().mockResolvedValue(false); // user cancels — avoids actual delete
 
       await window.deleteExpense(55, 'recurrent');
 
       expect(alertWithHaptic).not.toHaveBeenCalled();
 
-      window.confirm = origConfirm;
+      modalUI.confirm = origConfirm;
     });
   });
 });

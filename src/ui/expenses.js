@@ -201,7 +201,7 @@ export const expensesUI = {
           alertWithHaptic('Failed to delete: ' + err.message);
         }
       } else {
-        if (!confirm(`Delete "${label}"?`)) return;
+        if (!await modalUI.confirm('Delete Expense', `Delete "${label}"?`)) return;
         try {
           await repo.delete(id);
           triggerHaptic('delete');

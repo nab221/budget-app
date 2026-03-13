@@ -140,6 +140,26 @@ export const modalUI = {
   close() {
     this.elements.overlay.classList.add('hidden');
     document.body.style.overflow = ''; // Restore scrolling
+  },
+
+  /**
+   * Shows an inline confirmation dialog and returns a Promise<boolean>.
+   * @param {string} title - Short title, e.g. 'Delete Expense'
+   * @param {string} message - Confirmation question shown in the body
+   * @param {string} [confirmLabel='Delete'] - Label for the confirm button
+   */
+  confirm(title, message, confirmLabel = 'Delete') {
+    return new Promise((resolve) => {
+      const cleanup = (result) => { this.close(); resolve(result); };
+      this.show(
+        title,
+        `<p style="margin:0;line-height:1.5">${message}</p>`,
+        [
+          { label: 'Cancel', className: 'ghost', onClick: () => cleanup(false) },
+          { label: confirmLabel, className: 'danger', onClick: () => cleanup(true) }
+        ]
+      );
+    });
   }
 };
 

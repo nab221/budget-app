@@ -116,7 +116,7 @@ export const transactionUI = {
 
     // Global delete handler for income rows
     window.deleteTransaction = async (type, id) => {
-      if (!confirm(`Are you sure you want to delete this ${type} entry?`)) return;
+      if (!await modalUI.confirm('Delete Entry', `Are you sure you want to delete this ${type} entry?`)) return;
 
       try {
         if (type === 'income') await incomeRepository.delete(id);
