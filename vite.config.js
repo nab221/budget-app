@@ -5,7 +5,7 @@ export default defineConfig({
   base: '/budget-app/',
   plugins: [
     VitePWA({
-      registerType: 'prompt',
+      registerType: 'autoUpdate',
       manifest: {
         name: 'Budget Console',
         short_name: 'Budget',
@@ -36,6 +36,7 @@ export default defineConfig({
         // Cloud backup features require network — gracefully disabled offline by navigator.onLine checks.
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
         cleanupOutdatedCaches: true,
+        skipWaiting: true,
         clientsClaim: true,
       },
       devOptions: {
