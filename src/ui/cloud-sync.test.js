@@ -330,6 +330,17 @@ describe('cloud-sync intelligent sync logic (Phase 24)', () => {
     expect(supabaseSync.pullSnapshot).toHaveBeenCalledTimes(1);
   });
 
+  it('marks sync state dirty from db:mutated events', () => {
+    cloudSyncUI._initDirtyStateTracking();
+    cloudSyncUI._isDirty = false;
+    localStorage.setItem('budget_cloud_is_dirty', 'false');
+
+    window.dispatchEvent(new CustomEvent('db:mutated'));
+
+    expect(cloudSyncUI._isDirty).toBe(true);
+    expect(localStorage.getItem('budget_cloud_is_dirty')).toBe('true');
+  });
+
   it('auto-pushes on exit when dirty and signed in', async () => {
     cloudSyncUI._isDirty = true;
     vi.mocked(supabaseSync.getSession).mockResolvedValue({ user: { id: 'u1' } });

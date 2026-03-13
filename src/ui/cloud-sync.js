@@ -461,6 +461,11 @@ export const cloudSyncUI = {
     } catch (err) {
       console.warn('[cloudSyncUI] Could not bind Dexie mutation hooks:', err.message);
     }
+
+    // Repository layer broadcasts db:mutated after writes.
+    // Listening here ensures dirty-state UX updates even when a write path
+    // does not trigger Dexie hooks in this module's lifecycle.
+    window.addEventListener('db:mutated', markDirty);
   },
 
   /**
