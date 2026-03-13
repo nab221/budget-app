@@ -24,6 +24,8 @@ let deferredInstallPrompt = null;
 
 /** Reference to the DOM button used to trigger installation. */
 let installBtn = null;
+let updateNowBtn = null;
+let triggerServiceWorkerUpdate = null;
 
 /**
  * Initialise PWA lifecycle listeners.
@@ -32,6 +34,7 @@ let installBtn = null;
 export function initPWA() {
   _registerUpdateListener();
   _registerInstallListener();
+  _registerUpdateButtonListener();
 }
 
 /**
@@ -114,7 +117,7 @@ export function checkExportReminder() {
 // ─── Private helpers ───────────────────────────────────────────────────────
 
 function _registerUpdateListener() {
-  registerSW({
+  triggerServiceWorkerUpdate = registerSW({
     onNeedRefresh() {
       _showUpdateBar();
     },
@@ -133,6 +136,28 @@ function _registerUpdateListener() {
         }, 60 * 60 * 1000);
       }
     },
+  });
+}
+
+function _registerUpdateButtonListener() {
+  updateNowBtn = updateNowBtn || document.getElementById('updateNowBtn');
+  if (!updateNowBtn || updateNowBtn.dataset.bound === 'true') return;
+
+  updateNowBtn.dataset.bound = 'true';
+  updateNowBtn.addEventListener('click', async () => {
+    updateNowBtn.disabled = true;
+    try {
+      if (typeof triggerServiceWorkerUpdate === 'function') {
+        await triggerServiceWorkerUpdate(true);
+      } else {
+        window.location.reload();
+      }
+    } catch (error) {
+      console.warn('[PWA] Failed to apply service worker update, reloading page.', error);
+      window.location.reload();
+    } finally {
+      updateNowBtn.disabled = false;
+    }
   });
 }
 
