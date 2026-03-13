@@ -9,12 +9,18 @@ const {
   mockSaveRuntimeConfig,
   mockUnsubscribe,
   mockGetSession,
+  mockGetFileSyncState,
+  mockOpenSelectFileDialog,
+  mockDisconnectFileSyncFile,
 } = vi.hoisted(() => ({
   mockSignOut: vi.fn(),
   mockOnAuthStateChange: vi.fn(),
   mockSaveRuntimeConfig: vi.fn(),
   mockUnsubscribe: vi.fn(),
   mockGetSession: vi.fn(),
+  mockGetFileSyncState: vi.fn(),
+  mockOpenSelectFileDialog: vi.fn(),
+  mockDisconnectFileSyncFile: vi.fn(),
 }));
 
 vi.mock('../utils/supabase-sync.js', () => ({
@@ -32,6 +38,12 @@ vi.mock('../utils/supabase-sync.js', () => ({
 
 vi.mock('../db/backup.js', () => ({
   importBackupData: vi.fn(),
+}));
+
+vi.mock('./file-sync.js', () => ({
+  getFileSyncState: mockGetFileSyncState,
+  openSelectFileDialog: mockOpenSelectFileDialog,
+  disconnectFileSyncFile: mockDisconnectFileSyncFile,
 }));
 
 vi.mock('./templates.js', () => ({
@@ -77,6 +89,10 @@ describe('cloud-sync header actions (Phase 23)', () => {
     mockUnsubscribe.mockReset();
     mockGetSession.mockReset();
     mockGetSession.mockResolvedValue(null);
+    mockGetFileSyncState.mockReset();
+    mockGetFileSyncState.mockReturnValue({ fileName: null, status: 'idle', statusText: '' });
+    mockOpenSelectFileDialog.mockReset();
+    mockDisconnectFileSyncFile.mockReset();
     currentSupabaseClient = {
       auth: {
         signOut: mockSignOut,
@@ -197,6 +213,32 @@ describe('cloud-sync header actions (Phase 23)', () => {
     expect(document.querySelector('label[for="importFile"]').classList.contains('hidden')).toBe(true);
   });
 
+  it('runs one-click local action as select file when no local file is connected', async () => {
+    cloudSyncUI._renderHeaderActions({ user: { email: 'user@example.com' } });
+
+    document.getElementById('headerLocalMenuBtn')?.click();
+    await Promise.resolve();
+
+    expect(mockOpenSelectFileDialog).toHaveBeenCalledTimes(1);
+  });
+
+  it('routes to settings when local file is already connected', async () => {
+    mockGetFileSyncState.mockReturnValue({ fileName: 'budget-data.json', status: 'success', statusText: 'Saved' });
+    let settingsClicked = false;
+    document.querySelector('#mainTabs .tab[data-tab="settings"]')?.addEventListener('click', () => {
+      settingsClicked = true;
+    });
+
+    cloudSyncUI._renderHeaderActions({ user: { email: 'user@example.com' } });
+
+    document.getElementById('headerLocalMenuBtn')?.click();
+    await Promise.resolve();
+
+    expect(settingsClicked).toBe(true);
+    expect(notificationUI.info).toHaveBeenCalledWith('Local sync options are in Settings', [], 1800);
+    expect(mockOpenSelectFileDialog).not.toHaveBeenCalled();
+  });
+
   it('rebinds auth listener when Supabase client changes', () => {
     cloudSyncUI._bindAuthListener();
     expect(mockOnAuthStateChange).toHaveBeenCalledTimes(1);
@@ -267,6 +309,7 @@ describe('cloud-sync intelligent sync logic (Phase 24)', () => {
     configured = true;
     localStorage.clear();
     vi.clearAllMocks();
+    mockGetFileSyncState.mockReturnValue({ fileName: null, status: 'idle', statusText: '' });
 
     mockSignOut.mockReset();
     mockOnAuthStateChange.mockReset();
@@ -471,6 +514,7 @@ describe('cloud-sync sync visibility (Phase 25)', () => {
     configured = true;
     localStorage.clear();
     vi.clearAllMocks();
+    mockGetFileSyncState.mockReturnValue({ fileName: null, status: 'idle', statusText: '' });
     cloudSyncUI._lastError = null;
     cloudSyncUI._errorStorageUserScope = null;
     cloudSyncUI._isDirty = false;

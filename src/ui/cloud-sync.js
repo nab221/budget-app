@@ -296,7 +296,7 @@ export const cloudSyncUI = {
       });
 
       headerActionsEl.querySelector('#headerLocalMenuBtn')?.addEventListener('click', async () => {
-        await this._showLocalModal();
+        await this._executeSmartLocalAction();
         triggerHaptic('tap');
       });
 
@@ -350,7 +350,7 @@ export const cloudSyncUI = {
 
       if (localBtn) {
         localBtn.onclick = async () => {
-          await this._showLocalModal();
+          await this._executeSmartLocalAction();
           triggerHaptic('tap');
         };
       }
@@ -382,7 +382,7 @@ export const cloudSyncUI = {
     const localBtn = headerActionsEl.querySelector('#headerLocalMenuBtn');
     if (localBtn) {
       localBtn.onclick = async () => {
-        await this._showLocalModal();
+        await this._executeSmartLocalAction();
         triggerHaptic('tap');
       };
     }
@@ -402,6 +402,94 @@ export const cloudSyncUI = {
     document.getElementById('settingsCloudConfigureBtn')?.addEventListener('click', async () => {
       await this._showCloudConfigModal();
       triggerHaptic('tap');
+    });
+
+    this._renderLocalSettingsActions(actionsEl);
+  },
+
+  async _executeSmartLocalAction() {
+    const { fileName } = getFileSyncState();
+
+    if (!fileName) {
+      openSelectFileDialog();
+      return;
+    }
+
+    const settingsTab = document.querySelector('#mainTabs .tab[data-tab="settings"]');
+    settingsTab?.click();
+
+    try {
+      document.getElementById('cloudSyncSection')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+    } catch {
+      document.getElementById('cloudSyncSection')?.scrollIntoView?.();
+    }
+
+    notificationUI.info('Local sync options are in Settings', [], 1800);
+  },
+
+  _renderLocalSettingsActions(actionsEl) {
+    const { fileName, status, statusText } = getFileSyncState();
+    const escHtml = (s) => String(s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    let statusDotColor = '#6b7280';
+    let statusLabel = 'No file connected';
+
+    if (fileName) {
+      if (status === 'error') {
+        statusDotColor = '#ef4444';
+        statusLabel = statusText || 'Error';
+      } else if (status === 'pending') {
+        statusDotColor = '#eab308';
+        statusLabel = 'Saving…';
+      } else {
+        statusDotColor = '#22c55e';
+        statusLabel = 'Auto-saving';
+      }
+    }
+
+    const fileInfo = fileName
+      ? `<p style="font-size:.85rem;margin:4px 0 8px"><strong>${escHtml(fileName)}</strong></p>
+         <p style="font-size:.8rem;color:var(--text-soft);margin:0 0 10px">
+           <span style="display:inline-block;width:0.55em;height:0.55em;border-radius:50%;vertical-align:middle;margin-right:4px;background:${statusDotColor}"></span>${escHtml(statusLabel)}
+         </p>`
+      : `<p style="font-size:.85rem;color:var(--text-soft);margin:4px 0 10px">No budget file connected. Select a file to enable automatic saving.</p>`;
+
+    const fileButtons = fileName
+      ? `<button id="settingsLocalChangeFileBtn" class="ghost">Change File</button>
+         <button id="settingsLocalDisconnectBtn" class="ghost">Disconnect</button>`
+      : `<button id="settingsLocalSelectFileBtn" class="ghost">Select Budget File</button>`;
+
+    actionsEl.insertAdjacentHTML('beforeend', `
+      <div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-top:12px">
+        <p style="margin:0 0 6px;font-size:.75rem;font-weight:600;color:var(--text-soft);text-transform:uppercase;letter-spacing:.06em">📁 Local Sync</p>
+        ${fileInfo}
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">${fileButtons}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button id="settingsLocalExportBtn" class="ghost">Export Backup</button>
+          <button id="settingsLocalImportBtn" class="ghost">Import Backup</button>
+        </div>
+      </div>
+    `);
+
+    document.getElementById('settingsLocalExportBtn')?.addEventListener('click', () => {
+      document.getElementById('exportBtn')?.click();
+    });
+
+    document.getElementById('settingsLocalImportBtn')?.addEventListener('click', () => {
+      document.getElementById('importFile')?.click();
+    });
+
+    document.getElementById('settingsLocalSelectFileBtn')?.addEventListener('click', () => {
+      openSelectFileDialog();
+    });
+
+    document.getElementById('settingsLocalChangeFileBtn')?.addEventListener('click', () => {
+      openSelectFileDialog();
+    });
+
+    document.getElementById('settingsLocalDisconnectBtn')?.addEventListener('click', () => {
+      disconnectFileSyncFile();
     });
   },
 
@@ -1183,6 +1271,8 @@ export const cloudSyncUI = {
 
       pullBtn.onclick = () => runPull(false);
     }
+
+    this._renderLocalSettingsActions(actionsEl);
   },
 
   _renderSignedOut(statusEl, actionsEl) {
@@ -1201,6 +1291,8 @@ export const cloudSyncUI = {
         triggerHaptic('tap');
       };
     }
+
+    this._renderLocalSettingsActions(actionsEl);
   },
 
   /**
