@@ -302,6 +302,40 @@ describe('cloud-sync header actions (Phase 23)', () => {
     expect(document.getElementById('headerCloudSignInBtn')).not.toBeNull();
     expect(document.getElementById('headerLocalMenuBtn')).not.toBeNull();
   });
+
+  it('shows edit cloud config action in signed-out settings and opens config modal', async () => {
+    const statusEl = document.createElement('div');
+    const actionsEl = document.createElement('div');
+    document.body.append(statusEl, actionsEl);
+
+    const showConfigSpy = vi.spyOn(cloudSyncUI, '_showCloudConfigModal').mockResolvedValue();
+
+    cloudSyncUI._renderSignedOut(statusEl, actionsEl);
+    document.getElementById('settingsCloudEditConfigBtn')?.click();
+    await Promise.resolve();
+
+    expect(document.getElementById('settingsCloudEditConfigBtn')).not.toBeNull();
+    expect(showConfigSpy).toHaveBeenCalledTimes(1);
+
+    showConfigSpy.mockRestore();
+  });
+
+  it('shows edit cloud config action in signed-in settings and opens config modal', async () => {
+    const statusEl = document.createElement('div');
+    const actionsEl = document.createElement('div');
+    document.body.append(statusEl, actionsEl);
+
+    const showConfigSpy = vi.spyOn(cloudSyncUI, '_showCloudConfigModal').mockResolvedValue();
+
+    cloudSyncUI._renderSignedIn({ user: { email: 'user@example.com' } }, statusEl, actionsEl);
+    document.getElementById('settingsCloudEditConfigBtn')?.click();
+    await Promise.resolve();
+
+    expect(document.getElementById('settingsCloudEditConfigBtn')).not.toBeNull();
+    expect(showConfigSpy).toHaveBeenCalledTimes(1);
+
+    showConfigSpy.mockRestore();
+  });
 });
 
 describe('cloud-sync intelligent sync logic (Phase 24)', () => {
