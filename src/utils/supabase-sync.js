@@ -42,7 +42,14 @@ function _getClient() {
   if (supabaseClient) return supabaseClient;
   const { url, anonKey } = _getEffectiveConfig();
   if (!url || !anonKey) return null;
-  supabaseClient = createClient(url, anonKey);
+  supabaseClient = createClient(url, anonKey, {
+    auth: {
+      detectSessionInUrl: true,
+      persistSession: true,
+      autoRefreshToken: true,
+      flowType: 'pkce',
+    },
+  });
   return supabaseClient;
 }
 
@@ -144,6 +151,21 @@ export async function signIn(email) {
   if (!supabase) throw new Error('Supabase not configured');
   const redirectTo = window.location.origin + window.location.pathname;
   const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo } });
+  if (error) throw error;
+}
+
+/**
+ * Starts Google OAuth sign-in.
+ * Throws on error.
+ */
+export async function signInWithGoogle() {
+  const supabase = _getClient();
+  if (!supabase) throw new Error('Supabase not configured');
+  const redirectTo = window.location.origin + window.location.pathname;
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo },
+  });
   if (error) throw error;
 }
 

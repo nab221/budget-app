@@ -6,6 +6,7 @@ import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 // are NOT hoisted and would be undefined inside the factory.
 const {
   mockSignInWithOtp,
+  mockSignInWithOAuth,
   mockGetSession,
   mockSignOut,
   mockOnAuthStateChange,
@@ -13,6 +14,7 @@ const {
   mockMaybeSingle,
 } = vi.hoisted(() => ({
   mockSignInWithOtp: vi.fn(),
+  mockSignInWithOAuth: vi.fn(),
   mockGetSession: vi.fn(),
   mockSignOut: vi.fn(),
   mockOnAuthStateChange: vi.fn(),
@@ -24,6 +26,7 @@ vi.mock('@supabase/supabase-js', () => ({
   createClient: vi.fn(() => ({
     auth: {
       signInWithOtp: mockSignInWithOtp,
+      signInWithOAuth: mockSignInWithOAuth,
       getSession: mockGetSession,
       signOut: mockSignOut,
       onAuthStateChange: mockOnAuthStateChange,
@@ -217,17 +220,53 @@ describe('signIn', () => {
     vi.clearAllMocks();
   });
 
-  it('calls signInWithOtp with the provided email', async () => {
+  it('calls signInWithOtp with email and runtime redirect URL', async () => {
     mockSignInWithOtp.mockResolvedValue({ error: null });
     const { signIn } = await import('./supabase-sync.js');
     await signIn('user@example.com');
-    expect(mockSignInWithOtp).toHaveBeenCalledWith({ email: 'user@example.com' });
+    expect(mockSignInWithOtp).toHaveBeenCalledWith({
+      email: 'user@example.com',
+      options: {
+        emailRedirectTo: 'http://localhost:3000/',
+      },
+    });
   });
 
   it('throws when supabase returns an error', async () => {
     mockSignInWithOtp.mockResolvedValue({ error: new Error('Auth failed') });
     const { signIn } = await import('./supabase-sync.js');
     await expect(signIn('bad@example.com')).rejects.toThrow('Auth failed');
+  });
+});
+
+describe('signInWithGoogle', () => {
+  beforeEach(() => {
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://test.supabase.co');
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'test-anon-key');
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.clearAllMocks();
+  });
+
+  it('calls signInWithOAuth with google provider and runtime redirect URL', async () => {
+    mockSignInWithOAuth.mockResolvedValue({ error: null });
+    const { signInWithGoogle } = await import('./supabase-sync.js');
+    await signInWithGoogle();
+    expect(mockSignInWithOAuth).toHaveBeenCalledWith({
+      provider: 'google',
+      options: {
+        redirectTo: 'http://localhost:3000/',
+      },
+    });
+  });
+
+  it('throws when supabase OAuth sign-in fails', async () => {
+    mockSignInWithOAuth.mockResolvedValue({ error: new Error('Google auth failed') });
+    const { signInWithGoogle } = await import('./supabase-sync.js');
+    await expect(signInWithGoogle()).rejects.toThrow('Google auth failed');
   });
 });
 
