@@ -333,7 +333,7 @@ export const cloudSyncUI = {
 
           const prefix = isRetry ? 'Retry failed: ' : 'Sync failed: ';
           const message = `${prefix}${err.message}`;
-          alertWithHaptic(message);
+          notificationUI.error(message);
 
           if (action === 'pull') {
             this._showPullErrorNotification(message, () => runSmartSync(true));
@@ -817,7 +817,7 @@ export const cloudSyncUI = {
         templateUI.closeModal();
       }
       if (announceStart) {
-        alertWithHaptic('Pushing to cloud...');
+        notificationUI.info('Pushing to cloud…', [], 1500);
       }
 
       this._mutationsDuringSync = false;
@@ -828,12 +828,7 @@ export const cloudSyncUI = {
       this._clearErrorState();
       this._updateStatusIndicator();
 
-      if (successAlert) {
-        alertWithHaptic('Synced successfully!', 'success');
-      } else {
-        triggerHaptic('success');
-      }
-
+      triggerHaptic('success');
       notificationUI.success('Budget synced to cloud', [], 2000);
       await this._refreshSection();
       return null;
@@ -859,7 +854,7 @@ export const cloudSyncUI = {
         templateUI.closeModal();
       }
       if (announceStart) {
-        alertWithHaptic('Fetching from cloud...');
+        notificationUI.info('Fetching from cloud…', [], 1500);
       }
 
       await pullSnapshot();
@@ -1022,17 +1017,17 @@ export const cloudSyncUI = {
           onClick: async () => {
             const email = document.getElementById('signInEmailInput')?.value?.trim();
             if (!email) {
-              alertWithHaptic('Please enter your email address.');
+              notificationUI.warning('Please enter your email address.');
               return;
             }
             try {
               await signIn(email);
-              alertWithHaptic('Check your email for a sign-in link.', 'success');
+              notificationUI.success('Check your email for a sign-in link.');
               templateUI.closeModal();
               resolve();
             } catch (err) {
               console.error('[cloudSyncUI] Sign-in failed:', err);
-              alertWithHaptic('Sign-in failed: ' + err.message);
+              notificationUI.error('Sign-in failed: ' + err.message);
             }
           }
         },
@@ -1091,11 +1086,11 @@ export const cloudSyncUI = {
               this._bindAuthListener();
               await this._refreshSection();
               document.getElementById('cloudSyncSection')?.classList.remove('hidden');
-              alertWithHaptic('Cloud config saved for this browser.', 'success');
+              notificationUI.success('Cloud config saved for this browser.');
               templateUI.closeModal();
               resolve();
             } catch (err) {
-              alertWithHaptic(err.message || 'Invalid Supabase configuration');
+              notificationUI.error(err.message || 'Invalid Supabase configuration');
             }
           }
         },
@@ -1167,14 +1162,14 @@ export const cloudSyncUI = {
           const retryPush = async () => {
             const retryErr = await this._executePushSync({ announceStart: true, successAlert: true });
             if (retryErr) {
-              alertWithHaptic('Push failed: ' + retryErr.message);
+              notificationUI.error('Push failed: ' + retryErr.message);
               this._showPushErrorNotification(retryErr.message, retryPush);
             }
           };
 
           const err = await this._executePushSync({ closeModal: true, announceStart: true, successAlert: true });
           if (err) {
-            alertWithHaptic('Push failed: ' + err.message);
+            notificationUI.error('Push failed: ' + err.message);
             this._showPushErrorNotification(err.message, retryPush);
           }
         } finally {
@@ -1187,14 +1182,14 @@ export const cloudSyncUI = {
           const retryPull = async () => {
             const retryErr = await this._executePullSync({ announceStart: true });
             if (retryErr) {
-              alertWithHaptic('Pull failed: ' + retryErr.message);
+              notificationUI.error('Pull failed: ' + retryErr.message);
               this._showPullErrorNotification(retryErr.message, retryPull);
             }
           };
 
           const err = await this._executePullSync({ closeModal: true, announceStart: true });
           if (err) {
-            alertWithHaptic('Pull failed: ' + err.message);
+            notificationUI.error('Pull failed: ' + err.message);
             this._showPullErrorNotification(err.message, retryPull);
           }
         } finally {
@@ -1207,9 +1202,9 @@ export const cloudSyncUI = {
         try {
           const supabase = getSupabaseClient();
           await supabase?.auth.signOut();
-          alertWithHaptic('Signed out');
+          notificationUI.info('Signed out');
         } catch (err) {
-          alertWithHaptic('Sign out failed: ' + err.message);
+          notificationUI.error('Sign out failed: ' + err.message);
         }
         resolve();
       });
@@ -1251,7 +1246,7 @@ export const cloudSyncUI = {
         if (!err) return;
 
         const message = isRetry ? 'Retry failed: ' + err.message : err.message;
-        alertWithHaptic((isRetry ? 'Retry failed: ' : 'Push failed: ') + err.message);
+        notificationUI.error((isRetry ? 'Retry failed: ' : 'Push failed: ') + err.message);
         this._showPushErrorNotification(message, () => runPush(true));
       };
 
@@ -1265,7 +1260,7 @@ export const cloudSyncUI = {
         if (!err) return;
 
         const message = isRetry ? 'Retry failed: ' + err.message : err.message;
-        alertWithHaptic((isRetry ? 'Retry failed: ' : 'Pull failed: ') + err.message);
+        notificationUI.error((isRetry ? 'Retry failed: ' : 'Pull failed: ') + err.message);
         this._showPullErrorNotification(message, () => runPull(true));
       };
 
@@ -1406,11 +1401,10 @@ export const cloudSyncUI = {
           localStorage.setItem(CLOUD_LAST_SYNC_KEY, String(lastSyncMs));
           notificationUI.success('Latest budget loaded from cloud', [], 2000);
           triggerHaptic('success');
-          alertWithHaptic('Import successful! The app will now reload.', 'success');
           window.location.reload();
         } catch (err) {
           console.error('[cloudSyncUI] Import failed:', err);
-          alertWithHaptic('Import failed: ' + err.message);
+          notificationUI.error('Import failed: ' + err.message);
           restorePullBtn();
         }
       };
