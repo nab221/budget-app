@@ -557,8 +557,12 @@ export const cloudSyncUI = {
     if (!button) return;
 
     if (isBusy) {
-      button.dataset.syncOriginalText = button.textContent || '';
-      button.dataset.syncWasDisabled = button.disabled ? 'true' : 'false';
+      if (button.dataset.syncOriginalText === undefined) {
+        button.dataset.syncOriginalText = button.textContent || '';
+      }
+      if (button.dataset.syncWasDisabled === undefined) {
+        button.dataset.syncWasDisabled = button.disabled ? 'true' : 'false';
+      }
       if (busyLabel) {
         button.textContent = busyLabel;
       }
@@ -1139,11 +1143,7 @@ export const cloudSyncUI = {
 
       const restorePullBtn = () => {
         const settingsPullBtn = document.getElementById('cloudPullBtn');
-        if (settingsPullBtn) {
-          settingsPullBtn.textContent = 'Pull from Cloud';
-          settingsPullBtn.disabled = false;
-        }
-
+        this._setSyncButtonBusy(settingsPullBtn, false);
 
       };
 

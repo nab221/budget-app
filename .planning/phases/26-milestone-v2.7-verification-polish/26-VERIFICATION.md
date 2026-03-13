@@ -1,6 +1,8 @@
 ---
 phase: 26
-verified: 2026-03-12T23:19:31Z
+updated_at: 2026-03-12T23:19:31Z
+automated_verified_at: 2026-03-12T23:19:31Z
+manual_verified_at: pending
 status: in-progress
 manual_status: pending-human-run
 automated_status: passed
@@ -46,11 +48,11 @@ The canonical Phase 26 execution and verification records for milestone v2.7 are
 ## Manual Run
 
 - Date: pending human verification
-- Branch: feat/phase-26-verification-polish
+- Branch: pending
 - Build/command: pending
 - Device A browser: pending
 - Device B browser: pending
-- Account used: pending
+- Account alias (masked, non-PII): pending
 
 ### Scenario Results
 

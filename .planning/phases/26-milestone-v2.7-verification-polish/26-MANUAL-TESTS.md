@@ -17,15 +17,16 @@ Run the app in two independent browser contexts against the same Supabase accoun
 - Device A: regular browser profile
 - Device B: separate browser, profile, or private window
 - Account: the same authenticated cloud-sync user on both contexts
-- Build: current `feat/phase-26-verification-polish` branch
+- Build: branch/commit under test (record exact branch name and short SHA)
 - Seed data: a known budget with at least one editable income/expense row
 
 ## Evidence Rules
 
-- Record the browser and account used for each device.
+- Record the browser and a non-PII account alias for each device.
 - Capture the visible sync state before and after each scenario.
 - Save at least one screenshot, console note, or timestamp excerpt per scenario.
 - If a scenario fails, log the exact step, observed UI, and any sync notification text.
+- Never commit raw emails or user IDs. Use aliases such as `test-account-1` or a hashed identifier like `sha256:<first-12-hex>`.
 
 ## Expected UI Markers
 
@@ -177,7 +178,7 @@ Copy this block into `.planning/phases/26-milestone-v2.7-verification-polish/26-
 - Build/command:
 - Device A browser:
 - Device B browser:
-- Account used:
+- Account alias (masked, non-PII):
 
 ### Scenario Results
 
