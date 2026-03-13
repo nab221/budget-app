@@ -233,7 +233,7 @@ export const debtRepository = {
 
     const baseItem = {
       label,
-      amount: fromPence(debt.fixedMonthlyPayment || 0),
+      amount: debt.fixedMonthlyPayment || 0,
       date: baseDate,
       nextDate: startDate,
       categoryId,

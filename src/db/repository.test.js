@@ -741,6 +741,7 @@ describe('debtRepository.generateLoanPayments', () => {
     expect(expenses.length).toBe(12);
     const dates = expenses.map(e => e.nextDate).sort();
     expect(dates[0]).toBe('2026-06-01');
+    expect(expenses.every(e => e.amount === 20000)).toBe(true);
   });
 
   it('falls back to today when paymentStartDate is not set', async () => {
