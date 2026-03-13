@@ -127,8 +127,13 @@ describe('expenses Phase-18 guards', () => {
     expensesUI.editingType = null;
     expensesUI.reconciliationMode = false;
 
-    // Set up window.app mock
-    window.app = { showTab: vi.fn() };
+    // Set up DOM mock for tab navigation
+    const mockDebtsTab = { click: vi.fn() };
+    vi.spyOn(document, 'querySelector').mockImplementation((sel) => {
+      if (sel === '#mainTabs .tab[data-tab="debts"]') return mockDebtsTab;
+      return null;
+    });
+    window._mockDebtsTab = mockDebtsTab;
 
     // Register window.deleteExpense (normally done in setupEventListeners)
     expensesUI.setupEventListeners();
@@ -151,7 +156,7 @@ describe('expenses Phase-18 guards', () => {
       );
       expect(expensesUI.editingId).toBeNull();
       expect(expensesUI.editingType).toBeNull();
-      expect(window.app.showTab).toHaveBeenCalledWith('debts');
+      expect(window._mockDebtsTab.click).toHaveBeenCalled();
     });
 
     it('does NOT redirect for a non-debt recurrent expense', async () => {
@@ -178,7 +183,7 @@ describe('expenses Phase-18 guards', () => {
       }
 
       expect(alertWithHaptic).not.toHaveBeenCalled();
-      expect(window.app.showTab).not.toHaveBeenCalled();
+      expect(window._mockDebtsTab.click).not.toHaveBeenCalled();
     });
 
     it('does NOT redirect for a one-off expense (type !== recurrent)', async () => {
@@ -195,7 +200,7 @@ describe('expenses Phase-18 guards', () => {
   });
 
   describe('deleteExpense — debt-linked guard', () => {
-    it('shows alert and returns early for a debt-linked recurrent expense', async () => {
+    it('shows info toast and redirects for a debt-linked recurrent expense', async () => {
       recurrentExpenseRepository.get.mockResolvedValueOnce({
         id: 99,
         isDebtPayment: true,
@@ -204,14 +209,16 @@ describe('expenses Phase-18 guards', () => {
 
       await window.deleteExpense(99, 'recurrent');
 
-      expect(alertWithHaptic).toHaveBeenCalledWith(
-        'This expense is managed by the Debts tab. Delete the debt or its statement instead.',
-        'info'
+      expect(notificationUI.info).toHaveBeenCalledWith(
+        'This expense is managed in Debts. Redirecting…',
+        [],
+        1800
       );
+      expect(window._mockDebtsTab.click).toHaveBeenCalled();
       expect(recurrentExpenseRepository.delete).not.toHaveBeenCalled();
     });
 
-    it('shows alert and returns early for a debt-linked one-off expense', async () => {
+    it('shows info toast and redirects for a debt-linked one-off expense', async () => {
       oneOffExpenseRepository.get.mockResolvedValueOnce({
         id: 88,
         isDebtPayment: true,
@@ -220,10 +227,12 @@ describe('expenses Phase-18 guards', () => {
 
       await window.deleteExpense(88, 'oneoff');
 
-      expect(alertWithHaptic).toHaveBeenCalledWith(
-        'This expense is managed by the Debts tab. Delete the debt or its statement instead.',
-        'info'
+      expect(notificationUI.info).toHaveBeenCalledWith(
+        'This expense is managed in Debts. Redirecting…',
+        [],
+        1800
       );
+      expect(window._mockDebtsTab.click).toHaveBeenCalled();
       expect(oneOffExpenseRepository.delete).not.toHaveBeenCalled();
     });
 

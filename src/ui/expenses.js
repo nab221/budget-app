@@ -175,10 +175,8 @@ export const expensesUI = {
 
       // Phase 18: Prevent deletion of debt-linked expenses from Expenses tab
       if (item.isDebtPayment) {
-        alertWithHaptic(
-          'This expense is managed by the Debts tab. Delete the debt or its statement instead.',
-          'info'
-        );
+        notificationUI.info('This expense is managed in Debts. Redirecting…', [], 1800);
+        document.querySelector('#mainTabs .tab[data-tab="debts"]')?.click();
         return;
       }
 
@@ -324,9 +322,7 @@ export const expensesUI = {
         notificationUI.info('This expense is managed in Debts. Redirecting…', [], 1800);
         this.editingId = null;
         this.editingType = null;
-        if (window.app && window.app.showTab) {
-          window.app.showTab('debts');
-        }
+        document.querySelector('#mainTabs .tab[data-tab="debts"]')?.click();
         return;
       }
     }
@@ -767,7 +763,7 @@ export const expensesUI = {
               <button class="sm ghost" ${isReconciled ? 'disabled title="Reconciled items cannot be edited"' : ''} onclick="expensesUI.editExpense(${item.id}, '${item.type}')" title="${item.isDebtPayment ? 'Edit in Debts tab' : 'Edit'}">
                 ${item.isDebtPayment ? '↗ Debts' : 'Edit'}
               </button>
-              <button class="sm danger" ${isReconciled ? 'disabled title="Reconciled items cannot be deleted"' : ''} onclick="deleteExpense(${item.id}, '${item.type}')">✕</button>
+              ${item.isDebtPayment ? '' : `<button class="sm danger" ${isReconciled ? 'disabled title="Reconciled items cannot be deleted"' : ''} onclick="deleteExpense(${item.id}, '${item.type}')">✕</button>`}
             `}
           </td>
         </tr>
