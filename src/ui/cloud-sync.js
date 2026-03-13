@@ -153,6 +153,20 @@ export const cloudSyncUI = {
     this._lastAutoPullSessionUserId = userId;
 
     try {
+      const latestMeta = await getLatestSnapshotMeta();
+      if (!latestMeta?.updated_at) return;
+
+      const cloudUpdatedAtMs = Date.parse(latestMeta.updated_at);
+      if (!Number.isFinite(cloudUpdatedAtMs)) return;
+
+      const localLastSyncRaw = localStorage.getItem(CLOUD_LAST_SYNC_KEY);
+      const localLastSyncMs = Number.parseInt(localLastSyncRaw ?? '0', 10);
+      const hasValidLocalSync = Number.isFinite(localLastSyncMs) && localLastSyncMs > 0;
+
+      if (hasValidLocalSync && cloudUpdatedAtMs <= localLastSyncMs) {
+        return;
+      }
+
       this._autoPullTriggered = true;
       const err = await this._executePullSync();
       if (err && err?.message !== 'No cloud snapshot found') {

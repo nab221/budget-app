@@ -356,6 +356,11 @@ describe('cloud-sync intelligent sync logic (Phase 24)', () => {
       return { data: { subscription: { unsubscribe: mockUnsubscribe } } };
     });
 
+    vi.mocked(supabaseSync.getLatestSnapshotMeta).mockResolvedValue({
+      updated_at: new Date(Date.now()).toISOString(),
+      schema_version: 1,
+    });
+
     vi.spyOn(cloudSyncUI, '_refreshSection').mockResolvedValue(undefined);
 
     cloudSyncUI._bindAuthListener();
