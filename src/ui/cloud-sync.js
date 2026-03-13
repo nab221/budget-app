@@ -1163,7 +1163,9 @@ export const cloudSyncUI = {
         templateUI.closeModal();
         try {
           await importBackupData(tableData);
-          localStorage.setItem(CLOUD_LAST_SYNC_KEY, String(Date.now()));
+          const importedSnapshotMs = Date.parse(updated_at);
+          const lastSyncMs = Number.isFinite(importedSnapshotMs) ? importedSnapshotMs : Date.now();
+          localStorage.setItem(CLOUD_LAST_SYNC_KEY, String(lastSyncMs));
           notificationUI.success('Latest budget loaded from cloud', [], 2000);
           triggerHaptic('success');
           alertWithHaptic('Import successful! The app will now reload.', 'success');

@@ -65,6 +65,7 @@ vi.mock('./notifications.js', () => ({
 import { cloudSyncUI } from './cloud-sync.js';
 import { notificationUI } from './notifications.js';
 import { templateUI } from './templates.js';
+import { importBackupData } from '../db/backup.js';
 import * as supabaseSync from '../utils/supabase-sync.js';
 
 describe('cloud-sync header actions (Phase 23)', () => {
@@ -668,6 +669,30 @@ describe('cloud-sync sync visibility (Phase 25)', () => {
       await modalPromise;
 
       expect(cloudSyncUI._syncInProgress).toBe(true);
+    });
+
+    it('records imported snapshot timestamp as last sync when confirming cloud preview import', async () => {
+      const updatedAt = '2026-03-13T10:20:30.000Z';
+      vi.mocked(templateUI.showModal).mockImplementation((_title, body, footer) => {
+        document.body.innerHTML += `${body}${footer}`;
+      });
+
+      cloudSyncUI._bindPreviewListener();
+
+      window.dispatchEvent(new CustomEvent('budget:import-cloud-preview', {
+        detail: {
+          updated_at: updatedAt,
+          schema_version: 1,
+          counts: { income: 1 },
+          tableData: { income: [] },
+        },
+      }));
+
+      document.getElementById('confirmCloudImportBtn')?.click();
+      await Promise.resolve();
+
+      expect(localStorage.getItem(supabaseSync.CLOUD_LAST_SYNC_KEY)).toBe(String(Date.parse(updatedAt)));
+      expect(importBackupData).toHaveBeenCalled();
     });
   });
 });
