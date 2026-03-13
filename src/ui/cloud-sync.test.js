@@ -512,6 +512,18 @@ describe('cloud-sync sync visibility (Phase 25)', () => {
       expect(dot.style.background).toMatch(/22c55e|rgb\(34,\s*197,\s*94\)/);
     });
 
+    it('shows dirty indicator when persisted dirty state exists', () => {
+      cloudSyncUI._lastError = null;
+      cloudSyncUI._isDirty = false;
+      localStorage.setItem('budget_cloud_is_dirty', 'true');
+
+      cloudSyncUI._updateStatusIndicator();
+
+      const dot = document.getElementById('syncStatusDot');
+      expect(dot.style.background).toMatch(/eab308|rgb\(234,\s*179,\s*8\)/);
+      expect(dot.getAttribute('title')).toContain('Unsaved changes');
+    });
+
     it('status indicator has error message in title attribute', () => {
       const errorMsg = 'Failed to connect';
       cloudSyncUI._saveErrorState(errorMsg);

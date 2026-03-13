@@ -474,7 +474,12 @@ export const cloudSyncUI = {
     // Repository layer broadcasts db:mutated after writes.
     // Listening here ensures dirty-state UX updates even when a write path
     // does not trigger Dexie hooks in this module's lifecycle.
-    window.addEventListener('db:mutated', markDirty);
+    window.addEventListener('db:mutated', () => {
+      markDirty();
+      // Defensive refresh: if header was re-rendered by other UI flows,
+      // force sync indicator and timestamp to pick up the latest dirty state.
+      this._updateStatusIndicator();
+    });
   },
 
   /**
@@ -696,6 +701,11 @@ export const cloudSyncUI = {
   _updateStatusIndicator() {
     const dot = document.getElementById('syncStatusDot');
     if (!dot) return;
+
+    const persistedDirty = localStorage.getItem(CLOUD_IS_DIRTY_KEY) === 'true';
+    if (persistedDirty && !this._syncInProgress) {
+      this._isDirty = true;
+    }
 
     let state = 'synced';
     let title = 'All changes saved to cloud';
