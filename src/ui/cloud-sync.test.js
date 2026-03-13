@@ -9,12 +9,18 @@ const {
   mockSaveRuntimeConfig,
   mockUnsubscribe,
   mockGetSession,
+  mockGetFileSyncState,
+  mockOpenSelectFileDialog,
+  mockDisconnectFileSyncFile,
 } = vi.hoisted(() => ({
   mockSignOut: vi.fn(),
   mockOnAuthStateChange: vi.fn(),
   mockSaveRuntimeConfig: vi.fn(),
   mockUnsubscribe: vi.fn(),
   mockGetSession: vi.fn(),
+  mockGetFileSyncState: vi.fn(),
+  mockOpenSelectFileDialog: vi.fn(),
+  mockDisconnectFileSyncFile: vi.fn(),
 }));
 
 vi.mock('../utils/supabase-sync.js', () => ({
@@ -34,6 +40,12 @@ vi.mock('../db/backup.js', () => ({
   importBackupData: vi.fn(),
 }));
 
+vi.mock('./file-sync.js', () => ({
+  getFileSyncState: mockGetFileSyncState,
+  openSelectFileDialog: mockOpenSelectFileDialog,
+  disconnectFileSyncFile: mockDisconnectFileSyncFile,
+}));
+
 vi.mock('./templates.js', () => ({
   templateUI: {
     showModal: vi.fn(),
@@ -43,7 +55,6 @@ vi.mock('./templates.js', () => ({
 
 vi.mock('../utils/haptics.js', () => ({
   triggerHaptic: vi.fn(),
-  alertWithHaptic: vi.fn(),
 }));
 
 vi.mock('../db/schema.js', () => ({
@@ -64,6 +75,8 @@ vi.mock('./notifications.js', () => ({
 
 import { cloudSyncUI } from './cloud-sync.js';
 import { notificationUI } from './notifications.js';
+import { templateUI } from './templates.js';
+import { importBackupData } from '../db/backup.js';
 import * as supabaseSync from '../utils/supabase-sync.js';
 
 describe('cloud-sync header actions (Phase 23)', () => {
@@ -75,6 +88,10 @@ describe('cloud-sync header actions (Phase 23)', () => {
     mockUnsubscribe.mockReset();
     mockGetSession.mockReset();
     mockGetSession.mockResolvedValue(null);
+    mockGetFileSyncState.mockReset();
+    mockGetFileSyncState.mockReturnValue({ fileName: null, status: 'idle', statusText: '' });
+    mockOpenSelectFileDialog.mockReset();
+    mockDisconnectFileSyncFile.mockReset();
     currentSupabaseClient = {
       auth: {
         signOut: mockSignOut,
@@ -124,6 +141,67 @@ describe('cloud-sync header actions (Phase 23)', () => {
     expect(document.getElementById('headerLocalMenuBtn')).not.toBeNull();
   });
 
+  it('runs one-click smart sync as push when local changes are dirty', async () => {
+    cloudSyncUI._isDirty = true;
+    const pushSpy = vi.spyOn(cloudSyncUI, '_executePushSync').mockResolvedValue(null);
+    const pullSpy = vi.spyOn(cloudSyncUI, '_executePullSync').mockResolvedValue(null);
+
+    cloudSyncUI._renderHeaderActions({ user: { email: 'user@example.com' } });
+    document.getElementById('headerSyncMenuBtn')?.click();
+    await Promise.resolve();
+
+    expect(pushSpy).toHaveBeenCalledTimes(1);
+    expect(pullSpy).not.toHaveBeenCalled();
+    pushSpy.mockRestore();
+    pullSpy.mockRestore();
+  });
+
+  it('runs one-click smart sync as pull when cloud snapshot is newer', async () => {
+    cloudSyncUI._isDirty = false;
+    localStorage.setItem('budget_cloud_is_dirty', 'false');
+    localStorage.setItem('budget_cloud_last_sync', String(Date.now() - 60_000));
+    vi.mocked(supabaseSync.getLatestSnapshotMeta).mockResolvedValue({
+      updated_at: new Date(Date.now()).toISOString(),
+      schema_version: 1,
+    });
+    const pushSpy = vi.spyOn(cloudSyncUI, '_executePushSync').mockResolvedValue(null);
+    const pullSpy = vi.spyOn(cloudSyncUI, '_executePullSync').mockResolvedValue(null);
+
+    cloudSyncUI._renderHeaderActions({ user: { email: 'user@example.com' } });
+    document.getElementById('headerSyncMenuBtn')?.click();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(pullSpy).toHaveBeenCalledTimes(1);
+    expect(pushSpy).not.toHaveBeenCalled();
+    pushSpy.mockRestore();
+    pullSpy.mockRestore();
+  });
+
+  it('runs one-click smart sync as no-op when already up to date', async () => {
+    cloudSyncUI._isDirty = false;
+    localStorage.setItem('budget_cloud_is_dirty', 'false');
+    const now = Date.now();
+    localStorage.setItem('budget_cloud_last_sync', String(now));
+    vi.mocked(supabaseSync.getLatestSnapshotMeta).mockResolvedValue({
+      updated_at: new Date(now - 5000).toISOString(),
+      schema_version: 1,
+    });
+    const pushSpy = vi.spyOn(cloudSyncUI, '_executePushSync').mockResolvedValue(null);
+    const pullSpy = vi.spyOn(cloudSyncUI, '_executePullSync').mockResolvedValue(null);
+
+    cloudSyncUI._renderHeaderActions({ user: { email: 'user@example.com' } });
+    document.getElementById('headerSyncMenuBtn')?.click();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(pushSpy).not.toHaveBeenCalled();
+    expect(pullSpy).not.toHaveBeenCalled();
+    expect(notificationUI.info).toHaveBeenCalledWith('Already up to date', [], 1600);
+    pushSpy.mockRestore();
+    pullSpy.mockRestore();
+  });
+
   it('shows configure cloud action and hides legacy local import/export when cloud is not configured', () => {
     configured = false;
     cloudSyncUI._renderHeaderActions(null);
@@ -132,6 +210,32 @@ describe('cloud-sync header actions (Phase 23)', () => {
     expect(document.getElementById('headerCloudConfigureBtn')).not.toBeNull();
     expect(document.getElementById('exportBtn').classList.contains('hidden')).toBe(true);
     expect(document.querySelector('label[for="importFile"]').classList.contains('hidden')).toBe(true);
+  });
+
+  it('runs one-click local action as select file when no local file is connected', async () => {
+    cloudSyncUI._renderHeaderActions({ user: { email: 'user@example.com' } });
+
+    document.getElementById('headerLocalMenuBtn')?.click();
+    await Promise.resolve();
+
+    expect(mockOpenSelectFileDialog).toHaveBeenCalledTimes(1);
+  });
+
+  it('routes to settings when local file is already connected', async () => {
+    mockGetFileSyncState.mockReturnValue({ fileName: 'budget-data.json', status: 'success', statusText: 'Saved' });
+    let settingsClicked = false;
+    document.querySelector('#mainTabs .tab[data-tab="settings"]')?.addEventListener('click', () => {
+      settingsClicked = true;
+    });
+
+    cloudSyncUI._renderHeaderActions({ user: { email: 'user@example.com' } });
+
+    document.getElementById('headerLocalMenuBtn')?.click();
+    await Promise.resolve();
+
+    expect(settingsClicked).toBe(true);
+    expect(notificationUI.info).toHaveBeenCalledWith('Local sync options are in Settings', [], 1800);
+    expect(mockOpenSelectFileDialog).not.toHaveBeenCalled();
   });
 
   it('rebinds auth listener when Supabase client changes', () => {
@@ -204,6 +308,7 @@ describe('cloud-sync intelligent sync logic (Phase 24)', () => {
     configured = true;
     localStorage.clear();
     vi.clearAllMocks();
+    mockGetFileSyncState.mockReturnValue({ fileName: null, status: 'idle', statusText: '' });
 
     mockSignOut.mockReset();
     mockOnAuthStateChange.mockReset();
@@ -267,6 +372,93 @@ describe('cloud-sync intelligent sync logic (Phase 24)', () => {
     expect(supabaseSync.pullSnapshot).not.toHaveBeenCalled();
   });
 
+  it('auto-pulls on load when no local last-sync value exists and cloud has a valid timestamp', async () => {
+    vi.mocked(supabaseSync.getSession).mockResolvedValue({ user: { id: 'u1' } });
+    vi.mocked(supabaseSync.getLatestSnapshotMeta).mockResolvedValue({
+      updated_at: new Date(Date.now()).toISOString(),
+      schema_version: 1,
+    });
+
+    await cloudSyncUI._runAutoPullCheckOnLoad();
+
+    expect(supabaseSync.pullSnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  it('treats malformed local last-sync values as stale and auto-pulls', async () => {
+    localStorage.setItem('budget_cloud_last_sync', 'not-a-timestamp');
+
+    vi.mocked(supabaseSync.getSession).mockResolvedValue({ user: { id: 'u1' } });
+    vi.mocked(supabaseSync.getLatestSnapshotMeta).mockResolvedValue({
+      updated_at: new Date(Date.now()).toISOString(),
+      schema_version: 1,
+    });
+
+    await cloudSyncUI._runAutoPullCheckOnLoad();
+
+    expect(supabaseSync.pullSnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips auto-pull when the cloud timestamp is invalid', async () => {
+    vi.mocked(supabaseSync.getSession).mockResolvedValue({ user: { id: 'u1' } });
+    vi.mocked(supabaseSync.getLatestSnapshotMeta).mockResolvedValue({
+      updated_at: 'not-a-date',
+      schema_version: 1,
+    });
+
+    await cloudSyncUI._runAutoPullCheckOnLoad();
+
+    expect(supabaseSync.pullSnapshot).not.toHaveBeenCalled();
+  });
+
+  it('skips auto-pull when there is no active session', async () => {
+    vi.mocked(supabaseSync.getSession).mockResolvedValue(null);
+
+    await cloudSyncUI._runAutoPullCheckOnLoad();
+
+    expect(supabaseSync.getLatestSnapshotMeta).not.toHaveBeenCalled();
+    expect(supabaseSync.pullSnapshot).not.toHaveBeenCalled();
+  });
+
+  it('only performs the auto-pull comparison once per load cycle', async () => {
+    vi.mocked(supabaseSync.getSession).mockResolvedValue({ user: { id: 'u1' } });
+    vi.mocked(supabaseSync.getLatestSnapshotMeta).mockResolvedValue({
+      updated_at: new Date(Date.now()).toISOString(),
+      schema_version: 1,
+    });
+
+    await cloudSyncUI._runAutoPullCheckOnLoad();
+    await cloudSyncUI._runAutoPullCheckOnLoad();
+
+    expect(supabaseSync.getLatestSnapshotMeta).toHaveBeenCalledTimes(1);
+    expect(supabaseSync.pullSnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not auto-pull again for a snapshot already previewed', async () => {
+    const snapshotMs = Date.now();
+    localStorage.setItem('budget_cloud_last_previewed_snapshot', String(snapshotMs));
+
+    vi.mocked(supabaseSync.getSession).mockResolvedValue({ user: { id: 'u1' } });
+    vi.mocked(supabaseSync.getLatestSnapshotMeta).mockResolvedValue({
+      updated_at: new Date(snapshotMs).toISOString(),
+      schema_version: 1,
+    });
+
+    await cloudSyncUI._runAutoPullCheckOnLoad();
+
+    expect(supabaseSync.pullSnapshot).not.toHaveBeenCalled();
+  });
+
+  it('marks sync state dirty from db:mutated events', () => {
+    cloudSyncUI._initDirtyStateTracking();
+    cloudSyncUI._isDirty = false;
+    localStorage.setItem('budget_cloud_is_dirty', 'false');
+
+    window.dispatchEvent(new CustomEvent('db:mutated'));
+
+    expect(cloudSyncUI._isDirty).toBe(true);
+    expect(localStorage.getItem('budget_cloud_is_dirty')).toBe('true');
+  });
+
   it('auto-pushes on exit when dirty and signed in', async () => {
     cloudSyncUI._isDirty = true;
     vi.mocked(supabaseSync.getSession).mockResolvedValue({ user: { id: 'u1' } });
@@ -293,6 +485,11 @@ describe('cloud-sync intelligent sync logic (Phase 24)', () => {
       return { data: { subscription: { unsubscribe: mockUnsubscribe } } };
     });
 
+    vi.mocked(supabaseSync.getLatestSnapshotMeta).mockResolvedValue({
+      updated_at: new Date(Date.now()).toISOString(),
+      schema_version: 1,
+    });
+
     vi.spyOn(cloudSyncUI, '_refreshSection').mockResolvedValue(undefined);
 
     cloudSyncUI._bindAuthListener();
@@ -316,9 +513,12 @@ describe('cloud-sync sync visibility (Phase 25)', () => {
     configured = true;
     localStorage.clear();
     vi.clearAllMocks();
+    mockGetFileSyncState.mockReturnValue({ fileName: null, status: 'idle', statusText: '' });
     cloudSyncUI._lastError = null;
     cloudSyncUI._errorStorageUserScope = null;
     cloudSyncUI._isDirty = false;
+    cloudSyncUI._syncInProgress = false;
+    cloudSyncUI._mutationsDuringSync = false;
     document.body.innerHTML = `
       <div id="cloudSyncActionsHeader">
         <span id="syncStatusDot" class="sync-status-dot"></span>
@@ -416,6 +616,18 @@ describe('cloud-sync sync visibility (Phase 25)', () => {
       expect(dot.style.background).toMatch(/22c55e|rgb\(34,\s*197,\s*94\)/);
     });
 
+    it('shows dirty indicator when persisted dirty state exists', () => {
+      cloudSyncUI._lastError = null;
+      cloudSyncUI._isDirty = false;
+      localStorage.setItem('budget_cloud_is_dirty', 'true');
+
+      cloudSyncUI._updateStatusIndicator();
+
+      const dot = document.getElementById('syncStatusDot');
+      expect(dot.style.background).toMatch(/eab308|rgb\(234,\s*179,\s*8\)/);
+      expect(dot.getAttribute('title')).toContain('Unsaved changes');
+    });
+
     it('status indicator has error message in title attribute', () => {
       const errorMsg = 'Failed to connect';
       cloudSyncUI._saveErrorState(errorMsg);
@@ -473,6 +685,161 @@ describe('cloud-sync sync visibility (Phase 25)', () => {
       expect(localStorage.getItem(CLOUD_LAST_ERROR_TIME_KEY)).toBeNull();
       expect(localStorage.getItem(CLOUD_LAST_ERROR_CODE_KEY)).toBeNull();
       expect(cloudSyncUI._lastError).toBeNull();
+    });
+
+    it('applies and restores busy-state semantics for push buttons', async () => {
+      const refreshSpy = vi.spyOn(cloudSyncUI, '_refreshSection').mockResolvedValue(undefined);
+      let resolvePush;
+      vi.mocked(supabaseSync.pushSnapshot).mockImplementation(() => new Promise((resolve) => {
+        resolvePush = resolve;
+      }));
+
+      const button = document.createElement('button');
+      button.textContent = 'Push to Cloud';
+
+      const syncPromise = cloudSyncUI._executePushSync({ button });
+
+      expect(button.textContent).toBe('Pushing...');
+      expect(button.disabled).toBe(true);
+      expect(button.getAttribute('aria-busy')).toBe('true');
+      expect(button.classList.contains('sync-action-busy')).toBe(true);
+
+      resolvePush();
+      await syncPromise;
+
+      expect(button.textContent).toBe('Push to Cloud');
+      expect(button.disabled).toBe(false);
+      expect(button.hasAttribute('aria-busy')).toBe(false);
+      expect(button.classList.contains('sync-action-busy')).toBe(false);
+      refreshSpy.mockRestore();
+    });
+
+    it('applies and restores busy-state semantics for pull buttons', async () => {
+      const refreshSpy = vi.spyOn(cloudSyncUI, '_refreshSection').mockResolvedValue(undefined);
+      let resolvePull;
+      vi.mocked(supabaseSync.pullSnapshot).mockImplementation(() => new Promise((resolve) => {
+        resolvePull = resolve;
+      }));
+
+      const button = document.createElement('button');
+      button.textContent = 'Pull from Cloud';
+
+      const syncPromise = cloudSyncUI._executePullSync({ button });
+
+      expect(button.textContent).toBe('Fetching...');
+      expect(button.disabled).toBe(true);
+      expect(button.getAttribute('aria-busy')).toBe('true');
+      expect(button.classList.contains('sync-action-busy')).toBe(true);
+
+      resolvePull();
+      await syncPromise;
+
+      expect(button.textContent).toBe('Pull from Cloud');
+      expect(button.disabled).toBe(false);
+      expect(button.hasAttribute('aria-busy')).toBe(false);
+      expect(button.classList.contains('sync-action-busy')).toBe(false);
+      expect(refreshSpy).toHaveBeenCalled();
+      refreshSpy.mockRestore();
+    });
+
+    it('restores empty button labels after clearing busy state', () => {
+      const button = document.createElement('button');
+      button.textContent = '';
+
+      cloudSyncUI._setSyncButtonBusy(button, true, 'Fetching...');
+      cloudSyncUI._setSyncButtonBusy(button, false);
+
+      expect(button.textContent).toBe('');
+      expect(button.disabled).toBe(false);
+    });
+
+    it('does not change button disabled state when clearing without saved metadata', () => {
+      const button = document.createElement('button');
+      button.textContent = 'Pull from Cloud';
+      button.disabled = true;
+      button.setAttribute('aria-busy', 'true');
+      button.classList.add('sync-action-busy');
+
+      cloudSyncUI._setSyncButtonBusy(button, false);
+
+      expect(button.textContent).toBe('Pull from Cloud');
+      expect(button.disabled).toBe(true);
+      expect(button.hasAttribute('aria-busy')).toBe(false);
+      expect(button.classList.contains('sync-action-busy')).toBe(false);
+    });
+
+    it('skips push execution when another sync is already in progress', async () => {
+      cloudSyncUI._syncInProgress = true;
+
+      const err = await cloudSyncUI._executePushSync();
+
+      expect(err).toBeNull();
+      expect(supabaseSync.pushSnapshot).not.toHaveBeenCalled();
+    });
+
+    it('skips pull execution when another sync is already in progress', async () => {
+      cloudSyncUI._syncInProgress = true;
+
+      const err = await cloudSyncUI._executePullSync();
+
+      expect(err).toBeNull();
+      expect(supabaseSync.pullSnapshot).not.toHaveBeenCalled();
+    });
+
+    it('does not clear the shared sync lock when modal push exits early', async () => {
+      mockGetSession.mockResolvedValue({ user: { email: 'user@example.com' } });
+      vi.mocked(templateUI.showModal).mockImplementation((_title, body) => {
+        document.body.innerHTML += body;
+      });
+      cloudSyncUI._syncInProgress = true;
+
+      const modalPromise = cloudSyncUI._showSyncMenuModal();
+      await Promise.resolve();
+
+      document.getElementById('_cloudPushBtn')?.click();
+      await modalPromise;
+
+      expect(cloudSyncUI._syncInProgress).toBe(true);
+    });
+
+    it('does not clear the shared sync lock when modal pull exits early', async () => {
+      mockGetSession.mockResolvedValue({ user: { email: 'user@example.com' } });
+      vi.mocked(templateUI.showModal).mockImplementation((_title, body) => {
+        document.body.innerHTML += body;
+      });
+      cloudSyncUI._syncInProgress = true;
+
+      const modalPromise = cloudSyncUI._showSyncMenuModal();
+      await Promise.resolve();
+
+      document.getElementById('_cloudPullBtn')?.click();
+      await modalPromise;
+
+      expect(cloudSyncUI._syncInProgress).toBe(true);
+    });
+
+    it('records imported snapshot timestamp as last sync when confirming cloud preview import', async () => {
+      const updatedAt = '2026-03-13T10:20:30.000Z';
+      vi.mocked(templateUI.showModal).mockImplementation((_title, body, footer) => {
+        document.body.innerHTML += `${body}${footer}`;
+      });
+
+      cloudSyncUI._bindPreviewListener();
+
+      window.dispatchEvent(new CustomEvent('budget:import-cloud-preview', {
+        detail: {
+          updated_at: updatedAt,
+          schema_version: 1,
+          counts: { income: 1 },
+          tableData: { income: [] },
+        },
+      }));
+
+      document.getElementById('confirmCloudImportBtn')?.click();
+      await Promise.resolve();
+
+      expect(localStorage.getItem(supabaseSync.CLOUD_LAST_SYNC_KEY)).toBe(String(Date.parse(updatedAt)));
+      expect(importBackupData).toHaveBeenCalled();
     });
   });
 });

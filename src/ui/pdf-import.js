@@ -2,7 +2,8 @@ import { safeHTML, sanitize } from './render.js';
 import { extractTextFromPdf, parsers, extractStatementSummary } from '../utils/pdf-parser.js';
 import { findDuplicates, suggestCategory, categoryRepository, updateCategorizationLearningRule, incomeRepository, recurrentExpenseRepository, oneOffExpenseRepository } from '../db/repository.js';
 import { formatGBP, toPence, fromPence } from '../utils/currency.js';
-import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
+import { triggerHaptic } from '../utils/haptics.js';
+import { notificationUI } from './notifications.js';
 
 export const pdfImportUI = {
   state: {
@@ -52,7 +53,7 @@ export const pdfImportUI = {
    */
   async _processFile(file) {
     if (!file || file.type !== 'application/pdf') {
-      alertWithHaptic('Please upload a valid PDF file.');
+      notificationUI.warning('Please upload a valid PDF file.');
       return;
     }
 
@@ -177,7 +178,7 @@ export const pdfImportUI = {
 
   copyDebugInfo() {
     if (!this.state.rawPdfRows || this.state.rawPdfRows.length === 0) {
-      alertWithHaptic("No PDF data available to copy.");
+      notificationUI.info('No PDF data available to copy.');
       return;
     }
     
@@ -193,7 +194,7 @@ export const pdfImportUI = {
     ), null, 2);
 
     navigator.clipboard.writeText(debugData).then(() => {
-      alertWithHaptic('Scrubbed debug info copied to clipboard!', 'success');
+      notificationUI.success('Scrubbed debug info copied to clipboard!');
     }).catch(err => {
       console.error('Failed to copy: ', err);
       // Fallback for older browsers or non-secure contexts
@@ -203,9 +204,9 @@ export const pdfImportUI = {
       textArea.select();
       try {
         document.execCommand('copy');
-        alertWithHaptic('Scrubbed debug info copied to clipboard!', 'success');
+        notificationUI.success('Scrubbed debug info copied to clipboard!');
       } catch (copyErr) {
-        alertWithHaptic('Failed to copy to clipboard. Check console.');
+        notificationUI.error('Failed to copy to clipboard. Check console.');
       }
       document.body.removeChild(textArea);
     });
@@ -435,12 +436,12 @@ export const pdfImportUI = {
     processList(this.state.conflicts);
 
     if (toImport.length === 0) {
-      alertWithHaptic("No transactions selected for import.");
+      notificationUI.info('No transactions selected for import.');
       return;
     }
 
     if (hasUncategorized) {
-      alertWithHaptic("Please assign a category to all selected transactions before importing.");
+      notificationUI.warning('Please assign a category to all selected transactions before importing.');
       return;
     }
 
@@ -609,7 +610,7 @@ export const pdfImportUI = {
     }
 
     if (mapping.date === undefined || mapping.description === undefined || (mapping.amountOut === undefined && mapping.amountIn === undefined)) {
-      alertWithHaptic("You must map Date, Description, and at least one Amount column.");
+      notificationUI.warning('You must map Date, Description, and at least one Amount column.');
       return;
     }
 
@@ -655,7 +656,7 @@ export const pdfImportUI = {
     }
 
     if (transactions.length === 0) {
-      alertWithHaptic("Could not extract any valid transactions based on that mapping. Check the Date and Amount formats.");
+      notificationUI.error('Could not extract any valid transactions based on that mapping. Check the Date and Amount formats.');
       return;
     }
 

@@ -16,7 +16,8 @@ import { templateUI } from './templates.js';
 import { nextWorkingDay } from '../utils/cashflow.js';
 import { generateInstances } from '../utils/recurrence.js';
 import { generateUUID } from '../utils/security.js';
-import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
+import { triggerHaptic } from '../utils/haptics.js';
+import { notificationUI } from './notifications.js';
 import { SwipeHandler } from '../utils/gestures.js';
 import { renderSpendingHeatmap } from './heatmap.js';
 
@@ -174,10 +175,8 @@ export const expensesUI = {
 
       // Phase 18: Prevent deletion of debt-linked expenses from Expenses tab
       if (item.isDebtPayment) {
-        alertWithHaptic(
-          'This expense is managed by the Debts tab. Delete the debt or its statement instead.',
-          'info'
-        );
+        notificationUI.info('This expense is managed in Debts. Redirecting…', [], 1800);
+        document.querySelector('#mainTabs .tab[data-tab="debts"]')?.click();
         return;
       }
 
@@ -199,16 +198,16 @@ export const expensesUI = {
           triggerHaptic('delete');
           await this.render();
         } catch (err) {
-          alertWithHaptic('Failed to delete: ' + err.message);
+          notificationUI.error('Failed to delete: ' + err.message);
         }
       } else {
-        if (!confirm(`Delete "${label}"?`)) return;
+        if (!await modalUI.confirm('Delete Expense', `Delete "${label}"?`)) return;
         try {
           await repo.delete(id);
           triggerHaptic('delete');
           await this.render();
         } catch (err) {
-          alertWithHaptic('Failed to delete: ' + err.message);
+          notificationUI.error('Failed to delete: ' + err.message);
         }
       }
     };
@@ -320,15 +319,10 @@ export const expensesUI = {
     if (this.editingId && this.editingType === 'recurrent') {
       const item = await recurrentExpenseRepository.get(this.editingId);
       if (item && item.isDebtPayment) {
-        alertWithHaptic(
-          'This expense is linked to a debt account. Please edit it from the Debts tab.',
-          'info'
-        );
+        notificationUI.info('This expense is managed in Debts. Redirecting…', [], 1800);
         this.editingId = null;
         this.editingType = null;
-        if (window.app && window.app.showTab) {
-          window.app.showTab('debts');
-        }
+        document.querySelector('#mainTabs .tab[data-tab="debts"]')?.click();
         return;
       }
     }
@@ -440,11 +434,11 @@ export const expensesUI = {
     const frequency = document.getElementById('expFreq').value;
 
     if (isNaN(amount) || amount <= 0) {
-      alertWithHaptic('Please provide a valid amount.');
+      notificationUI.warning('Please provide a valid amount.');
       return;
     }
     if (!label) {
-      alertWithHaptic('Description is required.');
+      notificationUI.warning('Description is required.');
       return;
     }
 
@@ -533,7 +527,7 @@ export const expensesUI = {
       triggerHaptic('success');
     } catch (err) {
       console.error('Failed to save expense:', err);
-      alertWithHaptic('Failed to save: ' + err.message);
+      notificationUI.error('Failed to save: ' + err.message);
     }
   },
 
@@ -630,7 +624,7 @@ export const expensesUI = {
       await this.render();
     } catch (err) {
       console.error('Failed to mark all as paid:', err);
-      alertWithHaptic('Failed: ' + err.message);
+      notificationUI.error('Failed: ' + err.message);
     }
   },
 
@@ -769,7 +763,7 @@ export const expensesUI = {
               <button class="sm ghost" ${isReconciled ? 'disabled title="Reconciled items cannot be edited"' : ''} onclick="expensesUI.editExpense(${item.id}, '${item.type}')" title="${item.isDebtPayment ? 'Edit in Debts tab' : 'Edit'}">
                 ${item.isDebtPayment ? '↗ Debts' : 'Edit'}
               </button>
-              <button class="sm danger" ${isReconciled ? 'disabled title="Reconciled items cannot be deleted"' : ''} onclick="deleteExpense(${item.id}, '${item.type}')">✕</button>
+              ${item.isDebtPayment ? '' : `<button class="sm danger" ${isReconciled ? 'disabled title="Reconciled items cannot be deleted"' : ''} onclick="deleteExpense(${item.id}, '${item.type}')">✕</button>`}
             `}
           </td>
         </tr>
@@ -943,7 +937,7 @@ export const expensesUI = {
     const cleared = items.filter(i => i.isCleared && !i.isReconciled);
 
     if (cleared.length === 0) {
-      alertWithHaptic('No cleared items to reconcile.');
+      notificationUI.info('No cleared items to reconcile.');
       return;
     }
 
@@ -956,12 +950,12 @@ export const expensesUI = {
         const repo = item.frequency ? recurrentExpenseRepository : oneOffExpenseRepository;
         await repo.update(item.id, { isReconciled: true });
       }
-      alertWithHaptic('Reconciliation finalized successfully.', 'success');
+      notificationUI.success('Reconciliation finalized successfully.');
       this.toggleReconciliationMode();
       await this.render();
     } catch (err) {
       console.error('Failed to finalize reconciliation:', err);
-      alertWithHaptic('Failed: ' + err.message);
+      notificationUI.error('Failed: ' + err.message);
     }
   },
 
@@ -1005,7 +999,7 @@ export const expensesUI = {
         const paymentDate = document.getElementById('debtPaymentDate').value;
         
         if (!actualAmt || isNaN(actualAmt) || !paymentDate) {
-          alertWithHaptic('Please provide a valid amount and date.');
+          notificationUI.warning('Please provide a valid amount and date.');
           return;
         }
 
@@ -1017,7 +1011,7 @@ export const expensesUI = {
           window.dispatchEvent(new CustomEvent('app:refresh'));
         } catch (err) {
           console.error('Failed to record debt payment:', err);
-          alertWithHaptic('Error: ' + err.message);
+          notificationUI.error('Error: ' + err.message);
         }
       };
     }

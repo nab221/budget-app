@@ -13,7 +13,7 @@ import {
 import { getFileSyncState, openSelectFileDialog, disconnectFileSyncFile } from './file-sync.js';
 import { importBackupData } from '../db/backup.js';
 import { templateUI } from './templates.js';
-import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
+import { triggerHaptic } from '../utils/haptics.js';
 import { notificationUI } from './notifications.js';
 import { db } from '../db/schema.js';
 
@@ -24,6 +24,8 @@ const CLOUD_IS_DIRTY_KEY = 'budget_cloud_is_dirty';
 const CLOUD_LAST_ERROR_KEY = 'budget_cloud_last_error';
 const CLOUD_LAST_ERROR_TIME_KEY = 'budget_cloud_last_error_time';
 const CLOUD_LAST_ERROR_CODE_KEY = 'budget_cloud_last_error_code';
+const CLOUD_LAST_PREVIEWED_SNAPSHOT_KEY = 'budget_cloud_last_previewed_snapshot';
+const CLOUD_SYNC_DIAGNOSTICS_KEY = 'budget_cloud_sync_diagnostics';
 const NO_CLOUD_SNAPSHOT_MESSAGE = 'No cloud snapshot found';
 
 export const cloudSyncUI = {
@@ -41,6 +43,36 @@ export const cloudSyncUI = {
   _lastAutoPullSessionUserId: null,
   _autoPullTriggered: false,
   _visibilityChangeHandler: null,
+
+  _isDiagnosticsEnabled() {
+    try {
+      return import.meta.env.DEV || localStorage.getItem(CLOUD_SYNC_DIAGNOSTICS_KEY) === 'true';
+    } catch {
+      return !!import.meta.env.DEV;
+    }
+  },
+
+  _logDiagnostics(context, extra = {}) {
+    if (!this._isDiagnosticsEnabled()) return;
+
+    const dot = document.getElementById('syncStatusDot');
+    const timeEl = document.getElementById('lastSyncedTime');
+    const payload = {
+      context,
+      isDirtyMemory: this._isDirty,
+      isDirtyPersisted: localStorage.getItem(CLOUD_IS_DIRTY_KEY),
+      syncInProgress: this._syncInProgress,
+      mutationsDuringSync: this._mutationsDuringSync,
+      lastSync: localStorage.getItem(CLOUD_LAST_SYNC_KEY),
+      lastPreviewedSnapshot: localStorage.getItem(CLOUD_LAST_PREVIEWED_SNAPSHOT_KEY),
+      dotBackground: dot?.style?.background || null,
+      dotAnimation: dot?.style?.animation || null,
+      dotTitle: dot?.getAttribute?.('title') || null,
+      timestampText: timeEl?.textContent || null,
+      ...extra,
+    };
+    console.info('[cloudSyncUI][diag]', payload);
+  },
 
   /**
    * Initialise cloud sync UI.
@@ -66,6 +98,14 @@ export const cloudSyncUI = {
     await this._refreshSection();
     await this._runAutoPullCheckOnLoad();
 
+    if (this._isDiagnosticsEnabled()) {
+      window.__cloudSyncDebug = () => this._logDiagnostics('manual:window.__cloudSyncDebug()');
+      window.__setCloudSyncDiagnostics = (enabled) => {
+        localStorage.setItem(CLOUD_SYNC_DIAGNOSTICS_KEY, enabled ? 'true' : 'false');
+        this._logDiagnostics('manual:window.__setCloudSyncDiagnostics', { enabled });
+      };
+    }
+
     if (isConfigured()) {
       document.getElementById('cloudSyncSection')?.classList.remove('hidden');
     }
@@ -85,6 +125,10 @@ export const cloudSyncUI = {
 
       const cloudUpdatedAtMs = Date.parse(latestMeta.updated_at);
       if (!Number.isFinite(cloudUpdatedAtMs)) return;
+
+      const lastPreviewedRaw = localStorage.getItem(CLOUD_LAST_PREVIEWED_SNAPSHOT_KEY);
+      const lastPreviewedMs = Number.parseInt(lastPreviewedRaw ?? '0', 10);
+      if (Number.isFinite(lastPreviewedMs) && lastPreviewedMs >= cloudUpdatedAtMs) return;
 
       const localLastSyncRaw = localStorage.getItem(CLOUD_LAST_SYNC_KEY);
       const localLastSyncMs = Number.parseInt(localLastSyncRaw ?? '0', 10);
@@ -153,6 +197,26 @@ export const cloudSyncUI = {
     this._lastAutoPullSessionUserId = userId;
 
     try {
+      const latestMeta = await getLatestSnapshotMeta();
+      if (!latestMeta?.updated_at) return;
+
+      const cloudUpdatedAtMs = Date.parse(latestMeta.updated_at);
+      if (!Number.isFinite(cloudUpdatedAtMs)) return;
+
+      const lastPreviewedRaw = localStorage.getItem(CLOUD_LAST_PREVIEWED_SNAPSHOT_KEY);
+      const lastPreviewedMs = Number.parseInt(lastPreviewedRaw ?? '0', 10);
+      if (Number.isFinite(lastPreviewedMs) && lastPreviewedMs >= cloudUpdatedAtMs) {
+        return;
+      }
+
+      const localLastSyncRaw = localStorage.getItem(CLOUD_LAST_SYNC_KEY);
+      const localLastSyncMs = Number.parseInt(localLastSyncRaw ?? '0', 10);
+      const hasValidLocalSync = Number.isFinite(localLastSyncMs) && localLastSyncMs > 0;
+
+      if (hasValidLocalSync && cloudUpdatedAtMs <= localLastSyncMs) {
+        return;
+      }
+
       this._autoPullTriggered = true;
       const err = await this._executePullSync();
       if (err && err?.message !== 'No cloud snapshot found') {
@@ -232,7 +296,7 @@ export const cloudSyncUI = {
       });
 
       headerActionsEl.querySelector('#headerLocalMenuBtn')?.addEventListener('click', async () => {
-        await this._showLocalModal();
+        await this._executeSmartLocalAction();
         triggerHaptic('tap');
       });
 
@@ -263,15 +327,30 @@ export const cloudSyncUI = {
       const localBtn = headerActionsEl.querySelector('#headerLocalMenuBtn');
 
       if (menuBtn) {
-        menuBtn.onclick = async () => {
-          await this._showSyncMenuModal();
+        const runSmartSync = async (isRetry = false) => {
+          const { action, err } = await this._executeSmartSync({ button: menuBtn });
+          if (!err) return;
+
+          const prefix = isRetry ? 'Retry failed: ' : 'Sync failed: ';
+          const message = `${prefix}${err.message}`;
+          notificationUI.error(message);
+
+          if (action === 'pull') {
+            this._showPullErrorNotification(message, () => runSmartSync(true));
+          } else {
+            this._showPushErrorNotification(message, () => runSmartSync(true));
+          }
+        };
+
+        menuBtn.onclick = () => {
+          void runSmartSync(false);
           triggerHaptic('tap');
         };
       }
 
       if (localBtn) {
         localBtn.onclick = async () => {
-          await this._showLocalModal();
+          await this._executeSmartLocalAction();
           triggerHaptic('tap');
         };
       }
@@ -303,7 +382,7 @@ export const cloudSyncUI = {
     const localBtn = headerActionsEl.querySelector('#headerLocalMenuBtn');
     if (localBtn) {
       localBtn.onclick = async () => {
-        await this._showLocalModal();
+        await this._executeSmartLocalAction();
         triggerHaptic('tap');
       };
     }
@@ -323,6 +402,94 @@ export const cloudSyncUI = {
     document.getElementById('settingsCloudConfigureBtn')?.addEventListener('click', async () => {
       await this._showCloudConfigModal();
       triggerHaptic('tap');
+    });
+
+    this._renderLocalSettingsActions(actionsEl);
+  },
+
+  async _executeSmartLocalAction() {
+    const { fileName } = getFileSyncState();
+
+    if (!fileName) {
+      openSelectFileDialog();
+      return;
+    }
+
+    const settingsTab = document.querySelector('#mainTabs .tab[data-tab="settings"]');
+    settingsTab?.click();
+
+    try {
+      document.getElementById('cloudSyncSection')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+    } catch {
+      document.getElementById('cloudSyncSection')?.scrollIntoView?.();
+    }
+
+    notificationUI.info('Local sync options are in Settings', [], 1800);
+  },
+
+  _renderLocalSettingsActions(actionsEl) {
+    const { fileName, status, statusText } = getFileSyncState();
+    const escHtml = (s) => String(s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    let statusDotColor = '#6b7280';
+    let statusLabel = 'No file connected';
+
+    if (fileName) {
+      if (status === 'error') {
+        statusDotColor = '#ef4444';
+        statusLabel = statusText || 'Error';
+      } else if (status === 'pending') {
+        statusDotColor = '#eab308';
+        statusLabel = 'Saving…';
+      } else {
+        statusDotColor = '#22c55e';
+        statusLabel = 'Auto-saving';
+      }
+    }
+
+    const fileInfo = fileName
+      ? `<p style="font-size:.85rem;margin:4px 0 8px"><strong>${escHtml(fileName)}</strong></p>
+         <p style="font-size:.8rem;color:var(--text-soft);margin:0 0 10px">
+           <span style="display:inline-block;width:0.55em;height:0.55em;border-radius:50%;vertical-align:middle;margin-right:4px;background:${statusDotColor}"></span>${escHtml(statusLabel)}
+         </p>`
+      : `<p style="font-size:.85rem;color:var(--text-soft);margin:4px 0 10px">No budget file connected. Select a file to enable automatic saving.</p>`;
+
+    const fileButtons = fileName
+      ? `<button id="settingsLocalChangeFileBtn" class="ghost">Change File</button>
+         <button id="settingsLocalDisconnectBtn" class="ghost">Disconnect</button>`
+      : `<button id="settingsLocalSelectFileBtn" class="ghost">Select Budget File</button>`;
+
+    actionsEl.insertAdjacentHTML('beforeend', `
+      <div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-top:12px">
+        <p style="margin:0 0 6px;font-size:.75rem;font-weight:600;color:var(--text-soft);text-transform:uppercase;letter-spacing:.06em">📁 Local Sync</p>
+        ${fileInfo}
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">${fileButtons}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button id="settingsLocalExportBtn" class="ghost">Export Backup</button>
+          <button id="settingsLocalImportBtn" class="ghost">Import Backup</button>
+        </div>
+      </div>
+    `);
+
+    document.getElementById('settingsLocalExportBtn')?.addEventListener('click', () => {
+      document.getElementById('exportBtn')?.click();
+    });
+
+    document.getElementById('settingsLocalImportBtn')?.addEventListener('click', () => {
+      document.getElementById('importFile')?.click();
+    });
+
+    document.getElementById('settingsLocalSelectFileBtn')?.addEventListener('click', () => {
+      openSelectFileDialog();
+    });
+
+    document.getElementById('settingsLocalChangeFileBtn')?.addEventListener('click', () => {
+      openSelectFileDialog();
+    });
+
+    document.getElementById('settingsLocalDisconnectBtn')?.addEventListener('click', () => {
+      disconnectFileSyncFile();
     });
   },
 
@@ -426,13 +593,13 @@ export const cloudSyncUI = {
     const markDirty = () => {
       if (this._syncInProgress) {
         this._mutationsDuringSync = true;
+        this._logDiagnostics('dirty:mutation-during-sync');
         return;
       }
-      if (!this._isDirty) {
-        this._isDirty = true;
-        localStorage.setItem(CLOUD_IS_DIRTY_KEY, 'true');
-        this._updateStatusIndicator();
-      }
+      this._isDirty = true;
+      localStorage.setItem(CLOUD_IS_DIRTY_KEY, 'true');
+      this._updateStatusIndicator();
+      this._logDiagnostics('dirty:marked');
     };
 
     // Dexie 4 (dexie@4.0.11) doesn't provide db.on('mutated'); use per-table hooks instead.
@@ -447,6 +614,17 @@ export const cloudSyncUI = {
     } catch (err) {
       console.warn('[cloudSyncUI] Could not bind Dexie mutation hooks:', err.message);
     }
+
+    // Repository layer broadcasts db:mutated after writes.
+    // Listening here ensures dirty-state UX updates even when a write path
+    // does not trigger Dexie hooks in this module's lifecycle.
+    window.addEventListener('db:mutated', () => {
+      markDirty();
+      // Defensive refresh: if header was re-rendered by other UI flows,
+      // force sync indicator and timestamp to pick up the latest dirty state.
+      this._updateStatusIndicator();
+      this._logDiagnostics('event:db:mutated');
+    });
   },
 
   /**
@@ -553,20 +731,93 @@ export const cloudSyncUI = {
     notificationUI.error(message, actions);
   },
 
+  _setSyncButtonBusy(button, isBusy, busyLabel = null) {
+    if (!button) return;
+
+    if (isBusy) {
+      if (button.dataset.syncOriginalText === undefined) {
+        button.dataset.syncOriginalText = button.textContent || '';
+      }
+      if (button.dataset.syncWasDisabled === undefined) {
+        button.dataset.syncWasDisabled = button.disabled ? 'true' : 'false';
+      }
+      if (busyLabel) {
+        button.textContent = busyLabel;
+      }
+      button.disabled = true;
+      button.setAttribute('aria-busy', 'true');
+      button.classList.add('sync-action-busy');
+      return;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(button.dataset, 'syncOriginalText')) {
+      button.textContent = button.dataset.syncOriginalText;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(button.dataset, 'syncWasDisabled')) {
+      button.disabled = button.dataset.syncWasDisabled === 'true';
+    }
+    button.removeAttribute('aria-busy');
+    button.classList.remove('sync-action-busy');
+    delete button.dataset.syncOriginalText;
+    delete button.dataset.syncWasDisabled;
+  },
+
+  async _executeSmartSync({ button = null } = {}) {
+    const persistedDirty = localStorage.getItem(CLOUD_IS_DIRTY_KEY) === 'true';
+    const hasDirtyChanges = this._isDirty || persistedDirty;
+
+    if (hasDirtyChanges) {
+      const err = await this._executePushSync({ button, announceStart: true, successAlert: true });
+      return { action: 'push', err };
+    }
+
+    const localLastSyncMs = Number.parseInt(localStorage.getItem(CLOUD_LAST_SYNC_KEY) || '0', 10) || 0;
+    const lastPreviewedMs = Number.parseInt(localStorage.getItem(CLOUD_LAST_PREVIEWED_SNAPSHOT_KEY) || '0', 10) || 0;
+
+    let latestMeta = null;
+    try {
+      latestMeta = await getLatestSnapshotMeta();
+    } catch (err) {
+      if (!this._isNoCloudSnapshotError(err)) {
+        console.error('[cloudSyncUI] Smart sync metadata check failed:', err);
+        return { action: 'meta', err };
+      }
+    }
+
+    const cloudUpdatedAtMs = Date.parse(latestMeta?.updated_at || '') || 0;
+    if (!cloudUpdatedAtMs) {
+      if (!localLastSyncMs) {
+        const err = await this._executePushSync({ button, announceStart: true, successAlert: true });
+        return { action: 'push', err };
+      }
+      notificationUI.info('Already up to date', [], 1600);
+      return { action: 'noop', err: null };
+    }
+
+    const localGateMs = Math.max(localLastSyncMs, lastPreviewedMs);
+    if (cloudUpdatedAtMs > localGateMs) {
+      const err = await this._executePullSync({ button, announceStart: true });
+      return { action: 'pull', err };
+    }
+
+    notificationUI.info('Already up to date', [], 1600);
+    return { action: 'noop', err: null };
+  },
+
   async _executePushSync({ button = null, closeModal = false, announceStart = false, successAlert = false } = {}) {
-    const originalText = button?.textContent || 'Push to Cloud';
+    if (this._syncInProgress) {
+      return null;
+    }
 
     try {
       this._syncInProgress = true;
-      if (button) {
-        button.textContent = 'Pushing...';
-        button.disabled = true;
-      }
+      this._setSyncButtonBusy(button, true, 'Pushing...');
       if (closeModal) {
         templateUI.closeModal();
       }
       if (announceStart) {
-        alertWithHaptic('Pushing to cloud...');
+        notificationUI.info('Pushing to cloud…', [], 1500);
       }
 
       this._mutationsDuringSync = false;
@@ -577,12 +828,7 @@ export const cloudSyncUI = {
       this._clearErrorState();
       this._updateStatusIndicator();
 
-      if (successAlert) {
-        alertWithHaptic('Synced successfully!', 'success');
-      } else {
-        triggerHaptic('success');
-      }
-
+      triggerHaptic('success');
       notificationUI.success('Budget synced to cloud', [], 2000);
       await this._refreshSection();
       return null;
@@ -592,35 +838,28 @@ export const cloudSyncUI = {
       return err;
     } finally {
       this._syncInProgress = false;
-      if (button) {
-        button.textContent = originalText;
-        button.disabled = false;
-      }
+      this._setSyncButtonBusy(button, false);
     }
   },
 
-  async _executePullSync({ button = null, closeModal = false, announceStart = false, keepButtonDisabledOnSuccess = false } = {}) {
-    const originalText = button?.textContent || 'Pull from Cloud';
-    let restoreButton = true;
+  async _executePullSync({ button = null, closeModal = false, announceStart = false } = {}) {
+    if (this._syncInProgress) {
+      return null;
+    }
 
     try {
       this._syncInProgress = true;
-      if (button) {
-        button.textContent = 'Fetching...';
-        button.disabled = true;
-      }
+      this._setSyncButtonBusy(button, true, 'Fetching...');
       if (closeModal) {
         templateUI.closeModal();
       }
       if (announceStart) {
-        alertWithHaptic('Fetching from cloud...');
+        notificationUI.info('Fetching from cloud…', [], 1500);
       }
 
       await pullSnapshot();
       this._clearErrorState();
-      if (button && keepButtonDisabledOnSuccess) {
-        restoreButton = false;
-      }
+      await this._refreshSection();
       return null;
     } catch (err) {
       if (this._isNoCloudSnapshotError(err)) {
@@ -632,10 +871,7 @@ export const cloudSyncUI = {
       return err;
     } finally {
       this._syncInProgress = false;
-      if (button && restoreButton) {
-        button.textContent = originalText;
-        button.disabled = false;
-      }
+      this._setSyncButtonBusy(button, false);
     }
   },
 
@@ -647,6 +883,11 @@ export const cloudSyncUI = {
   _updateStatusIndicator() {
     const dot = document.getElementById('syncStatusDot');
     if (!dot) return;
+
+    const persistedDirty = localStorage.getItem(CLOUD_IS_DIRTY_KEY) === 'true';
+    if (persistedDirty && !this._syncInProgress) {
+      this._isDirty = true;
+    }
 
     let state = 'synced';
     let title = 'All changes saved to cloud';
@@ -674,6 +915,7 @@ export const cloudSyncUI = {
 
     dot.title = title;
     this._updateTimestampDisplay();
+    this._logDiagnostics('indicator:updated', { state, title });
   },
 
   /**
@@ -775,17 +1017,17 @@ export const cloudSyncUI = {
           onClick: async () => {
             const email = document.getElementById('signInEmailInput')?.value?.trim();
             if (!email) {
-              alertWithHaptic('Please enter your email address.');
+              notificationUI.warning('Please enter your email address.');
               return;
             }
             try {
               await signIn(email);
-              alertWithHaptic('Check your email for a sign-in link.', 'success');
+              notificationUI.success('Check your email for a sign-in link.');
               templateUI.closeModal();
               resolve();
             } catch (err) {
               console.error('[cloudSyncUI] Sign-in failed:', err);
-              alertWithHaptic('Sign-in failed: ' + err.message);
+              notificationUI.error('Sign-in failed: ' + err.message);
             }
           }
         },
@@ -844,11 +1086,11 @@ export const cloudSyncUI = {
               this._bindAuthListener();
               await this._refreshSection();
               document.getElementById('cloudSyncSection')?.classList.remove('hidden');
-              alertWithHaptic('Cloud config saved for this browser.', 'success');
+              notificationUI.success('Cloud config saved for this browser.');
               templateUI.closeModal();
               resolve();
             } catch (err) {
-              alertWithHaptic(err.message || 'Invalid Supabase configuration');
+              notificationUI.error(err.message || 'Invalid Supabase configuration');
             }
           }
         },
@@ -920,18 +1162,17 @@ export const cloudSyncUI = {
           const retryPush = async () => {
             const retryErr = await this._executePushSync({ announceStart: true, successAlert: true });
             if (retryErr) {
-              alertWithHaptic('Push failed: ' + retryErr.message);
+              notificationUI.error('Push failed: ' + retryErr.message);
               this._showPushErrorNotification(retryErr.message, retryPush);
             }
           };
 
           const err = await this._executePushSync({ closeModal: true, announceStart: true, successAlert: true });
           if (err) {
-            alertWithHaptic('Push failed: ' + err.message);
+            notificationUI.error('Push failed: ' + err.message);
             this._showPushErrorNotification(err.message, retryPush);
           }
         } finally {
-          this._syncInProgress = false;
           resolve();
         }
       });
@@ -941,18 +1182,17 @@ export const cloudSyncUI = {
           const retryPull = async () => {
             const retryErr = await this._executePullSync({ announceStart: true });
             if (retryErr) {
-              alertWithHaptic('Pull failed: ' + retryErr.message);
+              notificationUI.error('Pull failed: ' + retryErr.message);
               this._showPullErrorNotification(retryErr.message, retryPull);
             }
           };
 
           const err = await this._executePullSync({ closeModal: true, announceStart: true });
           if (err) {
-            alertWithHaptic('Pull failed: ' + err.message);
+            notificationUI.error('Pull failed: ' + err.message);
             this._showPullErrorNotification(err.message, retryPull);
           }
         } finally {
-          this._syncInProgress = false;
           resolve();
         }
       });
@@ -962,9 +1202,9 @@ export const cloudSyncUI = {
         try {
           const supabase = getSupabaseClient();
           await supabase?.auth.signOut();
-          alertWithHaptic('Signed out');
+          notificationUI.info('Signed out');
         } catch (err) {
-          alertWithHaptic('Sign out failed: ' + err.message);
+          notificationUI.error('Sign out failed: ' + err.message);
         }
         resolve();
       });
@@ -1006,7 +1246,7 @@ export const cloudSyncUI = {
         if (!err) return;
 
         const message = isRetry ? 'Retry failed: ' + err.message : err.message;
-        alertWithHaptic((isRetry ? 'Retry failed: ' : 'Push failed: ') + err.message);
+        notificationUI.error((isRetry ? 'Retry failed: ' : 'Push failed: ') + err.message);
         this._showPushErrorNotification(message, () => runPush(true));
       };
 
@@ -1016,16 +1256,18 @@ export const cloudSyncUI = {
     const pullBtn = document.getElementById('cloudPullBtn');
     if (pullBtn) {
       const runPull = async (isRetry = false) => {
-        const err = await this._executePullSync({ button: pullBtn, keepButtonDisabledOnSuccess: true });
+        const err = await this._executePullSync({ button: pullBtn });
         if (!err) return;
 
         const message = isRetry ? 'Retry failed: ' + err.message : err.message;
-        alertWithHaptic((isRetry ? 'Retry failed: ' : 'Pull failed: ') + err.message);
+        notificationUI.error((isRetry ? 'Retry failed: ' : 'Pull failed: ') + err.message);
         this._showPullErrorNotification(message, () => runPull(true));
       };
 
       pullBtn.onclick = () => runPull(false);
     }
+
+    this._renderLocalSettingsActions(actionsEl);
   },
 
   _renderSignedOut(statusEl, actionsEl) {
@@ -1044,6 +1286,8 @@ export const cloudSyncUI = {
         triggerHaptic('tap');
       };
     }
+
+    this._renderLocalSettingsActions(actionsEl);
   },
 
   /**
@@ -1074,7 +1318,7 @@ export const cloudSyncUI = {
         return;
       }
 
-      if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+      if (event === 'SIGNED_IN') {
         void this._runAutoPullAfterSignIn(session);
       }
     });
@@ -1127,35 +1371,40 @@ export const cloudSyncUI = {
         <button class="danger" id="confirmCloudImportBtn">Replace Local Data</button>
       `;
 
+      const previewedSnapshotMs = Date.parse(updated_at);
+      const recordPreviewedSnapshot = () => {
+        const value = Number.isFinite(previewedSnapshotMs) ? previewedSnapshotMs : Date.now();
+        localStorage.setItem(CLOUD_LAST_PREVIEWED_SNAPSHOT_KEY, String(value));
+      };
+
       templateUI.showModal('Cloud Snapshot Preview', body, footer);
 
       const restorePullBtn = () => {
         const settingsPullBtn = document.getElementById('cloudPullBtn');
-        if (settingsPullBtn) {
-          settingsPullBtn.textContent = 'Pull from Cloud';
-          settingsPullBtn.disabled = false;
-        }
-
+        this._setSyncButtonBusy(settingsPullBtn, false);
 
       };
 
       document.getElementById('cancelCloudImportBtn').onclick = () => {
+        recordPreviewedSnapshot();
         templateUI.closeModal();
         restorePullBtn();
       };
 
       document.getElementById('confirmCloudImportBtn').onclick = async () => {
+        recordPreviewedSnapshot();
         templateUI.closeModal();
         try {
           await importBackupData(tableData);
-          localStorage.setItem(CLOUD_LAST_SYNC_KEY, String(Date.now()));
+          const importedSnapshotMs = Date.parse(updated_at);
+          const lastSyncMs = Number.isFinite(importedSnapshotMs) ? importedSnapshotMs : Date.now();
+          localStorage.setItem(CLOUD_LAST_SYNC_KEY, String(lastSyncMs));
           notificationUI.success('Latest budget loaded from cloud', [], 2000);
           triggerHaptic('success');
-          alertWithHaptic('Import successful! The app will now reload.', 'success');
           window.location.reload();
         } catch (err) {
           console.error('[cloudSyncUI] Import failed:', err);
-          alertWithHaptic('Import failed: ' + err.message);
+          notificationUI.error('Import failed: ' + err.message);
           restorePullBtn();
         }
       };

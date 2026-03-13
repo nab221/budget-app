@@ -1,6 +1,7 @@
 import { targetRepository } from '../db/repository.js';
 import { toPence, fromPence } from '../utils/currency.js';
-import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
+import { triggerHaptic } from '../utils/haptics.js';
+import { notificationUI } from './notifications.js';
 
 /**
  * Targets UI Module
@@ -111,7 +112,7 @@ export const targetsUI = {
 
         } catch (error) {
           console.error(`Failed to save target for bucket '${bucketName}':`, error);
-          alertWithHaptic('Failed to save target: ' + error.message);
+          notificationUI.error('Failed to save target: ' + error.message);
         }
       };
 

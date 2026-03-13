@@ -2,8 +2,9 @@ import { checkFileSupport, HandleStore, ensurePersistence } from '../utils/stora
 import { SyncManager } from '../utils/sync-manager.js';
 import { db } from '../db/schema.js';
 import { importBackupData } from '../db/backup.js';
-import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
+import { triggerHaptic } from '../utils/haptics.js';
 import { OPFSStore } from '../utils/opfs-store.js';
+import { notificationUI } from './notifications.js';
 
 /** True when the session is using OPFS instead of File System Access API. */
 let _opfsMode = false;
@@ -39,7 +40,7 @@ export async function initFileSyncUI() {
           await refreshPersistenceWarning();
           await updateFileSyncToolbar();
         } else {
-          alertWithHaptic('Browser refused to enable persistence. Try adding the app to your Home Screen or Bookmarks first.');
+          notificationUI.warning('Browser refused to enable persistence. Try adding the app to your Home Screen or Bookmarks first.');
         }
       };
     }
@@ -245,7 +246,7 @@ function setupModalHandlers() {
       triggerHaptic('success');
       modal.classList.add('hidden');
     } catch (err) {
-      if (err.name !== 'AbortError') alertWithHaptic('Error opening file: ' + err.message);
+      if (err.name !== 'AbortError') notificationUI.error('Error opening file: ' + err.message);
     }
   };
 
@@ -262,7 +263,7 @@ function setupModalHandlers() {
       modal.classList.add('hidden');
       await updateFileSyncToolbar();
     } catch (err) {
-      if (err.name !== 'AbortError') alertWithHaptic('Error creating file: ' + err.message);
+      if (err.name !== 'AbortError') notificationUI.error('Error creating file: ' + err.message);
     }
   };
 }
@@ -281,7 +282,7 @@ async function loadFromData(data) {
     window.dispatchEvent(new CustomEvent('app:refresh'));
   } catch (err) {
     console.error('[loadFromData] Import failed:', err);
-    alertWithHaptic(`Failed to merge file data: ${err.message}`);
+    notificationUI.error(`Failed to merge file data: ${err.message}`);
   }
 }
 
@@ -297,7 +298,7 @@ async function loadFromFile(handle) {
     await updateFileSyncToolbar();
   } catch (err) {
     console.error('[FileSyncUI] Load failed:', err);
-    alertWithHaptic('Failed to load file: ' + err.message);
+    notificationUI.error('Failed to load file: ' + err.message);
   }
 }
 

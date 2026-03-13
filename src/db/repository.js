@@ -14,6 +14,11 @@ import { format, subMonths, parseISO } from 'date-fns';
 // ---------------------------------------------------------------------------
 const triggerSync = () => {
   if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem('budget_cloud_is_dirty', 'true');
+    } catch {
+      // Ignore storage access errors; event dispatch still propagates mutation.
+    }
     window.dispatchEvent(new CustomEvent('db:mutated'));
   }
 };

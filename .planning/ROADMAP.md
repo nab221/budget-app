@@ -52,11 +52,14 @@
 - **Task 25.3:** Create a global notification system for sync failures with a local export fallback.
 - **Verified:** 2026-03-12 via `.planning/phases/25-sync-visibility/25-VERIFICATION.md`.
 
-## Phase 26: Milestone v2.7 Verification & Polish
+## Phase 26: Milestone v2.7 Verification & Polish ⏳ MANUAL VERIFICATION PENDING
 **Goal:** End-to-end testing and performance audit.
 - **Task 26.1:** Comprehensive manual sync testing (Cross-device simulation).
 - **Task 26.2:** Unit tests for auto-pull comparison logic.
 - **Task 26.3:** Final UI polish (animations, loading states).
+- **Automated status:** Implemented on 2026-03-12. Focused cloud-sync tests, full suite, and production build passed.
+- **Manual status:** Cross-device protocol and evidence template created in `.planning/phases/26-milestone-v2.7-verification-polish/26-MANUAL-TESTS.md`; human verification evidence still pending.
+- **Verification:** `.planning/phases/26-milestone-v2.7-verification-polish/26-VERIFICATION.md`.
 
 ---
-*Last updated: 2026-03-12* (Phase 25 completed and documented)
+*Last updated: 2026-03-12* (Phase 26 implementation complete; manual verification pending)

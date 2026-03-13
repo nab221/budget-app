@@ -84,7 +84,6 @@ vi.mock('../db/schema.js', () => ({
 // Mock haptics to avoid import errors in jsdom
 vi.mock('../utils/haptics.js', () => ({
   triggerHaptic: vi.fn(),
-  alertWithHaptic: vi.fn(),
 }));
 
 // Mock charts.js — stub statement chart functions

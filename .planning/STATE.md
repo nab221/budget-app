@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v2.7
 milestone_name: Cloud-First Sync & UX Refinement
 status: in-progress
-stopped_at: "Completed Phase 25: Sync Visibility"
-last_updated: "2026-03-12T21:55:00.000Z"
-last_activity: "2026-03-12 — Phase 25 implemented, tested, and verified"
+stopped_at: "Phase 26 automated implementation complete; awaiting manual verification"
+last_updated: "2026-03-12T23:19:31.000Z"
+last_activity: "2026-03-12 — Phase 26 implemented, targeted/full tests passed, manual cross-device verification pending"
 progress:
   total_phases: 4
   completed_phases: 3
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 ## Current Position
 
 Phase: 26 of 26 (Milestone v2.7 Verification & Polish)
-Plan: Pending execution
-Status: In Progress
-Last activity: 2026-03-12 — Completed Phase 25 implementation and verification
+Plan: Automated implementation complete
+Status: Awaiting manual verification
+Last activity: 2026-03-12 — Implemented Phase 26 docs, tests, and UI polish; full regression green
 
 Progress: [||||||||--] 75%
 
@@ -45,6 +45,8 @@ Progress: [||||||||--] 75%
 - **Top Bar Strategy:** Local Export/Import will be hidden if Supabase is configured, replaced by Cloud Push/Pull icons in the header.
 - **Auto-Sync Trigger:** `visibilitychange` (hidden state) will be used to trigger background cloud pushes when the user leaves the app.
 - **Dirty State:** A "Dirty" flag will be tracked in memory/localStorage based on Dexie database activity to determine if a push is needed.
+- **Loading-State Contract:** Sync actions now expose a shared busy-state contract with disabled buttons, restored labels, and `aria-busy` while push/pull requests are in flight.
+- **Reduced Motion:** Sync-status pulse, busy affordances, and notification motion are disabled when the user prefers reduced motion.
 
 ### Roadmap Evolution
 - Added Phase 23: Cloud-First UX Overhaul
@@ -54,8 +56,9 @@ Progress: [||||||||--] 75%
 
 ### Pending Todos
 - Complete Phase 26 manual cross-device sync checks.
-- Add any final v2.7 polish items captured during verification.
-- Review runtime-config and sync UX together during milestone closeout.
+- Capture browser/account evidence in `.planning/phases/26-milestone-v2.7-verification-polish/26-VERIFICATION.md`.
+- Close out milestone v2.7 after manual verification is recorded.
 
 ### Blockers/Concerns
 - iOS Safari background task limitations (may need `beforeunload` or limited sync window).
+- Manual cross-device verification cannot be completed from the agent runtime and still requires a human-run two-browser pass.

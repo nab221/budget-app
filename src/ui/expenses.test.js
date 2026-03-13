@@ -8,6 +8,7 @@ vi.mock('./render.js', () => ({
     init: vi.fn(),
     show: vi.fn(),
     close: vi.fn(),
+    confirm: vi.fn().mockResolvedValue(false),
   },
   safeHTML: (strings, ...values) =>
     strings.reduce((acc, str, i) => acc + str + (values[i] !== undefined ? String(values[i]) : ''), ''),
@@ -52,7 +53,6 @@ vi.mock('../db/repository.js', () => ({
 // Mock haptics
 vi.mock('../utils/haptics.js', () => ({
   triggerHaptic: vi.fn(),
-  alertWithHaptic: vi.fn(),
 }));
 
 // Mock currency utils
@@ -68,6 +68,17 @@ vi.mock('./templates.js', () => ({
   templateUI: {
     render: vi.fn(),
     manualTrigger: vi.fn(async () => {}),
+  },
+}));
+
+// Mock notifications
+vi.mock('./notifications.js', () => ({
+  notificationUI: {
+    show: vi.fn(),
+    success: vi.fn(),
+    error: vi.fn(),
+    warning: vi.fn(),
+    info: vi.fn(),
   },
 }));
 
@@ -106,7 +117,8 @@ vi.mock('../utils/filtering.js', () => ({
 
 import { expensesUI } from './expenses.js';
 import { recurrentExpenseRepository, oneOffExpenseRepository } from '../db/repository.js';
-import { alertWithHaptic } from '../utils/haptics.js';
+import { notificationUI } from './notifications.js';
+import { modalUI } from './render.js';
 
 describe('expenses Phase-18 guards', () => {
   beforeEach(() => {
@@ -115,15 +127,20 @@ describe('expenses Phase-18 guards', () => {
     expensesUI.editingType = null;
     expensesUI.reconciliationMode = false;
 
-    // Set up window.app mock
-    window.app = { showTab: vi.fn() };
+    // Set up DOM mock for tab navigation
+    const mockDebtsTab = { click: vi.fn() };
+    vi.spyOn(document, 'querySelector').mockImplementation((sel) => {
+      if (sel === '#mainTabs .tab[data-tab="debts"]') return mockDebtsTab;
+      return null;
+    });
+    window._mockDebtsTab = mockDebtsTab;
 
     // Register window.deleteExpense (normally done in setupEventListeners)
     expensesUI.setupEventListeners();
   });
 
   describe('openForm — debt-linked guard', () => {
-    it('shows alert and returns early for a debt-linked recurrent expense', async () => {
+    it('shows info toast and returns early for a debt-linked recurrent expense', async () => {
       recurrentExpenseRepository.get.mockResolvedValueOnce({
         id: 99,
         label: 'Loan Payment',
@@ -132,13 +149,14 @@ describe('expenses Phase-18 guards', () => {
 
       await expensesUI.openForm(99, 'recurrent');
 
-      expect(alertWithHaptic).toHaveBeenCalledWith(
-        'This expense is linked to a debt account. Please edit it from the Debts tab.',
-        'info'
+      expect(notificationUI.info).toHaveBeenCalledWith(
+        'This expense is managed in Debts. Redirecting…',
+        [],
+        1800
       );
       expect(expensesUI.editingId).toBeNull();
       expect(expensesUI.editingType).toBeNull();
-      expect(window.app.showTab).toHaveBeenCalledWith('debts');
+      expect(window._mockDebtsTab.click).toHaveBeenCalled();
     });
 
     it('does NOT redirect for a non-debt recurrent expense', async () => {
@@ -157,15 +175,14 @@ describe('expenses Phase-18 guards', () => {
       });
       // categoryRepository returns empty — openForm will proceed past the guard
       // It will then try to render a modal, which may fail — we just confirm
-      // alertWithHaptic was NOT called
       try {
         await expensesUI.openForm(55, 'recurrent');
       } catch {
         // Ignore downstream DOM/modal errors — we only care about the guard
       }
 
-      expect(alertWithHaptic).not.toHaveBeenCalled();
-      expect(window.app.showTab).not.toHaveBeenCalled();
+      expect(notificationUI.info).not.toHaveBeenCalled();
+      expect(window._mockDebtsTab.click).not.toHaveBeenCalled();
     });
 
     it('does NOT redirect for a one-off expense (type !== recurrent)', async () => {
@@ -177,12 +194,12 @@ describe('expenses Phase-18 guards', () => {
 
       // recurrentExpenseRepository.get should NOT have been called for guard check
       // (guard only runs when type === 'recurrent')
-      expect(alertWithHaptic).not.toHaveBeenCalled();
+      expect(notificationUI.info).not.toHaveBeenCalled();
     });
   });
 
   describe('deleteExpense — debt-linked guard', () => {
-    it('shows alert and returns early for a debt-linked recurrent expense', async () => {
+    it('shows info toast and redirects for a debt-linked recurrent expense', async () => {
       recurrentExpenseRepository.get.mockResolvedValueOnce({
         id: 99,
         isDebtPayment: true,
@@ -191,14 +208,16 @@ describe('expenses Phase-18 guards', () => {
 
       await window.deleteExpense(99, 'recurrent');
 
-      expect(alertWithHaptic).toHaveBeenCalledWith(
-        'This expense is managed by the Debts tab. Delete the debt or its statement instead.',
-        'info'
+      expect(notificationUI.info).toHaveBeenCalledWith(
+        'This expense is managed in Debts. Redirecting…',
+        [],
+        1800
       );
+      expect(window._mockDebtsTab.click).toHaveBeenCalled();
       expect(recurrentExpenseRepository.delete).not.toHaveBeenCalled();
     });
 
-    it('shows alert and returns early for a debt-linked one-off expense', async () => {
+    it('shows info toast and redirects for a debt-linked one-off expense', async () => {
       oneOffExpenseRepository.get.mockResolvedValueOnce({
         id: 88,
         isDebtPayment: true,
@@ -207,10 +226,12 @@ describe('expenses Phase-18 guards', () => {
 
       await window.deleteExpense(88, 'oneoff');
 
-      expect(alertWithHaptic).toHaveBeenCalledWith(
-        'This expense is managed by the Debts tab. Delete the debt or its statement instead.',
-        'info'
+      expect(notificationUI.info).toHaveBeenCalledWith(
+        'This expense is managed in Debts. Redirecting…',
+        [],
+        1800
       );
+      expect(window._mockDebtsTab.click).toHaveBeenCalled();
       expect(oneOffExpenseRepository.delete).not.toHaveBeenCalled();
     });
 
@@ -222,15 +243,15 @@ describe('expenses Phase-18 guards', () => {
         isRecurring: false,
       });
 
-      // Mock confirmWithHaptic / confirm so deletion proceeds without UI
-      const origConfirm = window.confirm;
-      window.confirm = vi.fn(() => false); // user cancels — avoids actual delete
+      // Mock modalUI.confirm so deletion proceeds without UI
+      const origConfirm = modalUI.confirm;
+      modalUI.confirm = vi.fn().mockResolvedValue(false); // user cancels — avoids actual delete
 
       await window.deleteExpense(55, 'recurrent');
 
-      expect(alertWithHaptic).not.toHaveBeenCalled();
+      expect(notificationUI.info).not.toHaveBeenCalled();
 
-      window.confirm = origConfirm;
+      modalUI.confirm = origConfirm;
     });
   });
 });

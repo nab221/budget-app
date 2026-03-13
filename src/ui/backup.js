@@ -4,7 +4,8 @@ import { templateUI } from './templates.js'; // Reuse modal logic
 import { LAST_EXPORT_KEY } from './pwa-ux.js';
 import { importBackupData } from '../db/backup.js';
 import { SyncManager } from '../utils/sync-manager.js';
-import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
+import { triggerHaptic } from '../utils/haptics.js';
+import { notificationUI } from './notifications.js';
 import {
   BALANCE_START_DATE_KEY,
   BALANCE_OPENING_AMOUNT_KEY,
@@ -208,7 +209,7 @@ export const backupUI = {
       try {
         content = JSON.parse(e.target.result);
       } catch (err) {
-        alertWithHaptic('Invalid backup file format: Not a valid JSON file.');
+        notificationUI.error('Invalid backup file format: Not a valid JSON file.');
         return;
       }
 
@@ -217,7 +218,7 @@ export const backupUI = {
         await promptImportMode(content);
       } catch (err) {
         console.error('Import prompt error:', err);
-        alertWithHaptic('An error occurred while preparing the import prompt.');
+        notificationUI.error('An error occurred while preparing the import prompt.');
       }
       // Reset input so the same file can be selected again
       event.target.value = '';
@@ -253,13 +254,13 @@ export const backupUI = {
     if (content.encrypted) {
       const password = document.getElementById('importPass').value;
       if (!password) {
-        alertWithHaptic('Password required for encrypted backup.');
+        notificationUI.warning('Password required for encrypted backup.');
         return;
       }
       try {
         data = await decryptData(content.data, password);
       } catch (err) {
-        alertWithHaptic('Decryption failed. Check your password.');
+        notificationUI.error('Decryption failed. Check your password.');
         return;
       }
     } else {
@@ -268,7 +269,7 @@ export const backupUI = {
 
     // Basic validation
     if (!data || typeof data !== 'object') {
-      alertWithHaptic('Invalid backup data.');
+      notificationUI.error('Invalid backup data.');
       return;
     }
 
@@ -280,11 +281,11 @@ export const backupUI = {
         restoreSettings: _pendingImportMode === 'overwrite'
       });
 
-      alertWithHaptic('Import successful! The app will now reload.', 'success');
+      notificationUI.success('Import successful! The app will now reload.');
       window.location.reload();
     } catch (err) {
       console.error('Import error:', err);
-      alertWithHaptic(`Failed to import data: ${err.message}`);
+      notificationUI.error(`Failed to import data: ${err.message}`);
     }
   },
 
@@ -304,7 +305,7 @@ export const backupUI = {
           }
         });
         localStorage.clear();
-        alertWithHaptic('All data has been cleared.', 'success');
+        notificationUI.success('All data has been cleared.');
         window.location.reload();
       }
     }
