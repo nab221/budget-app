@@ -155,6 +155,21 @@ export async function signIn(email) {
 }
 
 /**
+ * Starts Google OAuth sign-in.
+ * Throws on error.
+ */
+export async function signInWithGoogle() {
+  const supabase = _getClient();
+  if (!supabase) throw new Error('Supabase not configured');
+  const redirectTo = window.location.origin + window.location.pathname;
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo },
+  });
+  if (error) throw error;
+}
+
+/**
  * Reads all Dexie tables and upserts a single snapshot row to budget_snapshots.
  * One row per user — subsequent pushes overwrite the previous snapshot.
  * Stores the current DB schema version alongside the payload for forward-compat checks on pull.
