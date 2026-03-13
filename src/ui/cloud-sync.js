@@ -327,8 +327,23 @@ export const cloudSyncUI = {
       const localBtn = headerActionsEl.querySelector('#headerLocalMenuBtn');
 
       if (menuBtn) {
-        menuBtn.onclick = async () => {
-          await this._showSyncMenuModal();
+        const runSmartSync = async (isRetry = false) => {
+          const { action, err } = await this._executeSmartSync({ button: menuBtn });
+          if (!err) return;
+
+          const prefix = isRetry ? 'Retry failed: ' : 'Sync failed: ';
+          const message = `${prefix}${err.message}`;
+          alertWithHaptic(message);
+
+          if (action === 'pull') {
+            this._showPullErrorNotification(message, () => runSmartSync(true));
+          } else {
+            this._showPushErrorNotification(message, () => runSmartSync(true));
+          }
+        };
+
+        menuBtn.onclick = () => {
+          void runSmartSync(false);
           triggerHaptic('tap');
         };
       }
@@ -658,6 +673,48 @@ export const cloudSyncUI = {
     button.classList.remove('sync-action-busy');
     delete button.dataset.syncOriginalText;
     delete button.dataset.syncWasDisabled;
+  },
+
+  async _executeSmartSync({ button = null } = {}) {
+    const persistedDirty = localStorage.getItem(CLOUD_IS_DIRTY_KEY) === 'true';
+    const hasDirtyChanges = this._isDirty || persistedDirty;
+
+    if (hasDirtyChanges) {
+      const err = await this._executePushSync({ button, announceStart: true, successAlert: true });
+      return { action: 'push', err };
+    }
+
+    const localLastSyncMs = Number.parseInt(localStorage.getItem(CLOUD_LAST_SYNC_KEY) || '0', 10) || 0;
+    const lastPreviewedMs = Number.parseInt(localStorage.getItem(CLOUD_LAST_PREVIEWED_SNAPSHOT_KEY) || '0', 10) || 0;
+
+    let latestMeta = null;
+    try {
+      latestMeta = await getLatestSnapshotMeta();
+    } catch (err) {
+      if (!this._isNoCloudSnapshotError(err)) {
+        console.error('[cloudSyncUI] Smart sync metadata check failed:', err);
+        return { action: 'meta', err };
+      }
+    }
+
+    const cloudUpdatedAtMs = Date.parse(latestMeta?.updated_at || '') || 0;
+    if (!cloudUpdatedAtMs) {
+      if (!localLastSyncMs) {
+        const err = await this._executePushSync({ button, announceStart: true, successAlert: true });
+        return { action: 'push', err };
+      }
+      notificationUI.info('Already up to date', [], 1600);
+      return { action: 'noop', err: null };
+    }
+
+    const localGateMs = Math.max(localLastSyncMs, lastPreviewedMs);
+    if (cloudUpdatedAtMs > localGateMs) {
+      const err = await this._executePullSync({ button, announceStart: true });
+      return { action: 'pull', err };
+    }
+
+    notificationUI.info('Already up to date', [], 1600);
+    return { action: 'noop', err: null };
   },
 
   async _executePushSync({ button = null, closeModal = false, announceStart = false, successAlert = false } = {}) {

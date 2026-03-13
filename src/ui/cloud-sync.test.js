@@ -126,6 +126,67 @@ describe('cloud-sync header actions (Phase 23)', () => {
     expect(document.getElementById('headerLocalMenuBtn')).not.toBeNull();
   });
 
+  it('runs one-click smart sync as push when local changes are dirty', async () => {
+    cloudSyncUI._isDirty = true;
+    const pushSpy = vi.spyOn(cloudSyncUI, '_executePushSync').mockResolvedValue(null);
+    const pullSpy = vi.spyOn(cloudSyncUI, '_executePullSync').mockResolvedValue(null);
+
+    cloudSyncUI._renderHeaderActions({ user: { email: 'user@example.com' } });
+    document.getElementById('headerSyncMenuBtn')?.click();
+    await Promise.resolve();
+
+    expect(pushSpy).toHaveBeenCalledTimes(1);
+    expect(pullSpy).not.toHaveBeenCalled();
+    pushSpy.mockRestore();
+    pullSpy.mockRestore();
+  });
+
+  it('runs one-click smart sync as pull when cloud snapshot is newer', async () => {
+    cloudSyncUI._isDirty = false;
+    localStorage.setItem('budget_cloud_is_dirty', 'false');
+    localStorage.setItem('budget_cloud_last_sync', String(Date.now() - 60_000));
+    vi.mocked(supabaseSync.getLatestSnapshotMeta).mockResolvedValue({
+      updated_at: new Date(Date.now()).toISOString(),
+      schema_version: 1,
+    });
+    const pushSpy = vi.spyOn(cloudSyncUI, '_executePushSync').mockResolvedValue(null);
+    const pullSpy = vi.spyOn(cloudSyncUI, '_executePullSync').mockResolvedValue(null);
+
+    cloudSyncUI._renderHeaderActions({ user: { email: 'user@example.com' } });
+    document.getElementById('headerSyncMenuBtn')?.click();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(pullSpy).toHaveBeenCalledTimes(1);
+    expect(pushSpy).not.toHaveBeenCalled();
+    pushSpy.mockRestore();
+    pullSpy.mockRestore();
+  });
+
+  it('runs one-click smart sync as no-op when already up to date', async () => {
+    cloudSyncUI._isDirty = false;
+    localStorage.setItem('budget_cloud_is_dirty', 'false');
+    const now = Date.now();
+    localStorage.setItem('budget_cloud_last_sync', String(now));
+    vi.mocked(supabaseSync.getLatestSnapshotMeta).mockResolvedValue({
+      updated_at: new Date(now - 5000).toISOString(),
+      schema_version: 1,
+    });
+    const pushSpy = vi.spyOn(cloudSyncUI, '_executePushSync').mockResolvedValue(null);
+    const pullSpy = vi.spyOn(cloudSyncUI, '_executePullSync').mockResolvedValue(null);
+
+    cloudSyncUI._renderHeaderActions({ user: { email: 'user@example.com' } });
+    document.getElementById('headerSyncMenuBtn')?.click();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(pushSpy).not.toHaveBeenCalled();
+    expect(pullSpy).not.toHaveBeenCalled();
+    expect(notificationUI.info).toHaveBeenCalledWith('Already up to date', [], 1600);
+    pushSpy.mockRestore();
+    pullSpy.mockRestore();
+  });
+
   it('shows configure cloud action and hides legacy local import/export when cloud is not configured', () => {
     configured = false;
     cloudSyncUI._renderHeaderActions(null);
