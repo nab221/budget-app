@@ -330,6 +330,21 @@ describe('cloud-sync intelligent sync logic (Phase 24)', () => {
     expect(supabaseSync.pullSnapshot).toHaveBeenCalledTimes(1);
   });
 
+  it('does not auto-pull again for a snapshot already previewed', async () => {
+    const snapshotMs = Date.now();
+    localStorage.setItem('budget_cloud_last_previewed_snapshot', String(snapshotMs));
+
+    vi.mocked(supabaseSync.getSession).mockResolvedValue({ user: { id: 'u1' } });
+    vi.mocked(supabaseSync.getLatestSnapshotMeta).mockResolvedValue({
+      updated_at: new Date(snapshotMs).toISOString(),
+      schema_version: 1,
+    });
+
+    await cloudSyncUI._runAutoPullCheckOnLoad();
+
+    expect(supabaseSync.pullSnapshot).not.toHaveBeenCalled();
+  });
+
   it('marks sync state dirty from db:mutated events', () => {
     cloudSyncUI._initDirtyStateTracking();
     cloudSyncUI._isDirty = false;

@@ -24,6 +24,7 @@ const CLOUD_IS_DIRTY_KEY = 'budget_cloud_is_dirty';
 const CLOUD_LAST_ERROR_KEY = 'budget_cloud_last_error';
 const CLOUD_LAST_ERROR_TIME_KEY = 'budget_cloud_last_error_time';
 const CLOUD_LAST_ERROR_CODE_KEY = 'budget_cloud_last_error_code';
+const CLOUD_LAST_PREVIEWED_SNAPSHOT_KEY = 'budget_cloud_last_previewed_snapshot';
 const NO_CLOUD_SNAPSHOT_MESSAGE = 'No cloud snapshot found';
 
 export const cloudSyncUI = {
@@ -85,6 +86,10 @@ export const cloudSyncUI = {
 
       const cloudUpdatedAtMs = Date.parse(latestMeta.updated_at);
       if (!Number.isFinite(cloudUpdatedAtMs)) return;
+
+      const lastPreviewedRaw = localStorage.getItem(CLOUD_LAST_PREVIEWED_SNAPSHOT_KEY);
+      const lastPreviewedMs = Number.parseInt(lastPreviewedRaw ?? '0', 10);
+      if (Number.isFinite(lastPreviewedMs) && lastPreviewedMs >= cloudUpdatedAtMs) return;
 
       const localLastSyncRaw = localStorage.getItem(CLOUD_LAST_SYNC_KEY);
       const localLastSyncMs = Number.parseInt(localLastSyncRaw ?? '0', 10);
@@ -158,6 +163,12 @@ export const cloudSyncUI = {
 
       const cloudUpdatedAtMs = Date.parse(latestMeta.updated_at);
       if (!Number.isFinite(cloudUpdatedAtMs)) return;
+
+      const lastPreviewedRaw = localStorage.getItem(CLOUD_LAST_PREVIEWED_SNAPSHOT_KEY);
+      const lastPreviewedMs = Number.parseInt(lastPreviewedRaw ?? '0', 10);
+      if (Number.isFinite(lastPreviewedMs) && lastPreviewedMs >= cloudUpdatedAtMs) {
+        return;
+      }
 
       const localLastSyncRaw = localStorage.getItem(CLOUD_LAST_SYNC_KEY);
       const localLastSyncMs = Number.parseInt(localLastSyncRaw ?? '0', 10);
@@ -1163,6 +1174,12 @@ export const cloudSyncUI = {
         <button class="danger" id="confirmCloudImportBtn">Replace Local Data</button>
       `;
 
+      const previewedSnapshotMs = Date.parse(updated_at);
+      const recordPreviewedSnapshot = () => {
+        const value = Number.isFinite(previewedSnapshotMs) ? previewedSnapshotMs : Date.now();
+        localStorage.setItem(CLOUD_LAST_PREVIEWED_SNAPSHOT_KEY, String(value));
+      };
+
       templateUI.showModal('Cloud Snapshot Preview', body, footer);
 
       const restorePullBtn = () => {
@@ -1172,11 +1189,13 @@ export const cloudSyncUI = {
       };
 
       document.getElementById('cancelCloudImportBtn').onclick = () => {
+        recordPreviewedSnapshot();
         templateUI.closeModal();
         restorePullBtn();
       };
 
       document.getElementById('confirmCloudImportBtn').onclick = async () => {
+        recordPreviewedSnapshot();
         templateUI.closeModal();
         try {
           await importBackupData(tableData);
