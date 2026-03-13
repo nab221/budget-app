@@ -17,6 +17,7 @@ import { nextWorkingDay } from '../utils/cashflow.js';
 import { generateInstances } from '../utils/recurrence.js';
 import { generateUUID } from '../utils/security.js';
 import { triggerHaptic, alertWithHaptic } from '../utils/haptics.js';
+import { notificationUI } from './notifications.js';
 import { SwipeHandler } from '../utils/gestures.js';
 import { renderSpendingHeatmap } from './heatmap.js';
 
@@ -320,10 +321,7 @@ export const expensesUI = {
     if (this.editingId && this.editingType === 'recurrent') {
       const item = await recurrentExpenseRepository.get(this.editingId);
       if (item && item.isDebtPayment) {
-        alertWithHaptic(
-          'This expense is linked to a debt account. Please edit it from the Debts tab.',
-          'info'
-        );
+        notificationUI.info('This expense is managed in Debts. Redirecting…', [], 1800);
         this.editingId = null;
         this.editingType = null;
         if (window.app && window.app.showTab) {

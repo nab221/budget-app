@@ -71,6 +71,17 @@ vi.mock('./templates.js', () => ({
   },
 }));
 
+// Mock notifications
+vi.mock('./notifications.js', () => ({
+  notificationUI: {
+    show: vi.fn(),
+    success: vi.fn(),
+    error: vi.fn(),
+    warning: vi.fn(),
+    info: vi.fn(),
+  },
+}));
+
 // Mock cashflow utils
 vi.mock('../utils/cashflow.js', () => ({
   nextWorkingDay: vi.fn((d) => d),
@@ -107,6 +118,7 @@ vi.mock('../utils/filtering.js', () => ({
 import { expensesUI } from './expenses.js';
 import { recurrentExpenseRepository, oneOffExpenseRepository } from '../db/repository.js';
 import { alertWithHaptic } from '../utils/haptics.js';
+import { notificationUI } from './notifications.js';
 
 describe('expenses Phase-18 guards', () => {
   beforeEach(() => {
@@ -123,7 +135,7 @@ describe('expenses Phase-18 guards', () => {
   });
 
   describe('openForm — debt-linked guard', () => {
-    it('shows alert and returns early for a debt-linked recurrent expense', async () => {
+    it('shows info toast and returns early for a debt-linked recurrent expense', async () => {
       recurrentExpenseRepository.get.mockResolvedValueOnce({
         id: 99,
         label: 'Loan Payment',
@@ -132,9 +144,10 @@ describe('expenses Phase-18 guards', () => {
 
       await expensesUI.openForm(99, 'recurrent');
 
-      expect(alertWithHaptic).toHaveBeenCalledWith(
-        'This expense is linked to a debt account. Please edit it from the Debts tab.',
-        'info'
+      expect(notificationUI.info).toHaveBeenCalledWith(
+        'This expense is managed in Debts. Redirecting…',
+        [],
+        1800
       );
       expect(expensesUI.editingId).toBeNull();
       expect(expensesUI.editingType).toBeNull();
