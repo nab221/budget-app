@@ -442,11 +442,9 @@ export const cloudSyncUI = {
         this._mutationsDuringSync = true;
         return;
       }
-      if (!this._isDirty) {
-        this._isDirty = true;
-        localStorage.setItem(CLOUD_IS_DIRTY_KEY, 'true');
-        this._updateStatusIndicator();
-      }
+      this._isDirty = true;
+      localStorage.setItem(CLOUD_IS_DIRTY_KEY, 'true');
+      this._updateStatusIndicator();
     };
 
     // Dexie 4 (dexie@4.0.11) doesn't provide db.on('mutated'); use per-table hooks instead.
