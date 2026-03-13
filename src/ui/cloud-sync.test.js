@@ -590,6 +590,24 @@ describe('cloud-sync sync visibility (Phase 25)', () => {
       expect(refreshSpy).toHaveBeenCalled();
       refreshSpy.mockRestore();
     });
+
+    it('skips push execution when another sync is already in progress', async () => {
+      cloudSyncUI._syncInProgress = true;
+
+      const err = await cloudSyncUI._executePushSync();
+
+      expect(err).toBeNull();
+      expect(supabaseSync.pushSnapshot).not.toHaveBeenCalled();
+    });
+
+    it('skips pull execution when another sync is already in progress', async () => {
+      cloudSyncUI._syncInProgress = true;
+
+      const err = await cloudSyncUI._executePullSync();
+
+      expect(err).toBeNull();
+      expect(supabaseSync.pullSnapshot).not.toHaveBeenCalled();
+    });
   });
 });
 

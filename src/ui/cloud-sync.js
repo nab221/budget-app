@@ -585,6 +585,10 @@ export const cloudSyncUI = {
   },
 
   async _executePushSync({ button = null, closeModal = false, announceStart = false, successAlert = false } = {}) {
+    if (this._syncInProgress) {
+      return null;
+    }
+
     try {
       this._syncInProgress = true;
       this._setSyncButtonBusy(button, true, 'Pushing...');
@@ -623,6 +627,10 @@ export const cloudSyncUI = {
   },
 
   async _executePullSync({ button = null, closeModal = false, announceStart = false } = {}) {
+    if (this._syncInProgress) {
+      return null;
+    }
+
     try {
       this._syncInProgress = true;
       this._setSyncButtonBusy(button, true, 'Fetching...');
