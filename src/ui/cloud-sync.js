@@ -98,15 +98,12 @@ export const cloudSyncUI = {
     await this._refreshSection();
     await this._runAutoPullCheckOnLoad();
 
-    this._logDiagnostics('init:complete');
-
     if (this._isDiagnosticsEnabled()) {
       window.__cloudSyncDebug = () => this._logDiagnostics('manual:window.__cloudSyncDebug()');
       window.__setCloudSyncDiagnostics = (enabled) => {
         localStorage.setItem(CLOUD_SYNC_DIAGNOSTICS_KEY, enabled ? 'true' : 'false');
         this._logDiagnostics('manual:window.__setCloudSyncDiagnostics', { enabled });
       };
-      console.info('[cloudSyncUI][diag] Helpers: window.__cloudSyncDebug(), window.__setCloudSyncDiagnostics(true|false)');
     }
 
     if (isConfigured()) {
