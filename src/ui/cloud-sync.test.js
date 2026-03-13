@@ -31,6 +31,7 @@ vi.mock('../utils/supabase-sync.js', () => ({
   getSession: mockGetSession,
   getLatestSnapshotMeta: vi.fn(),
   signIn: vi.fn(),
+  signInWithGoogle: vi.fn(),
   pushSnapshot: vi.fn(),
   pullSnapshot: vi.fn(),
   CLOUD_LAST_SYNC_KEY: 'budget_cloud_last_sync',

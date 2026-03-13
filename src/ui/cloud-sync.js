@@ -5,6 +5,7 @@ import {
   saveRuntimeConfig,
   getSession,
   signIn,
+  signInWithGoogle,
   pushSnapshot,
   pullSnapshot,
   getLatestSnapshotMeta,
@@ -1013,6 +1014,20 @@ export const cloudSyncUI = {
       `;
 
       const footer = [
+        {
+          label: 'Continue with Google',
+          className: 'ghost',
+          onClick: async () => {
+            try {
+              await signInWithGoogle();
+              templateUI.closeModal();
+              resolve();
+            } catch (err) {
+              console.error('[cloudSyncUI] Google sign-in failed:', err);
+              notificationUI.error('Google sign-in failed: ' + err.message);
+            }
+          }
+        },
         {
           label: 'Send Link',
           className: 'primary',
