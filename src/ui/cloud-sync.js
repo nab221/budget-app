@@ -333,9 +333,10 @@ export const cloudSyncUI = {
 
           const prefix = isRetry ? 'Retry failed: ' : 'Sync failed: ';
           const message = `${prefix}${err.message}`;
-          notificationUI.error(message);
 
           if (action === 'pull') {
+            this._showPullErrorNotification(message, () => runSmartSync(true));
+          } else if (action === 'meta') {
             this._showPullErrorNotification(message, () => runSmartSync(true));
           } else {
             this._showPushErrorNotification(message, () => runSmartSync(true));
@@ -781,6 +782,7 @@ export const cloudSyncUI = {
     } catch (err) {
       if (!this._isNoCloudSnapshotError(err)) {
         console.error('[cloudSyncUI] Smart sync metadata check failed:', err);
+        this._saveErrorState(err.message, err.code || 'META_ERROR');
         return { action: 'meta', err };
       }
     }
@@ -1162,14 +1164,12 @@ export const cloudSyncUI = {
           const retryPush = async () => {
             const retryErr = await this._executePushSync({ announceStart: true, successAlert: true });
             if (retryErr) {
-              notificationUI.error('Push failed: ' + retryErr.message);
               this._showPushErrorNotification(retryErr.message, retryPush);
             }
           };
 
           const err = await this._executePushSync({ closeModal: true, announceStart: true, successAlert: true });
           if (err) {
-            notificationUI.error('Push failed: ' + err.message);
             this._showPushErrorNotification(err.message, retryPush);
           }
         } finally {
@@ -1182,14 +1182,12 @@ export const cloudSyncUI = {
           const retryPull = async () => {
             const retryErr = await this._executePullSync({ announceStart: true });
             if (retryErr) {
-              notificationUI.error('Pull failed: ' + retryErr.message);
               this._showPullErrorNotification(retryErr.message, retryPull);
             }
           };
 
           const err = await this._executePullSync({ closeModal: true, announceStart: true });
           if (err) {
-            notificationUI.error('Pull failed: ' + err.message);
             this._showPullErrorNotification(err.message, retryPull);
           }
         } finally {
@@ -1246,7 +1244,6 @@ export const cloudSyncUI = {
         if (!err) return;
 
         const message = isRetry ? 'Retry failed: ' + err.message : err.message;
-        notificationUI.error((isRetry ? 'Retry failed: ' : 'Push failed: ') + err.message);
         this._showPushErrorNotification(message, () => runPush(true));
       };
 
@@ -1260,7 +1257,6 @@ export const cloudSyncUI = {
         if (!err) return;
 
         const message = isRetry ? 'Retry failed: ' + err.message : err.message;
-        notificationUI.error((isRetry ? 'Retry failed: ' : 'Pull failed: ') + err.message);
         this._showPullErrorNotification(message, () => runPull(true));
       };
 

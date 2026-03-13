@@ -1,20 +1,20 @@
 # Project: Budget App
 
 ## Current State
-- **Latest Version**: v2.7 (Cloud-First Sync & UX Refinement) — In Progress
-- **Status**: Milestone v2.7 implementation is complete through Phase 26, with manual cross-device sync verification still pending sign-off.
+- **Latest Version**: v2.7 (Cloud-First Sync & UX Refinement) — Shipped
+- **Status**: Milestone v2.7 implementation and verification complete, archived.
 - **Key Features**: Cloud-first header UX, modal-based cloud/local sync actions, startup cloud recency check, auto-push on exit, post-auth auto-pull, persistent sync error visibility, global sync notifications, expanded auto-pull edge-case coverage, standardized sync loading states with `aria-busy`, reduced-motion-safe sync polish, 354 passing tests.
 - **Codebase**: ~14,000 JS LOC | Vanilla JS + Dexie.js + Chart.js v4 + date-fns
 
-## Current Milestone: v2.7 (Cloud-First Sync & UX Refinement)
-**Goal:** Restructure the sync experience to prioritize Supabase cloud storage over local files, implement auto-sync on exit, and improve onboarding/auth flows.
+## Next Milestone Goals
+- TBD. Run `/gsd:new-milestone` to start next milestone.
 
 ---
 
 <details>
 <summary>Milestone History</summary>
 
-### v2.7: Cloud-First Sync & UX Refinement (In Progress)
+### v2.7: Cloud-First Sync & UX Refinement (Shipped 2026-03-12)
 - [x] UX: Replace local Export/Import in top bar with Cloud Sync (Push/Pull) if configured.
 - [x] Sync: Auto-pull prompt on app load if cloud data is newer.
 - [x] Sync: Auto-push on `visibilitychange` (switching away from app).
@@ -24,7 +24,7 @@
 - [x] Test: Cover auto-pull comparison edge cases, including missing and malformed local sync timestamps.
 - [x] UI: Standardize sync loading states and restore button semantics after completion.
 - [x] Accessibility: Disable sync and notification motion when reduced motion is preferred.
-- [ ] Manual verification: Complete cross-device sync evidence capture in `.planning/phases/26-milestone-v2.7-verification-polish/26-VERIFICATION.md`.
+- [x] Manual verification: Completed cross-device sync and error handling tests (.planning/phases/26-milestone-v2.7-verification-polish/26-VERIFICATION.md).
 
 ### v2.6: Dashboard Invariants & Technical Polish (2026-03-11)
 - Refactored Dashboard KPIs to be navigation-invariant (+30/+90 day projections).
@@ -38,3 +38,4 @@
 
 ---
 *Last updated: 2026-03-12*
+
