@@ -1,64 +1,90 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.7
-milestone_name: Cloud-First Sync & UX Refinement
-status: in-progress
-stopped_at: "Phase 26 automated implementation complete; awaiting manual verification"
-last_updated: "2026-03-12T23:19:31.000Z"
-last_activity: "2026-03-12 — Phase 26 implemented, targeted/full tests passed, manual cross-device verification pending"
+milestone: v3.0
+milestone_name: Budget Planning Core Redesign
+status: not-started
+stopped_at: "Roadmap designed. Phase 27 ready to begin."
+last_updated: "2026-03-14T13:00:00.000Z"
+last_activity: "2026-03-14 — v3.0 roadmap authored. All CONTEXT.md files created. Ready to start Phase 27."
 progress:
-  total_phases: 4
-  completed_phases: 3
-  total_plans: 4
-  completed_plans: 3
-  percent: 75
+  total_phases: 13
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 ## Project State: Budget App
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-11)
+See: PROJECT.md (updated 2026-03-14)
 
-**Core value:** A personal budget tracker that helps a UK household track income, expenses, debts, assets, and forecast cash flow — fully offline, PWA-ready, no server required.
-**Current focus:** v2.7 — Cloud-First Sync & UX Refinement
+**Core value:** A personal UK budget planner. Given the user's current account balance, answer: "How much can I safely pay extra toward my debts before my next payday?" Fully offline, PWA-ready, optional Supabase cloud sync.
+
+**Current focus:** v3.0 — Budget Planning Core Redesign
 
 ## Current Position
 
-Phase: 26 of 26 (Milestone v2.7 Verification & Polish)
-Plan: Automated implementation complete
-Status: Awaiting manual verification
-Last activity: 2026-03-12 — Implemented Phase 26 docs, tests, and UI polish; full regression green
+Phase: Not started (Phase 27 is next)
+Plan: Awaiting agent execution
+Status: Ready to begin
+Last activity: 2026-03-14 — Roadmap and all GSD planning files authored
 
-Progress: [||||||||--] 75%
+Progress: [----------] 0%
 
 ## Completed Milestones
 
+- v2.7 — Cloud-First Sync & UX Refinement (SHIPPED 2026-03-12)
 - v2.6 — Dashboard Invariants & Technical Polish (SHIPPED 2026-03-11)
 - v2.5 — Debt Tab UX Overhaul (SHIPPED 2026-03-08)
 - v2.4 — UX Polish & Spending Insights (SHIPPED 2026-03-07)
 - v2.3 — Advanced Analytics & Mobile Polish (SHIPPED 2026-03-07)
 
+## v3.0 Phase Register
+
+| # | Phase Name | Status |
+|---|-----------|--------|
+| 27 | Critical Bug Fixes & Cloud-Sync Hardening | pending |
+| 28 | Mobile Navigation Overhaul | pending |
+| 29 | Mobile Table & Interaction Fixes | pending |
+| 30 | Magic Link PWA / Auth Fix | pending |
+| 31 | Banking Calendar Utility & Recurrence Upgrade | pending |
+| 32 | Debt Model Refactor — Loans & Mortgage | pending |
+| 33 | Income & Spending Configuration | pending |
+| 34 | Pay-Period Affordability Engine | pending |
+| 35 | Childcare Top-Up Planner | pending |
+| 36 | Navigator & View Toggle Redesign | pending |
+| 37 | Cloud Snapshot Delta Preview | pending |
+| 38 | GitHub Actions Node.js 24 & Technical Hygiene | pending |
+| 39 | v3.0 Milestone Verification & Polish | pending |
+
 ## Accumulated Context
 
-### Decisions (v2.7)
-- **Top Bar Strategy:** Local Export/Import will be hidden if Supabase is configured, replaced by Cloud Push/Pull icons in the header.
-- **Auto-Sync Trigger:** `visibilitychange` (hidden state) will be used to trigger background cloud pushes when the user leaves the app.
-- **Dirty State:** A "Dirty" flag will be tracked in memory/localStorage based on Dexie database activity to determine if a push is needed.
-- **Loading-State Contract:** Sync actions now expose a shared busy-state contract with disabled buttons, restored labels, and `aria-busy` while push/pull requests are in flight.
-- **Reduced Motion:** Sync-status pulse, busy affordances, and notification motion are disabled when the user prefers reduced motion.
+### Architecture Decisions (Carried Forward from v2.7)
+- **Storage:** Dexie.js (IndexedDB) — all data local-first
+- **Cloud:** Supabase optional; `src/utils/supabase-sync.js` + `src/ui/cloud-sync.js`
+- **Build:** Vite; deploy via GitHub Actions → GitHub Pages
+- **Test:** Vitest; 354 tests passing as of v2.7
+- **State storage keys:** `BALANCE_START_DATE_KEY`, `BALANCE_OPENING_AMOUNT_KEY` in `src/utils/storage.js`
 
-### Roadmap Evolution
-- Added Phase 23: Cloud-First UX Overhaul
-- Added Phase 24: Intelligent Sync Logic (Auto-Pull & Auto-Push)
-- Added Phase 25: Sync Visibility (Dirty State & Error Handling)
-- Added Phase 26: Milestone v2.7 Verification & Polish
+### Architecture Decisions (v3.0 New)
+- **Banking calendar:** new `src/utils/banking-calendar.js` utility, GOV.UK bank holiday API + static fallback
+- **Affordability engine:** pure function in `src/utils/affordability.js` — no side effects, fully testable
+- **Income sources & spending buckets:** new DB stores (`incomeSources`, `spendingBuckets`) — schema version bump required
+- **Debt types:** `debtType` discriminator field (`'credit-card' | 'personal-loan' | 'mortgage'`) added to debts schema
 
-### Pending Todos
-- Complete Phase 26 manual cross-device sync checks.
-- Capture browser/account evidence in `.planning/phases/26-milestone-v2.7-verification-polish/26-VERIFICATION.md`.
-- Close out milestone v2.7 after manual verification is recorded.
+### Known Bugs Being Fixed in Phase 27
+- `cloud-sync.js`: event listener accumulation on re-render
+- `cloud-sync.js`: XSS risk in modal snapshot preview (table names not sanitised)
+- `cloud-sync.js`: missing init guard (duplicate auth listener registration)
+- `heatmap.js`: transactions from previous year cause cross-year canvas split
+- `css/main.css` (mobile): auto-save dot and local icon on separate lines in header
+
+### Pending Todos Before Phase 27
+- None — Phase 27 may begin immediately
 
 ### Blockers/Concerns
-- iOS Safari background task limitations (may need `beforeunload` or limited sync window).
-- Manual cross-device verification cannot be completed from the agent runtime and still requires a human-run two-browser pass.
+- Magic link PWA fix (Phase 30): likely requires device testing on iOS Safari and Android Chrome; cannot be verified from agent runtime
+- Banking holiday data (Phase 31): GOV.UK API must be fetched with a CORS-safe approach or pre-bundled
+- Phase 32 schema migration: `debtType` field addition requires Dexie version bump and migration step — must not break existing debt records
