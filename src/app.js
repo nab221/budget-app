@@ -32,6 +32,7 @@ import {
 } from './utils/storage.js';
 import { RecurrenceManager } from './utils/recurrence.js';
 import { triggerHaptic, initHaptics } from './utils/haptics.js';
+import { validateDataIntegrity } from './utils/data-integrity.js';
 
 export { BALANCE_START_DATE_KEY };
 
@@ -243,6 +244,19 @@ async function init() {
   ]);
 
   console.log('Budget App initialized successfully.');
+
+  // Phase 27: Non-blocking data integrity check after initial render
+  validateDataIntegrity().then(({ valid, issues }) => {
+    if (!valid) {
+      notificationUI.warning(
+        `⚠️ ${issues.length} data integrity issue${issues.length !== 1 ? 's' : ''} found.`,
+        [],
+        8000
+      );
+    }
+  }).catch(err => {
+    console.warn('[app] Data integrity check failed:', err);
+  });
 }
 
 // Start the application

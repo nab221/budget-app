@@ -17,6 +17,7 @@ import { templateUI } from './templates.js';
 import { triggerHaptic } from '../utils/haptics.js';
 import { notificationUI } from './notifications.js';
 import { db } from '../db/schema.js';
+import { validateDataIntegrity } from '../utils/data-integrity.js';
 
 // Phase 23.1: Constants for dirty-state tracking and timestamps
 const CLOUD_IS_DIRTY_KEY = 'budget_cloud_is_dirty';
@@ -864,6 +865,20 @@ export const cloudSyncUI = {
       await pullSnapshot();
       this._clearErrorState();
       await this._refreshSection();
+
+      // Phase 27: Run integrity check after successful cloud pull (non-blocking)
+      validateDataIntegrity().then(({ valid, issues }) => {
+        if (!valid) {
+          notificationUI.warning(
+            `⚠️ ${issues.length} data integrity issue${issues.length !== 1 ? 's' : ''} found after sync.`,
+            [],
+            8000
+          );
+        }
+      }).catch(err => {
+        console.warn('[cloudSyncUI] Post-pull integrity check failed:', err);
+      });
+
       return null;
     } catch (err) {
       if (this._isNoCloudSnapshotError(err)) {
