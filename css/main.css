@@ -55,7 +55,7 @@ body {
 .shell { max-width: 1200px; margin: 0 auto; padding: 14px; }
 
 /* ── HEADER ── */
-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; position: sticky; top: 0; z-index: 100; background: var(--bg); }
 header h1 { font-size: 1.5rem; display: flex; align-items: center; gap: 8px; }
 .pill { font-size: .65rem; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent-border); }
 .toolbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
