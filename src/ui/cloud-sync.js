@@ -1176,7 +1176,8 @@ export const cloudSyncUI = {
 
       templateUI.showModal('☁ Cloud', body, footer);
 
-      document.getElementById('_cloudPushBtn')?.addEventListener('click', async () => {
+      const pushBtnModal = document.getElementById('_cloudPushBtn');
+      if (pushBtnModal) pushBtnModal.onclick = async () => {
         try {
           const retryPush = async () => {
             const retryErr = await this._executePushSync({ announceStart: true, successAlert: true });
@@ -1192,9 +1193,10 @@ export const cloudSyncUI = {
         } finally {
           resolve();
         }
-      });
+      };
 
-      document.getElementById('_cloudPullBtn')?.addEventListener('click', async () => {
+      const pullBtnModal = document.getElementById('_cloudPullBtn');
+      if (pullBtnModal) pullBtnModal.onclick = async () => {
         try {
           const retryPull = async () => {
             const retryErr = await this._executePullSync({ announceStart: true });
@@ -1210,9 +1212,10 @@ export const cloudSyncUI = {
         } finally {
           resolve();
         }
-      });
+      };
 
-      document.getElementById('_cloudSignOutBtn')?.addEventListener('click', async () => {
+      const signOutBtnModal = document.getElementById('_cloudSignOutBtn');
+      if (signOutBtnModal) signOutBtnModal.onclick = async () => {
         templateUI.closeModal();
         try {
           const supabase = getSupabaseClient();
@@ -1222,7 +1225,7 @@ export const cloudSyncUI = {
           notificationUI.error('Sign out failed: ' + err.message);
         }
         resolve();
-      });
+      };
     });
   },
 
