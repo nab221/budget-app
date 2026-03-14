@@ -54,7 +54,7 @@ Support for exactly two income sources with:
 - Expected monthly amount
 - Expected pay date (e.g. "last working day of month", "25th", etc.)
 - Banking-calendar adjusted date displayed
-- Validation: when `payDateRule === 'nth-of-month'`, `payDateDay` must be present, integer, and in the range 1..28
+- Validation: when `payDateRule === 'nth-of-month'`, `payDateDay` must be present, integer, and in the range 1-28
 
 ---
 
@@ -103,7 +103,7 @@ Show the current entitlement period clearly on the childcare tab per account (al
 On mobile, the tab navigation must be fixed at the bottom of the screen at all times, regardless of scroll position. Tabs must show an icon and a label beneath it (like native iOS/Android bottom bars).
 - Must not disappear when the page is long (dashboard charts, transaction lists, etc.)
 - Tab bar height must be constant; page content must have sufficient bottom padding
-- Viewports below 360px switch to icons-only (maintaining 44×44px tap target). Between 360–420px, labels are truncated to a maximum of 6 characters with ellipsis. CSS mobile-first strategy: default full labels, `@media (max-width:420px)` truncation, `@media (max-width:360px)` icons-only.
+- Viewports below 360px switch to icons-only (maintaining 44×44px tap target). Between 360-420px, labels are truncated to a maximum of 6 characters with ellipsis. CSS mobile-first strategy: default full labels, `@media (max-width:420px)` truncation, `@media (max-width:360px)` icons-only.
 
 ### MOB-02 · Fixed Top Navigation / Pay-Period Bar (P0)
 On mobile, the pay-period navigator (PLAN-05) must be fixed at the top of the page below the header. The header itself should also remain fixed/sticky so the user always sees it.

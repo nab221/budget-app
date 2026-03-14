@@ -32,6 +32,12 @@ Missing:
 }
 ```
 
+Validation rules:
+- `daysOfWeek` is required, must be a non-empty array, and each value must be an integer in the range 0–6
+- `type` must match one of the documented enum values
+- `hourlyRate` and `weeklyHours`, if provided, must be positive numbers
+- If both `startDate` and `endDate` are set, `startDate <= endDate`
+
 ### Ledger Balance-Forward
 Each childcare account now maintains a running balance:
 - `currentBalance` = sum of all deposits − sum of all charges for the account
@@ -69,6 +75,8 @@ Dexie version bump required. Migration: no data migration needed for existing ac
 ## Acceptance Criteria
 - [ ] Multiple providers can be added to a childcare account
 - [ ] Provider fields (name, type, days of week, hourly rate, weekly hours, start/end date) are saved and displayed
+- [ ] Provider validation rejects `daysOfWeek` values outside 0–6 and rejects empty `daysOfWeek` arrays
+- [ ] Provider validation rejects invalid `type` values, rejects non-positive `hourlyRate` or `weeklyHours`, and rejects `endDate` earlier than `startDate`
 - [ ] Each account card shows current running balance (sum of deposits − charges)
 - [ ] Low balance warning badge shown when balance < `lowBalanceThreshold`
 - [ ] `lowBalanceThreshold` is user-configurable per account (default £50)
@@ -79,7 +87,8 @@ Dexie version bump required. Migration: no data migration needed for existing ac
 - [ ] New provider tests achieve ≥ 85% branch coverage
 
 ## Technical Notes
-- The `daysOfWeek` array should be validated to ensure values are 0–6
+- The `daysOfWeek` array should be validated to ensure values are 0–6 and that the array is not empty
 - `currentBalance` must be computed on-the-fly from the ledger, not stored, to avoid sync issues
 - The weekly spend view should use `date-fns` or the existing date utility for week boundary calculation
 - Provider CRUD follows the same pattern as existing `childcareAccounts` CRUD in `repository.js`
+- Validate `type`, `hourlyRate`, `weeklyHours`, and `startDate`/`endDate` consistently in both the repository and UI layers

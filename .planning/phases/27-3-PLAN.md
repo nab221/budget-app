@@ -206,7 +206,7 @@ export async function cleanOrphanedRecords(issues) {
 }
 ```
 
-Write this file verbatim. Do not hand-roll an alternative HTML escaper or date parser — use the exact pattern shown.
+Write this file verbatim.
   </action>
   <verify>node --input-type=module --eval "import('./src/utils/data-integrity.js').then(m => console.log(Object.keys(m)))" 2>&1 || echo "Module check complete"</verify>
   <acceptance_criteria>
@@ -453,7 +453,7 @@ import { validateDataIntegrity } from './utils/data-integrity.js';
 // Phase 27: Non-blocking data integrity check after initial render
 validateDataIntegrity().then(({ valid, issues }) => {
   if (!valid) {
-    notificationUI.warn(
+    notificationUI.warning(
       `⚠️ ${issues.length} data integrity issue${issues.length !== 1 ? 's' : ''} found.`,
       [],
       8000
@@ -464,7 +464,7 @@ validateDataIntegrity().then(({ valid, issues }) => {
 });
 ```
 
-This fires after the UI is already rendered — no blocking, no blank screen on startup. Uses `notificationUI` which is already imported in app.js (line 20). If `notificationUI.warn` does not exist on the notification module, use `notificationUI.info` as a fallback — read the actual export to confirm the method name before writing.
+This fires after the UI is already rendered — no blocking, no blank screen on startup. Use `notificationUI.warning(...)`, which matches the existing notifications API.
 
 **Part B: src/ui/cloud-sync.js — post-pull trigger**
 
@@ -480,7 +480,7 @@ await this._refreshSection();
 // Phase 27: Run integrity check after successful cloud pull (non-blocking)
 validateDataIntegrity().then(({ valid, issues }) => {
   if (!valid) {
-    notificationUI.warn(
+    notificationUI.warning(
       `⚠️ ${issues.length} data integrity issue${issues.length !== 1 ? 's' : ''} found after sync.`,
       [],
       8000
@@ -496,6 +496,7 @@ return null;
 Also add the import at the top of `src/ui/cloud-sync.js`, after the existing imports:
 ```js
 import { validateDataIntegrity } from '../utils/data-integrity.js';
+import { notificationUI } from './notifications.js';
 ```
 
 Do NOT add `await` before `validateDataIntegrity()` — it must be fire-and-forget so it does not block the pull completion path or delay the UI.

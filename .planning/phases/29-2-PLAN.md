@@ -80,7 +80,7 @@ Output: Updated `src/ui/expenses.js` with redesigned row template and debt-link 
 **Step 1 — Determine the debt-linkage field name (REQUIRED before writing any code):**
 
 Run these greps on the actual source files:
-```
+```bash
 grep -n "sourceDebtId\|debtId\|linkedDebtId\|sourceType\|debt" src/ui/expenses.js | head -30
 grep -n "sourceDebtId\|debtId\|linkedDebtId\|sourceType\|debt" src/db/repository.js | head -30
 ```
@@ -237,12 +237,12 @@ _initSwipe(tableBody) {
     if (isLinked) {
       // Debt-linked rows: tap navigates to Debts tab, no swipe actions
       row.style.cursor = 'pointer';
-      row.addEventListener('click', (e) => {
+      row.onclick = (e) => {
         // Prevent accidental navigation from swipe drag finishing as a tap
         e.stopPropagation();
         const debtsTabBtn = document.querySelector('[data-tab="debts"]');
         if (debtsTabBtn) debtsTabBtn.click();
-      });
+      };
       // Visually hide the swipe action divs for debt-linked rows
       const actionRight = row.querySelector('.swipe-action-right');
       const actionLeft  = row.querySelector('.swipe-action-left');
@@ -283,7 +283,7 @@ _initSwipe(tableBody) {
 }
 ```
 
-**Important:** If the existing `_initSwipe` in `expenses.js` already contains the non-debt swipe logic (the `else` branch above), do NOT replace it wholesale — instead, add the `if (isLinked) { ... }` block at the top of the `forEach` callback before the existing `SwipeHandler` constructor call, guarded by `if (isLinked) return;` after adding the click listener.
+**Important:** If the existing `_initSwipe` in `expenses.js` already contains the non-debt swipe logic (the `else` branch above), do NOT replace it wholesale — instead, add the `if (isLinked) { ... }` block at the top of the `forEach` callback before the existing `SwipeHandler` constructor call, guarded by `if (isLinked) return;` after assigning the click handler. Prefer `row.onclick = ...` or another idempotent pattern so repeated swipe initialization does not stack duplicate click bindings.
 
 **Add CSS for debt-linked rows** in `css/main.css` (append only):
 ```css
@@ -303,6 +303,7 @@ _initSwipe(tableBody) {
     - src/ui/expenses.js contains `document.querySelector('[data-tab="debts"]')` for navigation
     - src/ui/expenses.js debt-linked branch does NOT attach a SwipeHandler (SwipeHandler is only constructed for non-debt rows)
     - src/ui/expenses.js row template sets `data-debt-linked` attribute (from Task 1)
+    - Debt-linked navigation binding is idempotent and does not stack duplicate click handlers on re-render
     - css/main.css contains `.expense-row.debt-linked` rule (additive, no existing rules modified)
   </acceptance_criteria>
   <done>Tapping a debt-linked expense row navigates to the Debts tab; no swipe handler is attached; non-debt rows retain full swipe-to-reveal edit/delete behaviour.</done>

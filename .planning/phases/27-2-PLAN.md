@@ -4,7 +4,7 @@ plan: 02
 type: execute
 wave: 1
 depends_on: []
-files_modified: [src/ui/heatmap.js, src/ui/dashboard.js, css/main.css]
+files_modified: [src/ui/heatmap.js, src/ui/dashboard.js, src/ui/cloud-sync.js, css/main.css]
 autonomous: true
 requirements: [NAV-01, NAV-03, MOB-06]
 user_setup: []
@@ -141,34 +141,25 @@ The toolbar in CSS (line 61) is: `.toolbar { display: flex; flex-wrap: wrap; gap
 
 The `header` (line 58) is: `header { display: flex; flex-wrap: wrap; align-items: center; ... }`
 
-**Fix:** In `css/main.css`, find the existing `.sync-status-indicator.pulse` rule (line 812). Immediately BEFORE that rule block, add a new rule for `.sync-status-indicator` itself:
+**Fix:** Because the sync dot already has inline `display` and `width` styles, do not rely on a class rule to override those properties. Update the inline style in `cloud-sync.js` to include `flex-shrink:0`, then add a minimal class rule in `css/main.css` only if you still need shared styling around the pulse state.
 
-```css
-/* Phase 27: Prevent sync status dot from wrapping to new line on mobile */
-.sync-status-indicator {
-  display: inline-flex;
-  align-items: center;
-  flex-shrink: 0;
-  width: auto;
-  white-space: nowrap;
-}
+```js
+<span id="syncStatusDot" class="sync-status-indicator" title="Synced"
+  style="display:inline-block;width:0.6em;height:0.6em;border-radius:50%;background:#22c55e;margin:0 4px;flex-shrink:0">
+</span>
 ```
 
-This rule must appear before `.sync-status-indicator.pulse` so both rules apply together (the pulse rule only adds the animation class).
-
-The inline `style` on the element in cloud-sync.js sets `display:inline-block` — the new CSS rule uses `display:inline-flex` with higher specificity (class selector). If the inline style overrides the class rule, also add `flex-shrink: 0 !important` to the CSS rule to guarantee the fix is applied. Prefer not using `!important` unless necessary — first try without it. If testing shows the inline style wins, add the `!important` only to `flex-shrink`.
+If a class rule is still added before `.sync-status-indicator.pulse`, it should only document or reinforce `flex-shrink: 0`; do not add `display` or `width` declarations that conflict with the inline style.
 
 Do NOT modify `flex-wrap` on `.toolbar` or `header` — other toolbar children need wrapping on very narrow screens. The dot should stay inline by shrinking to its minimum size, not by forcing the whole toolbar to no-wrap.
   </action>
-  <verify>grep -n 'sync-status-indicator' css/main.css</verify>
+  <verify>grep -n 'sync-status-indicator\|flex-shrink:0' src/ui/cloud-sync.js css/main.css</verify>
   <acceptance_criteria>
-    - css/main.css contains a `.sync-status-indicator` rule block (not just `.sync-status-indicator.pulse`)
-    - The rule contains `flex-shrink: 0`
-    - The rule contains `display: inline-flex`
-    - The `.sync-status-indicator` rule appears before `.sync-status-indicator.pulse` in the file
-    - grep -A5 '\.sync-status-indicator {' css/main.css shows flex-shrink: 0
+    - src/ui/cloud-sync.js inline style for `#syncStatusDot` contains `flex-shrink:0`
+    - Any `.sync-status-indicator` class rule added to css/main.css does not rely on overriding inline `display` or `width`
+    - grep for `sync-status-indicator` shows either the inline fix in cloud-sync.js or a matching class rule documenting `flex-shrink: 0`
   </acceptance_criteria>
-  <done>The .sync-status-indicator element has flex-shrink:0 and display:inline-flex; it renders on the same line as other header elements at all mobile viewport widths</done>
+  <done>The .sync-status-indicator element has `flex-shrink:0` applied at the source of truth, so it stays on the same line as other header elements at mobile widths without fighting inline style specificity</done>
 </task>
 
 </tasks>

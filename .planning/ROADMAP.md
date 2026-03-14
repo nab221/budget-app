@@ -30,7 +30,7 @@ Phases are ordered P0-first within logical dependencies. P1 phases follow once t
 
 ## Dependency Chain
 
-```
+```plaintext
 27 → 28 → 29 → 30   (these 4 can run somewhat in parallel as they don't share code, but order is recommended)
 
 31 → 32 → 33 → 34   (hard chain — each phase depends on the previous)
@@ -232,26 +232,27 @@ This three-tier CSS mobile-first strategy ensures the bottom bar fits all realis
 **Objective:** Make Supabase magic link sign-in work correctly when the app is installed as a PWA or opened on a mobile browser. Diagnose and fix the redirect URI handling in the service worker and/or PWA manifest.
 
 **Problem Analysis:**
-Magic links are redirect-based. Supabase sends an email with a URL like `https://app.example.com/#access_token=...`. When the app is installed as a PWA:
+Magic links are redirect-based. In the current PKCE flow, Supabase redirects to a URL like `https://app.example.com/?code=...`. When the app is installed as a PWA:
 - On iOS: the system opens the URL in Safari, not in the installed PWA, breaking the auth flow
-- The service worker may intercept the URL before `supabase.auth.onAuthStateChange` fires
+- The service worker may intercept the URL before the Supabase client completes the redirect flow
 
 **Fix Strategy:**
-1. Verify `redirectTo` in `signInWithOtp` points to the deployed GitHub Pages URL
-2. Add `start_url` and `scope` to `manifest.json` so the PWA intercepts the magic link URL
-3. In the service worker fetch handler, pass magic-link URLs through (do not cache them)
-4. Add `supabase.auth.getSessionFromUrl()` call in `app.js` init to handle the token fragment
+1. Verify `emailRedirectTo` in `signInWithOtp` points to the deployed GitHub Pages URL
+2. Exclude auth callback URLs containing `?code=` from the service-worker navigation fallback/cache path
+3. Let Supabase JS v2 complete the redirect flow automatically on app load and clean stale auth params after sign-in succeeds
+4. Show iOS standalone guidance because email deep links open Safari, not the installed app
 
 **Files to Change:**
-- `src/utils/supabase-client.js` — verify `redirectTo`
-- `manifest.json` — ensure `start_url` and `scope` cover the redirect URL path
-- `service-worker.js` — passthrough for `#access_token` fragments
-- `src/app.js` — call `supabase.auth.getSessionFromUrl({ storeSession: true })` on init
+- `src/utils/supabase-sync.js` — verify `emailRedirectTo`
+- `vite.config.js` — exclude auth callback URLs from Workbox navigation fallback
+- `src/ui/cloud-sync.js` — clean stale auth params after successful sign-in and show iOS standalone guidance
+- `.env.example` — document the deployed redirect URL
 
 **Acceptance Criteria:**
-- [ ] Clicking magic link email on iOS/Android opens the PWA (not a plain browser tab)
-- [ ] Auth state transitions to signed-in after magic link click on mobile
-- [ ] Service worker does not interfere with magic link URL fragment
+- [ ] Clicking the magic link on Android can open the installed PWA and complete sign-in
+- [ ] Auth state transitions to signed-in after magic link click in supported browser and PWA flows
+- [ ] Service worker does not interfere with the auth callback path containing `?code=`
+- [ ] iOS standalone mode shows guidance explaining that the link opens in Safari rather than the installed app
 - [ ] Fallback: if PWA is not installed, magic link works in the mobile browser
 - [ ] All 354+ Vitest tests pass
 - [ ] Manual end-to-end test on iOS Safari (HUMAN-VERIFICATION-REQUIRED)
@@ -409,7 +410,7 @@ export function amortisationSchedule(principal, apr, monthlyPayment, startDate, 
 **Objective:** Build the core engine and UI that answers the question: "How much can I safely pay extra toward my debts before my next payday?" This is the headline feature of v3.0.
 
 **Engine Logic (`src/utils/affordability.js`):**
-```
+```plaintext
 inputs:
   currentBalance: £
   currentDate: Date
@@ -467,7 +468,7 @@ output:
 **Cloud Sync Registration (TECH-06):** `childcareProviders` store must be added to the Supabase sync allowlist in `supabase-sync.js`.
 
 **Childcare Top-Up Calculation:**
-```
+```plaintext
 For each childcare account:
   monthlySpend = sum of providers where:
     frequency === 'monthly' → amount

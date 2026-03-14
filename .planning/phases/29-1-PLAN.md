@@ -44,7 +44,7 @@ must_haves:
 <objective>
 Add SwipeHandler-based swipe gestures to the Income table rows (replacing inline Edit/Delete buttons), fix the date format to compact two-line `dd-MMM / YYYY` style, and prevent the Amount column header from wrapping on narrow viewports.
 
-Purpose: Delivers MOB-04 — the Income tab's three mobile usability regressions (wrapping header, overflowing date strings, space-consuming action buttons) are all resolved in a single file pair with no risk of touching the Expenses tab.
+Purpose: Delivers MOB-04 — the Income tab's three mobile usability regressions (wrapping header, overflowing date strings, space-consuming action buttons) are all resolved in a single file pair with no risk of touching the Expenses tab, while preserving a non-swipe action path for keyboard and mouse users.
 Output: Updated `src/ui/transactions.js` with SwipeHandler integration and compact date rendering; additive CSS rules in `css/main.css` for `.date-compact`, `.date-year`, and Amount header `white-space: nowrap`.
 </objective>
 
@@ -191,13 +191,16 @@ Find where the date value is currently rendered in the income row template (sear
 Add this helper method to the transactions class/module:
 ```js
 _formatDateCompact(dateStr) {
-  const d = new Date(dateStr);
-  const dd  = String(d.getDate()).padStart(2, '0');
-  const mmm = d.toLocaleString('en-GB', { month: 'short' });
-  const yyyy = d.getFullYear();
-  return `<span class="date-compact">${dd}-${mmm}<br><span class="date-year">${yyyy}</span></span>`;
+  const [yyyy, mm, dd] = String(dateStr).split('T')[0].split('-').map(Number);
+  const d = new Date(Date.UTC(yyyy, mm - 1, dd));
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  const mmm = d.toLocaleString('en-GB', { month: 'short', timeZone: 'UTC' });
+  const year = d.getUTCFullYear();
+  return `<span class="date-compact">${day}-${mmm}<br><span class="date-year">${year}</span></span>`;
 }
 ```
+
+Assume input dates are stored as ISO strings. Do not use bare `new Date(dateStr)` on date-only values because browser timezone interpretation can shift the rendered day.
 
 In the row template, replace the existing date interpolation (e.g. `${item.date}` or `${formatDate(item.date)}`) with:
 ```js
@@ -252,6 +255,28 @@ Do not modify any existing CSS rules — only append new ones.
   <done>Income date cells render as dd-MMM on line 1 and YYYY on line 2; Amount column header does not wrap at any viewport ≥320px.</done>
 </task>
 
+<task type="auto">
+  <name>Task 3: Preserve a non-swipe action path for accessibility</name>
+  <files>src/ui/transactions.js</files>
+  <read_first>src/ui/transactions.js</read_first>
+  <action>
+Do not make swipe the only way to edit or delete an income row. Preserve a keyboard- and mouse-accessible action path, for example by keeping a focusable action button/menu on each row or by exposing equivalent row actions when the row receives keyboard focus.
+
+Document this explicitly in the implementation:
+- Rows remain keyboard reachable
+- Edit can be triggered without a touch gesture
+- Delete can be triggered without a touch gesture
+- Swipe is additive for touch users, not the only control path
+  </action>
+  <verify>grep -n "keyboard\|focus\|action path\|swipe the only" src/ui/transactions.js .planning/phases/29-1-PLAN.md</verify>
+  <acceptance_criteria>
+    - The implementation preserves an edit path for keyboard and mouse users
+    - The implementation preserves a delete path for keyboard and mouse users
+    - Swipe gestures are additive on touch devices, not the only control path
+  </acceptance_criteria>
+  <done>Income row actions remain accessible without requiring swipe gestures.</done>
+</task>
+
 </tasks>
 
 <verification>
@@ -260,7 +285,7 @@ Before declaring plan complete:
 - [ ] `grep -n "_swipeInstances" src/ui/transactions.js` returns at least 3 lines (init, push, destroy loop)
 - [ ] `grep -n "date-compact" css/main.css` returns the CSS rule
 - [ ] `grep -n "col-amount" css/main.css` returns the `white-space: nowrap` rule inside a `@media` block
-- [ ] `npx vitest run` (or `npm test`) exits with all 354+ tests passing and zero new failures
+- [ ] `npx vitest run` (or `npm test`) exits with all tests passing and zero new failures
 - [ ] No JavaScript console errors introduced — check by loading the app and navigating to the Income tab
 </verification>
 
@@ -271,6 +296,7 @@ Before declaring plan complete:
 - SwipeHandler import does not break the module (no circular dependency)
 - The destroy loop in `_initSwipe` is called before every table rebuild — confirmed by code review, not assumed
 - Existing income table functionality (add, edit, delete flows) continues to work via swipe actions
+- Existing income table functionality remains accessible for keyboard and mouse users without swipe
 - Income date cells render `14-Mar` / `2026` style on mobile — confirmed by visual inspection or DOM inspection in DevTools
 </success_criteria>
 

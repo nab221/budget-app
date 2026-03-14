@@ -467,9 +467,9 @@ function renderStatusIcon(status) {
 
 ### Primary (HIGH confidence)
 - `src/utils/gestures.js` (128 lines, full source read) — SwipeHandler API: constructor options, `onStart`/`onSwipe`/`onEnd`/`onThresholdCross` callbacks, `destroy()` method, angle disambiguation logic, edge protection, `triggerHaptic('threshold')` integration
-- `/home/user/workspace/planning-updates/phases/29-CONTEXT.md` — locked decisions, acceptance criteria, field name guidance, debt-link navigation spec
-- `/home/user/workspace/REQUIREMENTS.md` — MOB-04, MOB-05, DEBT-04 full requirement text confirmed
-- `/home/user/workspace/ROADMAP.md` — Phase 29 objective and file list confirmed
+- `.planning/phases/29-CONTEXT.md` — locked decisions, acceptance criteria, field name guidance, debt-link navigation spec
+- `.planning/REQUIREMENTS.md` — MOB-04, MOB-05, DEBT-04 full requirement text confirmed
+- `.planning/ROADMAP.md` — Phase 29 objective and file list confirmed
 
 ### Secondary (MEDIUM confidence)
 - `planning-updates/phases/28-RESEARCH.md` — established codebase conventions (CSS class naming, pattern style) for continuity

@@ -49,18 +49,19 @@ Review `public/sw.js` cache strategy:
 - GOV.UK bank holidays API (Phase 31): network-first with 7-day cache fallback
 
 **6. Performance Budget (Vite Plugin)**
-Add `vite-plugin-bundle-analyzer` or configure Rollup's `output.manualChunks` to enforce chunk size limits. Add a CI step that fails if any chunk exceeds 80 KB gzipped.
+Add `rollup-plugin-visualizer` for bundle analysis and `vite-plugin-bundlesize` (or an equivalent CI size-check script) to enforce chunk size limits. `output.manualChunks` remains valid for chunk shaping. Add a CI step that fails if any chunk exceeds 80 KB gzipped.
 
 ## Files to Change
 - `src/app.js` — convert tab module loads to dynamic imports
-- `vite.config.js` — configure `manualChunks`, add bundle analyser plugin
+- `vite.config.js` — configure `manualChunks`, add visualizer and bundle-size tooling
+- `package.json` — add any new build-analysis dev dependencies
 - `public/sw.js` — update cache strategy for dynamic chunks
 - `src/utils/finance.js` — ensure named exports for tree shaking
 - `src/utils/importers/index.js` — ensure named exports
-- `.github/workflows/ci.yml` — add bundle size check step (or create if not exists)
+- `.github/workflows/ci.yml` — add bundle size check step, or create `.github/workflows/performance.yml` if no CI workflow exists yet
 
 ## Acceptance Criteria
-- [ ] Initial JS bundle < 150 KB gzipped (measured with `vite build --report`)
+- [ ] Initial JS bundle < 150 KB gzipped (measured with Vite compressed-size output and a visualizer report)
 - [ ] Each tab module loads as a separate chunk (verified in build output)
 - [ ] Time to Interactive < 3.5s on Lighthouse mobile simulation (measured post-build)
 - [ ] LCP < 2.5s on Lighthouse mobile simulation
@@ -73,4 +74,5 @@ Add `vite-plugin-bundle-analyzer` or configure Rollup's `output.manualChunks` to
 - The Vitest test runner may need `vi.mock()` or `vi.importActual()` adjustments if tests currently use static imports that become dynamic
 - Service worker cache strategy for dynamic chunks: use `stale-while-revalidate` to ensure updated chunks are fetched in background
 - `manualChunks` configuration: group third-party libs (Supabase, date-fns, jsPDF) into a `vendor` chunk to improve long-term caching
+- Use `rollup-plugin-visualizer` for analysis rather than the abandoned `vite-plugin-bundle-analyzer`
 - Lighthouse CI: consider adding `@lhci/cli` to the CI pipeline for automated performance regression testing

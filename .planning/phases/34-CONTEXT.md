@@ -52,7 +52,7 @@ This uses the amortisation schedule from `calculateAmortisationSchedule()` to lo
 ### Schema Impact
 ```js
 // src/db/schema.js — settings store additions:
-payDay: number          // 1–31, day of month (or 'variable')
+payDay: number | 'variable'  // fixed day 1–31, or 'variable' when entered manually each period
 payFrequency: 'monthly' | 'fortnightly' | 'weekly'
 safetyBuffer: number    // pence, default 20000 (= £200)
 ```
@@ -70,7 +70,7 @@ export function getBillsInPayPeriod(allRecurring, allOneOff, start, end, banking
 // → Array<{ date: Date, name: string, amount: number, isAdjusted: boolean, debtId?: string }>
 // sorted by date ascending
 
-export function calculatePayPeriodSummary(openingBalance, bills)
+export function calculatePayPeriodSummary(openingBalance, bills, safetyBuffer = 20000)
 // → { rows: Array<{ ...bill, runningBalance }>, closingBalance, isDeficit, isBelowBuffer }
 ```
 
@@ -116,7 +116,7 @@ export function calculatePayPeriodSummary(openingBalance, bills)
 // calculatePayPeriodSummary
 - Empty bills list → closingBalance = openingBalance
 - Bills exceed income → isDeficit = true
-- Bills reduce balance below safetyBuffer → isBelowBuffer = true
+- Bills reduce balance below `safetyBuffer` passed to `calculatePayPeriodSummary()` → `isBelowBuffer = true`
 ```
 
 ## Resources

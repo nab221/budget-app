@@ -15,11 +15,11 @@ Add a `assetSnapshots` store:
 {
   id: auto,
   assetId: FK → assets.id,
-  date: string,   // ISO date
+  recordedAt: string,   // ISO 8601 datetime in UTC
   value: number   // pence
 }
 ```
-When the user edits an asset's value, the old value is written to `assetSnapshots` with today's date before the update is applied.
+When the user edits an asset's value, the old value is written to `assetSnapshots` with the current UTC timestamp before the update is applied.
 
 ### Sparkline Charts
 For each asset card, show a small sparkline chart (last 12 months of snapshots). Use the existing canvas/charting infrastructure from `src/ui/charts.js` (or equivalent). If fewer than 2 snapshots exist, show "Not enough data" text instead.
@@ -44,7 +44,7 @@ The sparkline canvas elements must not overlap the Phase 28 bottom nav bar on mo
 ## Schema Changes (Dexie)
 ```js
 // New store:
-assetSnapshots: '++id, assetId, date'
+assetSnapshots: '++id, assetId, recordedAt'
 
 // Updated store:
 assets: '++id, name, type, targetAllocation'
@@ -64,6 +64,7 @@ Dexie version bump required.
 - [ ] Asset card shows sparkline for assets with ≥ 2 snapshots
 - [ ] "Not enough data" shown for assets with < 2 snapshots
 - [ ] Net-worth trend chart renders correctly for last 12 months
+- [ ] Snapshot ordering is deterministic when multiple edits happen on the same day because `recordedAt` stores a full UTC timestamp
 - [ ] Rebalance view shows current vs target allocation for investment assets
 - [ ] Rebalance suggestions (buy/sell amounts) are mathematically correct
 - [ ] Sparkline z-index does not cause overlap with mobile bottom nav bar
@@ -73,6 +74,7 @@ Dexie version bump required.
 
 ## Technical Notes
 - The net-worth trend chart must handle missing months (asset had no snapshots) by carrying forward the last known value
+- Use `recordedAt` for all "most recent snapshot" selections and monthly rollups; do not rely on date-only strings
 - `targetAllocation` applies only to assets with `type === 'investment'`
 - Rebalance calculation: total investment portfolio value × target% − current value = buy(+)/sell(-) amount
 - Snapshot auto-creation: triggered in `repository.js` `updateAsset()` method, not in the UI layer
