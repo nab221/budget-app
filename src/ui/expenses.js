@@ -780,36 +780,8 @@ export const expensesUI = {
 
     try {
       const year = parseInt(this.selectedMonth.slice(0, 4), 10);
-      const prevYear = year - 1;
-
-      const [currentYearData, prevYearData] = await Promise.all([
-        getYearlyDailySpending(year),
-        getYearlyDailySpending(prevYear)
-      ]);
-
-      const hasPrevYearData = Object.values(prevYearData).some(d => d.total > 0);
-      const allData = { ...currentYearData, ...prevYearData };
-
-      renderSpendingHeatmap('expensesTabHeatmapContainer', year, currentYearData, {
-        allYearsData: allData
-      });
-
-      if (hasPrevYearData) {
-        const spacer = document.createElement('div');
-        spacer.style.height = '20px';
-        container.appendChild(spacer);
-
-        const prevLabel = document.createElement('div');
-        prevLabel.className = 'chart-title';
-        prevLabel.style.textAlign = 'center';
-        prevLabel.textContent = `Prior Year (${prevYear})`;
-        container.appendChild(prevLabel);
-
-        renderSpendingHeatmap('expensesTabHeatmapContainer', prevYear, prevYearData, {
-          clear: false,
-          allYearsData: allData
-        });
-      }
+      const currentYearData = await getYearlyDailySpending(year);
+      renderSpendingHeatmap('expensesTabHeatmapContainer', year, currentYearData);
     } catch (err) {
       console.warn('Could not render expenses tab heatmap:', err);
     }
