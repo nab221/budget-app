@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Milestone Verification & Polish
 status: completed
-last_updated: "2026-03-14T23:02:56.087Z"
+last_updated: "2026-03-14T23:16:23.593Z"
 progress:
-  total_phases: 12
+  total_phases: 24
   completed_phases: 3
-  total_plans: 12
-  completed_plans: 8
+  total_plans: 17
+  completed_plans: 9
 ---
 
 ---
@@ -47,7 +47,7 @@ Status: Complete — All 5 plans done (includes gap-closure 27-04 and gap-closur
 | Phase | Name | Status |
 |-------|------|--------|
 | 27 | Critical Bug Fixes, Cloud-Sync Hardening & Data Integrity | ✅ Complete (5/5 plans done, incl. 2 gap-closure) |
-| 28 | Mobile Navigation Overhaul | ⬜ Not Started |
+| 28 | Mobile Navigation Overhaul | 🔄 In Progress (28-01 done) |
 | 29 | Mobile Table & Interaction Fixes | ⬜ Not Started |
 | 30 | Magic Link PWA / Auth Fix | ⬜ Not Started |
 | 31 | Banking Calendar Utility & Recurrence Upgrade | ⬜ Not Started |
@@ -62,6 +62,7 @@ Status: Complete — All 5 plans done (includes gap-closure 27-04 and gap-closur
 
 ## Decisions Log
 
+- 2026-03-14 (28-01): Used env(safe-area-inset-bottom) + 8px for iOS PWA home indicator clearance on .nav-container; --bottom-bar-height: 72px scoped inside 768px :root block; 420px and 360px sub-breakpoints target .tab-label in anticipation of Plan 28-2 span wrapping.
 - 2026-03-14 (27-05): Removed prior-year fetch entirely at all 4 heatmap call sites (dashboard income, dashboard spending, expenses tab, income tab); heatmap.js untouched; NAV-03 satisfied.
 - 2026-03-14 (27-04): Used await validateDataIntegrity() inside executeImport() try block (not fire-and-forget) so warning toast appears before page reload; window.location.reload() remains unconditional; INTEGRITY-01 fully satisfied with all 3 trigger points + cleanup action.
 - 2026-03-14 (27-03): Used vi.hoisted() for stable Vitest table mocks; validateDataIntegrity() is fire-and-forget in both app.js and cloud-sync.js — never blocks UI render or pull completion.
