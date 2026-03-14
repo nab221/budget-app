@@ -3,6 +3,3 @@ dist
 .env
 .DS_Store
 *.local
-
-# GSD Planning Data
-.planning/
