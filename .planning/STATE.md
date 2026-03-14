@@ -1,64 +1,47 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.7
-milestone_name: Cloud-First Sync & UX Refinement
-status: in-progress
-stopped_at: "Phase 26 automated implementation complete; awaiting manual verification"
-last_updated: "2026-03-12T23:19:31.000Z"
-last_activity: "2026-03-12 — Phase 26 implemented, targeted/full tests passed, manual cross-device verification pending"
-progress:
-  total_phases: 4
-  completed_phases: 3
-  total_plans: 4
-  completed_plans: 3
-  percent: 75
+milestone: v3.0
+milestone_name: Budget Planning Core Redesign
+current_phase: 27
+phase_status: not_started
+last_updated: 2026-03-14
 ---
 
-## Project State: Budget App
+# GSD State: Budget App v3.0
 
-## Project Reference
+## Current Focus
 
-See: .planning/PROJECT.md (updated 2026-03-11)
+**Phase 27 — Critical Bug Fixes, Cloud-Sync Hardening & Data Integrity**
 
-**Core value:** A personal budget tracker that helps a UK household track income, expenses, debts, assets, and forecast cash flow — fully offline, PWA-ready, no server required.
-**Current focus:** v2.7 — Cloud-First Sync & UX Refinement
+Status: Not started
 
-## Current Position
+## Phase Progress
 
-Phase: 26 of 26 (Milestone v2.7 Verification & Polish)
-Plan: Automated implementation complete
-Status: Awaiting manual verification
-Last activity: 2026-03-12 — Implemented Phase 26 docs, tests, and UI polish; full regression green
+| Phase | Name | Status |
+|-------|------|--------|
+| 27 | Critical Bug Fixes, Cloud-Sync Hardening & Data Integrity | ⬜ Not Started |
+| 28 | Mobile Navigation Overhaul | ⬜ Not Started |
+| 29 | Mobile Table & Interaction Fixes | ⬜ Not Started |
+| 30 | Magic Link PWA / Auth Fix | ⬜ Not Started |
+| 31 | Banking Calendar Utility & Recurrence Upgrade | ⬜ Not Started |
+| 32 | Debt Model Refactor — Loans & Mortgage | ⬜ Not Started |
+| 33 | Income & Spending Configuration | ⬜ Not Started |
+| 34 | Pay-Period Affordability Engine | ⬜ Not Started |
+| 35 | Childcare Top-Up Planner | ⬜ Not Started |
+| 36 | Navigator & View Toggle Redesign | ⬜ Not Started |
+| 37 | Cloud Snapshot Delta Preview | ⬜ Not Started |
+| 38 | GitHub Actions Node.js 24, Legacy Import & Technical Hygiene | ⬜ Not Started |
+| 39 | v3.0 Milestone Verification & Polish | ⬜ Not Started |
 
-Progress: [||||||||--] 75%
+## Decisions Log
 
-## Completed Milestones
+- 2026-03-14: v3.0 roadmap critically reviewed by Opus 4.6. Key changes applied: INTEGRITY-01 moved to Phase 27 (P0, earliest phase); TECH-06 added to Phase 33 and Phase 35; Phase 31 complexity raised to Medium-High; Phase 33 given hard dependency on Phase 31; schema version map corrected (v13→P31, v14→P32, v15→P33, v16→P35); INTEGRITY-02 (legacy import) added to Phase 38; CodeRabbit feedback incorporated across all phases.
 
-- v2.6 — Dashboard Invariants & Technical Polish (SHIPPED 2026-03-11)
-- v2.5 — Debt Tab UX Overhaul (SHIPPED 2026-03-08)
-- v2.4 — UX Polish & Spending Insights (SHIPPED 2026-03-07)
-- v2.3 — Advanced Analytics & Mobile Polish (SHIPPED 2026-03-07)
+## Blocked / Risks
 
-## Accumulated Context
+- None at present.
 
-### Decisions (v2.7)
-- **Top Bar Strategy:** Local Export/Import will be hidden if Supabase is configured, replaced by Cloud Push/Pull icons in the header.
-- **Auto-Sync Trigger:** `visibilitychange` (hidden state) will be used to trigger background cloud pushes when the user leaves the app.
-- **Dirty State:** A "Dirty" flag will be tracked in memory/localStorage based on Dexie database activity to determine if a push is needed.
-- **Loading-State Contract:** Sync actions now expose a shared busy-state contract with disabled buttons, restored labels, and `aria-busy` while push/pull requests are in flight.
-- **Reduced Motion:** Sync-status pulse, busy affordances, and notification motion are disabled when the user prefers reduced motion.
+## Notes
 
-### Roadmap Evolution
-- Added Phase 23: Cloud-First UX Overhaul
-- Added Phase 24: Intelligent Sync Logic (Auto-Pull & Auto-Push)
-- Added Phase 25: Sync Visibility (Dirty State & Error Handling)
-- Added Phase 26: Milestone v2.7 Verification & Polish
-
-### Pending Todos
-- Complete Phase 26 manual cross-device sync checks.
-- Capture browser/account evidence in `.planning/phases/26-milestone-v2.7-verification-polish/26-VERIFICATION.md`.
-- Close out milestone v2.7 after manual verification is recorded.
-
-### Blockers/Concerns
-- iOS Safari background task limitations (may need `beforeunload` or limited sync window).
-- Manual cross-device verification cannot be completed from the agent runtime and still requires a human-run two-browser pass.
+- The v3.0 roadmap was reviewed and refined before work began to ensure technical correctness.
+- All phases start from a clean v2.7 baseline (354 passing Vitest tests).
