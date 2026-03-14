@@ -161,7 +161,7 @@ if (window.navigator.standalone === true) {
   const notice = document.createElement('p');
   notice.className = 'auth-ios-notice';
   notice.innerHTML = '<strong>iOS tip:</strong> Magic links open in Safari, not this app. ' +
-    'Open this app in <strong>Safari</strong> first, sign in there, then return here.';
+    'Continue sign-in in <strong>Safari</strong>, or use Safari/browser mode before requesting the link.';
   // Insert before the sign-in form container
   signinForm.parentNode.insertBefore(notice, signinForm);
 }
@@ -191,7 +191,7 @@ Read `vite.config.js` in full before making any changes. Locate the `VitePWA({..
 
 **IMPORTANT — check the PWA strategy first:**
 - If `strategies: 'generateSW'` is set (or no `strategies` key, since `generateSW` is the default), proceed with the change below.
-- If `strategies: 'injectManifest'` is set, `navigateFallbackDenylist` is not available. In that case, skip this task and add a comment in the file explaining why, then proceed to Task 4.
+- If `strategies: 'injectManifest'` is set, `navigateFallbackDenylist` is not available. In that case, skip this task, record the skip and rationale in the phase summary/checkpoint artefact, and then proceed to Task 4 without editing source files just to annotate the skip.
 
 **For `generateSW` strategy (default):**
 
@@ -200,11 +200,10 @@ Find the `workbox: { ... }` block inside `VitePWA({...})`. Add the following ins
 ```js
 navigateFallbackDenylist: [
   /[?&]code=/,       // PKCE auth code — do not serve cached shell for auth callback URLs
-  /#access_token=/,  // Legacy implicit flow hash — defensive
 ],
 ```
 
-If a `navigateFallbackDenylist` key already exists, append the two regexes to the existing array instead of replacing it.
+If a `navigateFallbackDenylist` key already exists, append the `code=` regex to the existing array instead of replacing it.
 
 If there is no `workbox: {}` key at all inside `VitePWA({...})`, create one:
 ```js
@@ -213,7 +212,6 @@ VitePWA({
   workbox: {
     navigateFallbackDenylist: [
       /[?&]code=/,
-      /#access_token=/,
     ],
   },
 })
@@ -221,14 +219,13 @@ VitePWA({
 
 Do not change any other VitePWA or workbox settings.
   </action>
-  <verify>grep -n "navigateFallbackDenylist\|code=\|access_token" vite.config.js</verify>
+  <verify>grep -n "navigateFallbackDenylist\|code=" vite.config.js</verify>
   <acceptance_criteria>
     - vite.config.js contains `navigateFallbackDenylist`
     - vite.config.js `navigateFallbackDenylist` array contains a regex matching `code=`
-    - vite.config.js `navigateFallbackDenylist` array contains a regex matching `access_token`
     - No existing vite.config.js workbox options are removed or replaced (only additions)
   </acceptance_criteria>
-  <done>Workbox service worker will not intercept navigation requests to URLs containing ?code= or #access_token=, preventing SW caching of auth callback URLs.</done>
+  <done>Workbox service worker will not intercept navigation requests to URLs containing ?code=, preventing SW caching of auth callback URLs.</done>
 </task>
 
 <task type="auto">
@@ -274,7 +271,7 @@ Write the full content of this file as proper Markdown. The file must be at leas
     PWA auth hardening changes across 4 files:
     - src/utils/supabase-sync.js — emailRedirectTo now uses VITE_SUPABASE_REDIRECT_URL ?? window.location.origin
     - src/ui/cloud-sync.js — URL cleanup after SIGNED_IN; iOS guidance message on navigator.standalone
-    - vite.config.js — navigateFallbackDenylist excludes ?code= and #access_token= from SW
+    - vite.config.js — navigateFallbackDenylist excludes ?code= from SW
     - .env.example — VITE_SUPABASE_REDIRECT_URL documented
     - .planning/phases/30-magic-link-pwa-auth-fix/30-MANUAL-TEST.md — manual test script
 

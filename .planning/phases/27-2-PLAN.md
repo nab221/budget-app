@@ -169,7 +169,7 @@ Before declaring plan complete:
 - [ ] npx vitest run src/ui/heatmap.test.js — all tests pass
 - [ ] grep -c 'filteredDailyData' src/ui/heatmap.js returns 4 or more (declaration + scale + cell render + 2 tooltip handlers)
 - [ ] grep -c 'k.startsWith(String(yearNum))' src/ui/heatmap.js returns 1
-- [ ] grep -A5 '\.sync-status-indicator {' css/main.css shows flex-shrink: 0 and display: inline-flex
+- [ ] grep -n 'sync-status-indicator\|pulse\|flex-shrink:0' src/ui/cloud-sync.js css/main.css confirms the inline style carries `flex-shrink:0` and any class rule only reinforces `flex-shrink` or pulse animation (not `display` or `width`)
 - [ ] No new test failures in full suite: npx vitest run
 </verification>
 

@@ -116,14 +116,13 @@ supabase.auth.onAuthStateChange((event, session) => {
 workbox: {
   navigateFallbackDenylist: [
     /[?&]code=/,        // PKCE auth code (?code= anywhere in query string)
-    /#access_token=/,   // Legacy implicit flow hash (defensive)
   ],
   // ... other workbox options
 }
 ```
 
 ### Pattern 3: iOS PWA Guidance Message
-**What:** When `window.navigator.standalone === true` (iOS PWA standalone mode), the magic link opens in Safari, not in the PWA. The session is established in Safari and the PWA never receives it. The guidance message tells the user to sign in via Safari first, then return to the PWA — at which point they will already be signed in (shared Supabase localStorage is NOT shared between Safari and PWA contexts, so this guidance is a workaround, not a fix).
+**What:** When `window.navigator.standalone === true` (iOS PWA standalone mode), the magic link opens in Safari, not in the PWA. The session established in Safari does not transfer back into the standalone app because Safari and the home-screen PWA use isolated storage. The guidance message must say this mode is unsupported for email magic-link completion and direct the user to continue the auth flow in Safari (or open the app in browser mode before signing in).
 **When to use:** In the sign-in form render path of `cloud-sync.js`, after the email input is shown.
 **Example:**
 ```js
@@ -134,8 +133,8 @@ if (isIOSStandalone) {
   // Render a helper banner above the sign-in form
   container.insertAdjacentHTML('afterbegin', `
     <div class="auth-ios-notice" role="alert">
-      <strong>iOS tip:</strong> If the magic link doesn't open this app,
-      open this app in Safari first, sign in there, then return here.
+      <strong>iOS tip:</strong> Home-screen mode cannot complete email magic links.
+      Continue sign-in in <strong>Safari</strong>, or open the app in Safari before requesting the link.
     </div>
   `);
 }
@@ -173,13 +172,13 @@ if (isIOSStandalone) {
 ### Pitfall 2: Service Worker Caches the Auth Callback URL
 **What goes wrong:** The Workbox SW intercepts the navigation to `/?code=xxx`, finds `index.html` in the precache, and serves the cached shell. The page loads but the query string is either stripped by the SW or the page renders so fast from cache that Supabase's `detectSessionInUrl` reads the URL before the code is set, finding nothing.
 **Why it happens:** `navigateFallback: 'index.html'` is Workbox's default SPA fallback. It applies to all navigations not in the precache manifest — including auth callback URLs.
-**How to avoid:** Add `navigateFallbackDenylist: [/[?&]code=/, /#access_token=/]` to the workbox config in `vite.config.js`. This exempts URLs with auth parameters from the SW fallback, letting the browser fetch them directly.
+**How to avoid:** Add `navigateFallbackDenylist: [/[?&]code=/]` to the workbox config in `vite.config.js`. This exempts URLs with auth parameters from the SW fallback, letting the browser fetch them directly.
 **Warning signs:** Auth flow works in development (no SW), fails in production (SW active). Clicking the magic link shows the app loading but never signs in.
 
 ### Pitfall 3: iOS PWA Context Isolation (Known Platform Limitation)
 **What goes wrong:** User has the app installed as a PWA on iOS. They click the magic link in Mail. iOS opens the link in Safari (system browser), not the PWA. Auth completes in Safari. The PWA's localStorage is isolated from Safari's — the session never reaches the PWA.
 **Why it happens:** iOS does not support deep-linking into installed PWAs from emails. The PWA's custom URL scheme (`protocol_handlers`) is not supported on iOS Safari as of iOS 17. This is a known web platform limitation.
-**How to avoid:** There is no silent fix for this. The correct mitigation is a UX guidance message in the PWA sign-in form: inform the user that on iOS, they should open the app in Safari first, sign in there, then navigate back to the home screen app. The user can also access the app directly in Safari (non-standalone) where auth works correctly.
+**How to avoid:** There is no silent fix for this. The correct mitigation is a UX guidance message in the PWA sign-in form: tell the user that iOS home-screen mode cannot complete the email magic-link flow and they must continue the sign-in flow in Safari, or use Safari/browser mode from the start for auth.
 **Warning signs:** Auth works on Android PWA and desktop but consistently fails on iOS PWA — user is never signed in after clicking the magic link.
 
 ### Pitfall 4: `emailRedirectTo` Does Not Match Deployed URL
@@ -223,7 +222,6 @@ VitePWA({
     // ... other workbox options
     navigateFallbackDenylist: [
       /[?&]code=/,       // PKCE auth code parameter (handles /?code=xxx)
-      /#access_token=/,  // Legacy implicit flow hash (defensive)
     ],
   },
 })
@@ -242,8 +240,8 @@ if (isIOSStandalone) {
   signinForm.insertAdjacentHTML('beforebegin', `
     <p class="auth-ios-notice">
       <strong>Tip:</strong> On iOS, magic links open in Safari, not this app.
-      Open this app in <strong>Safari</strong> first, sign in there,
-      then return to the home screen app.
+      Continue sign-in in <strong>Safari</strong>, or use Safari/browser mode
+      before requesting the email link.
     </p>
   `);
 }

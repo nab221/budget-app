@@ -2,7 +2,7 @@
 # Phase 36 Context: Asset Tracker Enhancements
 
 ## Objective
-Extend the asset tracker with: historical value snapshots, a sparkline chart per asset, a net-worth trend chart (all assets combined), and a "rebalance" suggestion feature based on the user's target allocation.
+Extend the asset tracker with historical value snapshots, sparkline charts, a net-worth trend chart, and rebalance suggestions.
 
 ## Background
 

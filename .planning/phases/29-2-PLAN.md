@@ -47,7 +47,7 @@ must_haves:
 ---
 
 <objective>
-Redesign the Expenses table for mobile: reduce headers to 3 columns (Date | Expense | Amount), render category as an inline badge chip, replace status text with a compact accessible icon, fix date format to dd-MMM / YYYY, and add debt-linked expense detection so tapping/swiping those rows navigates to the Debts tab instead of opening an inline edit form.
+Redesign the Expenses table for mobile: reduce headers to 3 columns (Date | Expense | Amount), render category as an inline badge chip, replace status text with a compact accessible icon, fix date format to dd-MMM / YYYY, and add debt-linked expense detection so those rows navigate to the Debts tab on tap/click while swipe-to-edit remains disabled for them.
 
 Purpose: Delivers MOB-05 and DEBT-04. The Expenses table currently overflows on mobile due to too many columns, unformatted dates, and inline action buttons. Debt-linked expenses have no navigation path back to the originating debt record.
 Output: Updated `src/ui/expenses.js` with redesigned row template and debt-link routing; additive CSS rules in `css/main.css` for `.badge-chip` and `.status-icon` (shared with Plan 1's additions to `main.css` — append only if not already present).
@@ -384,10 +384,10 @@ Also append (if `.date-compact` is not already present from Plan 1):
 Before declaring plan complete:
 - [ ] `grep -n "badge-chip" src/ui/expenses.js` returns the row template interpolation
 - [ ] `grep -n "aria-label" src/ui/expenses.js` returns the status icon elements with Paid/Pending/Cancelled labels
-- [ ] `grep -c "<th" src/ui/expenses.js` — count of `<th>` elements in the expenses table header section equals 3
+- [ ] `awk '/<thead>/{flag=1} flag{print} /<\/thead>/{flag=0}' src/ui/expenses.js | grep -c "<th"` returns `3` so the count is scoped to the expenses header block
 - [ ] `grep -n "data-tab.*debts\|debtsTabBtn" src/ui/expenses.js` returns the navigation call in `_initSwipe`
 - [ ] `grep -n "badge-chip\|status-icon\|date-compact" css/main.css` returns at least 3 different rule blocks
-- [ ] `npx vitest run` (or `npm test`) exits with all 354+ tests passing and zero new failures
+- [ ] `npx vitest run` (or `npm test`) exits with all tests passing and zero new failures
 - [ ] No JavaScript console errors on the Expenses tab — check DevTools console after load
 </verification>
 

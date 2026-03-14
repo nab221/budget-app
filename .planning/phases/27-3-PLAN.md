@@ -106,6 +106,9 @@ async function checkForeignKey(childStore, field, parentStore, nullable) {
 
   let children;
   try {
+    // toArray() materialises the whole child table in memory; acceptable for
+    // typical budget-app datasets, but revisit with chunking/streaming if a
+    // deployment expects very large tables (10k+ rows).
     children = await db.table(childStore).toArray();
   } catch (err) {
     // Table may not exist in older schema versions — skip silently
@@ -447,6 +450,8 @@ Add two changes to `src/app.js`:
 import { validateDataIntegrity } from './utils/data-integrity.js';
 ```
 
+`notificationUI` already follows the repo's named-import style (`import { notificationUI } from './ui/notifications.js';`). Reuse that existing import if it is already present; if it is missing in the target branch, add it using the same named-import form before adding `notificationUI.warning(...)`.
+
 2. After the `Promise.all([...])` block (line 243) and the `console.log('Budget App initialized successfully.')` statement (line 245), add the non-blocking validator call:
 
 ```js
@@ -499,6 +504,8 @@ import { validateDataIntegrity } from '../utils/data-integrity.js';
 import { notificationUI } from './notifications.js';
 ```
 
+Mirror the current repo style exactly: `notificationUI` is a named export/import in `src/ui/cloud-sync.js`, so reuse the existing named import if it is already there instead of creating a duplicate import line.
+
 Do NOT add `await` before `validateDataIntegrity()` — it must be fire-and-forget so it does not block the pull completion path or delay the UI.
   </action>
   <verify>grep -n 'validateDataIntegrity' src/app.js src/ui/cloud-sync.js</verify>
@@ -506,8 +513,10 @@ Do NOT add `await` before `validateDataIntegrity()` — it must be fire-and-forg
     - src/app.js contains `import { validateDataIntegrity } from './utils/data-integrity.js'`
     - src/app.js contains `validateDataIntegrity().then(` after the Promise.all block
     - src/app.js does NOT contain `await validateDataIntegrity()` (must be fire-and-forget)
+    - src/app.js reuses or adds a named `notificationUI` import before calling `notificationUI.warning(...)`
     - src/ui/cloud-sync.js contains `import { validateDataIntegrity } from '../utils/data-integrity.js'`
     - src/ui/cloud-sync.js contains `validateDataIntegrity().then(` inside `_executePullSync()`
+    - src/ui/cloud-sync.js reuses or adds a named `notificationUI` import before calling `notificationUI.warning(...)`
     - npx vitest run passes with no new failures
   </acceptance_criteria>
   <done>validateDataIntegrity() is called non-blocking on app startup and after each successful cloud pull; warning notification displays if issues are found</done>

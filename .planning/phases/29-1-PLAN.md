@@ -91,7 +91,7 @@ Make the following changes to `src/ui/transactions.js`:
 3. **Update the income row template** to wrap each row in the swipe-reveal structure. Find the `<tr>` generation for income rows (search for `class="..."` on `<tr>` elements or where `item.date`, `item.amount`, `item.description` are interpolated). Change the row template to:
    ```html
    <tr class="swipe-row income-row" data-id="${item.id}">
-     <td colspan="[N]" class="swipe-cell p-0">
+     <td colspan="4" class="swipe-cell p-0">
        <div class="swipe-action-right swipe-edit-action">Edit</div>
        <div class="swipe-content">
          <table class="swipe-inner-table w-full">
@@ -99,6 +99,10 @@ Make the following changes to `src/ui/transactions.js`:
              <td class="col-date">[date cell content]</td>
              <td class="col-description">[description cell content]</td>
              <td class="col-amount">[amount cell content]</td>
+             <td class="col-actions">
+               <button type="button" class="sm ghost btn-edit" onclick="transactionUI.editTransaction(${item.id})">Edit</button>
+               <button type="button" class="sm danger btn-delete" onclick="deleteTransaction('income', ${item.id})">Delete</button>
+             </td>
            </tr>
          </table>
        </div>
@@ -106,8 +110,10 @@ Make the following changes to `src/ui/transactions.js`:
      </td>
    </tr>
    ```
-   `[N]` = the number of columns in the income table header. Use the exact number found by reading the file.
+   The current income table has 4 columns, so keep `colspan="4"` unless the live header changes while implementing.
    Keep all existing cell content (description, amount, category badge if present) unchanged — only wrap it.
+   Preserve the existing inline action path inside `.swipe-content`: visible, focusable Edit/Delete controls must remain in the row so keyboard and mouse users can operate the table without swipe.
+   If reconciliation mode swaps the action cell for a cleared checkbox, preserve that existing checkbox behaviour as the fourth cell instead of removing it.
 
 4. **Add `_initSwipe(tableBody)` method** (add as a new method, positioned near other private helpers):
    ```js
@@ -260,19 +266,31 @@ Do not modify any existing CSS rules — only append new ones.
   <files>src/ui/transactions.js</files>
   <read_first>src/ui/transactions.js</read_first>
   <action>
-Do not make swipe the only way to edit or delete an income row. Preserve a keyboard- and mouse-accessible action path, for example by keeping a focusable action button/menu on each row or by exposing equivalent row actions when the row receives keyboard focus.
+Do not make swipe the only way to edit or delete an income row.
 
-Document this explicitly in the implementation:
-- Rows remain keyboard reachable
-- Edit can be triggered without a touch gesture
-- Delete can be triggered without a touch gesture
-- Swipe is additive for touch users, not the only control path
+Implement this concretely in `src/ui/transactions.js`:
+- Keep the `.col-actions` cell inside `.swipe-content` so each row still renders visible, focusable Edit and Delete controls.
+- Reuse the existing handlers: wire the Edit control to `transactionUI.editTransaction(${item.id})` and the Delete control to `deleteTransaction('income', ${item.id})` unless the live file already routes through equivalent existing handlers.
+- Give the visible inline controls stable classes `.btn-edit` and `.btn-delete` so the accessibility path is explicit in code review and verification.
+- Ensure those controls remain reachable by Tab and activatable with Enter or Space. If the row itself is made focusable (for example `tabindex="0"`), do not let that row-level focus hide, replace, or swallow the inline controls.
+- If the implementer chooses an action menu instead of always-visible inline buttons, that menu trigger must itself be visible, focusable, and inside `.swipe-content`, with Edit/Delete still reachable without touch.
+- State clearly in comments or surrounding task notes that swipe is additive for touch users, not the only control path.
   </action>
-  <verify>grep -n "keyboard\|focus\|action path\|swipe the only" src/ui/transactions.js .planning/phases/29-1-PLAN.md</verify>
+  <verify>
+Manual accessibility verification:
+1. Render the Income table on a mobile-width viewport.
+2. Use `Tab` to move to an income row and then to its `.btn-edit` / `.btn-delete` controls (or the accessible action-menu trigger if that variant is used).
+3. Activate Edit with `Enter`, then repeat with `Space` if the control is a button.
+4. Activate Delete with `Enter`, then repeat with `Space` if the control is a button.
+5. Confirm visible focus styling is present throughout and that no swipe gesture is required to reach the controls.
+6. Record the test result, browser/device used, and any failures for specific browsers or assistive technologies in the phase summary.
+  </verify>
   <acceptance_criteria>
     - The implementation preserves an edit path for keyboard and mouse users
     - The implementation preserves a delete path for keyboard and mouse users
     - Swipe gestures are additive on touch devices, not the only control path
+    - Manual keyboard test: Tab to an income row and activate Edit/Delete using Enter or Space without touching the screen.
+    - Test notes record the browser/device used and any failing browsers or assistive technologies.
   </acceptance_criteria>
   <done>Income row actions remain accessible without requiring swipe gestures.</done>
 </task>
