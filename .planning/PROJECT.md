@@ -56,11 +56,20 @@ The app must therefore model:
 | v2.7 | Cloud-First Sync & UX Refinement | Shipped 2026-03-12 |
 | **v3.0** | **Budget Planning Core Redesign** | **Upcoming** |
 
-## Next Milestone
+## Current Milestone: v3.0 Budget Planning Core Redesign
 
-**v3.0 — Budget Planning Core Redesign**
+**Goal:** Build the Pay-Period Affordability Engine — given the current account balance and all upcoming committed outgoings, tell the user exactly how much they can safely pay extra toward their debts before their next payday.
 
-See: ROADMAP.md
+**Target features:**
+- Pay-Period Affordability Engine with balance entry and payment timeline (PLAN-01, PLAN-02, PLAN-05)
+- Income configuration (2 sources) and Spending Buckets (PLAN-04, PLAN-06)
+- Banking Calendar utility + recurrence engine working-day support (TECH-02, TECH-03, PLAN-03)
+- Debt Model Refactor: loans & mortgages use amortisation model, no statement import (DEBT-01, DEBT-03)
+- Childcare Top-Up Planner integrated into affordability calculation (CHILD-01, CHILD-02, CHILD-03)
+- Mobile overhaul: fixed bottom nav, sticky header, swipe gestures, table fixes (MOB-01 – MOB-07)
+- Cloud sync hardening: listener leak fixes, XSS fix, init guard (SYNC-01, SYNC-02)
+- Data integrity validator + legacy data import (INTEGRITY-01, INTEGRITY-02)
+- GitHub Actions Node.js 24 upgrade (TECH-01)
 
 ---
-*Last updated: 2026-03-14*
+*Last updated: 2026-03-14 — Milestone v3.0 started*
