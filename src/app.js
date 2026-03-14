@@ -136,6 +136,11 @@ async function init() {
   const mainTabs = document.getElementById('mainTabs');
   const mobileMenuBtn = document.getElementById('mobileMenuBtn');
 
+  // HAMBURGER TOGGLE — desktop narrow-width only.
+  // On mobile (≤768px), #mobileMenuBtn is hidden via CSS (display: none) and this
+  // handler is inert. The bottom tab bar (Phase 28) replaces the hamburger pattern
+  // on mobile. This code is retained for any future desktop narrow-width use case.
+  // Do NOT remove without verifying desktop behaviour.
   if (mobileMenuBtn && mainTabs) {
     mobileMenuBtn.addEventListener('click', (e) => {
       e.stopPropagation();
