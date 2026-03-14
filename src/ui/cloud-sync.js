@@ -17,7 +17,7 @@ import { templateUI } from './templates.js';
 import { triggerHaptic } from '../utils/haptics.js';
 import { notificationUI } from './notifications.js';
 import { db } from '../db/schema.js';
-import { validateDataIntegrity } from '../utils/data-integrity.js';
+import { validateDataIntegrity, cleanOrphanedRecords } from '../utils/data-integrity.js';
 
 // Phase 23.1: Constants for dirty-state tracking and timestamps
 const CLOUD_IS_DIRTY_KEY = 'budget_cloud_is_dirty';
@@ -871,7 +871,12 @@ export const cloudSyncUI = {
         if (!valid) {
           notificationUI.warning(
             `⚠️ ${issues.length} data integrity issue${issues.length !== 1 ? 's' : ''} found after sync.`,
-            [],
+            [
+              {
+                label: 'Clean up',
+                onClick: () => cleanOrphanedRecords(issues).then(() => notificationUI.success('Orphaned records removed.')),
+              },
+            ],
             8000
           );
         }

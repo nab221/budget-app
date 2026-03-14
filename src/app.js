@@ -32,7 +32,7 @@ import {
 } from './utils/storage.js';
 import { RecurrenceManager } from './utils/recurrence.js';
 import { triggerHaptic, initHaptics } from './utils/haptics.js';
-import { validateDataIntegrity } from './utils/data-integrity.js';
+import { validateDataIntegrity, cleanOrphanedRecords } from './utils/data-integrity.js';
 
 export { BALANCE_START_DATE_KEY };
 
@@ -250,7 +250,12 @@ async function init() {
     if (!valid) {
       notificationUI.warning(
         `⚠️ ${issues.length} data integrity issue${issues.length !== 1 ? 's' : ''} found.`,
-        [],
+        [
+          {
+            label: 'Clean up',
+            onClick: () => cleanOrphanedRecords(issues).then(() => notificationUI.success('Orphaned records removed.')),
+          },
+        ],
         8000
       );
     }
