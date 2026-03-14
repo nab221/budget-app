@@ -32,6 +32,7 @@ const NO_CLOUD_SNAPSHOT_MESSAGE = 'No cloud snapshot found';
 export const cloudSyncUI = {
   _initialized: false,
   _authListenerBound: false,
+  _previewListenerBound: false,
   _authSubscription: null,
   _authBoundClient: null,
   _isDirty: false,
@@ -1370,6 +1371,8 @@ export const cloudSyncUI = {
    * Only calls importBackupData() after explicit user confirmation.
    */
   _bindPreviewListener() {
+    if (this._previewListenerBound) return;
+    this._previewListenerBound = true;
     window.addEventListener('budget:import-cloud-preview', async (e) => {
       const { updated_at, schema_version, counts, tableData } = e.detail;
 
