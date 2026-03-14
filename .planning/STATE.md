@@ -27,13 +27,13 @@ last_updated: 2026-03-14
 
 **Phase 27 — Critical Bug Fixes, Cloud-Sync Hardening & Data Integrity**
 
-Status: Complete — All 4 plans done (includes gap-closure 27-04)
+Status: Complete — All 5 plans done (includes gap-closure 27-04 and gap-closure 27-05)
 
 ## Phase Progress
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 27 | Critical Bug Fixes, Cloud-Sync Hardening & Data Integrity | ✅ Complete (4/4 plans done) |
+| 27 | Critical Bug Fixes, Cloud-Sync Hardening & Data Integrity | ✅ Complete (5/5 plans done, incl. 2 gap-closure) |
 | 28 | Mobile Navigation Overhaul | ⬜ Not Started |
 | 29 | Mobile Table & Interaction Fixes | ⬜ Not Started |
 | 30 | Magic Link PWA / Auth Fix | ⬜ Not Started |
@@ -49,6 +49,7 @@ Status: Complete — All 4 plans done (includes gap-closure 27-04)
 
 ## Decisions Log
 
+- 2026-03-14 (27-05): Removed prior-year fetch entirely at all 4 heatmap call sites (dashboard income, dashboard spending, expenses tab, income tab); heatmap.js untouched; NAV-03 satisfied.
 - 2026-03-14 (27-04): Used await validateDataIntegrity() inside executeImport() try block (not fire-and-forget) so warning toast appears before page reload; window.location.reload() remains unconditional; INTEGRITY-01 fully satisfied with all 3 trigger points + cleanup action.
 - 2026-03-14 (27-03): Used vi.hoisted() for stable Vitest table mocks; validateDataIntegrity() is fire-and-forget in both app.js and cloud-sync.js — never blocks UI render or pull completion.
 - 2026-03-14 (27-02): dashboard.js call sites already pass year-scoped dailyData — no call-site filter added to dashboard.js; heatmap.js pre-filter (filteredDailyData) is sufficient for cross-year scale distortion fix.
