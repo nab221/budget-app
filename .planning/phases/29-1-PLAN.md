@@ -42,7 +42,7 @@ must_haves:
 ---
 
 <objective>
-Add SwipeHandler-based swipe gestures to the Income table rows (replacing inline Edit/Delete buttons), fix the date format to compact two-line `dd-MMM / YYYY` style, and prevent the Amount column header from wrapping on narrow viewports.
+Add SwipeHandler-based swipe gestures to the Income table rows (supplementing inline Edit/Delete buttons), fix the date format to compact two-line `dd-MMM / YYYY` style, and prevent the Amount column header from wrapping on narrow viewports.
 
 Purpose: Delivers MOB-04 — the Income tab's three mobile usability regressions (wrapping header, overflowing date strings, space-consuming action buttons) are all resolved in a single file pair with no risk of touching the Expenses tab, while preserving a non-swipe action path for keyboard and mouse users.
 Output: Updated `src/ui/transactions.js` with SwipeHandler integration and compact date rendering; additive CSS rules in `css/main.css` for `.date-compact`, `.date-year`, and Amount header `white-space: nowrap`.
@@ -100,8 +100,8 @@ Make the following changes to `src/ui/transactions.js`:
              <td class="col-description">[description cell content]</td>
              <td class="col-amount">[amount cell content]</td>
              <td class="col-actions">
-               <button type="button" class="sm ghost btn-edit" onclick="transactionUI.editTransaction(${item.id})">Edit</button>
-               <button type="button" class="sm danger btn-delete" onclick="deleteTransaction('income', ${item.id})">Delete</button>
+               <button type="button" class="sm ghost btn-edit" onclick="transactionUI._handleEdit(${item.id})">Edit</button>
+               <button type="button" class="sm danger btn-delete" onclick="transactionUI._handleDelete(${item.id})">Delete</button>
              </td>
            </tr>
          </table>
@@ -166,7 +166,12 @@ Make the following changes to `src/ui/transactions.js`:
    this._initSwipe(tableBody); // tableBody = the <tbody> or table element reference
    ```
 
-6. **Verify `_handleEdit(id)` and `_handleDelete(id)` exist** in `transactions.js`. If they are named differently (e.g. `_editIncome`, `_deleteIncome`), use the correct names. Do NOT create new edit/delete functions — wire the swipe actions to the existing handlers.
+6. **Verify `_handleEdit(id)` and `_handleDelete(id)` exist** in `transactions.js`. If they are named differently (e.g. `_editIncome`, `_deleteIncome`), use the correct names.
+
+7. **Unify swipe and inline button action routing.** Choose one shared implementation path and keep both interaction modes on it:
+  - Preferred: swipe callbacks and inline button handlers both call `_handleEdit(id)` / `_handleDelete(id)`.
+  - Acceptable alternative: `_handleEdit(id)` delegates to `editTransaction(id)` and `_handleDelete(id)` delegates to `deleteTransaction('income', id)`, as long as both swipe and inline routes still converge to the same underlying logic.
+  - Add or update wrappers so there is one canonical edit path and one canonical delete path (no divergent business logic).
   </action>
   <verify>grep -n "SwipeHandler\|_swipeInstances\|currentOpenRow\|swipe-row\|_initSwipe" src/ui/transactions.js</verify>
   <acceptance_criteria>
@@ -197,12 +202,23 @@ Find where the date value is currently rendered in the income row template (sear
 Add this helper method to the transactions class/module:
 ```js
 _formatDateCompact(dateStr) {
-  const [yyyy, mm, dd] = String(dateStr).split('T')[0].split('-').map(Number);
-  const d = new Date(Date.UTC(yyyy, mm - 1, dd));
-  const day = String(d.getUTCDate()).padStart(2, '0');
-  const mmm = d.toLocaleString('en-GB', { month: 'short', timeZone: 'UTC' });
-  const year = d.getUTCFullYear();
-  return `<span class="date-compact">${day}-${mmm}<br><span class="date-year">${year}</span></span>`;
+  const fallback = '<span class="date-compact">--<br><span class="date-year">----</span></span>';
+  try {
+    if (typeof dateStr !== 'string' || !dateStr.trim()) return fallback;
+    const isoDate = dateStr.split('T')[0];
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return fallback;
+
+    const [yyyy, mm, dd] = isoDate.split('-').map(Number);
+    const d = new Date(Date.UTC(yyyy, mm - 1, dd));
+    if (Number.isNaN(d.getTime())) return fallback;
+
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    const mmm = d.toLocaleString('en-GB', { month: 'short', timeZone: 'UTC' });
+    const year = d.getUTCFullYear();
+    return `<span class="date-compact">${day}-${mmm}<br><span class="date-year">${year}</span></span>`;
+  } catch (_err) {
+    return fallback;
+  }
 }
 ```
 
@@ -270,7 +286,7 @@ Do not make swipe the only way to edit or delete an income row.
 
 Implement this concretely in `src/ui/transactions.js`:
 - Keep the `.col-actions` cell inside `.swipe-content` so each row still renders visible, focusable Edit and Delete controls.
-- Reuse the existing handlers: wire the Edit control to `transactionUI.editTransaction(${item.id})` and the Delete control to `deleteTransaction('income', ${item.id})` unless the live file already routes through equivalent existing handlers.
+- Route both swipe actions and inline controls to the same underlying edit/delete implementation (prefer `_handleEdit(id)` / `_handleDelete(id)` as the shared methods).
 - Give the visible inline controls stable classes `.btn-edit` and `.btn-delete` so the accessibility path is explicit in code review and verification.
 - Ensure those controls remain reachable by Tab and activatable with Enter or Space. If the row itself is made focusable (for example `tabindex="0"`), do not let that row-level focus hide, replace, or swallow the inline controls.
 - If the implementer chooses an action menu instead of always-visible inline buttons, that menu trigger must itself be visible, focusable, and inside `.swipe-content`, with Edit/Delete still reachable without touch.
@@ -301,6 +317,7 @@ Manual accessibility verification:
 Before declaring plan complete:
 - [ ] `grep -n "SwipeHandler" src/ui/transactions.js` returns the import line and at least one usage
 - [ ] `grep -n "_swipeInstances" src/ui/transactions.js` returns at least 3 lines (init, push, destroy loop)
+- [ ] Verify swipe callbacks and inline button handlers both reference the same underlying edit/delete methods (for example `_handleEdit` and `_handleDelete`) and are not separate logic paths
 - [ ] `grep -n "date-compact" css/main.css` returns the CSS rule
 - [ ] `grep -n "col-amount" css/main.css` returns the `white-space: nowrap` rule inside a `@media` block
 - [ ] `npx vitest run` (or `npm test`) exits with all tests passing and zero new failures

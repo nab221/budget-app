@@ -34,7 +34,7 @@ must_haves:
     - path: ".env.example"
       provides: "VITE_SUPABASE_REDIRECT_URL documented"
       contains: "VITE_SUPABASE_REDIRECT_URL"
-    - path: ".planning/phases/30-magic-link-pwa-auth-fix/30-MANUAL-TEST.md"
+    - path: ".planning/phases/30-MANUAL-TEST.md"
       provides: "Step-by-step manual test instructions for iOS Safari PWA, Android Chrome PWA, iOS Safari browser, Android Chrome browser"
       min_lines: 40
   key_links:
@@ -62,7 +62,7 @@ Output:
 - `src/ui/cloud-sync.js` — URL cleanup after auth; iOS PWA guidance message
 - `vite.config.js` — `navigateFallbackDenylist` excludes auth callback URLs from SW
 - `.env.example` — `VITE_SUPABASE_REDIRECT_URL` documented
-- `.planning/phases/30-magic-link-pwa-auth-fix/30-MANUAL-TEST.md` — human-verification test script
+- `.planning/phases/30-MANUAL-TEST.md` — human-verification test script
 </objective>
 
 <execution_context>
@@ -79,7 +79,7 @@ Output:
 @src/utils/supabase-sync.js
 @src/ui/cloud-sync.js
 @vite.config.js
-@.planning/phases/30-magic-link-pwa-auth-fix/30-RESEARCH.md
+@.planning/phases/30-RESEARCH.md
 </context>
 
 <tasks>
@@ -230,10 +230,10 @@ Do not change any other VitePWA or workbox settings.
 
 <task type="auto">
   <name>Task 4: Create 30-MANUAL-TEST.md</name>
-  <files>.planning/phases/30-magic-link-pwa-auth-fix/30-MANUAL-TEST.md</files>
+  <files>.planning/phases/30-MANUAL-TEST.md</files>
   <read_first>src/utils/supabase-sync.js, src/ui/cloud-sync.js</read_first>
   <action>
-Create the file `.planning/phases/30-magic-link-pwa-auth-fix/30-MANUAL-TEST.md` with the following content. This is the human-verification test script for Phase 30.
+Create the file `.planning/phases/30-MANUAL-TEST.md` with the following content. This is the human-verification test script for Phase 30.
 
 The script must cover all four test scenarios listed in the CONTEXT.md:
 1. iOS Safari PWA (standalone mode — app installed to home screen)
@@ -254,9 +254,9 @@ Also include:
 
 Write the full content of this file as proper Markdown. The file must be at least 40 lines.
   </action>
-  <verify>wc -l .planning/phases/30-magic-link-pwa-auth-fix/30-MANUAL-TEST.md && grep -c "iOS\|Android\|Pass\|Fail" .planning/phases/30-magic-link-pwa-auth-fix/30-MANUAL-TEST.md</verify>
+  <verify>wc -l .planning/phases/30-MANUAL-TEST.md && grep -c "iOS\|Android\|Pass\|Fail" .planning/phases/30-MANUAL-TEST.md</verify>
   <acceptance_criteria>
-    - .planning/phases/30-magic-link-pwa-auth-fix/30-MANUAL-TEST.md exists
+    - .planning/phases/30-MANUAL-TEST.md exists
     - File contains at least 40 lines
     - File covers all four test scenarios (iOS PWA, Android PWA, iOS browser, Android browser)
     - File contains "Known Limitations" section describing iOS PWA deep-link limitation
@@ -273,12 +273,12 @@ Write the full content of this file as proper Markdown. The file must be at leas
     - src/ui/cloud-sync.js — URL cleanup after SIGNED_IN; iOS guidance message on navigator.standalone
     - vite.config.js — navigateFallbackDenylist excludes ?code= from SW
     - .env.example — VITE_SUPABASE_REDIRECT_URL documented
-    - .planning/phases/30-magic-link-pwa-auth-fix/30-MANUAL-TEST.md — manual test script
+    - .planning/phases/30-MANUAL-TEST.md — manual test script
 
     Code changes can be reviewed directly; physical device testing is required to verify auth behaviour.
   </what-built>
   <how-to-verify>
-    Follow the instructions in `.planning/phases/30-magic-link-pwa-auth-fix/30-MANUAL-TEST.md`.
+    Follow the instructions in `.planning/phases/30-MANUAL-TEST.md`.
 
     Minimum required tests before sign-off:
     1. **iOS Safari browser (non-standalone):** Open the deployed PWA URL in Safari on an iPhone. Request a magic link. Click the link in the email. Verify the app opens and shows you as signed in. Verify the URL no longer shows `?code=`.
@@ -300,7 +300,7 @@ Before declaring plan complete:
 - [ ] `grep -n "navigator.standalone" src/ui/cloud-sync.js` returns a match
 - [ ] `grep -n "navigateFallbackDenylist" vite.config.js` returns a match
 - [ ] `grep -n "VITE_SUPABASE_REDIRECT_URL" .env.example` returns a match
-- [ ] `.planning/phases/30-magic-link-pwa-auth-fix/30-MANUAL-TEST.md` exists with ≥40 lines
+- [ ] `.planning/phases/30-MANUAL-TEST.md` exists with ≥40 lines
 - [ ] `npm run build` (or equivalent) succeeds without errors
 - [ ] No existing test suite failures introduced: run `npx vitest run` and confirm all tests pass
 </verification>
@@ -317,5 +317,5 @@ Before declaring plan complete:
 </success_criteria>
 
 <output>
-After completion, create `.planning/phases/30-magic-link-pwa-auth-fix/30-1-SUMMARY.md`
+After completion, create `.planning/phases/30-1-SUMMARY.md`
 </output>

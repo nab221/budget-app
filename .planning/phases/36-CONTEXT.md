@@ -39,7 +39,7 @@ For investment assets, allow the user to set a `targetAllocation` (percentage, 0
 - Does not execute any trades — display only
 
 ### z-index Coordination
-The sparkline canvas elements must not overlap the Phase 28 bottom nav bar on mobile. Ensure sparkline containers have `z-index` lower than `--bottom-bar-height` z-index (1000). Recommended: `z-index: 1` on chart containers.
+The sparkline canvas elements must not overlap the Phase 28 bottom nav bar on mobile. Ensure sparkline containers use a z-index lower than the bottom nav bar z-index (for example `z-index: 1000` on the nav and `z-index: 1` on sparkline containers).
 
 ## Schema Changes (Dexie)
 ```js
@@ -60,7 +60,7 @@ Dexie version bump required.
 - `src/ui/cloud-sync.js` — register `assetSnapshots` store
 
 ## Acceptance Criteria
-- [ ] Editing an asset value creates a snapshot of the previous value with today's date
+- [ ] Editing an asset value creates a snapshot of the previous value with `recordedAt` set to the current UTC datetime for deterministic ordering
 - [ ] Asset card shows sparkline for assets with ≥ 2 snapshots
 - [ ] "Not enough data" shown for assets with < 2 snapshots
 - [ ] Net-worth trend chart renders correctly for last 12 months
@@ -70,7 +70,7 @@ Dexie version bump required.
 - [ ] Sparkline z-index does not cause overlap with mobile bottom nav bar
 - [ ] `assetSnapshots` store registered in cloud sync
 - [ ] All 354+ existing Vitest tests pass
-- [ ] New snapshot and chart tests achieve ≥ 85% branch coverage
+- [ ] New snapshot, and chart tests achieve ≥ 85% branch coverage
 
 ## Technical Notes
 - The net-worth trend chart must handle missing months (asset had no snapshots) by carrying forward the last known value

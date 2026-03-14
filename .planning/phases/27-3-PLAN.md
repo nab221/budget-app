@@ -329,6 +329,13 @@ describe('validateDataIntegrity', () => {
     expect(issue.missingId).toBe(77);
   });
 
+  it('reports no issues when recurrentExpenses.linkedStatementId has a matching statement', async () => {
+    db.table('recurrentExpenses').toArray.mockResolvedValue([{ id: 3, linkedStatementId: 77, categoryId: null }]);
+    db.table('statements').bulkGet.mockResolvedValue([{ id: 77 }]);
+    const result = await validateDataIntegrity();
+    expect(result.issues.filter(i => i.store === 'recurrentExpenses' && i.field === 'linkedStatementId')).toHaveLength(0);
+  });
+
   // ─── recurrentExpenses.categoryId → categories.id (nullable) ────────────────
 
   it('reports an issue when recurrentExpenses.categoryId references a missing category', async () => {
@@ -338,6 +345,13 @@ describe('validateDataIntegrity', () => {
     const issue = result.issues.find(i => i.store === 'recurrentExpenses' && i.field === 'categoryId');
     expect(issue).toBeDefined();
     expect(issue.missingId).toBe(50);
+  });
+
+  it('reports no issues when recurrentExpenses.categoryId has a matching category', async () => {
+    db.table('recurrentExpenses').toArray.mockResolvedValue([{ id: 4, linkedStatementId: null, categoryId: 50 }]);
+    db.table('categories').bulkGet.mockResolvedValue([{ id: 50 }]);
+    const result = await validateDataIntegrity();
+    expect(result.issues.filter(i => i.store === 'recurrentExpenses' && i.field === 'categoryId')).toHaveLength(0);
   });
 
   // ─── oneOffExpenses.categoryId → categories.id (nullable) ───────────────────
@@ -356,6 +370,13 @@ describe('validateDataIntegrity', () => {
     expect(issue).toBeDefined();
   });
 
+  it('reports no issues when oneOffExpenses.categoryId has a matching category', async () => {
+    db.table('oneOffExpenses').toArray.mockResolvedValue([{ id: 5, categoryId: 88 }]);
+    db.table('categories').bulkGet.mockResolvedValue([{ id: 88 }]);
+    const result = await validateDataIntegrity();
+    expect(result.issues.filter(i => i.store === 'oneOffExpenses' && i.field === 'categoryId')).toHaveLength(0);
+  });
+
   // ─── income.categoryId → categories.id (nullable) ───────────────────────────
 
   it('reports an issue when income.categoryId references a missing category', async () => {
@@ -365,6 +386,13 @@ describe('validateDataIntegrity', () => {
     const issue = result.issues.find(i => i.store === 'income' && i.field === 'categoryId');
     expect(issue).toBeDefined();
     expect(issue.recordId).toBe(6);
+  });
+
+  it('reports no issues when income.categoryId has a matching category', async () => {
+    db.table('income').toArray.mockResolvedValue([{ id: 6, categoryId: 42 }]);
+    db.table('categories').bulkGet.mockResolvedValue([{ id: 42 }]);
+    const result = await validateDataIntegrity();
+    expect(result.issues.filter(i => i.store === 'income' && i.field === 'categoryId')).toHaveLength(0);
   });
 
   // ─── categoryMappings.categoryId → categories.id (non-nullable) ─────────────
@@ -377,6 +405,13 @@ describe('validateDataIntegrity', () => {
     expect(issue).toBeDefined();
     expect(issue.missingId).toBe(33);
     expect(issue.referencedStore).toBe('categories');
+  });
+
+  it('reports no issues when categoryMappings.categoryId has a matching category', async () => {
+    db.table('categoryMappings').toArray.mockResolvedValue([{ id: 7, categoryId: 33 }]);
+    db.table('categories').bulkGet.mockResolvedValue([{ id: 33 }]);
+    const result = await validateDataIntegrity();
+    expect(result.issues.filter(i => i.store === 'categoryMappings' && i.field === 'categoryId')).toHaveLength(0);
   });
 
   it('returns valid:true when all tables are empty', async () => {
@@ -399,12 +434,15 @@ describe('cleanOrphanedRecords', () => {
       { store: 'statements',  recordId: 1, field: 'debtId',   referencedStore: 'debts',      missingId: 99 },
       { store: 'statements',  recordId: 2, field: 'debtId',   referencedStore: 'debts',      missingId: 98 },
       { store: 'oneOffExpenses', recordId: 5, field: 'categoryId', referencedStore: 'categories', missingId: 77 },
+      { store: 'income', recordId: 6, field: 'categoryId', referencedStore: 'categories', missingId: 42 },
+      { store: 'income', recordId: 6, field: 'categoryId', referencedStore: 'categories', missingId: 42 },
     ];
 
     await cleanOrphanedRecords(issues);
 
     expect(db.table('statements').bulkDelete).toHaveBeenCalledWith([1, 2]);
     expect(db.table('oneOffExpenses').bulkDelete).toHaveBeenCalledWith([5]);
+    expect(db.table('income').bulkDelete).toHaveBeenCalledWith([6]);
   });
 
   it('does nothing when issues array is empty', async () => {
@@ -428,6 +466,7 @@ Adapt mock patterns to match what existing test files in the repo use. If existi
     - src/utils/data-integrity.test.js exists
     - All tests in the file pass (npx vitest run src/utils/data-integrity.test.js exits 0)
     - File covers all 7 FK relationships with at least one valid and one orphan case each
+    - File mocks `db` via `vi.mock('../db/schema.js', ...)` so tests run without IndexedDB
     - File tests cleanOrphanedRecords() for correct bulkDelete grouping
     - grep -c "it('reports" src/utils/data-integrity.test.js returns 7 or more
   </acceptance_criteria>
@@ -548,5 +587,5 @@ Before declaring plan complete:
 </success_criteria>
 
 <output>
-After completion, create `.planning/phases/27-critical-bug-fixes/27-03-SUMMARY.md`
+After completion, create `.planning/phases/27-critical-bug-fixes/27-3-SUMMARY.md`
 </output>

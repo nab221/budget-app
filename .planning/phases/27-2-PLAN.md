@@ -17,7 +17,7 @@ must_haves:
   artifacts:
     - path: "src/ui/heatmap.js"
       provides: "Year-filtered heatmap rendering with pre-filter step before scale calculation"
-      contains: "k.startsWith(String(yearNum))"
+      contains: "new Date(k).getFullYear() === yearNum"
     - path: "css/main.css"
       provides: "Mobile-safe flex layout for .sync-status-indicator"
       contains: "flex-shrink: 0"
@@ -72,7 +72,10 @@ At the very start of `renderSpendingHeatmap()`, immediately after `const yearNum
 ```js
 // Phase 27: Pre-filter dailyData to target year to prevent cross-year scale distortion
 const filteredDailyData = Object.fromEntries(
-  Object.entries(dailyData).filter(([k]) => k.startsWith(String(yearNum)))
+  Object.entries(dailyData).filter(([k]) => {
+    const parsed = new Date(k);
+    return !Number.isNaN(parsed.getTime()) && parsed.getFullYear() === yearNum;
+  })
 );
 ```
 
@@ -96,7 +99,7 @@ And the touchstart handler at line 270:
 const data = filteredDailyData[dateStr] || { total: 0 };
 ```
 
-Do NOT rename the function parameter `dailyData` — keep the function signature unchanged: `renderSpendingHeatmap(containerId, year, dailyData, options = {})`. Only introduce the local `filteredDailyData` constant and use it everywhere `dailyData` was used for data lookup (cell rendering + tooltips) and for scale calculation. The pre-filter uses `k.startsWith(String(yearNum))` which is safe for ISO date strings (YYYY-MM-DD format) since the year prefix uniquely identifies the target year.
+Do NOT rename the function parameter `dailyData` — keep the function signature unchanged: `renderSpendingHeatmap(containerId, year, dailyData, options = {})`. Only introduce the local `filteredDailyData` constant and use it everywhere `dailyData` was used for data lookup (cell rendering + tooltips) and for scale calculation.
 
 **Part B: Verify call sites in dashboard.js**
 
@@ -111,11 +114,13 @@ const yearFilteredData = Object.fromEntries(
 renderSpendingHeatmap(containerId, targetYear, yearFilteredData, options);
 ```
 
+Before deciding whether to add this defensive call-site filter, inspect the data construction immediately before each `renderSpendingHeatmap(...)` call (trace variables such as `dailyData`, `allDailyData`, and the source query/helper that populated them). If the source map is already built only from `targetYear` transactions, keep the call site unchanged and record that finding in the summary. If the source map aggregates multiple years, add `yearFilteredData` and pass it into the call.
+
 Only add the call-site filter in dashboard.js if the data passed is not already year-scoped. If it is already year-scoped (i.e., built by iterating only the target year's transactions), do NOT add a redundant filter — leave the call site unchanged and rely solely on the heatmap.js pre-filter from Part A.
   </action>
   <verify>npx vitest run src/ui/heatmap.test.js</verify>
   <acceptance_criteria>
-    - src/ui/heatmap.js contains `k.startsWith(String(yearNum))` as part of the pre-filter step
+    - src/ui/heatmap.js pre-filter parses date keys and keeps entries where `new Date(k).getFullYear() === yearNum`
     - src/ui/heatmap.js contains `const filteredDailyData = Object.fromEntries(`
     - src/ui/heatmap.js line for dataForScale reads `allYearsData || filteredDailyData` (NOT `allYearsData || dailyData`)
     - Cell rendering in heatmap.js references `filteredDailyData[dateStr]` NOT `dailyData[dateStr]`
@@ -143,7 +148,7 @@ The `header` (line 58) is: `header { display: flex; flex-wrap: wrap; align-items
 
 **Fix:** Because the sync dot already has inline `display` and `width` styles, do not rely on a class rule to override those properties. Update the inline style in `cloud-sync.js` to include `flex-shrink:0`, then add a minimal class rule in `css/main.css` only if you still need shared styling around the pulse state.
 
-```js
+```html
 <span id="syncStatusDot" class="sync-status-indicator" title="Synced"
   style="display:inline-block;width:0.6em;height:0.6em;border-radius:50%;background:#22c55e;margin:0 4px;flex-shrink:0">
 </span>
@@ -168,7 +173,7 @@ Do NOT modify `flex-wrap` on `.toolbar` or `header` — other toolbar children n
 Before declaring plan complete:
 - [ ] npx vitest run src/ui/heatmap.test.js — all tests pass
 - [ ] grep -c 'filteredDailyData' src/ui/heatmap.js returns 4 or more (declaration + scale + cell render + 2 tooltip handlers)
-- [ ] grep -c 'k.startsWith(String(yearNum))' src/ui/heatmap.js returns 1
+- [ ] grep -n 'Object.entries(dailyData).filter' src/ui/heatmap.js and grep -n 'getFullYear() === yearNum' src/ui/heatmap.js both return matches
 - [ ] grep -n 'sync-status-indicator\|pulse\|flex-shrink:0' src/ui/cloud-sync.js css/main.css confirms the inline style carries `flex-shrink:0` and any class rule only reinforces `flex-shrink` or pulse animation (not `display` or `width`)
 - [ ] No new test failures in full suite: npx vitest run
 </verification>

@@ -16,7 +16,7 @@ must_haves:
     - "Category is rendered as a badge chip inside the Expense cell, not as a separate column"
     - "Status is rendered as a single icon (✓/○/✗) with aria-label, not as a text badge or separate column"
     - "Expense date cells show two stacked lines: dd-MMM on line 1 and YYYY on line 2"
-    - "Tapping or swiping a debt-linked expense row navigates to the Debts tab instead of opening an edit form"
+    - "Tapping/clicking a debt-linked expense row (swipe disabled) navigates to the Debts tab instead of opening an edit form"
     - "Non-debt expense rows retain swipe-right = Edit, swipe-left = Delete behaviour"
     - "The status icon has an aria-label attribute for screen reader accessibility"
   artifacts:
@@ -125,7 +125,7 @@ After grepping in Step 1, update this function to use only the confirmed field n
     - src/ui/expenses.js thead contains exactly 3 `<th>` elements: `col-date`, `col-expense`, `col-amount`
     - src/ui/expenses.js does NOT contain old column headers (Category as `<th>`, Status as `<th>`) in the expenses table header
     - src/ui/expenses.js contains `isDebtLinked` function
-    - `isDebtLinked` checks at least one of: `sourceDebtId`, `debtId`, `sourceType` — whichever was confirmed present by the grep in Step 1
+    - `isDebtLinked` verifies that one of `sourceDebtId`, `debtId` or `sourceType` is present (as confirmed by the Step 1 grep)
   </acceptance_criteria>
   <done>Table header reduced to 3 columns; isDebtLinked helper defined with confirmed field names.</done>
 </task>
@@ -235,10 +235,10 @@ _initSwipe(tableBody) {
     if (!content) return;
 
     if (isLinked) {
-      // Debt-linked rows: tap navigates to Debts tab, no swipe actions
+      // Debt-linked rows: tap/click navigates to Debts tab, swipe is disabled
       row.style.cursor = 'pointer';
       row.onclick = (e) => {
-        // Prevent accidental navigation from swipe drag finishing as a tap
+        // Prevent accidental navigation from pointer gesture completion
         e.stopPropagation();
         const debtsTabBtn = document.querySelector('[data-tab="debts"]');
         if (debtsTabBtn) debtsTabBtn.click();
@@ -306,7 +306,7 @@ _initSwipe(tableBody) {
     - Debt-linked navigation binding is idempotent and does not stack duplicate click handlers on re-render
     - css/main.css contains `.expense-row.debt-linked` rule (additive, no existing rules modified)
   </acceptance_criteria>
-  <done>Tapping a debt-linked expense row navigates to the Debts tab; no swipe handler is attached; non-debt rows retain full swipe-to-reveal edit/delete behaviour.</done>
+  <done>Tapping/clicking a debt-linked expense row navigates to the Debts tab with swipe disabled; non-debt rows retain full swipe-to-reveal edit/delete behaviour.</done>
 </task>
 
 <task type="auto">
