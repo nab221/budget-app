@@ -218,9 +218,13 @@ input[type="number"] { text-align: right; }
 .tab[data-tab="settings"]::before  { content: "⚙️"; }
 
 @media (max-width: 768px) {
+  :root {
+    --bottom-bar-height: 72px;
+  }
+
   .mobile-menu-btn { display: none; } /* Replaced by bottom nav */
-  .shell { padding-bottom: 80px; } /* Space for bottom nav */
-  
+  .shell { padding-bottom: calc(var(--bottom-bar-height) + 8px); } /* Space for bottom nav */
+
   .nav-container {
     position: fixed;
     bottom: 0;
@@ -232,6 +236,7 @@ input[type="number"] { text-align: right; }
     z-index: 1000;
     box-shadow: 0 -4px 12px rgba(0,0,0,0.05);
     backdrop-filter: blur(10px);
+    padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
   }
 
   .tabs {
@@ -255,10 +260,11 @@ input[type="number"] { text-align: right; }
     font-size: 0.65rem;
     color: var(--text-dim);
     box-shadow: none !important;
+    min-height: 44px;
   }
 
   .tab:hover { background: none; }
-  
+
   .tab.active {
     background: none;
     color: var(--accent);
@@ -267,17 +273,6 @@ input[type="number"] { text-align: right; }
   .tab::before {
     font-size: 1.4rem;
     margin-bottom: 2px;
-  }
-
-  /* Hide tabs that don't fit well or are secondary if needed, or allow horizontal scroll if many */
-  .tabs {
-    overflow-x: auto;
-    justify-content: flex-start;
-    padding-left: 10px;
-    padding-right: 10px;
-  }
-  .tab {
-    min-width: 70px;
   }
 }
 
