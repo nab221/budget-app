@@ -1227,6 +1227,7 @@ export const cloudSyncUI = {
   },
 
   _renderSignedIn(session, statusEl, actionsEl) {
+    const escHtml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const lastSyncMs = localStorage.getItem(CLOUD_LAST_SYNC_KEY);
     const lastSyncText = lastSyncMs
       ? `Last synced: ${new Date(parseInt(lastSyncMs)).toLocaleString()}`
@@ -1234,7 +1235,7 @@ export const cloudSyncUI = {
 
     statusEl.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-        <span style="color:var(--success);font-size:.85rem">Signed in as ${session.user.email}</span>
+        <span style="color:var(--success);font-size:.85rem">Signed in as ${escHtml(session.user.email)}</span>
         <button id="cloudSignOutBtn" class="ghost" style="font-size:.75rem;padding:2px 8px">Sign Out</button>
       </div>
     `;
