@@ -276,6 +276,30 @@ input[type="number"] { text-align: right; }
   }
 }
 
+@media (max-width: 420px) {
+  .tab {
+    font-size: 0.55rem;
+    min-width: 44px;
+  }
+  .tab-label {
+    max-width: 6ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 360px) {
+  .tab-label {
+    display: none;
+  }
+  .tab {
+    font-size: 0;
+    gap: 0;
+    min-width: 44px;
+  }
+}
+
 /* ── TABLE ── */
 .tbl { width: 100%; border-collapse: collapse; font-size: .85rem; margin-top: 8px; }
 .tbl th, .tbl td { 
