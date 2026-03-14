@@ -1069,6 +1069,7 @@ export const cloudSyncUI = {
 
   async _showCloudConfigModal() {
     const runtimeConfig = getRuntimeConfig();
+    const getConfigModalRoot = () => document.getElementById('modalBody');
 
     return new Promise((resolve) => {
       const body = `
@@ -1096,8 +1097,9 @@ export const cloudSyncUI = {
           label: 'Save & Continue',
           className: 'primary',
           onClick: async () => {
-            const url = document.getElementById('cloudConfigUrlInput')?.value?.trim() || '';
-            const anonKey = document.getElementById('cloudConfigKeyInput')?.value?.trim() || '';
+            const modalRoot = getConfigModalRoot();
+            const url = modalRoot?.querySelector('#cloudConfigUrlInput')?.value?.trim() || '';
+            const anonKey = modalRoot?.querySelector('#cloudConfigKeyInput')?.value?.trim() || '';
             try {
               saveRuntimeConfig(url, anonKey);
               this._bindAuthListener();
@@ -1123,7 +1125,7 @@ export const cloudSyncUI = {
 
       templateUI.showModal('☁ Configure Cloud Sync', body, footer);
       setTimeout(() => {
-        document.getElementById('cloudConfigUrlInput')?.focus();
+        getConfigModalRoot()?.querySelector('#cloudConfigUrlInput')?.focus();
       }, 100);
     });
   },
@@ -1246,14 +1248,14 @@ export const cloudSyncUI = {
       <div class="hint" style="margin-top:6px;font-size:.75rem">${lastSyncText}</div>
     `;
 
-    const signOutBtn = document.getElementById('cloudSignOutBtn');
+    const signOutBtn = statusEl.querySelector('#cloudSignOutBtn');
     if (signOutBtn) signOutBtn.onclick = async () => {
       const supabase = getSupabaseClient();
       await supabase?.auth.signOut();
       triggerHaptic('tap');
     };
 
-    const pushBtn = document.getElementById('cloudPushBtn');
+    const pushBtn = actionsEl.querySelector('#cloudPushBtn');
     if (pushBtn) {
       const runPush = async (isRetry = false) => {
         const err = await this._executePushSync({ button: pushBtn });
@@ -1266,7 +1268,7 @@ export const cloudSyncUI = {
       pushBtn.onclick = () => runPush(false);
     }
 
-    const pullBtn = document.getElementById('cloudPullBtn');
+    const pullBtn = actionsEl.querySelector('#cloudPullBtn');
     if (pullBtn) {
       const runPull = async (isRetry = false) => {
         const err = await this._executePullSync({ button: pullBtn });
@@ -1279,7 +1281,7 @@ export const cloudSyncUI = {
       pullBtn.onclick = () => runPull(false);
     }
 
-    const editConfigBtn = document.getElementById('settingsCloudEditConfigBtn');
+    const editConfigBtn = actionsEl.querySelector('#settingsCloudEditConfigBtn');
     if (editConfigBtn) {
       editConfigBtn.onclick = async () => {
         await this._showCloudConfigModal();
@@ -1302,7 +1304,7 @@ export const cloudSyncUI = {
       </div>
     `;
 
-    const signInBtn = document.getElementById('settingsCloudSignInBtn');
+    const signInBtn = actionsEl.querySelector('#settingsCloudSignInBtn');
     if (signInBtn) {
       signInBtn.onclick = async () => {
         await this._showSignInModal();
@@ -1310,7 +1312,7 @@ export const cloudSyncUI = {
       };
     }
 
-    const editConfigBtn = document.getElementById('settingsCloudEditConfigBtn');
+    const editConfigBtn = actionsEl.querySelector('#settingsCloudEditConfigBtn');
     if (editConfigBtn) {
       editConfigBtn.onclick = async () => {
         await this._showCloudConfigModal();
