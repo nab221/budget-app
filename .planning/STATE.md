@@ -4,7 +4,7 @@ milestone: v3.0
 milestone_name: Budget Planning Core Redesign
 current_phase: 27
 phase_status: in_progress
-current_plan: 27-03
+current_plan: 28-01
 last_updated: 2026-03-14
 ---
 
@@ -14,13 +14,13 @@ last_updated: 2026-03-14
 
 **Phase 27 — Critical Bug Fixes, Cloud-Sync Hardening & Data Integrity**
 
-Status: In Progress — Plan 02 complete (2/2 tasks)
+Status: Complete — All 3 plans done
 
 ## Phase Progress
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 27 | Critical Bug Fixes, Cloud-Sync Hardening & Data Integrity | 🔄 In Progress (2/3 plans done) |
+| 27 | Critical Bug Fixes, Cloud-Sync Hardening & Data Integrity | ✅ Complete (3/3 plans done) |
 | 28 | Mobile Navigation Overhaul | ⬜ Not Started |
 | 29 | Mobile Table & Interaction Fixes | ⬜ Not Started |
 | 30 | Magic Link PWA / Auth Fix | ⬜ Not Started |
@@ -36,6 +36,7 @@ Status: In Progress — Plan 02 complete (2/2 tasks)
 
 ## Decisions Log
 
+- 2026-03-14 (27-03): Used vi.hoisted() for stable Vitest table mocks; validateDataIntegrity() is fire-and-forget in both app.js and cloud-sync.js — never blocks UI render or pull completion.
 - 2026-03-14 (27-02): dashboard.js call sites already pass year-scoped dailyData — no call-site filter added to dashboard.js; heatmap.js pre-filter (filteredDailyData) is sufficient for cross-year scale distortion fix.
 - 2026-03-14 (27-02): flex-shrink:0 applied both as inline style in cloud-sync.js and as CSS class rule; class rule only sets flex-shrink (no display/width override) to avoid specificity conflicts.
 - 2026-03-14 (27-01): Use local escHtml in _renderSignedIn; use .onclick on modal buttons to prevent handler accumulation; add _previewListenerBound guard mirroring _authListenerBound pattern.
