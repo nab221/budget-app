@@ -10,6 +10,7 @@
 - **SYNC** — Cloud sync and auth
 - **FIX** — Bug fixes from identified issues
 - **TECH** — Technical/infrastructure improvements
+- **INTEGRITY** — Data integrity & portability
 
 ---
 
@@ -38,6 +39,7 @@ A set of user-configurable estimated spending buckets for the period:
 - Default buckets: Groceries, Eating Out, Petrol/Transport, Entertainment, Clothing, Personal Care, Misc
 - Each bucket has a monthly estimated amount
 - Buckets appear in the affordability calculation as committed outgoings (prorated to the remaining days if within a pay period)
+- Bucket prorating formula: `dailyRate = monthlyAmount / daysInMonth; proratedAmount = dailyRate × daysRemainingInPayPeriod`
 - Buckets are not tracked per-transaction — they are estimates
 
 ### PLAN-05 · Pay-Period Navigator (P1)
@@ -52,6 +54,7 @@ Support for exactly two income sources with:
 - Expected monthly amount
 - Expected pay date (e.g. "last working day of month", "25th", etc.)
 - Banking-calendar adjusted date displayed
+- Validation: when `payDateRule === 'nth-of-month'`, `payDateDay` must be present, integer, and in the range 1..28
 
 ---
 
@@ -69,9 +72,11 @@ Credit card debt management with statement import remains. Keep existing PDF/CSV
 
 ### DEBT-03 · Debt Snapshot Confirmation (P1)
 For loans and mortgages, allow the user to confirm/update the current balance at any time (e.g. after making an overpayment). This updates the amortisation model's starting point.
+- When the confirmed balance differs from the computed balance by more than 5% (configurable via `CONFIRM_BALANCE_WARNING_THRESHOLD`), show a warning before finalizing.
+- Confirm action does not retroactively change posted transactions.
 
 ### DEBT-04 · Expense Link for Debt Payments (P1)
-When a regular debt payment (mortgage, loan, minimum CC payment) is added to the expenses tab, the edit/delete swipe actions on the Expenses tab for that entry must navigate to the corresponding Debt tab record — not trigger an inline edit.
+When a regular debt payment (mortgage, loan, minimum CC payment) is added to the expenses tab, the edit/delete swipe actions on the Expenses tab for that entry must navigate to the corresponding Debt tab record — not trigger an inline edit form.
 
 ---
 
@@ -82,6 +87,7 @@ Currently childcare tracks deposits and ledger entries but does NOT answer "how 
 - Per-account: list of regular childcare providers with their monthly/termly cost
 - Calculate: total periodic spend from the account
 - Display: "Required top-up this period" = total spend − current account balance − any pending government bonus
+- For 'termly' frequency, `monthlyEquivalent = amount / 3`
 
 ### CHILD-02 · Childcare Top-Up Reminder in Pay-Period View (P1)
 The required childcare top-up amounts for both children must appear as committed outgoings in the pay-period affordability calculation (PLAN-02).
@@ -97,6 +103,7 @@ Show the current entitlement period clearly on the childcare tab per account (al
 On mobile, the tab navigation must be fixed at the bottom of the screen at all times, regardless of scroll position. Tabs must show an icon and a label beneath it (like native iOS/Android bottom bars).
 - Must not disappear when the page is long (dashboard charts, transaction lists, etc.)
 - Tab bar height must be constant; page content must have sufficient bottom padding
+- Viewports below 360px switch to icons-only (maintaining 44×44px tap target). Between 360–420px, labels are truncated to a maximum of 6 characters with ellipsis. CSS mobile-first strategy: default full labels, `@media (max-width:420px)` truncation, `@media (max-width:360px)` icons-only.
 
 ### MOB-02 · Fixed Top Navigation / Pay-Period Bar (P0)
 On mobile, the pay-period navigator (PLAN-05) must be fixed at the top of the page below the header. The header itself should also remain fixed/sticky so the user always sees it.
@@ -176,6 +183,31 @@ All new utility modules must have Vitest unit test coverage ≥ 80%.
 
 ### TECH-05 · Print / Export to PDF (P2)
 Budget summary printable view / PDF export for sharing with a financial advisor or personal reference.
+
+### TECH-06 · Cloud Sync Store Registration (P0)
+When new IndexedDB stores are added (`incomeSources`, `spendingBuckets`, `childcareProviders`), they must be registered in the Supabase sync allowlist in `supabase-sync.js`. Without this, new data won't survive a cloud backup/restore cycle.
+
+---
+
+## INTEGRITY — Data Integrity & Portability
+
+### INTEGRITY-01 · Referential Integrity Validator (P0)
+A utility function `validateDataIntegrity()` that checks all FK-by-convention relationships across stores:
+- `statements.debtId` → `debts.id`
+- `childcareLedger.accountId` → `childcareAccounts.id`
+- `recurrentExpenses.linkedStatementId` → `statements.id`
+- `categoryMappings.categoryId` → `categories.id`
+- `childcareProviders.accountId` → `childcareAccounts.id` (new store, Phase 35)
+
+Must run on:
+- App startup
+- After cloud pull
+- After file import
+
+Must log and surface any orphaned records and offer to clean them up. Surface a warning toast if integrity issues are found.
+
+### INTEGRITY-02 · Legacy Data Import (P2)
+Settings panel function to import data from v2.x format. Validates compatibility, maps old fields to new schema, and reports what could and couldn't be imported. Since the app is not in active use, this is a convenience feature rather than critical.
 
 ---
 

@@ -7,7 +7,7 @@ A personal UK household budget planner — not a transaction ledger, but a **for
 ## Current State
 
 - **Latest Version**: v2.7 (Cloud-First Sync & UX Refinement) — Shipped 2026-03-12
-- **Status**: v2.7 complete. v3.0 roadmap to begin.
+- **Status**: v2.7 complete. v3.0 roadmap reviewed by Opus 4.6 (2026-03-14) — ready to begin.
 - **Tech Stack**: Vanilla JS (ES Modules) · Dexie.js (IndexedDB) · Chart.js v4 · date-fns · Vite build · Supabase optional cloud sync · PWA (service worker)
 - **Codebase**: ~14,000 JS LOC | Vitest test suite (354 passing)
 - **Deployment**: GitHub Pages via GitHub Actions CI/CD
@@ -23,6 +23,7 @@ The app must therefore model:
 4. **Childcare Tax-Free accounts** for two children — how much to top up each period
 5. **Spending buckets** (groceries, eating out, petrol, etc.) as estimated outgoings
 6. **A payoff planner** that, given an available extra amount, ranks which debts to attack first
+7. **A data integrity checker** that validates referential integrity across all stores
 
 ## Key Design Principles
 
@@ -31,6 +32,16 @@ The app must therefore model:
 - **Visual clarity** — charts, timelines, and date-stamped payment schedules are essential
 - **Offline-first** — all data in IndexedDB; Supabase sync is additive
 - **Banking calendar aware** — payment dates shift to the next working day when they fall on weekends/bank holidays
+- **Data integrity enforced** — referential integrity validated on DB refresh and sync pull
+
+## Schema Version Plan
+
+| Schema Version | Phase | Changes |
+|---------------|-------|---------|
+| v13 | Phase 31 | Banking calendar fields |
+| v14 | Phase 32 | Debt type fields |
+| v15 | Phase 33 | Income sources + spending buckets stores |
+| v16 | Phase 35 | Childcare providers store |
 
 ## Milestone History (Summary)
 
