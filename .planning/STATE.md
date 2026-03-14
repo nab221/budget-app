@@ -3,7 +3,8 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Budget Planning Core Redesign
 current_phase: 27
-phase_status: not_started
+phase_status: in_progress
+current_plan: 27-01
 last_updated: 2026-03-14
 ---
 
@@ -13,13 +14,13 @@ last_updated: 2026-03-14
 
 **Phase 27 — Critical Bug Fixes, Cloud-Sync Hardening & Data Integrity**
 
-Status: Not started
+Status: In Progress — Plan 01 complete (3/3 tasks)
 
 ## Phase Progress
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 27 | Critical Bug Fixes, Cloud-Sync Hardening & Data Integrity | ⬜ Not Started |
+| 27 | Critical Bug Fixes, Cloud-Sync Hardening & Data Integrity | 🔄 In Progress (1/3 plans done) |
 | 28 | Mobile Navigation Overhaul | ⬜ Not Started |
 | 29 | Mobile Table & Interaction Fixes | ⬜ Not Started |
 | 30 | Magic Link PWA / Auth Fix | ⬜ Not Started |
@@ -35,6 +36,7 @@ Status: Not started
 
 ## Decisions Log
 
+- 2026-03-14 (27-01): Use local escHtml in _renderSignedIn; use .onclick on modal buttons to prevent handler accumulation; add _previewListenerBound guard mirroring _authListenerBound pattern.
 - 2026-03-14: v3.0 roadmap critically reviewed by Opus 4.6. Key changes applied: INTEGRITY-01 moved to Phase 27 (P0, earliest phase); TECH-06 added to Phase 33 and Phase 35; Phase 31 complexity raised to Medium-High; Phase 33 given hard dependency on Phase 31; schema version map corrected (v13→P31, v14→P32, v15→P33, v16→P35); INTEGRITY-02 (legacy import) added to Phase 38; CodeRabbit feedback incorporated across all phases.
 
 ## Blocked / Risks

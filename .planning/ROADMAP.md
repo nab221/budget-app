@@ -12,7 +12,7 @@ Phases are ordered P0-first within logical dependencies. P1 phases follow once t
 
 | Phase | Name | Priority | Requirements | Est. Complexity |
 |-------|------|----------|-------------|------------------|
-| 27 | Critical Bug Fixes, Cloud-Sync Hardening & Data Integrity | P0 | SYNC-02, NAV-01, NAV-03, MOB-06, INTEGRITY-01 | Low |
+| 27 | 1/3 | In Progress|  | Low |
 | 28 | Mobile Navigation Overhaul | P0 | MOB-01, MOB-02, NAV-01, NAV-02 | Medium |
 | 29 | Mobile Table & Interaction Fixes | P0 | MOB-04, MOB-05, DEBT-04 | Medium |
 | 30 | Magic Link PWA / Auth Fix | P0 | MOB-07, SYNC-01 | Medium |
