@@ -15,6 +15,7 @@ import {
   PAYOFF_EXTRA_KEY,
   PAYOFF_STRATEGY_KEY
 } from '../utils/storage.js';
+import { validateDataIntegrity, cleanOrphanedRecords } from '../utils/data-integrity.js';
 
 // Holds the parsed backup content between promptImportMode() and the
 // delegated click handler — avoids embedding large JSON in an inline onclick.
@@ -280,6 +281,21 @@ export const backupUI = {
         mode: _pendingImportMode,
         restoreSettings: _pendingImportMode === 'overwrite'
       });
+
+      // Phase 27: Check integrity immediately after import, before page reload
+      const { valid: importValid, issues: importIssues } = await validateDataIntegrity();
+      if (!importValid) {
+        notificationUI.warning(
+          `⚠️ ${importIssues.length} data integrity issue${importIssues.length !== 1 ? 's' : ''} found in imported data.`,
+          [
+            {
+              label: 'Clean up',
+              onClick: () => cleanOrphanedRecords(importIssues).then(() => notificationUI.success('Orphaned records removed.')),
+            },
+          ],
+          8000
+        );
+      }
 
       notificationUI.success('Import successful! The app will now reload.');
       window.location.reload();
