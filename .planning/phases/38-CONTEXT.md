@@ -1,61 +1,97 @@
-# Phase 38 Context: GitHub Actions Node.js 24 & Technical Hygiene
+
+# Phase 38 Context: Data Import & Migration Tools
 
 ## Objective
-Upgrade the CI/CD pipeline actions to Node.js 24-compatible versions before the June 2, 2026 deadline. Clean up loose test/debug files from the repository root.
+Add tools to import financial data from external sources: CSV import for transactions (income/expenses), OFX/QIF file import, and a legacy data migration path from the v1 app format. Provide validation and a dry-run preview before committing imported data.
 
 ## Background
 
-### Deprecation Deadline
-GitHub Actions will force all actions to run on Node.js 24 starting June 2, 2026. Actions still using Node.js 20 will produce deprecation warnings and may break after the deadline.
+### Why Import Tools Matter
+New users want to bring in historical data from bank exports or spreadsheets. Existing users upgrading from v1 of the app need a migration path.
 
-### Current Actions in `.github/workflows/deploy.yml`
-```yaml
-- actions/checkout@v4
-- actions/setup-node@v4
-- actions/configure-pages@v5
-- actions/upload-pages-artifact@v3
-- actions/deploy-pages@v4
+### Supported Import Formats
+1. **Generic CSV** — columns: Date, Description, Amount, Type (income/expense), Category (optional)
+2. **OFX (Open Financial Exchange)** — standard bank export format; widely supported by UK banks
+3. **QIF (Quicken Interchange Format)** — older format, still used by some banks and accounting apps
+4. **v1 legacy JSON** — the export format from v1 of this app (documented in `.planning/V1-EXPORT-FORMAT.md`)
+
+### Import Flow
+1. User selects file type and uploads file
+2. Parser reads and validates the file
+3. Dry-run preview: show table of records to be imported (with any validation warnings highlighted in amber)
+4. User confirms → records are written to IndexedDB
+5. Success toast: "Imported {N} records"
+6. Error toast if any records failed (with count and option to download error log)
+
+### Validation Rules
+- Date must be a valid ISO date or parseable UK date (DD/MM/YYYY)
+- Amount must be a positive number
+- Type must be 'income' or 'expense' (case-insensitive); OFX/QIF use DEBIT/CREDIT which must be mapped
+- Category: if provided and not matching an existing category name, create the category automatically OR flag for user review
+- Duplicate detection: if a record with the same date + description + amount already exists, flag as potential duplicate (don't block import, but show warning)
+
+### Legacy v1 Import
+The v1 app exported a JSON object with keys:
+```json
+{
+  "income": [...],
+  "expenses": [...],
+  "debts": [...],
+  "categories": [...]
+}
 ```
-These warnings currently appear in CI runs:
-> "Node.js 20 actions are deprecated. Actions will be forced to run with Node.js 24 by default starting June 2nd, 2026."
+The v1 schema differs from v3 in several ways (documented in `.planning/V1-EXPORT-FORMAT.md`). The importer must map v1 fields to v3 fields and handle missing fields gracefully.
 
-### Fix
-Check the GitHub Actions Marketplace for the latest versions of each action that ship with Node.js 24 runtime. At the time of writing:
-- `actions/checkout` → check for v5 or latest Node 24 compatible tag
-- `actions/setup-node` → check for v5 or latest
-- `actions/configure-pages` → check for latest
-- `actions/upload-pages-artifact` → check for v4 or latest
-- `actions/deploy-pages` → check for v5 or latest
+**Key v1→v3 field mappings:**
+- `income[].date` → `income.date` (same format)
+- `income[].amount` → `income.amount` (pence, same)
+- `income[].source` → `income.description`
+- `expenses[].date` → `oneOffExpenses.date`
+- `expenses[].name` → `oneOffExpenses.description`
+- `expenses[].amount` → `oneOffExpenses.amount` (pence, same)
+- `expenses[].category` → look up `categories.id` by name, create if missing
+- `debts[].name` → `debts.name`
+- `debts[].balance` → `debts.outstandingBalance`
+- `debts[].apr` → `debts.annualInterestRate` (convert % string to decimal: '4.9%' → 0.049)
 
-**Agent must verify current latest versions from GitHub Marketplace before updating** — do not assume version numbers.
+### Data Integrity After Import
+After any import completes, call `validateDataIntegrity()` (Phase 27 module) to check for orphaned records created by the import. If issues are found, show the integrity warning toast.
 
-### Root Directory Cleanup
-The following files exist in the repository root and should not be there:
-- `test-output.txt` — test run output artifact, not source code
-- `test-purify.cjs` — ad-hoc test script
-- `test-security.js` — ad-hoc security test script
-- `test-syntax.cjs` — ad-hoc syntax check script
-- `print_lines.cjs` — utility/debug script
-
-**Action:** Move any scripts that should be retained to `tests/` or `scripts/`. Delete pure artifacts (`test-output.txt`). Update any `package.json` scripts that reference moved files. Add root-level test artifacts to `.gitignore`.
+## New Module: src/utils/importers/
+```
+src/utils/importers/
+  csv-importer.js
+  ofx-importer.js
+  qif-importer.js
+  v1-legacy-importer.js
+  import-validator.js
+  index.js  (re-exports all importers)
+```
 
 ## Files to Change
-- `.github/workflows/deploy.yml` — update action versions
-- Root level: delete `test-output.txt`, review and move/delete `test-purify.cjs`, `test-security.js`, `test-syntax.cjs`, `print_lines.cjs`
-- `.gitignore` — add `test-output.txt` (and similar generated files)
-- `package.json` — update any scripts referencing moved files
+- `src/utils/importers/` — new directory with importer modules
+- `src/ui/settings.js` — add "Import Data" section with file type selector and upload UI
+- `src/ui/settings.test.js` — extend tests for import UI
+- `src/db/repository.js` — bulk insert helpers for import
+- `src/utils/data-integrity.js` — called after import (Phase 27 dependency)
 
 ## Acceptance Criteria
-- [ ] All GitHub Actions in `deploy.yml` are at Node.js 24-compatible versions
-- [ ] CI pipeline runs without any Node.js deprecation warnings
-- [ ] All 354+ Vitest tests pass in CI after the upgrade
-- [ ] Root directory is clean: no loose test/debug scripts
-- [ ] `.gitignore` covers future test output artifacts
-- [ ] No `package.json` scripts are broken by the cleanup
-- [ ] Deployed GitHub Pages site still functions correctly after pipeline update
+- [ ] Generic CSV import: parses Date, Description, Amount, Type, Category columns correctly
+- [ ] OFX import: parses STMTTRN records, maps DEBIT/CREDIT to expense/income
+- [ ] QIF import: parses D (date), T (amount), P (payee), L (category) fields
+- [ ] v1 legacy JSON import: correctly maps all v1 fields to v3 schema
+- [ ] v1 `debts[].apr` string ('4.9%') correctly converted to decimal (0.049)
+- [ ] Dry-run preview shows all records before commit
+- [ ] Duplicate records flagged with amber warning (not blocked)
+- [ ] Invalid records highlighted with error detail
+- [ ] Unknown categories created automatically (or flagged for review — implementation choice)
+- [ ] `validateDataIntegrity()` called after import completes
+- [ ] All 354+ existing Vitest tests pass
+- [ ] Importer unit tests achieve ≥ 90% branch coverage
 
 ## Technical Notes
-- Before updating action versions, run the CI once with the current config to capture a baseline of the warning messages
-- The `actions/setup-node@v4` action's `node-version` field in the YAML may need to specify `'24'` explicitly after the upgrade — verify
-- Do not change the Node.js version used to build the app itself (the Vite build) unless required — the CI Node.js runtime version and the action runner version are separate concerns
-- Timeline: this must be complete before June 2, 2026. Phase 38 is scheduled well within this window (assuming v3.0 progresses normally from March 2026).
+- OFX files use a semi-SGML format; a lightweight parser is needed. Check if `ofx-js` or similar is available on npm before writing a parser from scratch.
+- QIF date format is typically MM/DD/YYYY (US format) but some UK exports use DD/MM/YYYY — detect and handle both
+- The dry-run preview must not write to IndexedDB until the user confirms
+- The `v1-legacy-importer.js` module must handle the case where `.planning/V1-EXPORT-FORMAT.md` documents additional fields not covered above
+- APR conversion: strip the `%` character and divide by 100. Handle both `'4.9%'` and `'4.9'` (already decimal) inputs robustly.

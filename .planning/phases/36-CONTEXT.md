@@ -1,78 +1,78 @@
-# Phase 36 Context: Navigator & View Toggle Redesign
+
+# Phase 36 Context: Asset Tracker Enhancements
 
 ## Objective
-Redesign the Dashboard and tab navigators for a modern, consistent experience. Replace the `<select>` view dropdown with a segmented radio toggle. Make the pay-period navigator sticky/fixed. Ensure heatmap year navigation is clean and correct.
+Extend the asset tracker with: historical value snapshots, a sparkline chart per asset, a net-worth trend chart (all assets combined), and a "rebalance" suggestion feature based on the user's target allocation.
 
 ## Background
 
-### Current Navigator Issues
-1. The `<select>` dropdown for "Month View / Year to Date / All Time" is visually inconsistent with the rest of the app's modern aesthetic
-2. The navigator (month picker + view selector) is not fixed — it scrolls away on long pages
-3. On mobile, the navigator is positioned after heatmaps, making it hard to find
-4. The heatmap year navigation (if it has year arrows) is not clearly connected to the view state
+### Current Asset Tracker
+The asset tracker (`src/ui/assets.js`) allows the user to record assets (property, investments, savings, vehicles) with a current value. It does not store historical values or trends.
 
-### Current DOM Structure (Dashboard)
-```html
-<!-- Phase 17 reflow: month picker + view select -->
-<div style="display:flex; justify-content:center; ...">
-  <div id="dashboardMonthPicker" class="month-nav"></div>
-  <select id="viewSelect">
-    <option value="current">Month View</option>
-    <option value="ytd">Year to Date</option>
-    <option value="all">All Time</option>
-  </select>
-</div>
+### Value Snapshots
+Add a `assetSnapshots` store:
+```js
+{
+  id: auto,
+  assetId: FK → assets.id,
+  date: string,   // ISO date
+  value: number   // pence
+}
 ```
+When the user edits an asset's value, the old value is written to `assetSnapshots` with today's date before the update is applied.
 
-## New Design: Segmented Control (Radio Toggle)
+### Sparkline Charts
+For each asset card, show a small sparkline chart (last 12 months of snapshots). Use the existing canvas/charting infrastructure from `src/ui/charts.js` (or equivalent). If fewer than 2 snapshots exist, show "Not enough data" text instead.
 
-Replace `<select id="viewSelect">` with:
-```html
-<div class="view-toggle" role="radiogroup" aria-label="View period">
-  <button class="view-toggle-btn active" data-view="current" role="radio" aria-checked="true">Month</button>
-  <button class="view-toggle-btn" data-view="ytd" role="radio" aria-checked="false">YTD</button>
-  <button class="view-toggle-btn" data-view="all" role="radio" aria-checked="false">All Time</button>
-</div>
+### Net-Worth Trend Chart
+Add a full-width chart at the top of the Assets tab:
+- X-axis: monthly intervals (last 12 months)
+- Y-axis: total net worth (sum of all asset values at month-end)
+- Uses the most recent snapshot per asset per month for the calculation
+
+### Rebalance Suggestion
+For investment assets, allow the user to set a `targetAllocation` (percentage, 0–100). The rebalance view:
+- Shows current allocation % per investment asset
+- Shows target allocation %
+- Shows the difference (over/under weight)
+- Suggests: "Buy £X of [asset]" or "Sell £X of [asset]" to reach target allocation
+- Does not execute any trades — display only
+
+### z-index Coordination
+The sparkline canvas elements must not overlap the Phase 28 bottom nav bar on mobile. Ensure sparkline containers have `z-index` lower than `--bottom-bar-height` z-index (1000). Recommended: `z-index: 1` on chart containers.
+
+## Schema Changes (Dexie)
+```js
+// New store:
+assetSnapshots: '++id, assetId, date'
+
+// Updated store:
+assets: '++id, name, type, targetAllocation'
+// targetAllocation: number | null (percentage)
 ```
-
-CSS: pill-shaped container, active button has filled background, smooth transition. No border, no dropdown arrow. Clean, iOS-style segmented control.
-
-## Pay-Period Navigator
-
-The pay-period navigator (from Phase 34) should be part of a **unified navigator bar** that sits just below the fixed header:
-```
-┌────────────────────────────────────────────┐
-│  ‹ March 2026  ›    [ Month | YTD | All ]  │
-│  Pay period: 25 Feb → 24 Mar               │
-└────────────────────────────────────────────┘
-```
-- On mobile: this bar is `position: sticky; top: [header-height]` so it remains visible below the fixed header
-- On desktop: stays in the content flow (can be sticky or static depending on UX preference)
-
-## Heatmap Year Navigation
-- Add year navigation arrows `‹ 2025 ›` above each heatmap
-- Clicking arrows re-renders the heatmap for the selected year
-- Heatmap data must be filtered strictly to the selected year before rendering (Phase 27 started this; Phase 36 ensures it is correct in the navigator-driven flow)
-- Default selected year = current year
+Dexie version bump required.
 
 ## Files to Change
-- `css/main.css` — `.view-toggle`, `.view-toggle-btn`, segmented control styles, navigator bar styles
-- `index.html` — replace `<select id="viewSelect">` with `.view-toggle` markup, add navigator bar HTML
-- `src/ui/dashboard.js` — update view select event listener to handle `.view-toggle-btn` clicks; add heatmap year state management
-- `src/ui/heatmap.js` — accept year parameter from navigator, filter data strictly
+- `src/db/schema.js` — add `assetSnapshots` store, add `targetAllocation` to `assets`, bump version
+- `src/db/repository.js` — snapshot CRUD, net-worth trend query, monthly rollup query
+- `src/ui/assets.js` — sparkline rendering, net-worth chart, rebalance view
+- `src/ui/assets.test.js` — extend tests
+- `src/ui/cloud-sync.js` — register `assetSnapshots` store
 
 ## Acceptance Criteria
-- [ ] View toggle is a segmented control (pill buttons), not a `<select>` dropdown
-- [ ] Active view is visually highlighted; switching works correctly for all three views
-- [ ] Navigator bar is sticky below the header on mobile
-- [ ] Month navigation arrows work as before
-- [ ] Heatmap shows a year navigation (`‹ 2024 ›`) and re-renders when changed
-- [ ] Heatmap year is independent of the month-view selector (different controls)
-- [ ] No cross-year heatmap split (fully fixed from Phase 27)
-- [ ] Segmented control is keyboard accessible (arrow keys navigate between options)
-- [ ] All existing dashboard tests pass
+- [ ] Editing an asset value creates a snapshot of the previous value with today's date
+- [ ] Asset card shows sparkline for assets with ≥ 2 snapshots
+- [ ] "Not enough data" shown for assets with < 2 snapshots
+- [ ] Net-worth trend chart renders correctly for last 12 months
+- [ ] Rebalance view shows current vs target allocation for investment assets
+- [ ] Rebalance suggestions (buy/sell amounts) are mathematically correct
+- [ ] Sparkline z-index does not cause overlap with mobile bottom nav bar
+- [ ] `assetSnapshots` store registered in cloud sync
+- [ ] All 354+ existing Vitest tests pass
+- [ ] New snapshot and chart tests achieve ≥ 85% branch coverage
 
 ## Technical Notes
-- The `#viewSelect` element ID is referenced in `src/ui/dashboard.js` event listeners — update all references
-- Ensure the navigator bar's sticky top offset accounts for the fixed header height (CSS variable: `--header-height`)
-- Segmented control transitions: use `transition: background-color 0.2s ease` — respect `prefers-reduced-motion`
+- The net-worth trend chart must handle missing months (asset had no snapshots) by carrying forward the last known value
+- `targetAllocation` applies only to assets with `type === 'investment'`
+- Rebalance calculation: total investment portfolio value × target% − current value = buy(+)/sell(-) amount
+- Snapshot auto-creation: triggered in `repository.js` `updateAsset()` method, not in the UI layer

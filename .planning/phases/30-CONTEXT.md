@@ -1,3 +1,4 @@
+
 # Phase 30 Context: Magic Link PWA / Auth Fix
 
 ## Objective
@@ -41,6 +42,13 @@ Switch to Supabase PKCE (Proof Key for Code Exchange) flow instead of the implic
 - `public/manifest.json` — review `start_url` and `scope` to ensure the magic link redirect URL is within scope
 - `.env.example` — document that `VITE_SUPABASE_REDIRECT_URL` must match the deployed PWA URL exactly
 
+```bash
+# .env.example
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+VITE_SUPABASE_REDIRECT_URL=https://your-deployed-pwa-url.example.com
+```
+
 ## Acceptance Criteria
 - [ ] Magic link email received on iOS opens the installed PWA and completes sign-in
 - [ ] Magic link email received on Android opens the installed PWA and completes sign-in
@@ -53,6 +61,7 @@ Switch to Supabase PKCE (Proof Key for Code Exchange) flow instead of the implic
 - Supabase JS client v2: `supabase.auth.getSession()` should be called on every app load; if a session is in the URL hash, the client will parse it automatically in v2. Verify the Supabase JS client version in `package.json`.
 - The service worker at `public/sw.js` (if it exists) must have a pass-through rule for URLs containing `#access_token` or `?code=`
 - On iOS, PWA standalone mode uses `window.navigator.standalone === true` — this can be used to display a helpful message if the magic link cannot auto-open the PWA
+- HUMAN-VERIFICATION-REQUIRED: This phase cannot be fully verified by an AI agent. The implementing agent must produce a manual test script (30-MANUAL-TEST.md) with step-by-step instructions for testing on: (1) iOS Safari PWA, (2) Android Chrome PWA, (3) iOS Safari browser, (4) Android Chrome browser. A human must execute this script and sign off.
 
 ## Resources
 - Supabase Auth documentation: https://supabase.com/docs/guides/auth/server-side/oauth-with-pkce-flow-for-ssr

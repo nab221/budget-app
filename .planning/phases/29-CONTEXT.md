@@ -1,3 +1,4 @@
+
 # Phase 29 Context: Mobile Table & Interaction Fixes
 
 ## Objective
@@ -50,3 +51,6 @@ When an expense is created by the debt system (e.g. "Mortgage payment - March"),
 - The `gestures.js` swipe handler returns a cleanup function — make sure it is called when a row is removed to prevent memory leaks
 - Debt-linkage field name: inspect `src/ui/expenses.js` and `src/db/repository.js` to confirm the exact field (likely `debtId` or `sourceType === 'debt'`)
 - Status icon must be accessible: add `aria-label="Paid"` etc. to the icon element
+- If `gestures.js` does not support a reveal-under-swipe pattern (swipe to reveal action buttons behind the row), it must be extended with a `SwipeReveal` class that handles: touch start/move/end, translateX animation, reveal container with action buttons, and auto-close when another row is swiped
+- Swipe threshold: 60px minimum travel before action is revealed
+- Rows must support both horizontal swipe (for actions) and vertical scroll (for table scrolling) — use angle detection to disambiguate

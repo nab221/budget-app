@@ -1,3 +1,4 @@
+
 # Phase 28 Context: Mobile Navigation Overhaul
 
 ## Objective
@@ -29,6 +30,19 @@ On mobile, the hamburger menu pattern is used — this must be replaced with a b
 - All tab-panels must have `padding-bottom: 72px` to prevent content hiding behind the bar
 - `#mobileMenuBtn` (hamburger): hidden on mobile when bottom bar is shown
 
+### Mobile Tab Bar Breakpoint Strategy
+- **> 420px**: Full icon + label for all 8 tabs
+- **360–420px**: Icon + truncated label (max 6 visible characters, ellipsis). CSS: `@media (max-width: 420px) { .tab-label { max-width: 6ch; overflow: hidden; text-overflow: ellipsis; } }`
+- **< 360px**: Icons only, labels hidden. CSS: `@media (max-width: 360px) { .tab-label { display: none; } }`
+- **Minimum tap target**: 44×44px per WCAG guidelines — enforce via `min-width: 44px; min-height: 44px` on each tab button
+- **Tab panels**: must retain `padding-bottom: 72px` at all breakpoints to avoid content hidden behind the bar
+
+### Icon Strategy
+Replace emoji characters with inline SVG icon components (or a lightweight icon set like Lucide/Feather). Each tab button must include `aria-label` for screen reader accessibility. Example:
+- Dashboard: house icon + `aria-label="Dashboard"`
+- Income: banknote icon + `aria-label="Income"`
+- etc.
+
 ### Target Design — Desktop (>768px)
 - Keep existing horizontal tab bar at top — no change to desktop behaviour
 - Make the header `position: sticky; top: 0; z-index: 100` so it persists on scroll
@@ -36,7 +50,7 @@ On mobile, the hamburger menu pattern is used — this must be replaced with a b
 ### Behaviour
 - Active tab highlighted (colour accent, underline, or elevated icon)
 - Tap switches tab-panel as before (existing JS logic in `src/app.js` reused)
-- No hamburger menu on mobile — all 8 tabs visible simultaneously in the bottom bar (they can have short labels or icons-only if space is tight)
+- No hamburger menu on mobile — all 8 tabs visible simultaneously in the bottom bar
 
 ## Files to Change
 - `css/main.css` — `.nav-container`, `.tabs`, `.tab`, `.tab-panel`, header sticky, mobile media query
@@ -57,3 +71,5 @@ On mobile, the hamburger menu pattern is used — this must be replaced with a b
 - The bottom bar must not interfere with the Supabase magic link modal or notification toasts — ensure z-index ordering is correct
 - On PWA standalone mode, the bottom bar must account for iOS safe-area insets: use `padding-bottom: env(safe-area-inset-bottom)` on the bar
 - The `open` class on `#mainTabs` for mobile dropdown must be removed from the CSS logic once the bottom bar replaces it
+- The bottom bar height (72px) must be exposed as a CSS custom property `--bottom-bar-height` for use by Phase 36's navigator z-index coordination
+- iOS safe-area: `padding-bottom: calc(env(safe-area-inset-bottom) + 8px)` on the bar itself

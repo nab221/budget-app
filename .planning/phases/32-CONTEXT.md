@@ -1,3 +1,4 @@
+
 # Phase 32 Context: Debt Model Refactor — Loans & Mortgage
 
 ## Objective
@@ -34,60 +35,86 @@ Compute:
 
 This computation belongs in `src/utils/finance.js` as a pure function: `calculateAmortisationSchedule(params)`.
 
-### "Confirm Current Balance" Flow
-A button on loan/mortgage debt cards: "Update Current Balance". Opens a modal where the user enters the actual current balance (from their online banking). This sets a new anchor point for the amortisation model without altering the payment schedule.
+### Amortisation Calculation Detail (Simple Monthly Interest)
+This uses simple monthly interest — no daily compounding.
 
-## Schema Changes
+**Formula per month:**
+1. `monthlyInterest = outstandingBalance × (annualInterestRate / 12)`
+2. `principalReduction = monthlyPayment - monthlyInterest`
+3. `newBalance = outstandingBalance - principalReduction`
+
+**Worked example (months 1–3):**
+- Starting balance: £10,000.00, APR: 4.9%, Monthly payment: £300.00
+- Month 1: interest = £10,000 × 0.049/12 = £40.83, principal = £259.17, balance = £9,740.83
+- Month 2: interest = £9,740.83 × 0.049/12 = £39.77, principal = £260.23, balance = £9,480.60
+- Month 3: interest = £9,480.60 × 0.049/12 = £38.70, principal = £261.30, balance = £9,219.30
+- Continue until balance ≤ 0
+
+**Guard:** If `monthlyPayment ≤ monthlyInterest` (payment doesn't cover interest), the function must throw `Error('Monthly payment does not cover interest — loan will never be repaid')` rather than looping infinitely.
+
+### Confirm Current Balance Flow
+After an overpayment, the user confirms the actual outstanding balance:
+1. User taps "Confirm Current Balance" on a loan/mortgage debt card
+2. Modal opens: "Enter your current outstanding balance" with a currency input
+3. User submits → the debt record's `outstandingBalance` is updated in IndexedDB
+4. The amortisation schedule is recalculated immediately
+5. The updated `projectedPayoffDate` and `remainingTermMonths` are displayed
+6. A toast: "Balance updated. New payoff date: [Month Year]"
+
+**Confirm flow validation:**
+- New balance must be > 0 and < previous balance (cannot increase balance via this flow)
+- If new balance ≥ previous balance: show inline error "New balance must be less than current balance"
+- If new balance ≤ 0: show inline error "Balance must be greater than zero"
+
+### Cloud Sync Registration
+The `debts` store changes in this phase (new `debtType`, `annualInterestRate`, `monthlyPayment` fields). The cloud sync module (`src/ui/cloud-sync.js`) maintains a list of stores to sync. Ensure `debts` remains registered and the new fields are included in the sync payload.
+
+## Schema Changes (Dexie)
 ```js
-// debts table — add fields:
-debtType: String      // 'credit-card' | 'personal-loan' | 'mortgage' (default: 'credit-card' for migration)
-annualInterestRate: Number  // decimal APR (e.g. 0.049)
-monthlyPayment: Number      // pence — scheduled monthly payment
-paymentDayOfMonth: Number   // 1–28
-paymentAdjustment: String   // 'none' | 'next-working-day'
-confirmedBalance: Number    // pence — latest user-confirmed balance (overrides computed)
-confirmedBalanceDate: String // ISO date of last confirmation
+// src/db/schema.js — add to debts store:
+debtType: 'credit-card' | 'personal-loan' | 'mortgage'  // new, default 'credit-card'
+annualInterestRate: number  // decimal (e.g. 0.049), required for loan/mortgage
+monthlyPayment: number      // pence, required for loan/mortgage
+// paymentDayOfMonth and paymentAdjustment already added in Phase 31
 ```
-
-All existing debt records migrate with `debtType: 'credit-card'` as default.
-
-## UI Changes — Debt Cards (src/ui/debts.js)
-
-### Credit Card Card (debtType === 'credit-card')
-- Unchanged — keep existing statement import, PDF upload, reconciliation flow
-
-### Loan/Mortgage Card (debtType === 'personal-loan' | 'mortgage')
-- **Remove:** "Import Statement" button, PDF upload input, statement table
-- **Add:** Amortisation summary KPIs:
-  - Current Balance
-  - Monthly Payment
-  - Projected Payoff Date
-  - Total Interest Remaining
-- **Add:** Remaining term progress bar (e.g. `[████░░░░] 42 months remaining`)
-- **Add:** "Update Current Balance" button → balance confirmation modal
-- **Add:** Expandable amortisation schedule table (first 12 months visible, "Show all" toggle)
+Dexie version bump required. Migration: set `debtType = 'credit-card'` for all existing records.
 
 ## Files to Change
-- `src/db/schema.js` — add new fields, bump Dexie version
-- `src/db/repository.js` — migration defaults, new query methods
-- `src/utils/finance.js` — `calculateAmortisationSchedule()` function
-- `src/utils/finance.test.js` — tests for amortisation
-- `src/ui/debts.js` — conditional rendering by `debtType`
-- `src/ui/debts.test.js` — update tests for new schema fields
-- `src/ui/payoff.js` — update payoff planner to use amortisation schedule for loans/mortgage
+- `src/db/schema.js` — add `debtType`, `annualInterestRate`, `monthlyPayment` fields, bump version
+- `src/db/repository.js` — migration, new CRUD helpers for loan/mortgage fields
+- `src/utils/finance.js` — add `calculateAmortisationSchedule(params)` pure function
+- `src/utils/finance.test.js` — add amortisation tests
+- `src/ui/debts.js` — conditional UI rendering based on `debtType`
+- `src/ui/debts.test.js` — extend tests
+- `src/ui/cloud-sync.js` — ensure `debts` store registered with new fields
 
 ## Acceptance Criteria
-- [ ] Adding a new debt with type "Personal Loan" or "Mortgage" shows the amortisation UI, not the statement UI
-- [ ] Credit card debt cards are visually and functionally unchanged
-- [ ] Existing debt records (migrated to `debtType: 'credit-card'`) continue to work
-- [ ] `calculateAmortisationSchedule({ outstandingBalance: 1000000, annualInterestRate: 0.049, monthlyPayment: 50000 })` produces a correct schedule (verify first 3 months manually)
-- [ ] "Update Current Balance" modal saves the new balance and updates the projected payoff date
-- [ ] Amortisation chart shows remaining balance over time
-- [ ] Payoff planner includes loan/mortgage projected payoff in the consolidated schedule
-- [ ] All 354+ existing tests pass; new tests added for amortisation logic
+- [ ] Credit card debt cards render identically to before (no regression)
+- [ ] Loan/mortgage debt cards show: outstanding balance, monthly payment, APR, projected payoff date, remaining months, total interest remaining
+- [ ] No PDF upload or statement import controls on loan/mortgage cards
+- [ ] `calculateAmortisationSchedule()` produces correct schedule for the worked example above (verified in unit tests)
+- [ ] Guard: function throws if monthly payment ≤ monthly interest
+- [ ] "Confirm Current Balance" modal updates `outstandingBalance` and recalculates schedule
+- [ ] Balance validation: new balance must be > 0 and < previous balance (inline errors shown otherwise)
+- [ ] Toast confirms new payoff date after balance update
+- [ ] `debts` store changes are reflected in cloud sync payload
+- [ ] All 354+ existing Vitest tests pass
+- [ ] New amortisation tests achieve ≥ 95% branch coverage
 
-## Technical Notes
-- Dexie migration must be incremental — bump version by 1, add fields in `upgrade()` callback
-- Monthly interest formula: `monthlyInterest = outstandingBalance × (annualInterestRate / 12)`
-- Guard against runaway schedules: cap at 600 months (50 years) to prevent infinite loops
-- `confirmedBalance` takes precedence over computed balance when present and date is recent (< 90 days)
+## Test Cases (Finance Utils)
+```
+// calculateAmortisationSchedule
+- Standard loan: verify month 1–3 figures against worked example above
+- Loan paid off exactly on final payment (no negative balance)
+- Guard: payment ≤ interest → throws
+- Overpayment scenario: confirm balance update + schedule recalc
+
+// debtType migration
+- Existing record with no debtType → defaults to 'credit-card'
+- New loan record → correct fields persisted and retrieved
+```
+
+## Resources
+- `src/utils/finance.js` — existing finance utility functions
+- `src/db/schema.js` — current schema
+- `src/ui/debts.js` — existing debt UI rendering logic

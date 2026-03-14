@@ -1,3 +1,4 @@
+
 # Phase 27 Context: Critical Bug Fixes & Cloud-Sync Hardening
 
 ## Objective
@@ -30,9 +31,38 @@ The auto-save indicator dot (from cloud-sync status) is rendering on a new line 
 - **Fix:** Ensure the save dot element has `display:inline-flex` or `display:inline-block` and does not force a line break. The header toolbar flex row should not wrap for this element. May need `flex-wrap: nowrap` or a min-width guard.
 - **File:** `css/main.css`, header toolbar styles
 
+### Bug 6 — Data Integrity Validator (data-integrity.js — new module)
+The IndexedDB schema uses foreign keys by convention only — Dexie does not enforce referential integrity. Over time (especially after cloud sync pull, file import, or manual DB edits), orphaned records accumulate: statements referencing deleted debts, ledger entries for removed childcare accounts, expenses linked to non-existent statements, etc.
+
+**New module:** `src/utils/data-integrity.js`
+
+Public API:
+- `validateDataIntegrity()` → `{ valid: boolean, issues: Array<{store, recordId, field, referencedStore, missingId}> }`
+- `cleanOrphanedRecords(issues)` → removes orphaned records after user confirmation
+
+FK relationships to validate:
+1. `statements.debtId` → `debts.id`
+2. `childcareLedger.accountId` → `childcareAccounts.id`
+3. `recurrentExpenses.linkedStatementId` → `statements.id` (where not null)
+4. `recurrentExpenses.categoryId` → `categories.id` (where not null)
+5. `oneOffExpenses.categoryId` → `categories.id` (where not null)
+6. `income.categoryId` → `categories.id` (where not null)
+7. `categoryMappings.categoryId` → `categories.id`
+8. Future: `childcareProviders.accountId` → `childcareAccounts.id` (Phase 35)
+
+**Trigger points:**
+- On app startup (after DB open, before UI render)
+- After cloud pull completes
+- After file import completes
+- Manual trigger from Settings panel
+
+**UI feedback:** If issues found, show a warning toast: "⚠️ {N} data integrity issues found. [Review]" → clicking opens a summary modal listing affected records with an option to clean up.
+
+**File:** `src/utils/data-integrity.js` (new), `src/utils/data-integrity.test.js` (new)
+
 ## Scope
-- **In scope:** Only the five fixes listed above
-- **Out of scope:** No UI redesign, no new features, no schema changes
+- **In scope:** The five bug fixes listed above plus the new data integrity validator module
+- **Out of scope:** No UI redesign, no new features beyond the integrity validator, no schema changes
 
 ## Files to Change
 - `src/ui/cloud-sync.js`
@@ -40,6 +70,9 @@ The auto-save indicator dot (from cloud-sync status) is rendering on a new line 
 - `src/ui/dashboard.js` (heatmap data filter)
 - `src/ui/transactions.js` (heatmap data filter, if relevant)
 - `css/main.css`
+- `src/utils/data-integrity.js` (new)
+- `src/utils/data-integrity.test.js` (new)
+- `src/app.js` (call validator on startup)
 
 ## Acceptance Criteria
 - [ ] Push/Pull buttons trigger their handler exactly once per click, regardless of how many re-renders have occurred
@@ -49,6 +82,11 @@ The auto-save indicator dot (from cloud-sync status) is rendering on a new line 
 - [ ] Auto-save dot and local icon appear on the same line in the mobile header
 - [ ] All 354+ existing Vitest tests pass after changes
 - [ ] No new console errors on app load
+- [ ] `validateDataIntegrity()` correctly identifies orphaned records across all FK relationships
+- [ ] `cleanOrphanedRecords()` removes only the flagged records after confirmation
+- [ ] Warning toast appears on startup if integrity issues exist
+- [ ] Validator runs after cloud pull and file import
+- [ ] Unit tests cover all FK paths with at least one positive and one negative case each
 
 ## Test Strategy
 - Existing `src/ui/cloud-sync.test.js` must remain green

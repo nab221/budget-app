@@ -1,3 +1,4 @@
+
 # Phase 31 Context: Banking Calendar Utility & Recurrence Upgrade
 
 ## Objective
@@ -43,6 +44,17 @@ function loadBankHolidays()                 // returns from cache or static fall
 
 ### Static Fallback
 Bundle a hardcoded list of England & Wales bank holidays for 2025, 2026, 2027. This covers the app's useful range without requiring network access.
+
+### Cache Expiry & Refresh Strategy
+- Store cache timestamp under localStorage key `uk_bank_holidays_cache_date` (ISO date string)
+- On app load, check if cache is older than 365 days or missing → call `refreshBankHolidaysCache()`
+- `refreshBankHolidaysCache()`:
+  1. Fetch `https://www.gov.uk/bank-holidays.json` in background
+  2. On success: parse `england-and-wales` events, store to localStorage under `BANK_HOLIDAYS_CACHE_KEY`, update timestamp
+  3. On failure (network error, CORS block, timeout): fall back silently to bundled static data, log warning
+  4. Never block app startup — fetch is async/fire-and-forget on load
+- Expose `maxCachedYear` computed from the cached data. If any function is called with a date beyond `maxCachedYear`, emit `console.warn('Bank holiday data not available for year ${year}, using best guess')` and fall back to weekend-only adjustment
+- Settings panel: add a "Refresh bank holidays" button that triggers `refreshBankHolidaysCache()` manually
 
 ## Files to Change
 - `src/utils/banking-calendar.js` — new module

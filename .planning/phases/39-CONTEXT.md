@@ -1,107 +1,76 @@
-# Phase 39 Context: v3.0 Milestone Verification & Polish
+
+# Phase 39 Context: Performance & Bundle Optimisation
 
 ## Objective
-Full regression testing, cross-device manual verification, documentation update, and final version bump to v3.0. This phase does not implement new features — it validates all P0 requirements are met, fixes any regressions, and ships the milestone.
+Reduce initial load time and bundle size. Implement lazy loading for heavy tab modules. Add a performance budget. Measure and document baseline vs post-optimisation metrics.
 
 ## Background
-Phase 39 is the capstone phase for v3.0. After 12 implementation phases (27–38), this phase systematically verifies every P0 and P1 requirement is met, polishes rough edges, and ships the release.
 
-## Verification Checklist
+### Current State
+The app loads all JS modules eagerly on startup. As the app has grown (Phases 27–38 added significant new modules), the initial bundle size has increased and Time to Interactive (TTI) on mobile networks has degraded.
 
-### Critical Bug Fixes (Phase 27)
-- [ ] Cloud-sync push/pull buttons trigger handler exactly once per click
-- [ ] Cloud snapshot modal is safe with special characters in names
-- [ ] `cloudSyncUI.init()` is idempotent
-- [ ] Heatmap shows only the selected year — no cross-year split
-- [ ] Mobile header: save-dot and local icon on same line
+### Target Metrics (Post-Optimisation)
+- Initial JS bundle: < 150 KB gzipped
+- Time to Interactive (Lighthouse, mobile): < 3.5 seconds
+- Largest Contentful Paint (LCP): < 2.5 seconds
+- Total bundle size (all chunks, gzipped): < 400 KB
 
-### Mobile Navigation (Phase 28)
-- [ ] Fixed bottom tab bar visible on all pages, all scroll positions (iOS Safari, Android Chrome)
-- [ ] Each tab shows icon + label
-- [ ] No content hidden behind bottom bar
-- [ ] Desktop tabs unchanged
+### Optimisation Strategy
 
-### Mobile Tables (Phase 29)
-- [ ] Income table: date format, amount header, swipe gestures
-- [ ] Expenses table: category badges, 3-column headers, status icons, debt-link navigation
+**1. Code Splitting by Tab**
+Each tab module (`dashboard.js`, `income.js`, `expenses.js`, `debts.js`, `assets.js`, `childcare.js`, `settings.js`) should be a dynamic import, loaded only when the user first navigates to that tab.
 
-### PWA Magic Link (Phase 30)
-- [ ] Magic link sign-in works on iOS PWA
-- [ ] Magic link sign-in works on Android PWA
-- [ ] Service worker does not block auth redirect
+```js
+// In src/app.js:
+const tabModules = {
+  dashboard: () => import('./ui/dashboard.js'),
+  income:    () => import('./ui/income.js'),
+  expenses:  () => import('./ui/expenses.js'),
+  // ...
+};
+```
 
-### Banking Calendar (Phase 31)
-- [ ] `nextWorkingDay()` handles weekends, bank holidays correctly
-- [ ] Recurring expenses show banking-calendar adjusted dates
+**2. Lazy Load Heavy Utilities**
+- `calculateAmortisationSchedule` (Phase 32): only needed for loan/mortgage debt cards — lazy load `finance.js` when a loan/mortgage card is rendered
+- `ofx-importer.js`, `qif-importer.js` (Phase 38): only needed when the import tool is opened
+- `jsPDF` (Phase 37): only needed when PDF export is triggered
 
-### Debt Model (Phase 32)
-- [ ] Loans and mortgages show amortisation view, not statement view
-- [ ] "Update Current Balance" saves new anchor point
-- [ ] Credit card flow unchanged
+**3. Tree Shaking**
+Ensure all utility exports are named (not default object exports) so Vite/Rollup can tree-shake unused functions.
 
-### Income & Buckets (Phase 33)
-- [ ] Two income sources configured with pay dates
-- [ ] Default spending buckets seeded and editable
-- [ ] Next expected pay dates correct for each rule type
+**4. Asset Optimisation**
+- Compress all PNG/SVG icons used in Phase 28 bottom nav bar
+- Use `<img loading="lazy">` for non-critical images
 
-### Affordability Engine (Phase 34)
-- [ ] Current balance entry works and persists
-- [ ] Affordability card shows correct "available for extra payments"
-- [ ] Upcoming payments timeline is accurate and sorted
-- [ ] Warning shown when available amount is negative
+**5. Service Worker Cache Strategy**
+Review `public/sw.js` cache strategy:
+- Core shell (HTML, critical CSS, app.js): cache-first
+- Tab modules (dynamic chunks): stale-while-revalidate
+- GOV.UK bank holidays API (Phase 31): network-first with 7-day cache fallback
 
-### Childcare (Phase 35)
-- [ ] Provider costs configured per account
-- [ ] Required top-up KPI displayed per child
-- [ ] Childcare top-ups appear in affordability calculation
-
-### Navigator Redesign (Phase 36)
-- [ ] Segmented control replaces `<select>` dropdown
-- [ ] Navigator bar is sticky on mobile
-- [ ] Heatmap year navigation works
-
-### Cloud Delta Preview (Phase 37)
-- [ ] Push preview shows delta, not full list
-- [ ] First sync falls back to full summary
-- [ ] "No changes" message shown when nothing changed
-
-### CI/CD (Phase 38)
-- [ ] No Node.js deprecation warnings in GitHub Actions
-- [ ] Root directory cleaned up
-
-## Regression Tests
-- Run `npm test` — all tests must pass (target: 400+ tests)
-- Run `npm run build` — no build errors
-- Deploy to staging/preview — manual smoke test of all tabs
-
-## Documentation Updates
-- `README.md` — update feature list, screenshots, deployment instructions
-- `PROJECT.md` — mark v3.0 shipped with date
-- `STATE.md` — update milestone to v3.0 completed, reset for v3.1 planning
-
-## Release
-- Create GitHub release with tag `v3.0.0`
-- Release notes summarising all 13 phases of work
-- Merge any outstanding feature branches to `main`
+**6. Performance Budget (Vite Plugin)**
+Add `vite-plugin-bundle-analyzer` or configure Rollup's `output.manualChunks` to enforce chunk size limits. Add a CI step that fails if any chunk exceeds 80 KB gzipped.
 
 ## Files to Change
-- `README.md`
-- `PROJECT.md`
-- `STATE.md`
-- Any minor CSS/JS polish identified during verification
+- `src/app.js` — convert tab module loads to dynamic imports
+- `vite.config.js` — configure `manualChunks`, add bundle analyser plugin
+- `public/sw.js` — update cache strategy for dynamic chunks
+- `src/utils/finance.js` — ensure named exports for tree shaking
+- `src/utils/importers/index.js` — ensure named exports
+- `.github/workflows/ci.yml` — add bundle size check step (or create if not exists)
 
 ## Acceptance Criteria
-- [ ] All P0 requirements from REQUIREMENTS.md verified
-- [ ] All P1 requirements from REQUIREMENTS.md verified or explicitly deferred to v3.1 with justification
-- [ ] Vitest suite: 400+ tests passing (0 failing, 0 skipped)
-- [ ] Build succeeds with no errors or warnings
-- [ ] Manual cross-device verification documented (iOS Safari, Android Chrome, desktop Chrome/Firefox)
-- [ ] GitHub release `v3.0.0` created
-- [ ] README reflects v3.0 capabilities
+- [ ] Initial JS bundle < 150 KB gzipped (measured with `vite build --report`)
+- [ ] Each tab module loads as a separate chunk (verified in build output)
+- [ ] Time to Interactive < 3.5s on Lighthouse mobile simulation (measured post-build)
+- [ ] LCP < 2.5s on Lighthouse mobile simulation
+- [ ] All 354+ existing Vitest tests pass (dynamic imports must not break test runner)
+- [ ] CI bundle size check added and passes
+- [ ] Baseline vs post-optimisation metrics documented in `39-METRICS.md`
 
-## Sign-Off Criteria
-The milestone is considered shipped when:
-1. All P0 checklist items above are checked
-2. `npm test` passes with 0 failures
-3. The app is deployed to GitHub Pages and accessible
-4. This CONTEXT file's verification section is completed with evidence
+## Technical Notes
+- Dynamic imports in Vite: use `import()` syntax; Vite automatically code-splits on dynamic imports
+- The Vitest test runner may need `vi.mock()` or `vi.importActual()` adjustments if tests currently use static imports that become dynamic
+- Service worker cache strategy for dynamic chunks: use `stale-while-revalidate` to ensure updated chunks are fetched in background
+- `manualChunks` configuration: group third-party libs (Supabase, date-fns, jsPDF) into a `vendor` chunk to improve long-term caching
+- Lighthouse CI: consider adding `@lhci/cli` to the CI pipeline for automated performance regression testing
