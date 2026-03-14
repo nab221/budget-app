@@ -316,7 +316,7 @@ export const cloudSyncUI = {
       // Phase 23.2: Status dot + timestamp + Sync button only (Sign Out moved inside sync modal)
       headerActionsEl.innerHTML = `
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <span id="syncStatusDot" class="sync-status-indicator" title="Synced" style="display:inline-block;width:0.6em;height:0.6em;border-radius:50%;background:#22c55e;margin:0 4px"></span>
+          <span id="syncStatusDot" class="sync-status-indicator" title="Synced" style="display:inline-block;width:0.6em;height:0.6em;border-radius:50%;background:#22c55e;margin:0 4px;flex-shrink:0"></span>
           <span id="lastSyncedTime" style="font-size:.75rem;color:var(--text-soft)">Last synced: never</span>
           <button id="headerSyncMenuBtn" class="ghost">☁ Sync</button>
           <span id="localFileSyncDot" style="display:inline-block;width:0.6em;height:0.6em;border-radius:50%;background:#6b7280;margin:0 2px" title="Local file sync"></span>

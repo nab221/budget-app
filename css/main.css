@@ -809,6 +809,9 @@ button.sync-action-busy::after {
   outline-offset: 2px;
 }
 
+.sync-status-indicator {
+  flex-shrink: 0;
+}
 .sync-status-indicator.pulse {
   animation: pulse 1.5s ease-in-out infinite;
 }
