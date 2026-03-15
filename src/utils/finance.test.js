@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calcMinPayment, simulatePayoff, modelBalanceTransfer, calculateBalanceChain, simulateLoanPayoff } from './finance';
+import { calcMinPayment, simulatePayoff, modelBalanceTransfer, calculateBalanceChain, simulateLoanPayoff, calculateAmortisationSchedule } from './finance';
 
 describe('Finance Utilities', () => {
   describe('calcMinPayment', () => {
@@ -431,6 +431,128 @@ describe('Finance Utilities', () => {
         expect(recurrentExpenseRepository.update.toString()).toContain('triggerBalanceRecalc');
         expect(recurrentExpenseRepository.delete.toString()).toContain('triggerBalanceRecalc');
       });
+    });
+  });
+
+  describe('calculateAmortisationSchedule', () => {
+    const BASE_PARAMS = {
+      outstandingBalance: 1000000, // £10,000
+      annualInterestRate: 0.049,   // 4.9%
+      monthlyPayment: 30000,       // £300
+      startDate: '2026-03-01'
+    };
+
+    it('returns correct month 1 pence values for worked example', () => {
+      const result = calculateAmortisationSchedule(BASE_PARAMS);
+      const m1 = result.schedule[0];
+      expect(m1.month).toBe(1);
+      expect(m1.interestPence).toBe(4083);
+      expect(m1.principalPence).toBe(25917);
+      expect(m1.balancePence).toBe(974083);
+    });
+
+    it('returns correct month 2 pence values for worked example', () => {
+      const result = calculateAmortisationSchedule(BASE_PARAMS);
+      const m2 = result.schedule[1];
+      expect(m2.month).toBe(2);
+      expect(m2.interestPence).toBe(3977);
+      expect(m2.principalPence).toBe(26023);
+      expect(m2.balancePence).toBe(948060);
+    });
+
+    it('returns correct month 3 pence values for worked example', () => {
+      const result = calculateAmortisationSchedule(BASE_PARAMS);
+      const m3 = result.schedule[2];
+      expect(m3.month).toBe(3);
+      expect(m3.interestPence).toBe(3870);
+      expect(m3.principalPence).toBe(26130);
+      expect(m3.balancePence).toBe(921930);
+    });
+
+    it('throws when monthly payment does not cover interest', () => {
+      // balance=1,000,000, rate=12%, payment=9,000
+      // monthlyInterest = Math.round(1,000,000 * 0.12 / 12) = 10,000 >= 9,000
+      expect(() => calculateAmortisationSchedule({
+        outstandingBalance: 1000000,
+        annualInterestRate: 0.12,
+        monthlyPayment: 9000,
+        startDate: '2026-03-01'
+      })).toThrow('Monthly payment does not cover interest');
+    });
+
+    it('final schedule entry balancePence is 0 (clamped, not negative)', () => {
+      const result = calculateAmortisationSchedule(BASE_PARAMS);
+      const last = result.schedule[result.schedule.length - 1];
+      expect(last.balancePence).toBe(0);
+    });
+
+    it('remainingTermMonths equals schedule length', () => {
+      const result = calculateAmortisationSchedule(BASE_PARAMS);
+      expect(result.remainingTermMonths).toBe(result.schedule.length);
+    });
+
+    it('totalInterestRemaining equals sum of all interestPence entries', () => {
+      const result = calculateAmortisationSchedule(BASE_PARAMS);
+      const sumInterest = result.schedule.reduce((acc, e) => acc + e.interestPence, 0);
+      expect(result.totalInterestRemaining).toBe(sumInterest);
+    });
+
+    it('projectedPayoffDate matches format "MMM yyyy"', () => {
+      const result = calculateAmortisationSchedule(BASE_PARAMS);
+      expect(result.projectedPayoffDate).toMatch(/^[A-Z][a-z]{2} \d{4}$/);
+    });
+
+    it('paymentDayOfMonth defaults to 1 when not provided', () => {
+      const result = calculateAmortisationSchedule(BASE_PARAMS);
+      const firstPaymentDate = result.schedule[0].paymentDate;
+      expect(firstPaymentDate).toMatch(/^\d{4}-\d{2}-01$/);
+    });
+
+    it('paymentDayOfMonth=15 sets all payment dates to 15th of month', () => {
+      const result = calculateAmortisationSchedule({ ...BASE_PARAMS, paymentDayOfMonth: 15 });
+      for (const entry of result.schedule) {
+        expect(entry.paymentDate).toMatch(/-15$/);
+      }
+    });
+
+    it('paymentAdjustment=none does not shift payment dates (default behaviour)', () => {
+      const result1 = calculateAmortisationSchedule(BASE_PARAMS);
+      const result2 = calculateAmortisationSchedule({ ...BASE_PARAMS, paymentAdjustment: 'none' });
+      expect(result1.schedule[0].paymentDate).toBe(result2.schedule[0].paymentDate);
+    });
+
+    it('throws when maxMonths guard is reached', () => {
+      // Very small payment just barely over interest to ensure it never clears in 600 months
+      // balance=1,000,000, rate=1.199% => monthlyInterest ~ 999p; payment=1000p (just over interest but trivial principal)
+      // To guarantee 600+ months without clearing, use an extremely large balance relative to payment.
+      // balance=6,000,000,000, rate=0.001 (0.1%), monthlyInterest=Math.round(6000000000*0.001/12)=500000
+      // payment=500001 — principal reduction = 1 pence per month — needs 6,000,000,000 months — well over 600
+      expect(() => calculateAmortisationSchedule({
+        outstandingBalance: 6000000000,
+        annualInterestRate: 0.001,
+        monthlyPayment: 500001,
+        startDate: '2026-03-01'
+      })).toThrow('Loan term exceeds 50 years');
+    });
+
+    it('each schedule entry has required fields', () => {
+      const result = calculateAmortisationSchedule(BASE_PARAMS);
+      for (const entry of result.schedule) {
+        expect(entry).toHaveProperty('month');
+        expect(entry).toHaveProperty('interestPence');
+        expect(entry).toHaveProperty('principalPence');
+        expect(entry).toHaveProperty('balancePence');
+        expect(entry).toHaveProperty('paymentDate');
+      }
+    });
+
+    it('returns { schedule, projectedPayoffDate, remainingTermMonths, totalInterestRemaining }', () => {
+      const result = calculateAmortisationSchedule(BASE_PARAMS);
+      expect(result).toHaveProperty('schedule');
+      expect(result).toHaveProperty('projectedPayoffDate');
+      expect(result).toHaveProperty('remainingTermMonths');
+      expect(result).toHaveProperty('totalInterestRemaining');
+      expect(Array.isArray(result.schedule)).toBe(true);
     });
   });
 
