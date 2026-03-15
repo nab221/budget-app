@@ -9,6 +9,7 @@ import { filterTransactions } from '../utils/filtering.js';
 import { triggerHaptic } from '../utils/haptics.js';
 import { notificationUI } from './notifications.js';
 import { renderSpendingHeatmap } from './heatmap.js';
+import { SwipeHandler } from '../utils/gestures.js';
 
 /**
  * Transaction UI Module
@@ -20,6 +21,9 @@ export const transactionUI = {
   searchQuery: '',
   selectedCategories: [], // Filter categories
   reconciliationMode: false,
+  // Swipe gesture state — swipe is additive for touch users; keyboard/mouse users use inline buttons
+  _swipeInstances: [],
+  currentOpenRow: null,
 
   /**
    * Initialize Transaction UI.
@@ -402,29 +406,35 @@ export const transactionUI = {
     items.sort((a, b) => b.date.localeCompare(a.date));
 
     // Render data rows
+    // Swipe gestures are additive for touch users — inline buttons remain for keyboard and mouse users.
     body.innerHTML = safeHTML`${items.map(item => {
       const isReconciled = item.isReconciled === true;
       const isCleared = item.isCleared === true;
+      const canSwipe = !isReconciled;
 
       return safeHTML`
-        <tr data-id="${item.id}" class="${isReconciled ? 'reconciled-row' : ''} ${isCleared ? 'cleared-row' : ''}">
-          <td>${item.date}</td>
+        <tr class="swipe-row ${isReconciled ? 'reconciled-row' : ''} ${isCleared ? 'cleared-row' : ''}" data-id="${item.id}">
+          <td class="nw">
+            ${canSwipe ? `<div class="swipe-action-right" onclick="transactionUI._handleEdit(${item.id})">Edit</div>` : ''}
+            ${canSwipe ? `<div class="swipe-action-left" onclick="transactionUI._handleDelete(${item.id})">Delete</div>` : ''}
+            ${this._formatDateCompact(item.date)}
+          </td>
           <td>
-            ${item.source} 
+            ${item.source}
             ${item.categoryId ? `<span class="tag" style="margin-left:6px">${catMap[item.categoryId]}</span>` : ''}
             ${isReconciled ? `<span class="pill" style="background:var(--success); color:#fff; font-size:0.65rem; margin-left:6px">✓ Reconciled</span>` : ''}
           </td>
           <td class="r"><span class="privacy-blur">${formatGBP(item.amount)}</span></td>
-          <td class="r">
+          <td class="r col-actions">
             ${this.reconciliationMode ? `
               <div style="display:flex; align-items:center; justify-content:flex-end; gap:8px">
                 <label style="font-size:0.75rem; color:var(--text-soft)">Cleared:</label>
-                <input type="checkbox" ${isCleared ? 'checked' : ''} ${isReconciled ? 'disabled' : ''} 
+                <input type="checkbox" ${isCleared ? 'checked' : ''} ${isReconciled ? 'disabled' : ''}
                   onclick="toggleIncCleared(${item.id}, ${isCleared})"/>
               </div>
             ` : `
-              <button class="sm ghost" ${isReconciled ? 'disabled title="Reconciled items cannot be edited"' : ''} onclick="transactionUI.editTransaction(${item.id})">Edit</button>
-              <button class="sm danger" ${isReconciled ? 'disabled title="Reconciled items cannot be deleted"' : ''} onclick="deleteTransaction('income', ${item.id})">✕</button>
+              <button class="sm ghost btn-edit" ${isReconciled ? 'disabled title="Reconciled items cannot be edited"' : ''} onclick="transactionUI._handleEdit(${item.id})">Edit</button>
+              <button class="sm danger btn-delete" ${isReconciled ? 'disabled title="Reconciled items cannot be deleted"' : ''} onclick="transactionUI._handleDelete(${item.id})">✕</button>
             `}
           </td>
         </tr>
@@ -432,6 +442,7 @@ export const transactionUI = {
     }).join('')}`;
 
     this.updateTotal('income', filteredTotal);
+    this._initSwipe(body);
   },
 
   renderReconHeader(items) {
@@ -511,6 +522,133 @@ export const transactionUI = {
     }
 
     totalEl.innerHTML = `Filtered Total: ${formatGBP(totalPence)}`;
+  },
+
+  /**
+   * Shared edit handler — used by both swipe-right gesture and inline .btn-edit button.
+   */
+  _handleEdit(id) {
+    this.closeAllRows();
+    this.editTransaction(Number(id));
+  },
+
+  /**
+   * Shared delete handler — used by both swipe-left gesture and inline .btn-delete button.
+   */
+  async _handleDelete(id) {
+    this.closeAllRows();
+    await window.deleteTransaction('income', Number(id));
+  },
+
+  /**
+   * Closes any open swiped rows and resets transform.
+   */
+  closeAllRows() {
+    const rows = document.querySelectorAll('#incBody .swipe-row');
+    rows.forEach(row => {
+      row.style.transform = '';
+      row.classList.remove('swipe-active');
+    });
+    this.currentOpenRow = null;
+  },
+
+  /**
+   * Initialise SwipeHandler instances for all income rows.
+   * Destroys existing instances before each rebuild to prevent memory leaks.
+   * Swipe gestures are additive for touch users; keyboard/mouse users use inline buttons.
+   */
+  _initSwipe(tableBody) {
+    // Destroy existing instances first to prevent memory leaks
+    this._swipeInstances.forEach(({ handler }) => handler.destroy());
+    this._swipeInstances = [];
+    this.currentOpenRow = null;
+
+    tableBody.querySelectorAll('.swipe-row').forEach(row => {
+      const id = Number(row.dataset.id);
+      const isLocked = row.classList.contains('reconciled-row');
+
+      const handler = new SwipeHandler(row, {
+        threshold: 80,
+        edgeThreshold: 40,
+        onStart: () => {
+          if (this.currentOpenRow && this.currentOpenRow !== row) {
+            this.closeAllRows();
+          }
+        },
+        onSwipe: (deltaX) => {
+          if (isLocked) {
+            const limit = 20;
+            const constrained = Math.min(limit, Math.max(-limit, deltaX));
+            row.style.transform = `translateX(${constrained}px)`;
+            return;
+          }
+          // Right swipe reveals Edit (positive deltaX); left swipe reveals Delete (negative deltaX)
+          row.style.transform = `translateX(${deltaX}px)`;
+          row.classList.add('swipe-active');
+        },
+        onEnd: (deltaX, thresholdMet) => {
+          if (isLocked) {
+            row.style.transform = '';
+            if (Math.abs(deltaX) > 10) triggerHaptic('error');
+            return;
+          }
+
+          if (thresholdMet) {
+            const finalOffset = deltaX < 0 ? -80 : 80;
+            row.style.transform = `translateX(${finalOffset}px)`;
+            row.classList.add('swipe-active');
+            this.currentOpenRow = row;
+            // Trigger the action immediately on threshold met
+            if (deltaX > 0) {
+              this._handleEdit(id);
+            } else {
+              this._handleDelete(id);
+            }
+          } else {
+            row.style.transform = '';
+            row.classList.remove('swipe-active');
+            if (this.currentOpenRow === row) this.currentOpenRow = null;
+          }
+        }
+      });
+
+      // Close row on tap if it's currently open
+      row.onclick = (e) => {
+        if (this.currentOpenRow === row) {
+          if (!e.target.classList.contains('swipe-action-left') && !e.target.classList.contains('swipe-action-right')) {
+            this.closeAllRows();
+          }
+        }
+      };
+
+      this._swipeInstances.push({ id, handler });
+    });
+  },
+
+  /**
+   * Formats an ISO date string as a two-line compact date cell:
+   * line 1: dd-MMM (e.g. "14-Mar")
+   * line 2: YYYY  (e.g. "2026") in smaller muted text.
+   * Uses UTC to avoid browser timezone shifts on date-only strings.
+   */
+  _formatDateCompact(dateStr) {
+    const fallback = '<span class="date-compact">--<br><span class="date-year">----</span></span>';
+    try {
+      if (typeof dateStr !== 'string' || !dateStr.trim()) return fallback;
+      const isoDate = dateStr.split('T')[0];
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return fallback;
+
+      const [yyyy, mm, dd] = isoDate.split('-').map(Number);
+      const d = new Date(Date.UTC(yyyy, mm - 1, dd));
+      if (Number.isNaN(d.getTime())) return fallback;
+
+      const day = String(d.getUTCDate()).padStart(2, '0');
+      const mmm = d.toLocaleString('en-GB', { month: 'short', timeZone: 'UTC' });
+      const year = d.getUTCFullYear();
+      return `<span class="date-compact">${day}-${mmm}<br><span class="date-year">${year}</span></span>`;
+    } catch (_err) {
+      return fallback;
+    }
   }
 };
 
