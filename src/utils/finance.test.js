@@ -452,21 +452,23 @@ describe('Finance Utilities', () => {
     });
 
     it('returns correct month 2 pence values for worked example', () => {
+      // Math.round(974083 * 0.049 / 12) = 3978
       const result = calculateAmortisationSchedule(BASE_PARAMS);
       const m2 = result.schedule[1];
       expect(m2.month).toBe(2);
-      expect(m2.interestPence).toBe(3977);
-      expect(m2.principalPence).toBe(26023);
-      expect(m2.balancePence).toBe(948060);
+      expect(m2.interestPence).toBe(3978);
+      expect(m2.principalPence).toBe(26022);
+      expect(m2.balancePence).toBe(948061);
     });
 
     it('returns correct month 3 pence values for worked example', () => {
+      // Math.round(948061 * 0.049 / 12) = 3871
       const result = calculateAmortisationSchedule(BASE_PARAMS);
       const m3 = result.schedule[2];
       expect(m3.month).toBe(3);
-      expect(m3.interestPence).toBe(3870);
-      expect(m3.principalPence).toBe(26130);
-      expect(m3.balancePence).toBe(921930);
+      expect(m3.interestPence).toBe(3871);
+      expect(m3.principalPence).toBe(26129);
+      expect(m3.balancePence).toBe(921932);
     });
 
     it('throws when monthly payment does not cover interest', () => {

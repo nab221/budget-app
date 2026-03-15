@@ -1,4 +1,5 @@
-import { addMonths, parseISO, isBefore, format, startOfMonth } from 'date-fns';
+import { addMonths, parseISO, isBefore, format, startOfMonth, setDate } from 'date-fns';
+import { adjustedPaymentDate } from './banking-calendar.js';
 
 /**
  * Financial utility functions for UK debt and asset tracking.
@@ -557,5 +558,98 @@ export function modelBalanceTransfer(debt, promoMonths, feePercent) {
     recommendedMonthlyPayment,
     totalCostBT,
     totalCostCurrent
+  };
+}
+
+/**
+ * Calculates a month-by-month amortisation schedule for a loan or mortgage.
+ *
+ * All monetary values are integer pence throughout.
+ * The annualInterestRate must be passed as a decimal (e.g. 0.049 for 4.9%).
+ *
+ * @param {object} params
+ * @param {number} params.outstandingBalance   - integer pence (> 0)
+ * @param {number} params.annualInterestRate   - decimal, e.g. 0.049 for 4.9%
+ * @param {number} params.monthlyPayment       - integer pence
+ * @param {number} [params.paymentDayOfMonth]  - int 1-28, defaults to 1
+ * @param {string} [params.paymentAdjustment]  - 'none' | 'next-working-day', defaults to 'none'
+ * @param {Date|string} [params.startDate]     - ISO date or Date, defaults to today
+ * @returns {{
+ *   schedule: Array<{
+ *     month: number,
+ *     interestPence: number,
+ *     principalPence: number,
+ *     balancePence: number,
+ *     paymentDate: string   // ISO YYYY-MM-DD
+ *   }>,
+ *   projectedPayoffDate: string,    // 'MMM yyyy' format
+ *   remainingTermMonths: number,
+ *   totalInterestRemaining: number  // integer pence
+ * }}
+ */
+export function calculateAmortisationSchedule({
+  outstandingBalance,
+  annualInterestRate,
+  monthlyPayment,
+  paymentDayOfMonth = 1,
+  paymentAdjustment = 'none',
+  startDate = new Date()
+}) {
+  const start = typeof startDate === 'string' ? parseISO(startDate) : startDate;
+  const maxMonths = 600;
+
+  // Guard: payment must cover first month's interest
+  const firstMonthInterest = Math.round(outstandingBalance * annualInterestRate / 12);
+  if (firstMonthInterest >= monthlyPayment) {
+    throw new Error('Monthly payment does not cover interest — loan will never be repaid');
+  }
+
+  const schedule = [];
+  let balance = outstandingBalance;
+  let month = 0;
+
+  while (balance > 0) {
+    month++;
+
+    if (month > maxMonths) {
+      throw new Error('Loan term exceeds 50 years — check parameters');
+    }
+
+    const interestPence = Math.round(balance * annualInterestRate / 12);
+
+    // On the final month, payment may be less than full monthlyPayment
+    const actualPayment = Math.min(monthlyPayment, balance + interestPence);
+    const principalPence = actualPayment - interestPence;
+    const newBalance = balance - principalPence;
+
+    // Clamp to 0 to avoid floating-point creep
+    const balancePence = newBalance <= 0 ? 0 : newBalance;
+
+    // Compute nominal payment date: start + month months, set to paymentDayOfMonth
+    const nominalDate = setDate(addMonths(start, month), paymentDayOfMonth);
+
+    // Apply payment adjustment if requested
+    const adjustedDate =
+      paymentAdjustment === 'next-working-day'
+        ? adjustedPaymentDate(nominalDate, 'next-working-day')
+        : nominalDate;
+
+    const paymentDate = format(adjustedDate, 'yyyy-MM-dd');
+
+    schedule.push({ month, interestPence, principalPence, balancePence, paymentDate });
+
+    balance = balancePence;
+  }
+
+  const totalInterestRemaining = schedule.reduce((sum, e) => sum + e.interestPence, 0);
+  const remainingTermMonths = schedule.length;
+  const lastEntry = schedule[schedule.length - 1];
+  const projectedPayoffDate = format(parseISO(lastEntry.paymentDate), 'MMM yyyy');
+
+  return {
+    schedule,
+    projectedPayoffDate,
+    remainingTermMonths,
+    totalInterestRemaining
   };
 }
