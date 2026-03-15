@@ -49,7 +49,7 @@ A clearly visible, persistent navigator showing which pay period is being viewed
 - On mobile: fixed at top of screen below header
 
 ### PLAN-06 · Income Configuration (P0)
-Support for exactly two income sources with:
+Support for an arbitrary number of configurable income sources. Each source supports:
 - Name (e.g. "NHS Salary", "Locum")
 - Expected monthly amount
 - Expected pay date (e.g. "last working day of month", "25th", etc.)
@@ -220,4 +220,4 @@ Settings panel function to import data from v2.x format. Validates compatibility
 | P2 | Nice to have — defer to v3.1 if needed |
 
 ---
-*Last updated: 2026-03-14*
+*Last updated: 2026-03-15*

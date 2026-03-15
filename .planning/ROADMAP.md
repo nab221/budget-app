@@ -17,7 +17,7 @@ Phases are ordered P0-first within logical dependencies. P1 phases follow once t
 | 29 | 2/2 | Complete    | 2026-03-15 | Medium |
 | 30 | 1/1 | Complete    | 2026-03-15 | Medium |
 | 31 | 2/2 | Complete    | 2026-03-15 | Medium-High |
-| 32 | 2/2 | Complete   | 2026-03-15 | High |
+| 32 | 2/2 | Complete    | 2026-03-15 | High |
 | 33 | Income & Spending Configuration | P0 | PLAN-06, PLAN-04, TECH-06 | Medium |
 | 34 | Pay-Period Affordability Engine | P0 | PLAN-01, PLAN-02, PLAN-05 | High |
 | 35 | Childcare Top-Up Planner | P0 | CHILD-01, CHILD-02, CHILD-03, TECH-06 | Medium |
