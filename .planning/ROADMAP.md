@@ -2,7 +2,7 @@
 
 ## Overview
 
-v3.0 is a ground-up redesign of the budget planning core. The headline feature is the **Pay-Period Affordability Engine**: given the user's current account balance, all upcoming committed outgoings, and both income streams, the app answers "how much can I safely pay extra toward my debts before my next payday?"
+v3.0 is a ground-up redesign of the budget planning core. The headline feature is the **Pay-Period Affordability Engine**: given the user's current account balance, all upcoming committed outgoings, and all configured income sources, the app answers "how much can I safely pay extra toward my debts before my next payday?"
 
 Phases are ordered P0-first within logical dependencies. P1 phases follow once the P0 core is complete.
 
@@ -17,7 +17,7 @@ Phases are ordered P0-first within logical dependencies. P1 phases follow once t
 | 29 | 2/2 | Complete    | 2026-03-15 | Medium |
 | 30 | 1/1 | Complete    | 2026-03-15 | Medium |
 | 31 | 2/2 | Complete    | 2026-03-15 | Medium-High |
-| 32 | Debt Model Refactor — Loans & Mortgage | P0 | DEBT-01, DEBT-03 | High |
+| 32 | 1/2 | In Progress|  | High |
 | 33 | Income & Spending Configuration | P0 | PLAN-06, PLAN-04, TECH-06 | Medium |
 | 34 | Pay-Period Affordability Engine | P0 | PLAN-01, PLAN-02, PLAN-05 | High |
 | 35 | Childcare Top-Up Planner | P0 | CHILD-01, CHILD-02, CHILD-03, TECH-06 | Medium |
@@ -354,7 +354,7 @@ export function amortisationSchedule(principal, apr, monthlyPayment, startDate, 
 - [ ] `amortisation.test.js` achieves ≥80% line coverage
 - [ ] All 354+ existing Vitest tests pass
 
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 32-01-PLAN.md -- calculateAmortisationSchedule() TDD (finance.js)
@@ -369,7 +369,7 @@ Plans:
 **Complexity:** Medium
 **Hard dependency:** Phase 31 must be complete before Phase 33 begins.
 
-**Objective:** Add two configurable income sources and a set of spending bucket estimates. Both are used by the Pay-Period Affordability Engine (Phase 34). Income payday display must use the banking calendar.
+**Objective:** Add configurable income sources and a set of spending bucket estimates. Both are used by the Pay-Period Affordability Engine (Phase 34). Income payday display must use the banking calendar.
 
 **Schema Change:** IndexedDB schema bumped to **v15**. Two new stores:
 - `incomeSources`: `{ id, name, monthlyAmount, payDateRule, payDateDay? }`
@@ -379,7 +379,7 @@ Plans:
 
 **Income Sources UI:**
 - Settings panel section: "Income Sources"
-- Add/edit/delete (max 2 sources enforced in the UI with a warning)
+- Add/edit/delete in a row-based list with no artificial source cap
 - `payDateRule` options: `'nth-of-month'` (with `payDateDay: 1..28`) | `'last-working-day'` | `'last-day'`
 - Validation: when `payDateRule === 'nth-of-month'`, `payDateDay` must be present, integer, and in the range 1..28
 - Display the banking-calendar-adjusted next payday for each source
@@ -398,8 +398,8 @@ Plans:
 - `tests/income.test.js` (new, ≥80% coverage)
 
 **Acceptance Criteria:**
-- [ ] Up to 2 income sources can be added, edited, and deleted in Settings
-- [ ] Attempting to add a 3rd income source shows a warning and is blocked
+- [ ] Income sources can be added, edited, and deleted in Settings as a row-based list
+- [ ] Settings supports 3+ income sources without warnings or artificial blocking
 - [ ] `payDateDay` validation enforces integer in range 1..28 when rule is `nth-of-month`
 - [ ] Next payday is displayed using banking-calendar-adjusted date
 - [ ] Spending buckets are pre-populated on first install

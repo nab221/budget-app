@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Milestone Verification & Polish
 status: completed
-last_updated: "2026-03-15T17:51:39.130Z"
+last_updated: "2026-03-15T19:38:28.726Z"
 progress:
   total_phases: 24
   completed_phases: 7
-  total_plans: 20
-  completed_plans: 16
+  total_plans: 23
+  completed_plans: 17
 ---
 
 ---
@@ -160,9 +160,9 @@ last_updated: 2026-03-14
 
 ## Current Focus
 
-**Phase 27 — Critical Bug Fixes, Cloud-Sync Hardening & Data Integrity**
+**Phase 32 — Debt Model Refactor — Loans & Mortgage**
 
-Status: Complete — All 5 plans done (includes gap-closure 27-04 and gap-closure 27-05)
+Status: In Progress — 32-01 done (calculateAmortisationSchedule TDD)
 
 ## Phase Progress
 
@@ -173,7 +173,7 @@ Status: Complete — All 5 plans done (includes gap-closure 27-04 and gap-closur
 | 29 | Mobile Table & Interaction Fixes | 🔄 In Progress (29-01, 29-02 done) |
 | 30 | Magic Link PWA / Auth Fix | ✅ Complete (30-01 done — device test approved 2026-03-15) |
 | 31 | Banking Calendar Utility & Recurrence Upgrade | ✅ Complete (31-01, 31-02 done) |
-| 32 | Debt Model Refactor — Loans & Mortgage | ⬜ Not Started |
+| 32 | Debt Model Refactor — Loans & Mortgage | 🔄 In Progress (32-01 done) |
 | 33 | Income & Spending Configuration | ⬜ Not Started |
 | 34 | Pay-Period Affordability Engine | ⬜ Not Started |
 | 35 | Childcare Top-Up Planner | ⬜ Not Started |
@@ -184,6 +184,7 @@ Status: Complete — All 5 plans done (includes gap-closure 27-04 and gap-closur
 
 ## Decisions Log
 
+- 2026-03-15 (32-01): calculateAmortisationSchedule is pure sync function in finance.js; integer-pence arithmetic; paymentDayOfMonth via setDate(); adjustedPaymentDate() for next-working-day; 600-month maxMonths guard; plan worked example had rounding drift in months 2-3 (corrected in tests); DEBT-01 satisfied; 14 new TDD tests; 442 Vitest tests pass.
 - 2026-03-15 (31-02): advanceNextDate returns predictedPaymentDate alongside nextDate (additive, backward-compat); recurrentExpenseDefaults centralises paymentAdjustment:'none'; startup IIFE checks cache staleness before calling refreshBankHolidaysCache fire-and-forget; Dexie v19 migration sets paymentAdjustment='none' for all existing records; TECH-03 and PLAN-03 satisfied; 8 new TDD tests; 428 Vitest tests pass.
 - 2026-03-15 (31-01): Synchronous banking-calendar.js (no DB/async) for safe use in Dexie transactions; localStorage keys uk_bank_holidays_cache (array) + uk_bank_holidays_cache_date (ISO date); distinct from cashflow.js 'bank-holidays-cache'; nextWorkingDay same-day return if already working; 14-iter safety guard; maxCachedYear guard emits console.warn for years > 2027; TECH-02 satisfied; 26 new tests; 420 Vitest tests pass.
 - 2026-03-15 (30-01): emailRedirectTo uses VITE_SUPABASE_REDIRECT_URL ?? window.location.origin; navigateFallbackDenylist /[?&]code=/ added to workbox config (generateSW); iOS guidance in _showSignInModal via navigator.standalone; URL cleanup via history.replaceState in SIGNED_IN handler; 393 Vitest tests pass.
