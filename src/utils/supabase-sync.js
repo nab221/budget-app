@@ -149,7 +149,7 @@ export async function getSession() {
 export async function signIn(email) {
   const supabase = _getClient();
   if (!supabase) throw new Error('Supabase not configured');
-  const redirectTo = window.location.origin + window.location.pathname;
+  const redirectTo = import.meta.env.VITE_SUPABASE_REDIRECT_URL ?? window.location.origin;
   const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo } });
   if (error) throw error;
 }
