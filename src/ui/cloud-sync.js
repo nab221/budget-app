@@ -1019,12 +1019,18 @@ export const cloudSyncUI = {
    */
   async _showSignInModal() {
     return new Promise((resolve) => {
+      const iosNotice = window.navigator.standalone === true
+        ? `<p class="auth-ios-notice" style="font-size:.85rem;background:var(--info-bg,#eff6ff);border:1px solid var(--info-border,#93c5fd);border-radius:6px;padding:8px 10px;margin:0">
+            <strong>iOS tip:</strong> Magic links open in Safari, not this app. ` +
+          `Continue sign-in in <strong>Safari</strong>, or use Safari/browser mode before requesting the link.</p>`
+        : '';
       const body = `
         <div style="display:flex;flex-direction:column;gap:12px">
-          <input 
-            type="email" 
-            id="signInEmailInput" 
-            placeholder="your@email.com" 
+          ${iosNotice}
+          <input
+            type="email"
+            id="signInEmailInput"
+            placeholder="your@email.com"
             style="padding:8px;font-size:.9rem;min-width:250px"
             autocomplete="email"
           />
@@ -1377,6 +1383,10 @@ export const cloudSyncUI = {
       }
 
       if (event === 'SIGNED_IN') {
+        // Clean up PKCE ?code= parameter to prevent stale-code errors on refresh
+        if (window.location.search.includes('code=')) {
+          window.history.replaceState({}, '', window.location.pathname);
+        }
         void this._runAutoPullAfterSignIn(session);
       }
     });
