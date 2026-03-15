@@ -877,14 +877,16 @@ export const expensesUI = {
             return;
           }
 
+          // If the row is already open and this was a tap (not a swipe), keep it open
+          // so the click event can reach the action div's listener.
+          if (this.currentOpenRow === row && Math.abs(deltaX) < 15) return;
+
           if (isThresholdMet) {
-            // Keep the row open at the threshold offset so user can tap the revealed action
             const finalOffset = deltaX < 0 ? -80 : 80;
             row.style.transform = `translateX(${finalOffset}px)`;
             row.classList.add('swipe-active');
             this.currentOpenRow = row;
           } else {
-            // Snap back if threshold not met
             row.style.transform = '';
             row.classList.remove('swipe-active');
             if (this.currentOpenRow === row) this.currentOpenRow = null;
