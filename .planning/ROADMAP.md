@@ -354,6 +354,12 @@ export function amortisationSchedule(principal, apr, monthlyPayment, startDate, 
 - [ ] `amortisation.test.js` achieves ≥80% line coverage
 - [ ] All 354+ existing Vitest tests pass
 
+**Plans:** 2 plans
+
+Plans:
+- [ ] 32-01-PLAN.md -- calculateAmortisationSchedule() TDD (finance.js)
+- [ ] 32-02-PLAN.md -- Schema v20, confirmBalance(), amortisation modal UI and Confirm Balance flow
+
 ---
 
 ### Phase 33 — Income & Spending Configuration
