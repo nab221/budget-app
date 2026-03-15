@@ -715,7 +715,7 @@ export const expensesUI = {
     }
 
     if (items.length === 0) {
-      container.innerHTML = '<tr><td colspan="6" class="hint" style="text-align:center;padding:20px">No matching expenses found for this month.</td></tr>';
+      container.innerHTML = '<tr><td colspan="3" class="hint" style="text-align:center;padding:20px">No matching expenses found for this month.</td></tr>';
       this.updateTotal(0);
       return;
     }
@@ -730,6 +730,7 @@ export const expensesUI = {
       const isReconciled = item.isReconciled === true;
       const isCleared = item.isCleared === true;
       const canSwipe = !isReconciled;
+      const debtLinked = isDebtLinked(item);
 
       const badgeHTML = [];
       if (item.type === 'recurrent') {
@@ -752,42 +753,46 @@ export const expensesUI = {
         badgeHTML.push(`<span class="pill" style="background:var(--success); color:#fff; font-size:0.65rem">✓ Reconciled</span>`);
       }
 
-      return safeHTML`
-        <tr class="swipe-row ${isPaid ? 'paid-row' : ''} ${isFinished ? 'finished-row' : ''} ${isReconciled ? 'reconciled-row' : ''} ${isCleared ? 'cleared-row' : ''}" data-id="${item.id}" data-type="${item.type}">
-          <td class="nw">
-            ${canSwipe ? `<div class="swipe-action-right" onclick="deleteExpense(${item.id}, '${item.type}')">Delete</div>` : ''}
-            ${canSwipe && this.reconciliationMode ? `<div class="swipe-action-left" onclick="toggleExpCleared(${item.id}, '${item.type}', ${isCleared})">Clear</div>` : ''}
-            ${item.displayDate}
-          </td>
-          <td>${catName}</td>
-          <td>
-            ${item.displayLabel || '—'}
-            <div style="display:flex; gap:4px; margin-top:2px; flex-wrap:wrap">
-              ${badgeHTML.join('')}
-            </div>
-          </td>
-          <td class="r nw"><span class="privacy-blur">${formatGBP(item.amount)}</span></td>
-          <td>
-            ${item.type === 'recurrent' ? `
-              <button class="sm ${isPaid ? 'success' : 'ghost'}" ${this.reconciliationMode || isReconciled ? 'disabled' : ''} onclick="toggleExpenseStatus(${item.id}, 'recurrent', '${item.status}')" title="${isPaid ? 'Paid' : 'Mark as Paid'}">
-                ${isPaid ? '✓ Paid' : '○ Pending'}
-              </button>
-            ` : '<span class="hint">—</span>'}
-          </td>
-          <td class="r nw">
-            ${this.reconciliationMode ? `
+      // Reconciliation mode renders a dedicated cleared checkbox column
+      if (this.reconciliationMode) {
+        return safeHTML`
+          <tr class="swipe-row expense-row ${isPaid ? 'paid-row' : ''} ${isFinished ? 'finished-row' : ''} ${isReconciled ? 'reconciled-row' : ''} ${isCleared ? 'cleared-row' : ''}${debtLinked ? ' debt-linked' : ''}"
+              data-id="${item.id}" data-type="${item.type}" data-debt-linked="${debtLinked}">
+            <td class="col-date">${this._formatDateCompact(item.displayDate)}</td>
+            <td class="col-expense">
+              <span class="expense-name">${item.displayLabel || '—'}</span>
+              <br>
+              <span class="badge-chip">${catName}</span>
+              ${renderStatusIcon(item.status)}
+              <div style="display:flex; gap:4px; margin-top:2px; flex-wrap:wrap">${badgeHTML.join('')}</div>
+            </td>
+            <td class="col-amount r nw">
               <div style="display:flex; align-items:center; justify-content:flex-end; gap:8px">
-                <label style="font-size:0.75rem; color:var(--text-soft)">Cleared:</label>
-                <input type="checkbox" ${isCleared ? 'checked' : ''} ${isReconciled ? 'disabled' : ''} 
+                <span class="privacy-blur">${formatGBP(item.amount)}</span>
+                <input type="checkbox" ${isCleared ? 'checked' : ''} ${isReconciled ? 'disabled' : ''}
                   onclick="toggleExpCleared(${item.id}, '${item.type}', ${isCleared})"/>
               </div>
-            ` : `
-              <button class="sm ghost" ${isReconciled ? 'disabled title="Reconciled items cannot be edited"' : ''} onclick="expensesUI.editExpense(${item.id}, '${item.type}')" title="${item.isDebtPayment ? 'Edit in Debts tab' : 'Edit'}">
-                ${item.isDebtPayment ? '↗ Debts' : 'Edit'}
-              </button>
-              ${item.isDebtPayment ? '' : `<button class="sm danger" ${isReconciled ? 'disabled title="Reconciled items cannot be deleted"' : ''} onclick="deleteExpense(${item.id}, '${item.type}')">✕</button>`}
-            `}
+            </td>
+          </tr>
+        `;
+      }
+
+      return safeHTML`
+        <tr class="swipe-row expense-row ${isPaid ? 'paid-row' : ''} ${isFinished ? 'finished-row' : ''} ${isReconciled ? 'reconciled-row' : ''} ${isCleared ? 'cleared-row' : ''}${debtLinked ? ' debt-linked' : ''}"
+            data-id="${item.id}" data-type="${item.type}" data-debt-linked="${debtLinked}">
+          <td class="col-date">
+            ${canSwipe && !debtLinked ? `<div class="swipe-action-right">Edit</div>` : ''}
+            ${canSwipe && !debtLinked ? `<div class="swipe-action-left">Delete</div>` : ''}
+            ${this._formatDateCompact(item.displayDate)}
           </td>
+          <td class="col-expense">
+            <span class="expense-name">${item.displayLabel || '—'}</span>
+            <br>
+            <span class="badge-chip">${catName}</span>
+            ${renderStatusIcon(item.status)}
+            <div style="display:flex; gap:4px; margin-top:2px; flex-wrap:wrap">${badgeHTML.join('')}</div>
+          </td>
+          <td class="col-amount r nw"><span class="privacy-blur">${formatGBP(item.amount)}</span></td>
         </tr>
       `;
     }).join('');
@@ -1009,6 +1014,17 @@ export const expensesUI = {
         }
       };
     }
+  },
+
+  /**
+   * Formats a date string as a two-line compact display: dd-MMM on line 1, YYYY on line 2.
+   */
+  _formatDateCompact(dateStr) {
+    const d = new Date(dateStr);
+    const dd  = String(d.getDate()).padStart(2, '0');
+    const mmm = d.toLocaleString('en-GB', { month: 'short' });
+    const yyyy = d.getFullYear();
+    return `<span class="date-compact">${dd}-${mmm}<br><span class="date-year">${yyyy}</span></span>`;
   },
 
   updateTotal(totalPence) {
