@@ -27,9 +27,10 @@ decisions:
 metrics:
   duration: 45 minutes
   completed_date: "2026-03-15"
-  tasks_completed: 2
+  tasks_completed: 3
   tasks_total: 3
   files_modified: 5
+requirements_completed: [DEBT-01, DEBT-03]
 ---
 
 # Phase 32 Plan 02: Amortisation UI and Confirm Balance Flow Summary
@@ -42,7 +43,7 @@ Wired `calculateAmortisationSchedule()` into the debt UI — loan/mortgage cards
 |------|------|--------|--------|
 | 1 | Schema v20 and confirmBalance() repository helper | 4d915c5 | Done |
 | 2 | Amortisation modal panel and Confirm Balance flow | 0f21ade | Done |
-| 3 | Human verification of amortisation UI | — | Checkpoint (awaiting) |
+| 3 | Human verification of amortisation UI | — | Approved by user |
 
 ## What Was Built
 
