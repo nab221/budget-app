@@ -757,7 +757,7 @@ export const expensesUI = {
       if (this.reconciliationMode) {
         return safeHTML`
           <tr class="swipe-row expense-row ${isPaid ? 'paid-row' : ''} ${isFinished ? 'finished-row' : ''} ${isReconciled ? 'reconciled-row' : ''} ${isCleared ? 'cleared-row' : ''}${debtLinked ? ' debt-linked' : ''}"
-              data-id="${item.id}" data-type="${item.type}" data-debt-linked="${debtLinked}">
+              data-id="${item.id}" data-type="${item.type}" data-debt-linked="${debtLinked}" data-status="${item.status || 'pending'}">
             <td class="col-date">${this._formatDateCompact(item.displayDate)}</td>
             <td class="col-expense">
               <span class="expense-name">${item.displayLabel || '—'}</span>
@@ -779,7 +779,7 @@ export const expensesUI = {
 
       return safeHTML`
         <tr class="swipe-row expense-row ${isPaid ? 'paid-row' : ''} ${isFinished ? 'finished-row' : ''} ${isReconciled ? 'reconciled-row' : ''} ${isCleared ? 'cleared-row' : ''}${debtLinked ? ' debt-linked' : ''}"
-            data-id="${item.id}" data-type="${item.type}" data-debt-linked="${debtLinked}">
+            data-id="${item.id}" data-type="${item.type}" data-debt-linked="${debtLinked}" data-status="${item.status || 'pending'}">
           <td class="col-date">
             ${canSwipe && !debtLinked ? `<div class="swipe-action-left">Edit</div>` : ''}
             ${canSwipe && !debtLinked ? `<div class="swipe-action-right">Delete</div>` : ''}
@@ -844,6 +844,9 @@ export const expensesUI = {
         return;
       }
 
+      const rowId = Number(row.dataset.id);
+      const rowType = row.dataset.type;
+
       const instance = new SwipeHandler(row, {
         threshold: 80,
         edgeThreshold: 40,
@@ -886,6 +889,12 @@ export const expensesUI = {
             row.style.transform = `translateX(${finalOffset}px)`;
             row.classList.add('swipe-active');
             this.currentOpenRow = row;
+            // Trigger action immediately on full swipe
+            if (deltaX > 0) {
+              this.editExpense(rowId, rowType);
+            } else {
+              window.deleteExpense(rowId, rowType);
+            }
           } else {
             row.style.transform = '';
             row.classList.remove('swipe-active');
@@ -895,20 +904,20 @@ export const expensesUI = {
       });
 
       // Wire up revealed action divs via JS (onclick attrs are stripped by DOMPurify)
-      const rowId = Number(row.dataset.id);
-      const rowType = row.dataset.type;
       const editDiv = row.querySelector('.swipe-action-left');
       const deleteDiv = row.querySelector('.swipe-action-right');
       if (editDiv) editDiv.addEventListener('click', () => this.editExpense(rowId, rowType));
       if (deleteDiv) deleteDiv.addEventListener('click', () => window.deleteExpense(rowId, rowType));
 
-      // Close row on tap if it's currently open (but not on the action divs themselves)
+      // Tap on row: close if open, otherwise toggle payment status
       row.onclick = (e) => {
+        if (e.target.classList.contains('swipe-action-left') || e.target.classList.contains('swipe-action-right')) return;
         if (this.currentOpenRow === row) {
-          if (!e.target.classList.contains('swipe-action-left') && !e.target.classList.contains('swipe-action-right')) {
-            this.closeAllRows();
-          }
+          this.closeAllRows();
+          return;
         }
+        const status = row.dataset.status || 'pending';
+        window.toggleExpenseStatus(rowId, rowType, status);
       };
 
       this._swipeInstances.push(instance);

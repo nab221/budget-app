@@ -602,6 +602,12 @@ export const transactionUI = {
             row.style.transform = `translateX(${finalOffset}px)`;
             row.classList.add('swipe-active');
             this.currentOpenRow = row;
+            // Trigger action immediately on full swipe
+            if (deltaX > 0) {
+              this._handleEdit(id);
+            } else {
+              this._handleDelete(id);
+            }
           } else {
             row.style.transform = '';
             row.classList.remove('swipe-active');
