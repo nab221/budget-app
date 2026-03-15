@@ -16,7 +16,7 @@ Phases are ordered P0-first within logical dependencies. P1 phases follow once t
 | 28 | 3/3 | Complete    | 2026-03-15 | Medium |
 | 29 | 2/2 | Complete    | 2026-03-15 | Medium |
 | 30 | 1/1 | Complete    | 2026-03-15 | Medium |
-| 31 | 2/2 | Complete   | 2026-03-15 | Medium-High |
+| 31 | 2/2 | Complete    | 2026-03-15 | Medium-High |
 | 32 | Debt Model Refactor — Loans & Mortgage | P0 | DEBT-01, DEBT-03 | High |
 | 33 | Income & Spending Configuration | P0 | PLAN-06, PLAN-04, TECH-06 | Medium |
 | 34 | Pay-Period Affordability Engine | P0 | PLAN-01, PLAN-02, PLAN-05 | High |
