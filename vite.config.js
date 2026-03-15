@@ -38,6 +38,9 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         skipWaiting: true,
         clientsClaim: true,
+        navigateFallbackDenylist: [
+          /[?&]code=/, // PKCE auth code — do not serve cached shell for auth callback URLs
+        ],
       },
       devOptions: {
         enabled: false,
