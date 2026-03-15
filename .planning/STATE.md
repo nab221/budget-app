@@ -3,9 +3,23 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Milestone Verification & Polish
 status: completed
-last_updated: "2026-03-15T17:26:51.487Z"
+last_updated: "2026-03-15T17:44:02.826Z"
 progress:
   total_phases: 24
+  completed_phases: 7
+  total_plans: 20
+  completed_plans: 16
+  percent: 80
+---
+
+---
+gsd_state_version: 1.0
+milestone: v3.0
+milestone_name: Milestone Verification & Polish
+status: completed
+last_updated: "2026-03-15T17:26:51.487Z"
+progress:
+  [████████░░] 80%
   completed_phases: 6
   total_plans: 20
   completed_plans: 15
@@ -145,7 +159,7 @@ Status: Complete — All 5 plans done (includes gap-closure 27-04 and gap-closur
 | 28 | Mobile Navigation Overhaul | ✅ Complete (28-01, 28-02, 28-03 done — incl. gap-closure) |
 | 29 | Mobile Table & Interaction Fixes | 🔄 In Progress (29-01, 29-02 done) |
 | 30 | Magic Link PWA / Auth Fix | ✅ Complete (30-01 done — device test approved 2026-03-15) |
-| 31 | Banking Calendar Utility & Recurrence Upgrade | 🔄 In Progress (31-01 done) |
+| 31 | Banking Calendar Utility & Recurrence Upgrade | ✅ Complete (31-01, 31-02 done) |
 | 32 | Debt Model Refactor — Loans & Mortgage | ⬜ Not Started |
 | 33 | Income & Spending Configuration | ⬜ Not Started |
 | 34 | Pay-Period Affordability Engine | ⬜ Not Started |
@@ -157,6 +171,7 @@ Status: Complete — All 5 plans done (includes gap-closure 27-04 and gap-closur
 
 ## Decisions Log
 
+- 2026-03-15 (31-02): advanceNextDate returns predictedPaymentDate alongside nextDate (additive, backward-compat); recurrentExpenseDefaults centralises paymentAdjustment:'none'; startup IIFE checks cache staleness before calling refreshBankHolidaysCache fire-and-forget; Dexie v19 migration sets paymentAdjustment='none' for all existing records; TECH-03 and PLAN-03 satisfied; 8 new TDD tests; 428 Vitest tests pass.
 - 2026-03-15 (31-01): Synchronous banking-calendar.js (no DB/async) for safe use in Dexie transactions; localStorage keys uk_bank_holidays_cache (array) + uk_bank_holidays_cache_date (ISO date); distinct from cashflow.js 'bank-holidays-cache'; nextWorkingDay same-day return if already working; 14-iter safety guard; maxCachedYear guard emits console.warn for years > 2027; TECH-02 satisfied; 26 new tests; 420 Vitest tests pass.
 - 2026-03-15 (30-01): emailRedirectTo uses VITE_SUPABASE_REDIRECT_URL ?? window.location.origin; navigateFallbackDenylist /[?&]code=/ added to workbox config (generateSW); iOS guidance in _showSignInModal via navigator.standalone; URL cleanup via history.replaceState in SIGNED_IN handler; 393 Vitest tests pass.
 - 2026-03-15 (29-02): isDebtLinked() uses isDebtPayment || linkedDebtId (Phase 18 fields); row swipe on <tr> directly (no inner-table); debt rows get row.onclick for idempotent navigation to Debts tab; badge-chip + status-icon CSS added; 393 Vitest tests pass.
