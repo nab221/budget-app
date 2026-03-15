@@ -31,6 +31,7 @@ import {
   HAPTICS_ENABLED_KEY
 } from './utils/storage.js';
 import { RecurrenceManager } from './utils/recurrence.js';
+import { refreshBankHolidaysCache } from './utils/banking-calendar.js';
 import { triggerHaptic, initHaptics } from './utils/haptics.js';
 import { validateDataIntegrity, cleanOrphanedRecords } from './utils/data-integrity.js';
 
@@ -98,6 +99,18 @@ async function init() {
         await RecurrenceManager.checkAndGenerate();
       } catch (err) {
         console.error('Failed to run recurrence check:', err);
+      }
+    })(),
+    (async () => {
+      try {
+        // Refresh bank holidays cache if stale (>365 days old) or missing — fire-and-forget
+        const cacheDate = localStorage.getItem('uk_bank_holidays_cache_date');
+        const isStale = !cacheDate || (Date.now() - new Date(cacheDate).getTime()) > 365 * 24 * 60 * 60 * 1000;
+        if (isStale) {
+          refreshBankHolidaysCache(); // fire-and-forget — no await
+        }
+      } catch (err) {
+        console.warn('[app] Bank holidays cache check failed:', err);
       }
     })(),
     refreshPersistenceWarning()
@@ -249,6 +262,24 @@ async function init() {
   ]);
 
   console.log('Budget App initialized successfully.');
+
+  // Wire "Refresh bank holidays" Settings button
+  const refreshBankHolidaysBtn = document.getElementById('refreshBankHolidaysBtn');
+  if (refreshBankHolidaysBtn) {
+    refreshBankHolidaysBtn.addEventListener('click', async () => {
+      refreshBankHolidaysBtn.disabled = true;
+      refreshBankHolidaysBtn.textContent = 'Refreshing...';
+      try {
+        await refreshBankHolidaysCache();
+        notificationUI.success('Bank holidays updated.');
+      } catch (err) {
+        console.warn('[app] Bank holidays refresh failed:', err);
+      } finally {
+        refreshBankHolidaysBtn.disabled = false;
+        refreshBankHolidaysBtn.textContent = 'Refresh bank holidays';
+      }
+    });
+  }
 
   // Phase 27: Non-blocking data integrity check after initial render
   validateDataIntegrity().then(({ valid, issues }) => {
