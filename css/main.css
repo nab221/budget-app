@@ -220,6 +220,7 @@ input[type="number"] { text-align: right; }
 @media (max-width: 768px) {
   :root {
     --bottom-bar-height: 72px;
+    --header-height: 56px;
   }
 
   .mobile-menu-btn { display: none; } /* Replaced by bottom nav */
@@ -273,6 +274,13 @@ input[type="number"] { text-align: right; }
   .tab::before {
     font-size: 1.4rem;
     margin-bottom: 2px;
+  }
+
+  .month-nav {
+    position: sticky;
+    top: var(--header-height);
+    z-index: 99;
+    background: var(--bg-alt);
   }
 }
 
