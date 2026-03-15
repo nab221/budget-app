@@ -74,11 +74,13 @@ export const incomeRepository = {
     return await db.income.where('date').between(startStr, endStr, true, true).toArray();
   }
 };
+const recurrentExpenseDefaults = { ...integrityDefaults, paymentAdjustment: 'none' };
+
 export const recurrentExpenseRepository = {
-  ...createBaseRepository(db.recurrentExpenses, ['amount'], integrityDefaults),
+  ...createBaseRepository(db.recurrentExpenses, ['amount'], recurrentExpenseDefaults),
   async add(data) {
-    const base = createBaseRepository(db.recurrentExpenses, ['amount'], integrityDefaults);
-    const id = await base.add(data);
+    const base = createBaseRepository(db.recurrentExpenses, ['amount'], recurrentExpenseDefaults);
+    const id = await base.add({ paymentAdjustment: 'none', ...data });
     const date = data.nextDate || data.date || new Date().toISOString().slice(0, 10);
     triggerBalanceRecalc(date).catch(() => {});
     return id;
