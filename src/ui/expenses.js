@@ -781,8 +781,8 @@ export const expensesUI = {
         <tr class="swipe-row expense-row ${isPaid ? 'paid-row' : ''} ${isFinished ? 'finished-row' : ''} ${isReconciled ? 'reconciled-row' : ''} ${isCleared ? 'cleared-row' : ''}${debtLinked ? ' debt-linked' : ''}"
             data-id="${item.id}" data-type="${item.type}" data-debt-linked="${debtLinked}">
           <td class="col-date">
-            ${canSwipe && !debtLinked ? `<div class="swipe-action-left" onclick="expensesUI.editExpense(${item.id}, '${item.type}')">Edit</div>` : ''}
-            ${canSwipe && !debtLinked ? `<div class="swipe-action-right" onclick="deleteExpense(${item.id}, '${item.type}')">Delete</div>` : ''}
+            ${canSwipe && !debtLinked ? `<div class="swipe-action-left">Edit</div>` : ''}
+            ${canSwipe && !debtLinked ? `<div class="swipe-action-right">Delete</div>` : ''}
             ${this._formatDateCompact(item.displayDate)}
           </td>
           <td class="col-expense">
@@ -892,11 +892,17 @@ export const expensesUI = {
         }
       });
 
-      // Close row on tap if it's currently open
+      // Wire up revealed action divs via JS (onclick attrs are stripped by DOMPurify)
+      const rowId = Number(row.dataset.id);
+      const rowType = row.dataset.type;
+      const editDiv = row.querySelector('.swipe-action-left');
+      const deleteDiv = row.querySelector('.swipe-action-right');
+      if (editDiv) editDiv.addEventListener('click', () => this.editExpense(rowId, rowType));
+      if (deleteDiv) deleteDiv.addEventListener('click', () => window.deleteExpense(rowId, rowType));
+
+      // Close row on tap if it's currently open (but not on the action divs themselves)
       row.onclick = (e) => {
         if (this.currentOpenRow === row) {
-          // If the click target is one of the revealed action buttons, don't close immediately
-          // (the button's own onclick will handle the action)
           if (!e.target.classList.contains('swipe-action-left') && !e.target.classList.contains('swipe-action-right')) {
             this.closeAllRows();
           }

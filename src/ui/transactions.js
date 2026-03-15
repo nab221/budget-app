@@ -415,8 +415,8 @@ export const transactionUI = {
       return safeHTML`
         <tr class="swipe-row ${isReconciled ? 'reconciled-row' : ''} ${isCleared ? 'cleared-row' : ''}" data-id="${item.id}">
           <td class="nw">
-            ${canSwipe ? `<div class="swipe-action-left" onclick="transactionUI._handleEdit(${item.id})">Edit</div>` : ''}
-            ${canSwipe ? `<div class="swipe-action-right" onclick="transactionUI._handleDelete(${item.id})">Delete</div>` : ''}
+            ${canSwipe ? `<div class="swipe-action-left">Edit</div>` : ''}
+            ${canSwipe ? `<div class="swipe-action-right">Delete</div>` : ''}
             ${this._formatDateCompact(item.date)}
           </td>
           <td>
@@ -607,7 +607,13 @@ export const transactionUI = {
         }
       });
 
-      // Close row on tap if it's currently open
+      // Wire up revealed action divs via JS (onclick attrs are stripped by DOMPurify)
+      const editDiv = row.querySelector('.swipe-action-left');
+      const deleteDiv = row.querySelector('.swipe-action-right');
+      if (editDiv) editDiv.addEventListener('click', () => this._handleEdit(id));
+      if (deleteDiv) deleteDiv.addEventListener('click', () => this._handleDelete(id));
+
+      // Close row on tap if it's currently open (but not on the action divs themselves)
       row.onclick = (e) => {
         if (this.currentOpenRow === row) {
           if (!e.target.classList.contains('swipe-action-left') && !e.target.classList.contains('swipe-action-right')) {
