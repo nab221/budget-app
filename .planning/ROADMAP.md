@@ -14,7 +14,7 @@ Phases are ordered P0-first within logical dependencies. P1 phases follow once t
 |-------|------|----------|-------------|------------------|
 | 27 | 5/5 | Complete    | 2026-03-14 | Low |
 | 28 | 3/3 | Complete    | 2026-03-15 | Medium |
-| 29 | 1/2 | In Progress|  | Medium |
+| 29 | 2/2 | Complete   | 2026-03-15 | Medium |
 | 30 | Magic Link PWA / Auth Fix | P0 | MOB-07, SYNC-01 | Medium |
 | 31 | Banking Calendar Utility & Recurrence Upgrade | P1 | TECH-02, TECH-03, PLAN-03 | Medium-High |
 | 32 | Debt Model Refactor — Loans & Mortgage | P0 | DEBT-01, DEBT-03 | High |

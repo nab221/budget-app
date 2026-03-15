@@ -3,9 +3,23 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Milestone Verification & Polish
 status: completed
-last_updated: "2026-03-15T08:03:53.837Z"
+last_updated: "2026-03-15T08:16:26.929Z"
 progress:
   total_phases: 24
+  completed_phases: 5
+  total_plans: 18
+  completed_plans: 13
+  percent: 72
+---
+
+---
+gsd_state_version: 1.0
+milestone: v3.0
+milestone_name: Milestone Verification & Polish
+status: completed
+last_updated: "2026-03-15T08:03:53.837Z"
+progress:
+  [███████░░░] 72%
   completed_phases: 4
   total_plans: 18
   completed_plans: 12
@@ -89,7 +103,7 @@ Status: Complete — All 5 plans done (includes gap-closure 27-04 and gap-closur
 |-------|------|--------|
 | 27 | Critical Bug Fixes, Cloud-Sync Hardening & Data Integrity | ✅ Complete (5/5 plans done, incl. 2 gap-closure) |
 | 28 | Mobile Navigation Overhaul | ✅ Complete (28-01, 28-02, 28-03 done — incl. gap-closure) |
-| 29 | Mobile Table & Interaction Fixes | 🔄 In Progress (29-01 done) |
+| 29 | Mobile Table & Interaction Fixes | 🔄 In Progress (29-01, 29-02 done) |
 | 30 | Magic Link PWA / Auth Fix | ⬜ Not Started |
 | 31 | Banking Calendar Utility & Recurrence Upgrade | ⬜ Not Started |
 | 32 | Debt Model Refactor — Loans & Mortgage | ⬜ Not Started |
@@ -103,6 +117,7 @@ Status: Complete — All 5 plans done (includes gap-closure 27-04 and gap-closur
 
 ## Decisions Log
 
+- 2026-03-15 (29-02): isDebtLinked() uses isDebtPayment || linkedDebtId (Phase 18 fields); row swipe on <tr> directly (no inner-table); debt rows get row.onclick for idempotent navigation to Debts tab; badge-chip + status-icon CSS added; 393 Vitest tests pass.
 - 2026-03-15 (29-01): Used expenses.js swipe pattern (transform on <tr> directly) instead of nested inner-table variant — simpler, established in production; swipe-right=Edit, swipe-left=Delete; index.html static header updated with col-amount class; 393 Vitest tests pass.
 - 2026-03-15 (28-03): --header-height: 56px scoped inside 768px media query :root block; .month-nav z-index 99 sits below sticky header (100) on mobile; background: var(--bg-alt) prevents content bleed through sticky picker; closes MOB-02 and NAV-02.
 - 2026-03-14 (28-02): Payoff tab aria-label set to "Payoff" (not "Payoff Planner") matching plan mapping table; hamburger comment placed above if-guard for visibility; 393 Vitest tests pass with no test adaptations needed.
