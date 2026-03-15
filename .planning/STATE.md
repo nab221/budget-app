@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Milestone Verification & Polish
 status: completed
-last_updated: "2026-03-15T07:49:48.971Z"
+last_updated: "2026-03-15T08:03:53.837Z"
 progress:
   total_phases: 24
   completed_phases: 4
   total_plans: 18
-  completed_plans: 11
+  completed_plans: 12
 ---
 
 ---
@@ -89,7 +89,7 @@ Status: Complete — All 5 plans done (includes gap-closure 27-04 and gap-closur
 |-------|------|--------|
 | 27 | Critical Bug Fixes, Cloud-Sync Hardening & Data Integrity | ✅ Complete (5/5 plans done, incl. 2 gap-closure) |
 | 28 | Mobile Navigation Overhaul | ✅ Complete (28-01, 28-02, 28-03 done — incl. gap-closure) |
-| 29 | Mobile Table & Interaction Fixes | ⬜ Not Started |
+| 29 | Mobile Table & Interaction Fixes | 🔄 In Progress (29-01 done) |
 | 30 | Magic Link PWA / Auth Fix | ⬜ Not Started |
 | 31 | Banking Calendar Utility & Recurrence Upgrade | ⬜ Not Started |
 | 32 | Debt Model Refactor — Loans & Mortgage | ⬜ Not Started |
@@ -103,6 +103,7 @@ Status: Complete — All 5 plans done (includes gap-closure 27-04 and gap-closur
 
 ## Decisions Log
 
+- 2026-03-15 (29-01): Used expenses.js swipe pattern (transform on <tr> directly) instead of nested inner-table variant — simpler, established in production; swipe-right=Edit, swipe-left=Delete; index.html static header updated with col-amount class; 393 Vitest tests pass.
 - 2026-03-15 (28-03): --header-height: 56px scoped inside 768px media query :root block; .month-nav z-index 99 sits below sticky header (100) on mobile; background: var(--bg-alt) prevents content bleed through sticky picker; closes MOB-02 and NAV-02.
 - 2026-03-14 (28-02): Payoff tab aria-label set to "Payoff" (not "Payoff Planner") matching plan mapping table; hamburger comment placed above if-guard for visibility; 393 Vitest tests pass with no test adaptations needed.
 - 2026-03-14 (28-01): Used env(safe-area-inset-bottom) + 8px for iOS PWA home indicator clearance on .nav-container; --bottom-bar-height: 72px scoped inside 768px :root block; 420px and 360px sub-breakpoints target .tab-label in anticipation of Plan 28-2 span wrapping.
