@@ -882,3 +882,12 @@ button.sync-action-busy::after {
     min-width: 60px;
   }
 }
+
+/* ── Phase 29: Debt-linked expense row indicator ── */
+.expense-row.debt-linked {
+  background: var(--debt-linked-bg, #f5f0ff);
+  cursor: pointer;
+}
+.expense-row.debt-linked:hover {
+  background: var(--debt-linked-hover-bg, #ede7ff);
+}

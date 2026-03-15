@@ -781,8 +781,8 @@ export const expensesUI = {
         <tr class="swipe-row expense-row ${isPaid ? 'paid-row' : ''} ${isFinished ? 'finished-row' : ''} ${isReconciled ? 'reconciled-row' : ''} ${isCleared ? 'cleared-row' : ''}${debtLinked ? ' debt-linked' : ''}"
             data-id="${item.id}" data-type="${item.type}" data-debt-linked="${debtLinked}">
           <td class="col-date">
-            ${canSwipe && !debtLinked ? `<div class="swipe-action-right">Edit</div>` : ''}
-            ${canSwipe && !debtLinked ? `<div class="swipe-action-left">Delete</div>` : ''}
+            ${canSwipe && !debtLinked ? `<div class="swipe-action-right" onclick="expensesUI.editExpense(${item.id}, '${item.type}')">Edit</div>` : ''}
+            ${canSwipe && !debtLinked ? `<div class="swipe-action-left" onclick="deleteExpense(${item.id}, '${item.type}')">Delete</div>` : ''}
             ${this._formatDateCompact(item.displayDate)}
           </td>
           <td class="col-expense">
@@ -816,6 +816,7 @@ export const expensesUI = {
 
   /**
    * Initialize swipe gestures for all rows in the current render.
+   * Debt-linked rows get click-to-navigate (Debts tab) instead of swipe.
    */
   setupGestures() {
     // Cleanup old instances
@@ -825,6 +826,23 @@ export const expensesUI = {
     const rows = document.querySelectorAll('#expenseBody .swipe-row');
     rows.forEach(row => {
       const isLocked = row.classList.contains('reconciled-row');
+      const isLinked = row.dataset.debtLinked === 'true';
+
+      // Debt-linked rows: navigate to Debts tab on click, no swipe
+      if (isLinked) {
+        row.style.cursor = 'pointer';
+        row.onclick = (e) => {
+          e.stopPropagation();
+          const debtsTabBtn = document.querySelector('[data-tab="debts"]');
+          if (debtsTabBtn) debtsTabBtn.click();
+        };
+        // Hide swipe action hints (defensive — debt rows don't render them, but guard anyway)
+        const actionRight = row.querySelector('.swipe-action-right');
+        const actionLeft  = row.querySelector('.swipe-action-left');
+        if (actionRight) actionRight.style.display = 'none';
+        if (actionLeft)  actionLeft.style.display  = 'none';
+        return;
+      }
 
       const instance = new SwipeHandler(row, {
         threshold: 80,
@@ -862,7 +880,7 @@ export const expensesUI = {
           }
 
           if (isThresholdMet) {
-            // Keep the row open at the threshold offset
+            // Keep the row open at the threshold offset so user can tap the revealed action
             const finalOffset = deltaX < 0 ? -80 : 80;
             row.style.transform = `translateX(${finalOffset}px)`;
             row.classList.add('swipe-active');
@@ -879,7 +897,7 @@ export const expensesUI = {
       // Close row on tap if it's currently open
       row.onclick = (e) => {
         if (this.currentOpenRow === row) {
-          // If the click target is one of the revealed action buttons, don't close immediately 
+          // If the click target is one of the revealed action buttons, don't close immediately
           // (the button's own onclick will handle the action)
           if (!e.target.classList.contains('swipe-action-left') && !e.target.classList.contains('swipe-action-right')) {
             this.closeAllRows();
