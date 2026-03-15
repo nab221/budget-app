@@ -864,6 +864,29 @@ button.sync-action-busy::after {
   }
 }
 
+/* ── Phase 29: Badge chip (category label in Expense cell) ── */
+.badge-chip {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  background: var(--chip-bg, #e8ecf0);
+  color: var(--chip-color, #445566);
+  white-space: nowrap;
+  vertical-align: middle;
+  margin-top: 3px;
+}
+
+/* ── Phase 29: Status icon (✓/○/✗ in Expense cell) ── */
+.status-icon {
+  font-size: 0.88rem;
+  display: inline-block;
+  margin-left: 5px;
+  vertical-align: middle;
+  line-height: 1;
+}
+
 /* ── Phase 29: Compact date cells ── */
 .date-compact {
   display: inline-block;
