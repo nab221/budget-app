@@ -1,7 +1,7 @@
 import { debtRepository, statementRepository, recurrentExpenseRepository, incomeRepository, categoryRepository, oneOffExpenseRepository } from '../db/repository.js';
 import { db } from '../db/schema.js';
 import { formatGBP, fromPence } from '../utils/currency.js';
-import { calcMinPayment, calcUtilization, simulatePayoff } from '../utils/finance.js';
+import { calcMinPayment, calcUtilization, simulatePayoff, calculateAmortisationSchedule } from '../utils/finance.js';
 import { safeHTML, renderTabSummary, modalUI } from './render.js';
 import { triggerHaptic } from '../utils/haptics.js';
 import { notificationUI } from './notifications.js';
@@ -12,6 +12,8 @@ import {
   renderStatementUtilisationChart,
   destroyStatementCharts,
 } from './charts.js';
+
+export const CONFIRM_BALANCE_WARNING_THRESHOLD = 0.05;
 
 const FIELD_IDS = {
   name: 'debtNameInput',
@@ -1004,8 +1006,132 @@ export const debtUI = {
     }
   },
 
+  _buildAmortisationModalHTML(debt) {
+    let scheduleData = null;
+    let calcError = null;
+
+    try {
+      scheduleData = calculateAmortisationSchedule({
+        outstandingBalance: debt.currentBalance,
+        annualInterestRate: (debt.interestRate || 0) / 100,
+        monthlyPayment: debt.fixedMonthlyPayment || 0,
+        paymentDayOfMonth: debt.paymentDayOfMonth || 1,
+        paymentAdjustment: debt.paymentAdjustment || 'none',
+      });
+    } catch (e) {
+      calcError = e.message;
+    }
+
+    if (calcError) {
+      return safeHTML`
+        <p style="color:var(--danger);margin-bottom:16px">Unable to calculate amortisation: ${calcError}</p>
+        <div>
+          <button class="primary" onclick="debtUI.openConfirmBalanceForm(${debt.id})">Confirm Current Balance</button>
+          <div id="confirmBalanceForm-${debt.id}" class="hidden" style="margin-top:12px">
+            <input id="confirmBalanceInput-${debt.id}" type="number" step="0.01" min="0.01" placeholder="New balance (£)" style="width:160px" />
+            <span id="confirmBalanceError-${debt.id}" style="color:var(--danger);font-size:0.85rem;display:block;margin-top:4px"></span>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button class="primary" onclick="debtUI.submitConfirmBalance(${debt.id})">Submit</button>
+              <button class="ghost" onclick="debtUI.openConfirmBalanceForm(${debt.id})">Cancel</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    const { projectedPayoffDate, remainingTermMonths, totalInterestRemaining } = scheduleData;
+
+    return safeHTML`
+      <div style="margin-bottom:16px">
+        <table class="tbl sm" style="width:100%;margin-bottom:16px">
+          <tbody>
+            <tr><td>Outstanding Balance</td><td class="r"><strong>${formatGBP(debt.currentBalance)}</strong></td></tr>
+            <tr><td>Monthly Payment</td><td class="r">${formatGBP(debt.fixedMonthlyPayment || 0)}</td></tr>
+            <tr><td>Interest Rate (APR%)</td><td class="r">${(debt.interestRate || 0).toFixed(2)}%</td></tr>
+            <tr><td>Projected Payoff</td><td class="r">${projectedPayoffDate}</td></tr>
+            <tr><td>Remaining Term</td><td class="r">${remainingTermMonths} months</td></tr>
+            <tr><td>Total Interest Remaining</td><td class="r">${formatGBP(totalInterestRemaining)}</td></tr>
+          </tbody>
+        </table>
+        <button class="primary" onclick="debtUI.openConfirmBalanceForm(${debt.id})">Confirm Current Balance</button>
+        <div id="confirmBalanceForm-${debt.id}" class="hidden" style="margin-top:12px">
+          <input id="confirmBalanceInput-${debt.id}" type="number" step="0.01" min="0.01" placeholder="New balance (£)" style="width:160px" />
+          <span id="confirmBalanceError-${debt.id}" style="color:var(--danger);font-size:0.85rem;display:block;margin-top:4px"></span>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="primary" onclick="debtUI.submitConfirmBalance(${debt.id})">Submit</button>
+            <button class="ghost" onclick="debtUI.openConfirmBalanceForm(${debt.id})">Cancel</button>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  openConfirmBalanceForm(debtId) {
+    const form = document.getElementById(`confirmBalanceForm-${debtId}`);
+    if (form) form.classList.toggle('hidden');
+    const errSpan = document.getElementById(`confirmBalanceError-${debtId}`);
+    if (errSpan) errSpan.textContent = '';
+  },
+
+  async submitConfirmBalance(debtId) {
+    const input = document.getElementById(`confirmBalanceInput-${debtId}`);
+    const errSpan = document.getElementById(`confirmBalanceError-${debtId}`);
+    if (!input || !errSpan) return;
+
+    errSpan.textContent = '';
+
+    const raw = parseFloat(input.value);
+    const newBalancePence = Math.round(raw * 100);
+
+    const debt = await debtRepository.get(debtId);
+    if (!debt) return;
+
+    if (newBalancePence <= 0) {
+      errSpan.textContent = 'Balance must be greater than zero';
+      return;
+    }
+
+    if (newBalancePence >= debt.currentBalance) {
+      errSpan.textContent = 'New balance must be less than current balance';
+      return;
+    }
+
+    const diffRatio = Math.abs(newBalancePence - debt.currentBalance) / debt.currentBalance;
+    if (diffRatio > CONFIRM_BALANCE_WARNING_THRESHOLD) {
+      const pct = (diffRatio * 100).toFixed(1);
+      const confirmed = window.confirm(
+        `The new balance differs from the current balance by ${pct}%. Are you sure this is correct?`
+      );
+      if (!confirmed) return;
+    }
+
+    await debtRepository.confirmBalance(debtId, newBalancePence);
+
+    let payoffDisplay = 'unknown';
+    try {
+      const refreshedDebt = await debtRepository.get(debtId);
+      const result = calculateAmortisationSchedule({
+        outstandingBalance: newBalancePence,
+        annualInterestRate: (refreshedDebt.interestRate || debt.interestRate || 0) / 100,
+        monthlyPayment: refreshedDebt.fixedMonthlyPayment || debt.fixedMonthlyPayment || 0,
+        paymentDayOfMonth: refreshedDebt.paymentDayOfMonth || debt.paymentDayOfMonth || 1,
+        paymentAdjustment: refreshedDebt.paymentAdjustment || debt.paymentAdjustment || 'none',
+      });
+      payoffDisplay = result.projectedPayoffDate;
+    } catch {
+      // silently ignore schedule recalculation errors
+    }
+
+    notificationUI.success(`Balance updated. New payoff date: ${payoffDisplay}`);
+    await this.openHistoryModal(debtId);
+    await this.render();
+  },
+
   _buildHistoryModalHTML(debt) {
     const type = debt.debtType || 'credit-card';
+    if (type === 'personal-loan' || type === 'mortgage' || type === 'loan') {
+      return this._buildAmortisationModalHTML(debt);
+    }
     return safeHTML`
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px">
         <div style="display:flex; gap:8px">
