@@ -16,7 +16,7 @@ Phases are ordered P0-first within logical dependencies. P1 phases follow once t
 | 28 | 3/3 | Complete    | 2026-03-15 | Medium |
 | 29 | 2/2 | Complete    | 2026-03-15 | Medium |
 | 30 | 1/1 | Complete    | 2026-03-15 | Medium |
-| 31 | Banking Calendar Utility & Recurrence Upgrade — **2 plans** | P1 | TECH-02, TECH-03, PLAN-03 | Medium-High |
+| 31 | 1/2 | In Progress|  | Medium-High |
 | 32 | Debt Model Refactor — Loans & Mortgage | P0 | DEBT-01, DEBT-03 | High |
 | 33 | Income & Spending Configuration | P0 | PLAN-06, PLAN-04, TECH-06 | Medium |
 | 34 | Pay-Period Affordability Engine | P0 | PLAN-01, PLAN-02, PLAN-05 | High |
@@ -270,7 +270,7 @@ Magic links are redirect-based. In the current PKCE flow, Supabase redirects to 
 **Objective:** Build the `banking-calendar.js` utility and extend the recurrence engine. This is foundational for Phase 32 (debt amortisation with adjusted payment dates) and Phase 33 (income configuration with banking-calendar-aware payday display).
 
 
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 - [ ] 31-01-PLAN.md — Create banking-calendar.js (TDD): synchronous module, static fallback 2025-2027, localStorage cache, GOV.UK API refresh
 - [ ] 31-02-PLAN.md — Schema v19 + recurrence.js paymentAdjustment integration, Settings button, app.js startup wire
 **Schema Change:** IndexedDB schema bumped to **v13** in this phase. The `recurringExpenses` store gains `paymentAdjustment: 'none' | 'next-working-day'` field.
