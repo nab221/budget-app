@@ -793,6 +793,10 @@ export const expensesUI = {
             <div style="display:flex; gap:4px; margin-top:2px; flex-wrap:wrap">${badgeHTML.join('')}</div>
           </td>
           <td class="col-amount r nw"><span class="privacy-blur">${formatGBP(item.amount)}</span></td>
+          <td class="col-actions desktop-only">
+            ${canSwipe && !debtLinked ? `<button class="sm ghost btn-edit" ${isReconciled ? 'disabled' : ''} onclick="expensesUI.editExpense(${item.id}, '${item.type}')">Edit</button>` : ''}
+            ${canSwipe && !debtLinked ? `<button class="sm danger btn-delete" ${isReconciled ? 'disabled' : ''} onclick="deleteExpense(${item.id}, '${item.type}')">✕</button>` : ''}
+          </td>
         </tr>
       `;
     }).join('');
@@ -916,8 +920,11 @@ export const expensesUI = {
           this.closeAllRows();
           return;
         }
-        const status = row.dataset.status || 'pending';
-        window.toggleExpenseStatus(rowId, rowType, status);
+        if (rowType === 'recurrent') {
+          window.toggleExpenseStatus(rowId, rowType, row.dataset.status || 'pending');
+        } else {
+          this.editExpense(rowId, rowType);
+        }
       };
 
       this._swipeInstances.push(instance);

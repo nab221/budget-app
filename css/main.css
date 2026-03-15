@@ -908,7 +908,8 @@ button.sync-action-busy::after {
 
   /* Hide inline edit/delete buttons on mobile — swipe gestures replace them */
   .btn-edit,
-  .btn-delete {
+  .btn-delete,
+  .desktop-only {
     display: none;
   }
 }
