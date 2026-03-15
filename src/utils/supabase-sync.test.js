@@ -220,14 +220,28 @@ describe('signIn', () => {
     vi.clearAllMocks();
   });
 
-  it('calls signInWithOtp with email and runtime redirect URL', async () => {
+  it('calls signInWithOtp with email and window.location.origin when VITE_SUPABASE_REDIRECT_URL is not set', async () => {
     mockSignInWithOtp.mockResolvedValue({ error: null });
     const { signIn } = await import('./supabase-sync.js');
     await signIn('user@example.com');
     expect(mockSignInWithOtp).toHaveBeenCalledWith({
       email: 'user@example.com',
       options: {
-        emailRedirectTo: 'http://localhost:3000/',
+        emailRedirectTo: window.location.origin,
+      },
+    });
+  });
+
+  it('calls signInWithOtp with VITE_SUPABASE_REDIRECT_URL when env var is set', async () => {
+    vi.stubEnv('VITE_SUPABASE_REDIRECT_URL', 'https://my-pwa.example.com');
+    vi.resetModules();
+    mockSignInWithOtp.mockResolvedValue({ error: null });
+    const { signIn } = await import('./supabase-sync.js');
+    await signIn('user@example.com');
+    expect(mockSignInWithOtp).toHaveBeenCalledWith({
+      email: 'user@example.com',
+      options: {
+        emailRedirectTo: 'https://my-pwa.example.com',
       },
     });
   });
