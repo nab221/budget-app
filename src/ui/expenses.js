@@ -22,6 +22,28 @@ import { SwipeHandler } from '../utils/gestures.js';
 import { renderSpendingHeatmap } from './heatmap.js';
 
 /**
+ * Returns true if the expense record is linked to a debt entry.
+ * Uses isDebtPayment (Phase 18 field) or linkedDebtId (repository field).
+ */
+function isDebtLinked(expense) {
+  return !!(expense.isDebtPayment || expense.linkedDebtId);
+}
+
+/**
+ * Renders a compact accessible status icon for an expense status string.
+ */
+function renderStatusIcon(status) {
+  const map = {
+    paid:      { icon: '✓', label: 'Paid' },
+    pending:   { icon: '○', label: 'Pending' },
+    cancelled: { icon: '✗', label: 'Cancelled' },
+  };
+  const s = (status || 'pending').toLowerCase();
+  const { icon, label } = map[s] || map.pending;
+  return `<span class="status-icon" aria-label="${label}">${icon}</span>`;
+}
+
+/**
  * Expenses UI Module
  * Handles the unified "Expenses" tab.
  */
