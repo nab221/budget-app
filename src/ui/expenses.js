@@ -235,31 +235,35 @@ export const expensesUI = {
     };
 
     window.toggleExpenseStatus = async (id, type, currentStatus) => {
-      if (type !== 'recurrent') return;
       try {
-        const item = await recurrentExpenseRepository.get(id);
-        if (!item) return;
+        if (type === 'recurrent') {
+          const item = await recurrentExpenseRepository.get(id);
+          if (!item) return;
 
-        // Intercept for specialized debt payments
-        if (item.isDebtPayment && item.linkedStatementId) {
-          if (currentStatus === 'pending') {
-            await expensesUI.showDebtPaymentConfirmation(item);
-            return;
-          } else if (currentStatus === 'paid') {
-            if (confirm('Un-pay this debt payment? This will reset the linked statement.')) {
-              await statementRepository.resetPayment(item.linkedStatementId);
-              await this.render();
+          // Intercept for specialized debt payments
+          if (item.isDebtPayment && item.linkedStatementId) {
+            if (currentStatus === 'pending') {
+              await expensesUI.showDebtPaymentConfirmation(item);
+              return;
+            } else if (currentStatus === 'paid') {
+              if (confirm('Un-pay this debt payment? This will reset the linked statement.')) {
+                await statementRepository.resetPayment(item.linkedStatementId);
+                await this.render();
+              }
+              return;
             }
-            return;
           }
-        }
 
-        const newStatus = currentStatus === 'paid' ? 'pending' : 'paid';
-        const updates = { status: newStatus };
-        if (newStatus === 'paid' && item.cycleTotal > 0) {
-          updates.cycleCurrent = Math.min((item.cycleCurrent || 0) + 1, item.cycleTotal);
+          const newStatus = currentStatus === 'paid' ? 'pending' : 'paid';
+          const updates = { status: newStatus };
+          if (newStatus === 'paid' && item.cycleTotal > 0) {
+            updates.cycleCurrent = Math.min((item.cycleCurrent || 0) + 1, item.cycleTotal);
+          }
+          await recurrentExpenseRepository.update(id, updates);
+        } else {
+          const newStatus = currentStatus === 'paid' ? 'pending' : 'paid';
+          await oneOffExpenseRepository.update(id, { status: newStatus });
         }
-        await recurrentExpenseRepository.update(id, updates);
         triggerHaptic('tap');
         await this.render();
       } catch (err) {
@@ -920,11 +924,7 @@ export const expensesUI = {
           this.closeAllRows();
           return;
         }
-        if (rowType === 'recurrent') {
-          window.toggleExpenseStatus(rowId, rowType, row.dataset.status || 'pending');
-        } else {
-          this.editExpense(rowId, rowType);
-        }
+        window.toggleExpenseStatus(rowId, rowType, row.dataset.status || 'pending');
       };
 
       this._swipeInstances.push(instance);
