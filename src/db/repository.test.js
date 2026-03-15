@@ -800,6 +800,42 @@ describe('debtRepository.generateLoanPayments', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// debtRepository.confirmBalance() tests (Phase 32)
+// ---------------------------------------------------------------------------
+
+describe('debtRepository.confirmBalance', () => {
+  beforeEach(() => {
+    clearTable(db.debts);
+    dispatchEventMock.mockClear();
+  });
+
+  it('DEBT-CB-01: updates currentBalance and returns previousBalance and newBalance', async () => {
+    const id = await db.debts.add({ name: 'Test Loan', currentBalance: 100000, debtType: 'personal-loan' });
+
+    const result = await debtRepository.confirmBalance(id, 90000);
+
+    expect(result.previousBalance).toBe(100000);
+    expect(result.newBalance).toBe(90000);
+
+    const updated = await db.debts.get(id);
+    expect(updated.currentBalance).toBe(90000);
+  });
+
+  it('DEBT-CB-02: throws if debt not found', async () => {
+    await expect(debtRepository.confirmBalance(9999, 50000)).rejects.toThrow('Debt not found');
+  });
+
+  it('DEBT-CB-03: triggers sync after confirming balance', async () => {
+    dispatchEventMock.mockClear();
+    const id = await db.debts.add({ name: 'Mortgage', currentBalance: 20000000, debtType: 'mortgage' });
+
+    await debtRepository.confirmBalance(id, 19000000);
+
+    expect(dispatchEventMock).toHaveBeenCalled();
+  });
+});
+
 describe('getDashboardData', () => {
   beforeEach(async () => {
     await db.debts.clear();

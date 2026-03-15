@@ -220,6 +220,22 @@ export const debtRepository = {
   },
 
   /**
+   * Confirm the current balance of a debt (used for loan/mortgage balance updates).
+   * Validation (balance must be > 0 and < previous) is handled by the UI caller.
+   * @param {number} id - debt record id
+   * @param {number} newBalancePence - new balance in pence (integer)
+   * @returns {{ previousBalance: number, newBalance: number }}
+   */
+  async confirmBalance(id, newBalancePence) {
+    const debt = await db.debts.get(id);
+    if (!debt) throw new Error('Debt not found');
+    const previousBalance = debt.currentBalance;
+    await db.debts.update(id, { currentBalance: newBalancePence });
+    triggerSync();
+    return { previousBalance, newBalance: newBalancePence };
+  },
+
+  /**
    * Auto-generate recurring expenses for amortising loans/mortgages.
    */
   async generateLoanPayments(debtId, debt) {
