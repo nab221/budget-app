@@ -1,6 +1,7 @@
 import { addWeeks, addMonths, addYears, parseISO, format, isBefore } from 'date-fns';
 import { db } from '../db/schema.js';
 import { generateUUID } from './security.js';
+import { adjustedPaymentDate } from './banking-calendar.js';
 
 /**
  * Generates an array of future transaction instances based on frequency and count.
@@ -55,11 +56,18 @@ export function generateInstances(base, frequency, count) {
     
     // Remove primary key
     delete instance.id;
-    
-    // Update related date fields if they exist
+
+    // Update nextDate if present
     if (instance.nextDate) instance.nextDate = dateStr;
-    if (instance.predictedPaymentDate) instance.predictedPaymentDate = dateStr;
-    
+
+    // Apply payment adjustment for predictedPaymentDate
+    const adjustment = base.paymentAdjustment || 'none';
+    const adjustedDate = adjustedPaymentDate(nextInstanceDate, adjustment);
+    const adjustedDateStr = format(adjustedDate, 'yyyy-MM-dd');
+    instance.predictedPaymentDate = adjustedDateStr;
+    instance.paymentAdjustment = adjustment;
+    // instance.date remains the nominal scheduling anchor — DO NOT adjust it
+
     instances.push(instance);
   }
   return instances;
@@ -88,7 +96,10 @@ export function advanceNextDate(item) {
   const cycleCurrent = shouldIncrement
     ? (item.cycleCurrent || 0) + 1
     : (item.cycleCurrent || 0);
-  return { nextDate, cycleCurrent };
+  const adjustment = item.paymentAdjustment || 'none';
+  const adjustedDate = adjustedPaymentDate(parseISO(nextDate), adjustment);
+  const predictedPaymentDate = format(adjustedDate, 'yyyy-MM-dd');
+  return { nextDate, predictedPaymentDate, cycleCurrent };
 }
 
 export const RecurrenceManager = {

@@ -198,6 +198,86 @@ describe('RecurrenceManager', () => {
   });
 });
 
+describe('generateInstances — paymentAdjustment', () => {
+  const baseMonthly = {
+    id: 1,
+    amount: 500,
+    category: 'Utilities',
+    date: '2026-01-31',
+    parentDate: '2026-01-31',
+    isRecurring: true,
+    recurrenceId: 'adj-test-1'
+  };
+
+  it('paymentAdjustment "next-working-day": nominal date on Saturday advances predictedPaymentDate to Monday', () => {
+    // parentDate '2026-01-31' (Saturday), monthly step 1 → nominal '2026-02-28' (Saturday)
+    // nextWorkingDay('2026-02-28') → '2026-03-02' (Monday, not a bank holiday)
+    const base = { ...baseMonthly, paymentAdjustment: 'next-working-day' };
+    const result = generateInstances(base, 'monthly', 1);
+    expect(result[0].date).toBe('2026-02-28');                   // nominal unchanged
+    expect(result[0].predictedPaymentDate).toBe('2026-03-02');   // adjusted to Monday
+    expect(result[0].paymentAdjustment).toBe('next-working-day');
+  });
+
+  it('paymentAdjustment "next-working-day": nominal date on working day stays unchanged', () => {
+    // parentDate '2026-01-31', monthly step 2 → nominal '2026-03-31' (Tuesday, working day)
+    const base = { ...baseMonthly, paymentAdjustment: 'next-working-day' };
+    const result = generateInstances(base, 'monthly', 2);
+    const march = result[1]; // step=2 → March 31
+    expect(march.date).toBe('2026-03-31');
+    expect(march.predictedPaymentDate).toBe('2026-03-31'); // working day, no shift
+  });
+
+  it('paymentAdjustment "none": predictedPaymentDate equals nominal date', () => {
+    // Same parentDate, no adjustment
+    const base = { ...baseMonthly, paymentAdjustment: 'none' };
+    const result = generateInstances(base, 'monthly', 1);
+    expect(result[0].date).toBe('2026-02-28');
+    expect(result[0].predictedPaymentDate).toBe('2026-02-28'); // no adjustment
+  });
+
+  it('paymentAdjustment undefined: predictedPaymentDate equals nominal date (backward compat)', () => {
+    const base = { ...baseMonthly }; // no paymentAdjustment field
+    const result = generateInstances(base, 'monthly', 1);
+    expect(result[0].date).toBe('2026-02-28');
+    expect(result[0].predictedPaymentDate).toBe('2026-02-28');
+  });
+});
+
+describe('advanceNextDate — paymentAdjustment', () => {
+  it('paymentAdjustment "next-working-day": nextDate stays nominal, predictedPaymentDate advances past Sunday', () => {
+    // nextDate '2026-02-15' (Sunday), monthly → advanced '2026-03-15' (Sunday)
+    // predictedPaymentDate should be '2026-03-16' (Monday)
+    const item = { nextDate: '2026-02-15', frequency: 'monthly', paymentAdjustment: 'next-working-day' };
+    const result = advanceNextDate(item);
+    expect(result.nextDate).toBe('2026-03-15');          // nominal scheduling anchor
+    expect(result.predictedPaymentDate).toBe('2026-03-16'); // adjusted to Monday
+  });
+
+  it('paymentAdjustment "next-working-day": working day nextDate gives same predictedPaymentDate', () => {
+    const item = { nextDate: '2026-01-01', frequency: 'monthly', paymentAdjustment: 'next-working-day' };
+    // 2026-01-01 is a Thursday (monthly → 2026-02-01 is a Sunday... wait)
+    // 2026-02-01 is a Sunday → nextWorkingDay → 2026-02-02 (Monday)
+    const result = advanceNextDate(item);
+    expect(result.nextDate).toBe('2026-02-01');
+    expect(result.predictedPaymentDate).toBe('2026-02-02'); // Monday
+  });
+
+  it('paymentAdjustment "none": predictedPaymentDate equals nextDate (backward compat)', () => {
+    const item = { nextDate: '2026-01-01', frequency: 'monthly', paymentAdjustment: 'none' };
+    const result = advanceNextDate(item);
+    expect(result.nextDate).toBe('2026-02-01');
+    expect(result.predictedPaymentDate).toBe('2026-02-01');
+  });
+
+  it('paymentAdjustment undefined: predictedPaymentDate equals nextDate (backward compat)', () => {
+    const item = { nextDate: '2026-01-01', frequency: 'monthly' };
+    const result = advanceNextDate(item);
+    expect(result.nextDate).toBe('2026-02-01');
+    expect(result.predictedPaymentDate).toBe('2026-02-01');
+  });
+});
+
 describe('advanceNextDate', () => {
   it('weekly item → nextDate advances by 7 days', () => {
     const item = { nextDate: '2026-01-01', frequency: 'weekly' };
