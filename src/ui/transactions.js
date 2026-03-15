@@ -415,8 +415,8 @@ export const transactionUI = {
       return safeHTML`
         <tr class="swipe-row ${isReconciled ? 'reconciled-row' : ''} ${isCleared ? 'cleared-row' : ''}" data-id="${item.id}">
           <td class="nw">
-            ${canSwipe ? `<div class="swipe-action-right" onclick="transactionUI._handleEdit(${item.id})">Edit</div>` : ''}
-            ${canSwipe ? `<div class="swipe-action-left" onclick="transactionUI._handleDelete(${item.id})">Delete</div>` : ''}
+            ${canSwipe ? `<div class="swipe-action-left" onclick="transactionUI._handleEdit(${item.id})">Edit</div>` : ''}
+            ${canSwipe ? `<div class="swipe-action-right" onclick="transactionUI._handleDelete(${item.id})">Delete</div>` : ''}
             ${this._formatDateCompact(item.date)}
           </td>
           <td>
@@ -598,12 +598,7 @@ export const transactionUI = {
             row.style.transform = `translateX(${finalOffset}px)`;
             row.classList.add('swipe-active');
             this.currentOpenRow = row;
-            // Trigger the action immediately on threshold met
-            if (deltaX > 0) {
-              this._handleEdit(id);
-            } else {
-              this._handleDelete(id);
-            }
+            // Action triggered by tapping the revealed swipe-action div
           } else {
             row.style.transform = '';
             row.classList.remove('swipe-active');

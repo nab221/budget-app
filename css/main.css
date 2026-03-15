@@ -607,6 +607,7 @@ body.privacy-enabled .chart-container:hover canvas {
 .swipe-active .swipe-action-left,
 .swipe-active .swipe-action-right {
   visibility: visible;
+  z-index: 1;
 }
 
 .swipe-action-left {
@@ -903,6 +904,12 @@ button.sync-action-busy::after {
   th.col-amount {
     white-space: nowrap;
     min-width: 60px;
+  }
+
+  /* Hide inline edit/delete buttons on mobile — swipe gestures replace them */
+  .btn-edit,
+  .btn-delete {
+    display: none;
   }
 }
 

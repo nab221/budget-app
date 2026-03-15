@@ -781,8 +781,8 @@ export const expensesUI = {
         <tr class="swipe-row expense-row ${isPaid ? 'paid-row' : ''} ${isFinished ? 'finished-row' : ''} ${isReconciled ? 'reconciled-row' : ''} ${isCleared ? 'cleared-row' : ''}${debtLinked ? ' debt-linked' : ''}"
             data-id="${item.id}" data-type="${item.type}" data-debt-linked="${debtLinked}">
           <td class="col-date">
-            ${canSwipe && !debtLinked ? `<div class="swipe-action-right" onclick="expensesUI.editExpense(${item.id}, '${item.type}')">Edit</div>` : ''}
-            ${canSwipe && !debtLinked ? `<div class="swipe-action-left" onclick="deleteExpense(${item.id}, '${item.type}')">Delete</div>` : ''}
+            ${canSwipe && !debtLinked ? `<div class="swipe-action-left" onclick="expensesUI.editExpense(${item.id}, '${item.type}')">Edit</div>` : ''}
+            ${canSwipe && !debtLinked ? `<div class="swipe-action-right" onclick="deleteExpense(${item.id}, '${item.type}')">Delete</div>` : ''}
             ${this._formatDateCompact(item.displayDate)}
           </td>
           <td class="col-expense">
@@ -862,12 +862,10 @@ export const expensesUI = {
             return;
           }
 
+          // Right swipe (positive delta) reveals Edit (on the left)
           // Left swipe (negative delta) reveals Delete (on the right)
-          // Right swipe (positive delta) reveals Clear (on the left) - only in Recon Mode
-          if (deltaX < 0 || (deltaX > 0 && this.reconciliationMode)) {
-            row.style.transform = `translateX(${deltaX}px)`;
-            row.classList.add('swipe-active');
-          }
+          row.style.transform = `translateX(${deltaX}px)`;
+          row.classList.add('swipe-active');
         },
         onEnd: (deltaX, isThresholdMet) => {
           if (isLocked) {
