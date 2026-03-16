@@ -272,7 +272,7 @@ Magic links are redirect-based. In the current PKCE flow, Supabase redirects to 
 
 **Plans:** 2/2 plans complete
 - [ ] 31-01-PLAN.md — Create banking-calendar.js (TDD): synchronous module, static fallback 2025-2027, localStorage cache, GOV.UK API refresh
-- [ ] 31-02-PLAN.md — Schema v19 + recurrence.js paymentAdjustment integration, Settings button, app.js startup wire
+- [ ] 31-02-PLAN.md — Schema v13 + recurrence.js paymentAdjustment integration, Settings button, app.js startup wire
 **Schema Change:** IndexedDB schema bumped to **v13** in this phase. The `recurringExpenses` store gains `paymentAdjustment: 'none' | 'next-working-day'` field.
 
 **Banking Calendar Utility (`src/utils/banking-calendar.js`):**
@@ -358,7 +358,7 @@ export function amortisationSchedule(principal, apr, monthlyPayment, startDate, 
 
 Plans:
 - [ ] 32-01-PLAN.md -- calculateAmortisationSchedule() TDD (finance.js)
-- [ ] 32-02-PLAN.md -- Schema v20, confirmBalance(), amortisation modal UI and Confirm Balance flow
+- [ ] 32-02-PLAN.md -- Schema v14, confirmBalance(), amortisation modal UI and Confirm Balance flow
 
 ---
 
