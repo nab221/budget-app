@@ -565,3 +565,107 @@ describe('TECH-06: affordability data included in generic db.tables snapshot (Ph
     expect(parsed).toHaveProperty('spendingBuckets');
   });
 });
+
+describe('TECH-06: childcareProviders included in generic db.tables snapshot (Phase 35)', () => {
+  // Regression test: verifies that the generic db.tables.map() path in pushSnapshot()
+  // includes childcareProviders automatically, without any allowlist modification.
+  // This is TECH-06 compliance for Phase 35 — same pattern as Phase 33 and Phase 34.
+  // No explicit store registration is needed or added.
+
+  const {
+    mockUpsertTECH06P35,
+    mockGetSessionTECH06P35,
+  } = vi.hoisted(() => ({
+    mockUpsertTECH06P35: vi.fn(),
+    mockGetSessionTECH06P35: vi.fn(),
+  }));
+
+  beforeEach(() => {
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://tech06p35.supabase.co');
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'tech06p35-anon-key');
+    vi.resetModules();
+
+    vi.doMock('@supabase/supabase-js', () => ({
+      createClient: vi.fn(() => ({
+        auth: {
+          getSession: mockGetSessionTECH06P35,
+          onAuthStateChange: vi.fn(),
+          signInWithOtp: vi.fn(),
+          signInWithOAuth: vi.fn(),
+          signOut: vi.fn(),
+        },
+        from: vi.fn(() => ({
+          upsert: mockUpsertTECH06P35,
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              order: vi.fn(() => ({
+                limit: vi.fn(() => ({
+                  maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+                })),
+              })),
+            })),
+          })),
+        })),
+      })),
+    }));
+
+    // Override db mock to include childcareProviders table (schema v23 simulation)
+    vi.doMock('../db/schema.js', () => ({
+      db: {
+        tables: [
+          { name: 'income', toArray: vi.fn().mockResolvedValue([]) },
+          { name: 'childcareAccounts', toArray: vi.fn().mockResolvedValue([{ id: 1, childName: 'Alice' }]) },
+          { name: 'childcareProviders', toArray: vi.fn().mockResolvedValue([{ id: 1, accountId: 1, name: 'Nursery A', frequency: 'monthly', monthlyEquivalentPence: 40000 }]) },
+          { name: 'userPreferences', toArray: vi.fn().mockResolvedValue([]) },
+        ],
+        verno: 23,
+      },
+    }));
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.clearAllMocks();
+    vi.resetModules();
+    localStorage.clear();
+  });
+
+  it('includes childcareProviders in cloud snapshot payload via generic db.tables path (TECH-06)', async () => {
+    mockGetSessionTECH06P35.mockResolvedValue({ data: { session: { user: { id: 'u-tech06-p35' } } } });
+    mockUpsertTECH06P35.mockResolvedValue({ error: null });
+
+    const { pushSnapshot } = await import('./supabase-sync.js');
+    await pushSnapshot();
+
+    expect(mockUpsertTECH06P35).toHaveBeenCalledOnce();
+    const [row] = mockUpsertTECH06P35.mock.calls[0];
+    const parsed = JSON.parse(row.payload);
+
+    // childcareProviders must be in the payload — TECH-06 Phase 35 requirement
+    expect(parsed).toHaveProperty('childcareProviders');
+    expect(parsed.childcareProviders).toHaveLength(1);
+    expect(parsed.childcareProviders[0]).toMatchObject({ name: 'Nursery A', frequency: 'monthly' });
+    expect(row.schema_version).toBe(23);
+  });
+
+  it('no explicit childcareProviders allowlist registration exists in supabase-sync.js', async () => {
+    // Structural regression: the sync module must use db.tables generic path,
+    // not a hardcoded allowlist of store names. This test asserts the observable
+    // behaviour (all tables in db.tables appear in payload) rather than inspecting
+    // source code, as that is covered by the above test.
+    mockGetSessionTECH06P35.mockResolvedValue({ data: { session: { user: { id: 'u-tech06-p35' } } } });
+    mockUpsertTECH06P35.mockResolvedValue({ error: null });
+
+    const { pushSnapshot } = await import('./supabase-sync.js');
+    await pushSnapshot();
+
+    const [row] = mockUpsertTECH06P35.mock.calls[0];
+    const parsed = JSON.parse(row.payload);
+
+    // All 4 tables in our mock db.tables must appear in the payload
+    expect(parsed).toHaveProperty('income');
+    expect(parsed).toHaveProperty('childcareAccounts');
+    expect(parsed).toHaveProperty('childcareProviders');
+    expect(parsed).toHaveProperty('userPreferences');
+  });
+});

@@ -48,7 +48,10 @@ vi.mock('../db/repository.js', () => ({
     deleteFrom: vi.fn().mockResolvedValue(undefined)
   },
   expectedIncomeRepository: { getByMonth: vi.fn().mockResolvedValue([]) },
-  childcareRepository: { getAccounts: vi.fn().mockResolvedValue([]) },
+  childcareRepository: {
+    getAccounts: vi.fn().mockResolvedValue([]),
+    getAllRequiredTopUps: vi.fn().mockResolvedValue({ topUps: [], totalTopUpPence: 0 })
+  },
   categoryRepository: { getCategories: vi.fn().mockResolvedValue([]) },
   getYearlyDailyIncome: vi.fn().mockResolvedValue({}),
   getYearlyDailySpending: vi.fn().mockResolvedValue({}),

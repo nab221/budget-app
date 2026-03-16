@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
+import { normalizeChildcareTopUps, includeChildcareTopUpsInCommittedOutgoings } from '../utils/affordability.js';
 
 describe('dashboard layout invariants (Phase 17)', () => {
   const htmlPath = path.resolve(process.cwd(), 'index.html');
@@ -40,5 +41,41 @@ describe('dashboard layout invariants (Phase 17)', () => {
     expect(html).toContain('id="rollingOverviewChart"');
     expect(html).toContain('id="spendingBreakdownChart"');
     expect(html).toContain('id="savingsRateKPI"');
+  });
+});
+
+describe('Dashboard affordability: childcare top-up integration (Phase 35 - CHILD-02)', () => {
+  it('normalizeChildcareTopUps produces line items with correct labels and amounts', () => {
+    const topUps = [
+      { accountId: 1, childName: 'Alice', requiredTopUpPence: 40000, description: 'Childcare top-up: Alice' },
+      { accountId: 2, childName: 'Bob', requiredTopUpPence: 0, description: 'Childcare top-up: Bob' }
+    ];
+    const normalized = normalizeChildcareTopUps(topUps);
+    // Only Alice has a required top-up; Bob is zero so filtered
+    expect(normalized).toHaveLength(1);
+    expect(normalized[0].description).toContain('Alice');
+    expect(normalized[0].amount).toBe(40000);
+  });
+
+  it('includeChildcareTopUpsInCommittedOutgoings adds childcare rows to timeline', () => {
+    const base = [{ date: '2026-04-01', name: 'Rent', amount: 100000, runningBalance: 0 }];
+    const items = [{ date: '2026-04-05', description: 'Childcare top-up: Alice', amount: 40000 }];
+    const result = includeChildcareTopUpsInCommittedOutgoings(base, items);
+    expect(result).toHaveLength(2);
+    const total = result.reduce((s, r) => s + r.amount, 0);
+    expect(total).toBe(140000);
+  });
+
+  it('dashboard affordability does not introduce CSV/reporting/navigation redesign features', () => {
+    // Source code inspection: dashboard.js must not reference CSV/report exports
+    const dashPath = path.resolve(process.cwd(), 'src/ui/dashboard.js');
+    const dashSource = fs.readFileSync(dashPath, 'utf8');
+    // Affordability integration is limited to normalizeChildcareTopUps and includeChildcareTopUpsInCommittedOutgoings
+    expect(dashSource).toContain('normalizeChildcareTopUps');
+    expect(dashSource).toContain('includeChildcareTopUpsInCommittedOutgoings');
+    // Must NOT reference CSV or legacy import expansion
+    expect(dashSource).not.toContain('exportCsv');
+    expect(dashSource).not.toContain('generateReport');
+    expect(dashSource).not.toContain('legacyImport');
   });
 });

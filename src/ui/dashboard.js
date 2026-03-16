@@ -30,6 +30,7 @@ import { renderSpendingHeatmap } from './heatmap.js';
 import { pickInvariantForecastKpis, rebaseForecastSnapshots } from './dashboard-kpis.js';
 import { getUpcomingIncomeEvents } from '../utils/income.js';
 import { getPayPeriodBounds, getBillsInPayPeriod, calculatePayPeriodSummary } from '../utils/pay-period.js';
+import { normalizeChildcareTopUps, includeChildcareTopUpsInCommittedOutgoings } from '../utils/affordability.js';
 
 let _selectedMonth = new Date().toISOString().slice(0, 7);
 let _selectedView = 'current';
@@ -471,7 +472,8 @@ async function renderPayPeriodSection() {
     spendingBuckets,
     safetyBuffer,
     latestSnapshot,
-    allDebts
+    allDebts,
+    childcareTopUpAggregate
   ] = await Promise.all([
     incomeSourceRepository.getActive(),
     recurrentExpenseRepository.getAll(),
@@ -479,7 +481,8 @@ async function renderPayPeriodSection() {
     spendingBucketRepository.getAll(),
     getSafetyBuffer(),
     getLatestDailySnapshot(),
-    debtRepository.getAll()
+    debtRepository.getAll(),
+    childcareRepository.getAllRequiredTopUps().catch(() => ({ topUps: [], totalTopUpPence: 0 }))
   ]);
 
   // Section header with balance-entry button
@@ -607,8 +610,12 @@ async function renderPayPeriodSection() {
   // Get bills in pay period, enriched with amortisation data for loan/mortgage
   const rawBills = getBillsInPayPeriod(allRecurring, allOneOff, spendingBuckets, bounds.start, bounds.end, null);
 
+  // Include childcare top-up line items in committed outgoings (CHILD-02)
+  const childcareNormalized = normalizeChildcareTopUps(childcareTopUpAggregate.topUps);
+  const rawBillsWithChildcare = includeChildcareTopUpsInCommittedOutgoings(rawBills, childcareNormalized);
+
   // Enrich loan/mortgage bills with interest/principal split
-  const bills = rawBills.map(bill => {
+  const bills = rawBillsWithChildcare.map(bill => {
     if (bill.isDebtPayment && (bill.debtType === 'loan' || bill.debtType === 'mortgage') && bill.debtId) {
       const debt = allDebts.find(d => d.id === bill.debtId);
       if (debt && debt.fixedMonthlyPayment > 0 && debt.currentBalance > 0) {
