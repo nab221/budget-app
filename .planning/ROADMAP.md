@@ -20,7 +20,7 @@ Phases are ordered P0-first within logical dependencies. P1 phases follow once t
 | 32 | 2/2 | Complete    | 2026-03-15 | High |
 | 33 | Income & Spending Configuration | Complete    | 2026-03-16 | Medium |
 | 34 | 1/1 | Complete    | 2026-03-16 | High |
-| 35 | Childcare Top-Up Planner | P0 | CHILD-01, CHILD-02, CHILD-03, TECH-06 | Medium |
+| 35 | Childcare Top-Up Planner | Complete    | 2026-03-16 | Medium |
 | 36 | Navigator & View Toggle Redesign | P1 | NAV-02, NAV-03, MOB-03, MOB-02 | Medium |
 | 37 | Cloud Snapshot Delta Preview | P1 | NAV-04 | Low |
 | 38 | GitHub Actions Node.js 24, Legacy Import & Technical Hygiene | P1 | TECH-01, TECH-04, INTEGRITY-02 | Low |
