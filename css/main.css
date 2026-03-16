@@ -534,7 +534,7 @@ body.privacy-enabled .chart-container:hover canvas {
   cursor: pointer;
 }
 
-/* Segmented Control for Chart Binning */
+/* Segmented Control for Chart Binning (legacy radio-input variant) */
 .segmented-control {
   display: flex;
   background: var(--bg-alt);
@@ -558,6 +558,66 @@ body.privacy-enabled .chart-container:hover canvas {
   background: var(--card);
   color: var(--accent);
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* ── DASHBOARD VIEW-TOGGLE SEGMENTED CONTROL (Phase 36) ── */
+/* Button-based radiogroup variant used for This Month / Year to Date / All Time */
+.segmented-control__btn {
+  min-height: 44px; /* Touch target minimum */
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-soft);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background var(--tr), color var(--tr), box-shadow var(--tr);
+  white-space: nowrap;
+}
+.segmented-control__btn:hover {
+  background: var(--bg);
+  color: var(--text);
+}
+.segmented-control__btn.is-active {
+  background: var(--card);
+  color: var(--accent);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+.segmented-control__btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ── DASHBOARD NAVIGATOR SHELL (Phase 36) ── */
+/* Desktop: sticky below header so navigator remains visible without scrolling */
+.dashboard-navigator-shell {
+  position: sticky;
+  top: 0;
+  z-index: 98;
+  background: var(--bg);
+  padding: 6px 0;
+}
+
+@media (max-width: 768px) {
+  /* Mobile: fixed below header, full-width, clear of bottom nav */
+  .dashboard-navigator-shell {
+    position: fixed;
+    top: var(--header-height, 56px);
+    left: 0;
+    right: 0;
+    z-index: 999;
+    background: var(--bg-alt);
+    border-bottom: 1px solid var(--border);
+    padding: 6px 12px;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  }
+
+  /* Push dashboard content down so fixed navigator does not obscure first card */
+  .tab-panel[data-panel="dashboard"] {
+    padding-top: 72px;
+  }
 }
 
 /* ── STATEMENT TABLE ── */

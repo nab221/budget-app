@@ -45,6 +45,20 @@ describe('dashboard layout invariants (Phase 17)', () => {
     expect(html).toContain('id="spendingBreakdownChart"');
     expect(html).toContain('id="savingsRateKPI"');
   });
+
+  it('dashboard navigator shell uses dashboard-navigator-shell class (Phase 36 sticky/fixed hook)', () => {
+    expect(html).toContain('class="dashboard-navigator-shell"');
+  });
+
+  it('desktop layout: controls row contains both month picker and segmented control mount', () => {
+    const navShellStart = html.indexOf('class="dashboard-navigator-shell"');
+    // Find the closing tag of the navigator shell div
+    // Both IDs must appear after the shell opening
+    const pickerAfter = html.indexOf('id="dashboardMonthPicker"', navShellStart);
+    const segAfter = html.indexOf('id="dashboardViewSegmentedControl"', navShellStart);
+    expect(pickerAfter).toBeGreaterThan(navShellStart);
+    expect(segAfter).toBeGreaterThan(navShellStart);
+  });
 });
 
 describe('Dashboard affordability: childcare top-up integration (Phase 35 - CHILD-02)', () => {

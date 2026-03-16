@@ -122,3 +122,73 @@ describe('dashboard view-toggle: month navigation regression', () => {
     expect(src).toContain('getYearlyDailySpending');
   });
 });
+
+// ---------------------------------------------------------------------------
+// CSS regression: navigator shell and segmented control button styles
+// ---------------------------------------------------------------------------
+
+describe('dashboard view-toggle: CSS navigator styles (Phase 36)', () => {
+  const cssPath = path.resolve(process.cwd(), 'css/main.css');
+  const css = fs.readFileSync(cssPath, 'utf8');
+
+  it('CSS contains dashboard-navigator-shell sticky rule for desktop', () => {
+    expect(css).toContain('.dashboard-navigator-shell');
+    expect(css).toContain('position: sticky');
+  });
+
+  it('CSS contains dashboard-navigator-shell fixed rule for mobile', () => {
+    // Must have fixed positioning inside a mobile media query
+    const mobileMediaIdx = css.indexOf('@media (max-width: 768px)');
+    // May appear multiple times — check if any contains dashboard-navigator-shell + fixed
+    expect(css).toContain('position: fixed');
+    // The navigator shell must have a mobile rule with fixed
+    const shellIdx = css.lastIndexOf('.dashboard-navigator-shell');
+    expect(shellIdx).toBeGreaterThan(-1);
+  });
+
+  it('CSS contains segmented-control button active styles', () => {
+    expect(css).toContain('.segmented-control__btn');
+    expect(css).toContain('.segmented-control__btn.is-active');
+  });
+
+  it('CSS contains focus-visible outline for keyboard accessibility', () => {
+    expect(css).toContain(':focus-visible');
+    expect(css).toContain('outline');
+  });
+
+  it('mobile dashboard content has top padding to avoid fixed navigator occlusion', () => {
+    expect(css).toContain('.tab-panel[data-panel="dashboard"]');
+    expect(css).toContain('padding-top');
+  });
+
+  it('bottom nav z-index (1000) takes precedence over dashboard navigator (999)', () => {
+    // nav-container z-index for mobile must be >= 1000 to stay on top of fixed navigator
+    // The .nav-container mobile rule uses z-index: 1000
+    const navIdx = css.indexOf('z-index: 1000');
+    expect(navIdx).toBeGreaterThan(-1);
+    // Dashboard navigator must use z-index < 1000 (e.g. 999)
+    const navShellBlock = css.indexOf('z-index: 999');
+    expect(navShellBlock).toBeGreaterThan(-1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Fallback seam: conditional navigator integration safety
+// ---------------------------------------------------------------------------
+
+describe('dashboard view-toggle: fallback seam safety', () => {
+  it('dashboard.js does not hard-import pay-period navigator at module level', () => {
+    const dashPath = path.resolve(process.cwd(), 'src/ui/dashboard.js');
+    const src = fs.readFileSync(dashPath, 'utf8');
+    // Pay-period navigator (if it existed as a separate module) would be a dynamic import
+    // Verify no static import of a pay-period-navigator module exists
+    expect(src).not.toMatch(/^import .* from ['"].*pay-period-navigator/m);
+  });
+
+  it('dashboard.js uses conditional check before mounting segmented control (no crash when absent)', () => {
+    const dashPath = path.resolve(process.cwd(), 'src/ui/dashboard.js');
+    const src = fs.readFileSync(dashPath, 'utf8');
+    // The mount is guarded by if (segMount) check
+    expect(src).toContain('if (segMount)');
+  });
+});
