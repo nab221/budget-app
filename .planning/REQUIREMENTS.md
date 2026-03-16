@@ -166,7 +166,7 @@ Known bugs in `cloud-sync.js`:
 
 ## TECH — Technical Improvements
 
-### TECH-01 · GitHub Actions Node.js 24 Upgrade (P1)
+### TECH-01 · GitHub Actions Node.js 24 Upgrade (P1) ✅ COMPLETE (38-01)
 GitHub Actions Node.js 20 deprecation deadline is June 2, 2026. Upgrade all actions to Node.js 24 compatible versions.
 
 ### TECH-02 · Banking Calendar Utility (P1)
@@ -178,7 +178,7 @@ Create a `src/utils/banking-calendar.js` module:
 ### TECH-03 · Recurrence Engine — Working Day Support (P1)
 Extend `src/utils/recurrence.js` to support `paymentAdjustment: 'next-working-day'` option, delegating to the banking calendar utility.
 
-### TECH-04 · Test Coverage for New Modules (P1)
+### TECH-04 · Test Coverage for New Modules (P1) ✅ COMPLETE (38-01)
 All new utility modules must have Vitest unit test coverage ≥ 80%.
 
 ### TECH-05 · Print / Export to PDF (P2)
@@ -206,7 +206,7 @@ Must run on:
 
 Must log and surface any orphaned records and offer to clean them up. Surface a warning toast if integrity issues are found.
 
-### INTEGRITY-02 · Legacy Data Import (P2)
+### INTEGRITY-02 · Legacy Data Import (P2) ✅ COMPLETE (38-01)
 Settings panel function to import data from v2.x format. Validates compatibility, maps old fields to new schema, and reports what could and couldn't be imported. Since the app is not in active use, this is a convenience feature rather than critical.
 
 ---

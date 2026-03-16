@@ -35,7 +35,7 @@
 |--------|--------|-------------|-----------|------------|--------|
 | `src/utils/finance.js` | 96.49 | 96.49 | 84.61 | 85.71 | **PASS** (≥80%) |
 | `src/ui/debts.js` | 72.22 | 72.22 | 60.63 | 62.79 | **DEFERRED** — see rationale below |
-| `src/db/repository.js` | 71.34 | 71.34 | 78.23 | 45.65 | **DEFERRED** — see rationale below |
+| `src/db/repository.js` | 74.06 | 74.06 | 78.10 | 40.21 | **DEFERRED** — see rationale below |
 
 **Deferred rationale — `src/ui/debts.js`:**
 - This is a 1000+ line UI module requiring full DOM + modal infrastructure to test rendering.
@@ -44,9 +44,11 @@
 - Gap closure action: Add `src/ui/debts.test.js` targeting modal open/close, amortisation rendering, and confirm-balance submit flow.
 
 **Deferred rationale — `src/db/repository.js`:**
-- This is the central Dexie repository (~600 lines). Coverage at 71.34% reflects that many domain-specific repository methods are indirectly tested via integration tests.
-- The Phase 32 additions (`debtRepository.confirmBalance`, `calculateAmortisationSchedule` call sites) are covered via `src/utils/finance.test.js` which stubs the repository.
-- Gap closure action: Add targeted tests for `debtRepository.confirmBalance`, `childcareRepository.addDeposit`, `childcareRepository.addSpend` (Phase 35 additions).
+- This is the central Dexie repository (~1200 lines). Coverage at 74.06% reflects that many domain-specific repository methods are indirectly tested via integration tests.
+- Phase 38 added 9 targeted tests for `childcareRepository.addDeposit` and `addSpend` (raising coverage from 71.34% to 74.06%).
+- Also fixed a missing `sortBy()` on mock table's `equals()` chain (needed for `_recalculateBalances`).
+- Remaining gap: `getDashboardData`, `getPayoffOrder`, and other complex functions requiring full DOM+Dexie stack.
+- Gap closure action for Phase 39: Add targeted tests for complex getDashboardData scenarios and payoff ordering.
 
 ---
 
@@ -120,7 +122,7 @@
 | 31 | recurrence.js | 99.35 | PASS |
 | 32 | finance.js | 96.49 | PASS |
 | 32 | debts.js | 72.22 | DEFERRED |
-| 32 | repository.js | 71.34 | DEFERRED |
+| 32 | repository.js | 74.06 | DEFERRED |
 | 33 | income.js | 96.72 | PASS |
 | 33 | income-spending-settings.js | 88.51 | PASS |
 | 34 | pay-period.js | 100 | PASS |
