@@ -805,6 +805,112 @@ export async function adjustBalance(enteredAmountPence, date) {
   await triggerBalanceRecalc(date);
 }
 
+// ---------------------------------------------------------------------------
+// Phase 33: Income Sources Repository
+// ---------------------------------------------------------------------------
+
+/**
+ * Validates payDateDay for nth-of-month rule.
+ * Throws a descriptive Error when the value is missing, non-integer, or out of range.
+ * @param {string} payDateRule
+ * @param {*} payDateDay
+ */
+function validatePayDateDay(payDateRule, payDateDay) {
+  if (payDateRule !== 'nth-of-month') return; // only relevant for this rule
+  if (payDateDay === null || payDateDay === undefined) {
+    throw new Error('payDateDay is required when payDateRule is nth-of-month');
+  }
+  if (!Number.isInteger(payDateDay)) {
+    throw new Error('payDateDay must be an integer when payDateRule is nth-of-month');
+  }
+  if (payDateDay < 1 || payDateDay > 28) {
+    throw new Error('payDateDay must be between 1 and 28 (inclusive) when payDateRule is nth-of-month');
+  }
+}
+
+export const incomeSourceRepository = {
+  ...createBaseRepository(db.incomeSources, []),
+
+  /**
+   * Returns all income sources ordered by displayOrder ascending.
+   */
+  async getAll() {
+    const all = await db.incomeSources.toArray();
+    return all.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+  },
+
+  /**
+   * Returns only active income sources ordered by displayOrder ascending.
+   */
+  async getActive() {
+    const all = await this.getAll();
+    return all.filter(s => s.isActive);
+  },
+
+  /**
+   * Validates payDateDay and then adds the income source.
+   * Throws when payDateRule is 'nth-of-month' and payDateDay is invalid.
+   * @param {Object} data
+   * @returns {Promise<number>} new record id
+   */
+  async validateAndAdd(data) {
+    validatePayDateDay(data.payDateRule, data.payDateDay);
+    return this.add(data);
+  },
+
+  /**
+   * Validates payDateDay and then updates the income source.
+   * @param {number} id
+   * @param {Object} data
+   */
+  async validateAndUpdate(id, data) {
+    const existing = await db.incomeSources.get(id);
+    const rule = data.payDateRule ?? (existing ? existing.payDateRule : undefined);
+    const day = data.payDateDay !== undefined ? data.payDateDay : (existing ? existing.payDateDay : null);
+    validatePayDateDay(rule, day);
+    return this.update(id, data);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Phase 33: Spending Buckets Repository
+// ---------------------------------------------------------------------------
+
+const DEFAULT_SPENDING_BUCKETS = [
+  { name: 'Groceries', monthlyAmount: 0, icon: null, displayOrder: 0 },
+  { name: 'Eating Out', monthlyAmount: 0, icon: null, displayOrder: 1 },
+  { name: 'Petrol/Transport', monthlyAmount: 0, icon: null, displayOrder: 2 },
+  { name: 'Entertainment', monthlyAmount: 0, icon: null, displayOrder: 3 },
+  { name: 'Clothing', monthlyAmount: 0, icon: null, displayOrder: 4 },
+  { name: 'Personal Care', monthlyAmount: 0, icon: null, displayOrder: 5 },
+  { name: 'Misc', monthlyAmount: 0, icon: null, displayOrder: 6 }
+];
+
+export const spendingBucketRepository = {
+  ...createBaseRepository(db.spendingBuckets, []),
+
+  /**
+   * Returns all spending buckets ordered by displayOrder ascending.
+   */
+  async getAll() {
+    const all = await db.spendingBuckets.toArray();
+    return all.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+  },
+
+  /**
+   * Seeds the default spending buckets exactly once when the store is empty.
+   * Subsequent calls are no-ops.
+   * @returns {Promise<boolean>} true if seeded, false if already populated
+   */
+  async seedDefaults() {
+    const count = await db.spendingBuckets.count();
+    if (count > 0) return false;
+    await db.spendingBuckets.bulkAdd(DEFAULT_SPENDING_BUCKETS);
+    triggerSync();
+    return true;
+  }
+};
+
 /**
  * Childcare Repository
  */
