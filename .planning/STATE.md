@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Milestone Verification & Polish
 status: in_progress
-last_updated: "2026-03-16T17:34:55.191Z"
+last_updated: "2026-03-16T21:21:00.764Z"
 progress:
   total_phases: 24
-  completed_phases: 11
+  completed_phases: 12
   total_plans: 29
-  completed_plans: 21
+  completed_plans: 22
 ---
 
 ---
@@ -242,9 +242,9 @@ last_updated: 2026-03-14
 
 ## Current Focus
 
-**Phase 35 — Childcare Top-Up Planner**
+**Phase 36 — Navigator & View Toggle Redesign**
 
-Status: Complete — 35-01 done (2026-03-16)
+Status: Complete — 36-01 done (2026-03-16)
 
 ## Phase Progress
 
@@ -259,13 +259,14 @@ Status: Complete — 35-01 done (2026-03-16)
 | 33 | Income & Spending Configuration | ✅ Complete (33-01 done) |
 | 34 | Pay-Period Affordability Engine | ✅ Complete (34-01 done) |
 | 35 | Childcare Top-Up Planner | ✅ Complete (35-01 done) |
-| 36 | Navigator & View Toggle Redesign | ⬜ Not Started |
+| 36 | Navigator & View Toggle Redesign | ✅ Complete (36-01 done — human verify approved 2026-03-16) |
 | 37 | Cloud Snapshot Delta Preview | ⬜ Not Started |
 | 38 | GitHub Actions Node.js 24, Legacy Import & Technical Hygiene | ⬜ Not Started |
 | 39 | v3.0 Milestone Verification & Polish | ⬜ Not Started |
 
 ## Decisions Log
 
+- 2026-03-16 (36-01): Arrow keys auto-select (WAI-ARIA radiogroup: focus movement = selection); Enter/Space re-confirm; JS measures real rendered header height via getBoundingClientRect() at initDashboard() time and writes --header-height CSS variable; desktop sticky top: var(--header-height) not top:0; activate() owns focus, ARIA, tabIndex, and onChange; legacy viewSelect fallback retained; 25 new TDD/regression tests; 637 total Vitest tests pass.
 - 2026-03-16 (35-01): Schema v23 adds childcareProviders (accountId-scoped, monthly/termly billing); monthlyEquivalentFromProvider normalizes billing frequency; calculateRequiredTopUp = max(0, providerTotal - balance - pendingBonus); getAllRequiredTopUps returns aggregate contract for affordability pipeline; includeChildcareTopUpsInCommittedOutgoings is non-mutating merge; TECH-06 satisfied via generic db.tables.map path (no allowlist changes); addDeposit/addSpend auto-added (were missing from repository); 42 new tests; 612 total Vitest tests pass.
 - 2026-03-16 (34-01): Schema v22 with userPreferences key-value table for safetyBuffer; getPayPeriodBounds uses minimum-search (defensive against unsorted input); _payPeriodOffset module state drives prev/next navigator; TECH-06 satisfied via generic db.tables.map path (no allowlist changes); isDeficit = closingBalance <= 0; isBelowBuffer = closingBalance > 0 && < safetyBuffer; calculateAmortisationSchedule wrapped in try/catch for non-breaking degradation; 44 new tests; 570 total Vitest tests pass.
 - 2026-03-16 (33-01): Schema v21 adds incomeSources and spendingBuckets stores; monthlyAmount stored as raw pence (no double-conversion); all payDateRules apply next-working-day banking-calendar adjustment for adjustedDate; getUpcomingIncomeEvents uses merge-sort cursor strategy for N-source merging; supabase-sync.js generic db.tables path covers new stores without allowlist; incomeSpendingSettings wired into settings render and init; PLAN-04, PLAN-06, TECH-06 satisfied; 73 new TDD tests; 295 Vitest tests across db and ui suites pass.
