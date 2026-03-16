@@ -1057,5 +1057,51 @@ describe('cloud-sync delta preview (Phase 37)', () => {
     expect(body).toContain('income');
     expect(body).toContain('debts');
   });
+
+  // --- Task 3: UX copy and anti-regression tests ---
+
+  it('delta lines use plain-English labels: "added", "removed", "changed"', async () => {
+    vi.mocked(snapshotDiff.formatDiffSummary).mockReturnValue([
+      { store: 'income', added: 2, deleted: 1, updated: 3 },
+    ]);
+
+    cloudSyncUI._bindPreviewListener();
+    dispatchPreview();
+    await new Promise((r) => setTimeout(r, 0));
+
+    const [, body] = vi.mocked(templateUI.showModal).mock.calls[0];
+    expect(body).toContain('added');
+    expect(body).toContain('removed');
+    expect(body).toContain('changed');
+  });
+
+  it('first-sync path includes a "First sync" context label', async () => {
+    vi.mocked(snapshotDiff.isFirstSyncFallback).mockReturnValue(true);
+
+    cloudSyncUI._bindPreviewListener();
+    dispatchPreview();
+    await new Promise((r) => setTimeout(r, 0));
+
+    const [, body] = vi.mocked(templateUI.showModal).mock.calls[0];
+    expect(body).toContain('First sync');
+  });
+
+  it('confirm button label remains "Replace Local Data" in delta mode', async () => {
+    cloudSyncUI._bindPreviewListener();
+    dispatchPreview();
+    await new Promise((r) => setTimeout(r, 0));
+
+    const [,, footer] = vi.mocked(templateUI.showModal).mock.calls[0];
+    expect(footer).toContain('Replace Local Data');
+  });
+
+  it('confirmation copy includes destructive-action warning', async () => {
+    cloudSyncUI._bindPreviewListener();
+    dispatchPreview();
+    await new Promise((r) => setTimeout(r, 0));
+
+    const [, body] = vi.mocked(templateUI.showModal).mock.calls[0];
+    expect(body).toContain('This cannot be undone');
+  });
 });
 

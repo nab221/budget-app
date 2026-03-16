@@ -1446,14 +1446,18 @@ export const cloudSyncUI = {
       // --- Phase 37: Choose delta vs full-summary rendering path ---
       let previewContent;
       if (isFirstSyncFallback(currentStoreMap)) {
-        // First sync: show existing full-summary counts
+        // First sync: no local baseline — show the incoming record counts so the
+        // user understands what they are about to import.
         const countLines = Object.entries(counts)
           .filter(([, n]) => n > 0)
           .map(([t, n]) => `${n} ${escapeHtml(t)}`)
           .join(' · ');
-        previewContent = `<p style="margin-top:6px;color:var(--text-soft);font-size:.85rem">${countLines || 'No data'}</p>`;
+        previewContent = `
+          <p style="margin-top:6px;color:var(--text-soft);font-size:.85rem">${countLines || 'No data'}</p>
+          <p style="margin-top:6px;font-size:.8rem;color:var(--text-soft)">First sync — no local data to compare against.</p>
+        `;
       } else {
-        // Delta mode: compute and render per-store changes
+        // Delta mode: show only what changed since the last local snapshot.
         const diffMap = computeSnapshotDiff(currentStoreMap, tableData) ?? {};
         const diffLines = formatDiffSummary(diffMap) ?? [];
 
@@ -1463,10 +1467,10 @@ export const cloudSyncUI = {
           const deltaRows = diffLines
             .map(({ store, added, deleted, updated }) => {
               const parts = [];
-              if (added > 0) parts.push(`+${added}`);
-              if (deleted > 0) parts.push(`-${deleted}`);
-              if (updated > 0) parts.push(`~${updated}`);
-              return `<span style="display:inline-block;margin-right:10px"><strong>${escapeHtml(store)}</strong>: ${parts.join(' ')}</span>`;
+              if (added > 0) parts.push(`${added} added`);
+              if (deleted > 0) parts.push(`${deleted} removed`);
+              if (updated > 0) parts.push(`${updated} changed`);
+              return `<span style="display:inline-block;margin-right:12px"><strong>${escapeHtml(store)}</strong>: ${parts.join(', ')}</span>`;
             })
             .join('');
           previewContent = `<p style="margin-top:6px;color:var(--text-soft);font-size:.85rem">${deltaRows}</p>`;
