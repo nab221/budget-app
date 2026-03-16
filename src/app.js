@@ -34,6 +34,7 @@ import { RecurrenceManager } from './utils/recurrence.js';
 import { refreshBankHolidaysCache } from './utils/banking-calendar.js';
 import { triggerHaptic, initHaptics } from './utils/haptics.js';
 import { validateDataIntegrity, cleanOrphanedRecords } from './utils/data-integrity.js';
+import { incomeSpendingSettings } from './ui/income-spending-settings.js';
 
 export { BALANCE_START_DATE_KEY };
 
@@ -138,6 +139,7 @@ async function init() {
       if (panelId === 'settings') {
         renderTasks.push(categoryUI.render());
         renderTasks.push(targetsUI.renderTargetSettings());
+        renderTasks.push(incomeSpendingSettings.render());
       }
 
       await Promise.all(renderTasks);
@@ -247,6 +249,7 @@ async function init() {
   // 4. Parallel Module Initialization
   await Promise.all([
     categoryRepository.seedDefaultCategories(),
+    incomeSpendingSettings.init(),
     netWorthRepository.checkAndTakeSnapshot(),
     initFileSyncUI(),
     transactionUI.init(),
