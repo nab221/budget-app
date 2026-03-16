@@ -1,4 +1,4 @@
-import { addMonths, parseISO, isBefore, format, startOfMonth, setDate } from 'date-fns';
+import { addMonths, parseISO, isBefore, format, startOfMonth, setDate, getDaysInMonth } from 'date-fns';
 import { adjustedPaymentDate } from './banking-calendar.js';
 
 /**
@@ -625,8 +625,10 @@ export function calculateAmortisationSchedule({
     // Clamp to 0 to avoid floating-point creep
     const balancePence = newBalance <= 0 ? 0 : newBalance;
 
-    // Compute nominal payment date: start + month months, set to paymentDayOfMonth
-    const nominalDate = setDate(addMonths(start, month), paymentDayOfMonth);
+    // Compute nominal payment date: start + month months, day-of-month clamped to month length
+    const targetMonthDate = addMonths(start, month);
+    const clampedPaymentDay = Math.min(Math.max(paymentDayOfMonth, 1), getDaysInMonth(targetMonthDate));
+    const nominalDate = setDate(targetMonthDate, clampedPaymentDay);
 
     // Apply payment adjustment if requested
     const adjustedDate =

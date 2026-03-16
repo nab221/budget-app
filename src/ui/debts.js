@@ -1105,10 +1105,10 @@ export const debtUI = {
       if (!confirmed) return;
     }
 
-    await debtRepository.confirmBalance(debtId, newBalancePence);
-
-    let payoffDisplay = 'unknown';
     try {
+      await debtRepository.confirmBalance(debtId, newBalancePence);
+
+      let payoffDisplay = 'unknown';
       const refreshedDebt = await debtRepository.get(debtId);
       const result = calculateAmortisationSchedule({
         outstandingBalance: newBalancePence,
@@ -1118,18 +1118,19 @@ export const debtUI = {
         paymentAdjustment: refreshedDebt.paymentAdjustment || debt.paymentAdjustment || 'none',
       });
       payoffDisplay = result.projectedPayoffDate;
-    } catch {
-      // silently ignore schedule recalculation errors
+      notificationUI.success(`Balance updated. New payoff date: ${payoffDisplay}`);
+      await this.openHistoryModal(debtId);
+      await this.render();
+    } catch (err) {
+      console.error('[debtUI] Failed to confirm balance:', err);
+      notificationUI.error('Failed to confirm balance. Please try again.');
+      return;
     }
-
-    notificationUI.success(`Balance updated. New payoff date: ${payoffDisplay}`);
-    await this.openHistoryModal(debtId);
-    await this.render();
   },
 
   _buildHistoryModalHTML(debt) {
     const type = debt.debtType || 'credit-card';
-    if (type === 'personal-loan' || type === 'mortgage' || type === 'loan') {
+    if (type === 'loan' || type === 'mortgage') {
       return this._buildAmortisationModalHTML(debt);
     }
     return safeHTML`

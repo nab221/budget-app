@@ -34,6 +34,8 @@
 | PLAN-01 | Current balance entry (manual amount + date snapshot) | Existing daily and monthly balance snapshot stores already exist; adjustBalance flow exists; no mandatory new snapshot table required for base implementation. |
 | PLAN-02 | Pay-period affordability view and safe extra-payment guidance | Dashboard render path and app render pipeline identified; pay-period module API can compose opening balance + period bills + prorated buckets + buffer checks. |
 | PLAN-05 | Pay-period navigator | Current dashboard already has month/view state pattern (_selectedMonth, _selectedView) and renderDashboard-driven navigator updates to integrate with safely. |
+
+Note: PLAN-03 and PLAN-04 are intentionally out of scope for this phase and are covered by adjacent phases; this research document focuses on PLAN-01, PLAN-02, and PLAN-05 only.
 </phase_requirements>
 
 ## Key Findings

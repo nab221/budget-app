@@ -1208,7 +1208,7 @@ describe('AMORT: _buildHistoryModalHTML branching by debtType', () => {
   const loanDebt = {
     id: 10,
     name: 'Car Loan',
-    debtType: 'personal-loan',
+    debtType: 'loan',
     currentBalance: 800000,
     interestRate: 6.9,
     fixedMonthlyPayment: 15000,

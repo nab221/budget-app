@@ -410,7 +410,7 @@ export const transactionUI = {
     body.innerHTML = safeHTML`${items.map(item => {
       const isReconciled = item.isReconciled === true;
       const isCleared = item.isCleared === true;
-      const canSwipe = !isReconciled;
+      const canSwipe = !isReconciled && !this.reconciliationMode;
 
       return safeHTML`
         <tr class="swipe-row ${isReconciled ? 'reconciled-row' : ''} ${isCleared ? 'cleared-row' : ''}" data-id="${item.id}">
@@ -565,7 +565,7 @@ export const transactionUI = {
 
     tableBody.querySelectorAll('.swipe-row').forEach(row => {
       const id = Number(row.dataset.id);
-      const isLocked = row.classList.contains('reconciled-row');
+      const isLocked = row.classList.contains('reconciled-row') || this.reconciliationMode;
 
       const handler = new SwipeHandler(row, {
         threshold: 80,

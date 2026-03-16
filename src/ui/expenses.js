@@ -258,6 +258,8 @@ export const expensesUI = {
           const updates = { status: newStatus };
           if (newStatus === 'paid' && item.cycleTotal > 0) {
             updates.cycleCurrent = Math.min((item.cycleCurrent || 0) + 1, item.cycleTotal);
+          } else if (newStatus === 'pending' && item.cycleTotal > 0) {
+            updates.cycleCurrent = Math.max((item.cycleCurrent || 0) - 1, 0);
           }
           await recurrentExpenseRepository.update(id, updates);
         } else {
@@ -719,7 +721,10 @@ export const expensesUI = {
     }
 
     if (items.length === 0) {
-      container.innerHTML = '<tr><td colspan="3" class="hint" style="text-align:center;padding:20px">No matching expenses found for this month.</td></tr>';
+      const tableEl = container.closest('table');
+      const headerCols = tableEl?.querySelectorAll('thead th') || [];
+      const columnCount = headerCols.length > 0 ? headerCols.length : (this.reconciliationMode ? 3 : 4);
+      container.innerHTML = `<tr><td colspan="${columnCount}" class="hint" style="text-align:center;padding:20px">No matching expenses found for this month.</td></tr>`;
       this.updateTotal(0);
       return;
     }
@@ -733,7 +738,7 @@ export const expensesUI = {
       const isFinished = item.type === 'recurrent' && item.cycleTotal > 0 && (item.cycleCurrent || 0) >= item.cycleTotal;
       const isReconciled = item.isReconciled === true;
       const isCleared = item.isCleared === true;
-      const canSwipe = !isReconciled;
+      const canSwipe = !isReconciled && !this.reconciliationMode;
       const debtLinked = isDebtLinked(item);
 
       const badgeHTML = [];
@@ -919,7 +924,11 @@ export const expensesUI = {
 
       // Tap on row: close if open, otherwise toggle payment status
       row.onclick = (e) => {
-        if (e.target.classList.contains('swipe-action-left') || e.target.classList.contains('swipe-action-right')) return;
+        const target = e.target;
+        if (!(target instanceof Element)) return;
+        if (this.reconciliationMode || isLocked) return;
+        if (target.classList.contains('swipe-action-left') || target.classList.contains('swipe-action-right')) return;
+        if (target.closest('input, button, a, select, textarea, [contenteditable], .no-row-toggle')) return;
         if (this.currentOpenRow === row) {
           this.closeAllRows();
           return;
@@ -1060,11 +1069,23 @@ export const expensesUI = {
    * Formats a date string as a two-line compact display: dd-MMM on line 1, YYYY on line 2.
    */
   _formatDateCompact(dateStr) {
-    const d = new Date(dateStr);
-    const dd  = String(d.getDate()).padStart(2, '0');
-    const mmm = d.toLocaleString('en-GB', { month: 'short' });
-    const yyyy = d.getFullYear();
-    return `<span class="date-compact">${dd}-${mmm}<br><span class="date-year">${yyyy}</span></span>`;
+    const fallback = '<span class="date-compact">--<br><span class="date-year">----</span></span>';
+    try {
+      if (typeof dateStr !== 'string' || !dateStr.trim()) return fallback;
+      const isoDate = dateStr.split('T')[0];
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return fallback;
+
+      const [yyyy, mm, dd] = isoDate.split('-').map(Number);
+      const d = new Date(Date.UTC(yyyy, mm - 1, dd));
+      if (Number.isNaN(d.getTime())) return fallback;
+
+      const day = String(d.getUTCDate()).padStart(2, '0');
+      const mmm = d.toLocaleString('en-GB', { month: 'short', timeZone: 'UTC' });
+      const year = d.getUTCFullYear();
+      return `<span class="date-compact">${day}-${mmm}<br><span class="date-year">${year}</span></span>`;
+    } catch (_err) {
+      return fallback;
+    }
   },
 
   updateTotal(totalPence) {

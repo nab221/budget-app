@@ -42,7 +42,7 @@ Projected balance at next income:  £XXX.00
 
 ### Deficit Warning
 If `closingBalance < 0`: show a red banner "⚠️ This pay period has a projected deficit of £{amount}"
-If `closingBalance < safetyBuffer` (user-configurable, default £200): show amber banner "⚠️ Closing balance is below your safety buffer"
+If `closingBalance >= 0 && closingBalance < safetyBuffer` (user-configurable, default £200): show amber banner "⚠️ Closing balance is below your safety buffer"
 
 ### Interest-Bearing Debt Payments in Pay Period View
 For loan/mortgage debts (Phase 32), the monthly payment shown in the pay period view must split the display into:
@@ -60,7 +60,7 @@ safetyBuffer: number    // pence, default 20000 (= £200)
 Phase 34 should not introduce a separate `payDay` or `payFrequency` setting as the source of truth. Income timing comes from Phase 33 `incomeSources` configuration.
 
 ### Cloud Sync Registration
-If a `settings`, `userPreferences`, or balance-snapshot store holds the affordability configuration (`safetyBuffer`, latest balance snapshot), that store must be registered in the cloud sync module so affordability preferences sync across devices.
+If a `settings`, `userPreferences`, or balance-snapshot store holds the affordability configuration (`safetyBuffer`, latest balance snapshot), that store must be registered in `src/utils/supabase-sync.js` so affordability preferences sync across devices via the generic snapshot flow (`registerSnapshotStore`, `exportSnapshot`, `importSnapshot`) over `db.tables`.
 
 ## New Module: src/utils/pay-period.js
 
@@ -82,7 +82,7 @@ export function calculatePayPeriodSummary(openingBalance, bills, safetyBuffer = 
 - `src/db/schema.js` — add affordability settings fields if not already present, bump version
 - `src/db/repository.js` — settings / balance snapshot CRUD as needed
 - `src/ui/dashboard.js` — render pay period view section
-- `src/ui/cloud-sync.js` — register settings / balance snapshot store if required
+- `src/utils/supabase-sync.js` — register settings / balance snapshot store if required
 
 ## Acceptance Criteria
 - [ ] Pay period view renders in Dashboard tab below existing summary cards

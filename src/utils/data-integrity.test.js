@@ -6,6 +6,8 @@ const { mockTables, mockTransaction } = vi.hoisted(() => {
   const makeTableMock = () => ({
     toArray: vi.fn().mockResolvedValue([]),
     bulkGet: vi.fn().mockResolvedValue([]),
+    get: vi.fn().mockResolvedValue(undefined),
+    put: vi.fn().mockResolvedValue(undefined),
     bulkDelete: vi.fn().mockResolvedValue(undefined),
   });
 
@@ -47,6 +49,10 @@ function resetAllTableMocks() {
     table.toArray.mockResolvedValue([]);
     table.bulkGet.mockReset();
     table.bulkGet.mockResolvedValue([]);
+    table.get.mockReset();
+    table.get.mockResolvedValue(undefined);
+    table.put.mockReset();
+    table.put.mockResolvedValue(undefined);
     table.bulkDelete.mockReset();
     table.bulkDelete.mockResolvedValue(undefined);
   }
@@ -216,7 +222,7 @@ describe('cleanOrphanedRecords', () => {
     resetAllTableMocks();
   });
 
-  it('calls bulkDelete with deduplicated IDs grouped by store', async () => {
+  it('deletes non-nullable orphan rows and nulls nullable foreign keys', async () => {
     const issues = [
       { store: 'statements',     recordId: 1, field: 'debtId',      referencedStore: 'debts',       missingId: 99 },
       { store: 'statements',     recordId: 2, field: 'debtId',      referencedStore: 'debts',       missingId: 98 },
@@ -225,11 +231,17 @@ describe('cleanOrphanedRecords', () => {
       { store: 'income',         recordId: 6, field: 'categoryId',  referencedStore: 'categories',  missingId: 42 },
     ];
 
+    mockTables.oneOffExpenses.get.mockResolvedValue({ id: 5, categoryId: 77, note: 'One-off' });
+    mockTables.income.get.mockResolvedValue({ id: 6, categoryId: 42, source: 'Salary' });
+
     await cleanOrphanedRecords(issues);
 
     expect(mockTables.statements.bulkDelete).toHaveBeenCalledWith([1, 2]);
-    expect(mockTables.oneOffExpenses.bulkDelete).toHaveBeenCalledWith([5]);
-    expect(mockTables.income.bulkDelete).toHaveBeenCalledWith([6]);
+    expect(mockTables.oneOffExpenses.bulkDelete).not.toHaveBeenCalled();
+    expect(mockTables.income.bulkDelete).not.toHaveBeenCalled();
+
+    expect(mockTables.oneOffExpenses.put).toHaveBeenCalledWith({ id: 5, categoryId: null, note: 'One-off' });
+    expect(mockTables.income.put).toHaveBeenCalledWith({ id: 6, categoryId: null, source: 'Salary' });
   });
 
   it('does nothing when issues array is empty', async () => {

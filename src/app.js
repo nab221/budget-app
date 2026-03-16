@@ -105,7 +105,9 @@ async function init() {
       try {
         // Refresh bank holidays cache if stale (>365 days old) or missing — fire-and-forget
         const cacheDate = localStorage.getItem('uk_bank_holidays_cache_date');
-        const isStale = !cacheDate || (Date.now() - new Date(cacheDate).getTime()) > 365 * 24 * 60 * 60 * 1000;
+        const parsedCacheTs = cacheDate ? Date.parse(cacheDate) : NaN;
+        const hasValidCacheTs = Number.isFinite(parsedCacheTs);
+        const isStale = !hasValidCacheTs || (Date.now() - parsedCacheTs) > 365 * 24 * 60 * 60 * 1000;
         if (isStale) {
           refreshBankHolidaysCache(); // fire-and-forget — no await
         }
