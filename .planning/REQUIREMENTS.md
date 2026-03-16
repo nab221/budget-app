@@ -82,17 +82,17 @@ When a regular debt payment (mortgage, loan, minimum CC payment) is added to the
 
 ## CHILD — Childcare Tax-Free Accounts
 
-### CHILD-01 · Recurring Childcare Expense Tracking (P0)
+### CHILD-01 · Recurring Childcare Expense Tracking (P0) ✅ COMPLETE (35-01)
 Currently childcare tracks deposits and ledger entries but does NOT answer "how much do I need to top up this month?". Add:
 - Per-account: list of regular childcare providers with their monthly/termly cost
 - Calculate: total periodic spend from the account
 - Display: "Required top-up this period" = total spend − current account balance − any pending government bonus
 - For 'termly' frequency, `monthlyEquivalent = amount / 3`
 
-### CHILD-02 · Childcare Top-Up Reminder in Pay-Period View (P1)
+### CHILD-02 · Childcare Top-Up Reminder in Pay-Period View (P1) ✅ COMPLETE (35-01)
 The required childcare top-up amounts for both children must appear as committed outgoings in the pay-period affordability calculation (PLAN-02).
 
-### CHILD-03 · Entitlement Period Display (P1)
+### CHILD-03 · Entitlement Period Display (P1) ✅ COMPLETE (35-01)
 Show the current entitlement period clearly on the childcare tab per account (already partially implemented in `src/utils/childcare.js` — surface in UI).
 
 ---
@@ -184,7 +184,7 @@ All new utility modules must have Vitest unit test coverage ≥ 80%.
 ### TECH-05 · Print / Export to PDF (P2)
 Budget summary printable view / PDF export for sharing with a financial advisor or personal reference.
 
-### TECH-06 · Cloud Sync Store Registration (P0)
+### TECH-06 · Cloud Sync Store Registration (P0) ✅ COMPLETE (33-01, 35-01)
 When new IndexedDB stores are added (`incomeSources`, `spendingBuckets`, `childcareProviders`), they must be registered in the Supabase sync allowlist in `supabase-sync.js`. Without this, new data won't survive a cloud backup/restore cycle.
 
 ---
