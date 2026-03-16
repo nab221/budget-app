@@ -911,6 +911,98 @@ export const spendingBucketRepository = {
   }
 };
 
+// ---------------------------------------------------------------------------
+// Phase 34: User Preferences Repository
+// ---------------------------------------------------------------------------
+
+/**
+ * Default value for safetyBuffer (£200 in pence).
+ * @type {number}
+ */
+const DEFAULT_SAFETY_BUFFER_PENCE = 20000;
+
+/**
+ * Key-value store for user preferences.
+ * Uses the userPreferences table added in schema v22.
+ * The primary key is `key` (unique string), `value` is JSON-serialisable.
+ */
+export const userPreferencesRepository = {
+  /**
+   * Returns the value for a given preference key, or the provided default if missing.
+   * @param {string} key
+   * @param {*} [defaultValue]
+   * @returns {Promise<*>}
+   */
+  async get(key, defaultValue = undefined) {
+    const row = await db.userPreferences.get(key);
+    return row !== undefined ? row.value : defaultValue;
+  },
+
+  /**
+   * Persists a preference value by key (upsert).
+   * @param {string} key
+   * @param {*} value
+   */
+  async set(key, value) {
+    await db.userPreferences.put({ key, value });
+    triggerSync();
+  }
+};
+
+/**
+ * Returns the persisted safetyBuffer in pence.
+ * Defaults to £200 (20000 pence) when no value has been saved.
+ * @returns {Promise<number>}
+ */
+export async function getSafetyBuffer() {
+  return userPreferencesRepository.get('safetyBuffer', DEFAULT_SAFETY_BUFFER_PENCE);
+}
+
+/**
+ * Persists the safetyBuffer value in pence.
+ * @param {number} amountPence - integer pence (e.g. 20000 for £200)
+ */
+export async function setSafetyBuffer(amountPence) {
+  return userPreferencesRepository.set('safetyBuffer', amountPence);
+}
+
+/**
+ * Returns the most recent daily balance snapshot, which serves as the
+ * opening-balance input for the pay-period affordability view.
+ * Returns null if no snapshot exists.
+ * @returns {Promise<{ date: string, closingBalance: number }|null>}
+ */
+export async function getLatestDailySnapshot() {
+  return db.dailyBalanceSnapshots.orderBy('date').last() || null;
+}
+
+/**
+ * Writes a balance snapshot for the given date using the existing
+ * dailyBalanceSnapshots path. Creates or updates the record.
+ * Triggers a sync event after write.
+ *
+ * @param {string} date - YYYY-MM-DD
+ * @param {number} balancePence - integer pence
+ */
+export async function saveBalanceSnapshot(date, balancePence) {
+  const existing = await db.dailyBalanceSnapshots.where('date').equals(date).first();
+  if (existing) {
+    await db.dailyBalanceSnapshots.update(existing.id, {
+      closingBalance: balancePence,
+      openingBalance: balancePence
+    });
+  } else {
+    await db.dailyBalanceSnapshots.add({
+      date,
+      openingBalance: balancePence,
+      closingBalance: balancePence,
+      incomeTotal: 0,
+      expenseTotal: 0
+    });
+  }
+  triggerSync();
+}
+
 /**
  * Childcare Repository
  */
