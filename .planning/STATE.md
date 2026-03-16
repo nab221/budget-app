@@ -3,9 +3,23 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Milestone Verification & Polish
 status: in_progress
-last_updated: "2026-03-16T21:21:00.764Z"
+last_updated: "2026-03-16T22:49:28.064Z"
 progress:
   total_phases: 24
+  completed_phases: 13
+  total_plans: 29
+  completed_plans: 23
+  percent: 79
+---
+
+---
+gsd_state_version: 1.0
+milestone: v3.0
+milestone_name: Milestone Verification & Polish
+status: in_progress
+last_updated: "2026-03-16T21:21:00.764Z"
+progress:
+  [████████░░] 79%
   completed_phases: 12
   total_plans: 29
   completed_plans: 22
@@ -242,9 +256,9 @@ last_updated: 2026-03-14
 
 ## Current Focus
 
-**Phase 36 — Navigator & View Toggle Redesign**
+**Phase 37 — Cloud Snapshot Delta Preview**
 
-Status: Complete — 36-01 done (2026-03-16)
+Status: Complete — 37-01 done (2026-03-16)
 
 ## Phase Progress
 
@@ -260,12 +274,13 @@ Status: Complete — 36-01 done (2026-03-16)
 | 34 | Pay-Period Affordability Engine | ✅ Complete (34-01 done) |
 | 35 | Childcare Top-Up Planner | ✅ Complete (35-01 done) |
 | 36 | Navigator & View Toggle Redesign | ✅ Complete (36-01 done — human verify approved 2026-03-16) |
-| 37 | Cloud Snapshot Delta Preview | ⬜ Not Started |
+| 37 | Cloud Snapshot Delta Preview | ✅ Complete (37-01 done — 2026-03-16) |
 | 38 | GitHub Actions Node.js 24, Legacy Import & Technical Hygiene | ⬜ Not Started |
 | 39 | v3.0 Milestone Verification & Polish | ⬜ Not Started |
 
 ## Decisions Log
 
+- 2026-03-16 (37-01): computeSnapshotDiff reads db.tables async before modal assembly; _previewHandler stored on cloudSyncUI for removeEventListener cleanup in tests; delta labels use plain English (added/removed/changed); isFirstSyncFallback returns true when all local stores empty; formatDiffSummary/computeSnapshotDiff guarded with ?? [] / ?? {} for mock-environment safety; 25 new tests (18 unit + 7 Phase 37 UI); 61 cloud-sync tests pass; pre-existing dashboard.affordability ordering failure deferred to Phase 39.
 - 2026-03-16 (36-01): Arrow keys auto-select (WAI-ARIA radiogroup: focus movement = selection); Enter/Space re-confirm; JS measures real rendered header height via getBoundingClientRect() at initDashboard() time and writes --header-height CSS variable; desktop sticky top: var(--header-height) not top:0; activate() owns focus, ARIA, tabIndex, and onChange; legacy viewSelect fallback retained; 25 new TDD/regression tests; 637 total Vitest tests pass. DEFERRED: keyboard-first arrow nav (requires prior pointer focus to initialise browser focus on the control) — not essential for current milestone; probable fix is a focusin guard on the group element; candidate for Phase 39 polish.
 - 2026-03-16 (35-01): Schema v23 adds childcareProviders (accountId-scoped, monthly/termly billing); monthlyEquivalentFromProvider normalizes billing frequency; calculateRequiredTopUp = max(0, providerTotal - balance - pendingBonus); getAllRequiredTopUps returns aggregate contract for affordability pipeline; includeChildcareTopUpsInCommittedOutgoings is non-mutating merge; TECH-06 satisfied via generic db.tables.map path (no allowlist changes); addDeposit/addSpend auto-added (were missing from repository); 42 new tests; 612 total Vitest tests pass.
 - 2026-03-16 (34-01): Schema v22 with userPreferences key-value table for safetyBuffer; getPayPeriodBounds uses minimum-search (defensive against unsorted input); _payPeriodOffset module state drives prev/next navigator; TECH-06 satisfied via generic db.tables.map path (no allowlist changes); isDeficit = closingBalance <= 0; isBelowBuffer = closingBalance > 0 && < safetyBuffer; calculateAmortisationSchedule wrapped in try/catch for non-breaking degradation; 44 new tests; 570 total Vitest tests pass.
