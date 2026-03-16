@@ -18,6 +18,11 @@ import { triggerHaptic } from '../utils/haptics.js';
 import { notificationUI } from './notifications.js';
 import { db } from '../db/schema.js';
 import { validateDataIntegrity, cleanOrphanedRecords } from '../utils/data-integrity.js';
+import {
+  computeSnapshotDiff,
+  isFirstSyncFallback,
+  formatDiffSummary,
+} from '../utils/snapshot-diff.js';
 
 // Phase 23.1: Constants for dirty-state tracking and timestamps
 const CLOUD_IS_DIRTY_KEY = 'budget_cloud_is_dirty';
@@ -34,6 +39,7 @@ export const cloudSyncUI = {
   _initialized: false,
   _authListenerBound: false,
   _previewListenerBound: false,
+  _previewHandler: null,
   _authSubscription: null,
   _authBoundClient: null,
   _isDirty: false,
@@ -1397,14 +1403,27 @@ export const cloudSyncUI = {
 
   /**
    * Listens for the preview event dispatched by pullSnapshot().
-   * Shows a modal with snapshot metadata and record counts.
+   * Phase 37: Renders a delta-first preview (added/deleted/updated per store)
+   * when a non-empty local baseline exists; falls back to full-summary counts
+   * on first sync (all local stores empty).  Shows "No changes since last
+   * snapshot" when the computed diff is all-zero.
    * Only calls importBackupData() after explicit user confirmation.
    */
   _bindPreviewListener() {
     if (this._previewListenerBound) return;
     this._previewListenerBound = true;
-    window.addEventListener('budget:import-cloud-preview', async (e) => {
+    this._previewHandler = async (e) => {
       const { updated_at, schema_version, counts, tableData } = e.detail;
+
+      // --- Phase 37: Build local store map for diff computation ---
+      const currentStoreMap = {};
+      for (const table of db.tables) {
+        try {
+          currentStoreMap[table.name] = await table.toArray();
+        } catch {
+          currentStoreMap[table.name] = [];
+        }
+      }
 
       const localVersion = db.verno;
       const versionWarning =
@@ -1424,14 +1443,39 @@ export const cloudSyncUI = {
       const escapeHtml = (s) =>
         String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-      const countLines = Object.entries(counts)
-        .filter(([, n]) => n > 0)
-        .map(([t, n]) => `${n} ${escapeHtml(t)}`)
-        .join(' · ');
+      // --- Phase 37: Choose delta vs full-summary rendering path ---
+      let previewContent;
+      if (isFirstSyncFallback(currentStoreMap)) {
+        // First sync: show existing full-summary counts
+        const countLines = Object.entries(counts)
+          .filter(([, n]) => n > 0)
+          .map(([t, n]) => `${n} ${escapeHtml(t)}`)
+          .join(' · ');
+        previewContent = `<p style="margin-top:6px;color:var(--text-soft);font-size:.85rem">${countLines || 'No data'}</p>`;
+      } else {
+        // Delta mode: compute and render per-store changes
+        const diffMap = computeSnapshotDiff(currentStoreMap, tableData) ?? {};
+        const diffLines = formatDiffSummary(diffMap) ?? [];
+
+        if (diffLines.length === 0) {
+          previewContent = `<p style="margin-top:6px;color:var(--text-soft);font-size:.85rem">No changes since last snapshot</p>`;
+        } else {
+          const deltaRows = diffLines
+            .map(({ store, added, deleted, updated }) => {
+              const parts = [];
+              if (added > 0) parts.push(`+${added}`);
+              if (deleted > 0) parts.push(`-${deleted}`);
+              if (updated > 0) parts.push(`~${updated}`);
+              return `<span style="display:inline-block;margin-right:10px"><strong>${escapeHtml(store)}</strong>: ${parts.join(' ')}</span>`;
+            })
+            .join('');
+          previewContent = `<p style="margin-top:6px;color:var(--text-soft);font-size:.85rem">${deltaRows}</p>`;
+        }
+      }
 
       const body = `
         <p>Cloud snapshot from <strong>${date}</strong></p>
-        <p style="margin-top:6px;color:var(--text-soft);font-size:.85rem">${countLines || 'No data'}</p>
+        ${previewContent}
         ${versionWarning}
         <p style="margin-top:12px"><strong>Replace local data?</strong> This cannot be undone.</p>
       `;
@@ -1478,6 +1522,7 @@ export const cloudSyncUI = {
           restorePullBtn();
         }
       };
-    });
+    };
+    window.addEventListener('budget:import-cloud-preview', this._previewHandler);
   },
 };
