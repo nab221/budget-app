@@ -90,14 +90,12 @@
               </div>
             </div>
 
-            <!-- Phase 17: Dashboard Month Picker Reflow -->
-            <div style="display:flex; justify-content:center; align-items:center; gap:12px; margin: 0 0 20px 0; flex-wrap:wrap">
+            <!-- Phase 36: Dashboard Navigator Controls Row -->
+            <!-- dashboardMonthPicker: month nav (visible in 'current' mode only) -->
+            <!-- dashboardViewSegmentedControl: view toggle (This Month / Year to Date / All Time) -->
+            <div class="dashboard-navigator-shell" style="display:flex; justify-content:center; align-items:center; gap:12px; margin: 0 0 20px 0; flex-wrap:wrap">
               <div id="dashboardMonthPicker" class="month-nav" style="margin-bottom:0; padding:5px"></div>
-              <select id="viewSelect" style="font-size:.9rem; padding:6px 12px; font-weight:600; border-radius:6px">
-                <option value="current">Month View</option>
-                <option value="ytd">Year to Date</option>
-                <option value="all">All Time</option>
-              </select>
+              <div id="dashboardViewSegmentedControl"></div>
             </div>
 
             <div class="sum-grid" id="summaryGrid" style="margin-bottom: 20px">

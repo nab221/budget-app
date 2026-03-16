@@ -28,13 +28,16 @@ describe('dashboard layout invariants (Phase 17)', () => {
     expect(pickerPos).toBeLessThan(gridPos);
   });
 
-  it('ensures viewSelect is co-located with dashboardMonthPicker', () => {
+  it('confirms legacy #viewSelect is removed and segmented control mount is co-located with dashboardMonthPicker', () => {
     const pickerPos = html.indexOf('id="dashboardMonthPicker"');
-    const viewSelectPos = html.indexOf('id="viewSelect"');
-    
-    expect(viewSelectPos).toBeGreaterThan(-1);
-    // They should be very close to each other (in the same flex container)
-    expect(Math.abs(pickerPos - viewSelectPos)).toBeLessThan(500);
+    const segPos = html.indexOf('id="dashboardViewSegmentedControl"');
+
+    // Legacy viewSelect must be gone
+    expect(html).not.toContain('id="viewSelect"');
+
+    // Segmented control mount must be present and near the month picker
+    expect(segPos).toBeGreaterThan(-1);
+    expect(Math.abs(pickerPos - segPos)).toBeLessThan(500);
   });
 
   it('preserves essential container IDs for chart and forecast wiring', () => {

@@ -31,6 +31,7 @@ import { pickInvariantForecastKpis, rebaseForecastSnapshots } from './dashboard-
 import { getUpcomingIncomeEvents } from '../utils/income.js';
 import { getPayPeriodBounds, getBillsInPayPeriod, calculatePayPeriodSummary } from '../utils/pay-period.js';
 import { normalizeChildcareTopUps, includeChildcareTopUpsInCommittedOutgoings } from '../utils/affordability.js';
+import { createSegmentedControl } from './components/segmented-control.js';
 
 let _selectedMonth = new Date().toISOString().slice(0, 7);
 let _selectedView = 'current';
@@ -51,13 +52,34 @@ function normalizeMonth(value) {
  * Initialize Dashboard UI listeners and first render.
  */
 export async function initDashboard() {
-  const viewSelect = document.getElementById('viewSelect');
-  if (viewSelect) {
-    viewSelect.value = _selectedView;
-    viewSelect.addEventListener('change', (e) => {
-      _selectedView = e.target.value;
-      renderDashboard();
+  // Phase 36: Replace legacy viewSelect with accessible segmented control.
+  // Fallback: also support legacy viewSelect if present (e.g. during tests or cached HTML).
+  const segMount = document.getElementById('dashboardViewSegmentedControl');
+  if (segMount) {
+    createSegmentedControl({
+      container: segMount,
+      name: 'dashboard-view',
+      options: [
+        { value: 'current', label: 'This Month' },
+        { value: 'ytd', label: 'Year to Date' },
+        { value: 'all', label: 'All Time' },
+      ],
+      value: _selectedView,
+      onChange: (nextValue) => {
+        _selectedView = nextValue;
+        renderDashboard();
+      },
     });
+  } else {
+    // Legacy fallback: support <select id="viewSelect"> if present
+    const viewSelect = document.getElementById('viewSelect');
+    if (viewSelect) {
+      viewSelect.value = _selectedView;
+      viewSelect.addEventListener('change', (e) => {
+        _selectedView = e.target.value;
+        renderDashboard();
+      });
+    }
   }
 
   // First render
@@ -116,6 +138,13 @@ export async function renderDashboard() {
   _selectedMonth = normalizeMonth(_selectedMonth);
 
   renderMonthNavigator('dashboardMonthPicker');
+
+  // Phase 36: Show/hide month picker based on selected view mode.
+  // Month selector is only relevant in 'current' (This Month) mode.
+  const pickerContainer = document.getElementById('dashboardMonthPicker');
+  if (pickerContainer) {
+    pickerContainer.style.display = _selectedView === 'current' ? '' : 'none';
+  }
 
   // Map 'current' (from UI) to 'month' (from repository)
   const normalizedPeriod = _selectedView === 'current' ? 'month' : _selectedView;
