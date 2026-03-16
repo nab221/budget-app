@@ -80,17 +80,19 @@ Accessible button-based segmented control replacing the legacy `<select id="view
 
 `src/ui/dashboard.view-toggle.test.js` created: 18 tests covering HTML seams, visibility rules, dashboard.js contract, month navigation regression, heatmap year-boundary, CSS sticky/fixed rules, segmented control button styles, focus-visible, mobile padding, z-index hierarchy, and fallback seam safety.
 
-### Task 4 — Checkpoint: Human Verification + Bug Fixes
+### Task 4 — Checkpoint: Human Verification + Bug Fixes + Deferral
 
-Manual testing found three issues. All fixed as Rule 1 auto-fixes:
+Manual testing found three issues. Two were fixed as Rule 1 auto-fixes; one was deferred at user's discretion.
 
-**Bug 1+2: Navigator overlapping header (desktop + mobile)**
+**Bug 1+2: Navigator overlapping header (desktop + mobile) — FIXED**
 - Root cause: desktop CSS used `top: 0` (same as header sticky position), causing the navigator to render on top of the header. On mobile, the hard-coded `--header-height: 56px` didn't account for toolbar wrapping at narrow widths.
 - Fix: Changed desktop sticky to `top: var(--header-height, 56px)`. Added JS measurement in `initDashboard()` — `document.querySelector('header').getBoundingClientRect().height` sets `--header-height` at init time with the real rendered value, covering all viewport widths.
+- Approved: positioning works correctly in manual verification.
 
-**Bug 3: ArrowLeft/ArrowRight not changing the dashboard view**
-- Root cause: Arrow key handlers called `moveFocus()` (tabIndex-only roving) without calling `activate()` (which calls onChange). The WAI-ARIA radiogroup specification requires arrow keys to auto-select. Users pressed ArrowRight, saw no change in the dashboard, and concluded keyboard nav was broken.
-- Fix: Arrow key handlers now call `activate(nextIdx)` directly. `activate()` now also calls `buttons[focusedIndex].focus()` so focus indicator follows selection.
+**Bug 3: Arrow keys only work after a mouse click activates the control first — DEFERRED**
+- Observed: ArrowLeft/ArrowRight keyboard navigation requires a prior pointer interaction to initialise browser focus on the control; keyboard-first users who Tab into the component without clicking first cannot activate arrow navigation.
+- Decision: deferred at user's request — keyboard-first nav is not essential for the current milestone. No code change made. Documented as a known limitation.
+- See "Known Limitations / Future Work" section below.
 
 ## Test Coverage
 
@@ -120,6 +122,16 @@ Manual testing found three issues. All fixed as Rule 1 auto-fixes:
 - Files modified: `src/ui/components/segmented-control.js`, `src/ui/components/segmented-control.test.js`
 - Commit: ccbea22
 
+## Known Limitations / Future Work
+
+**Keyboard navigation requires prior pointer activation (deferred)**
+
+During manual verification it was observed that ArrowLeft/ArrowRight only function correctly after the user has first clicked or tapped one of the segmented control buttons. A keyboard-first user who Tabs into the component without a prior pointer interaction cannot drive arrow navigation.
+
+- Root cause: the browser does not auto-focus the control's active button on Tab arrival; the first `keydown` event fires on the button but `focusedIndex` is initialised from `value` (the prop), not from whatever the browser considers focused. The roving tabindex pattern requires `focus()` to have been called at least once so that subsequent arrow key events fire on a button that our handler has wired up.
+- Probable fix: add a `focusin` listener on the group element that calls `buttons[focusedIndex].focus()` when focus enters via Tab (i.e. when `e.relatedTarget` is outside the group). This is a small, self-contained change.
+- Deferred: not essential for the current milestone. Pointer interaction is the primary input on this dashboard. Address in a future polish phase (candidate for Phase 39 — v3.0 Milestone Verification & Polish).
+
 ## Decisions Made
 
 - Arrow keys auto-select (WAI-ARIA radiogroup: focus movement = selection); Enter/Space re-confirm
@@ -127,6 +139,7 @@ Manual testing found three issues. All fixed as Rule 1 auto-fixes:
 - Desktop navigator: `position: sticky; top: var(--header-height)`; mobile: `position: fixed` same variable; bottom nav z-index (1000) retains precedence over navigator (999)
 - Legacy `viewSelect` fallback retained in `initDashboard` for any cached HTML edge-case; guarded by `if (segMount)` null-check
 - `moveFocus()` helper removed from keyboard path; `activate()` now owns focus, ARIA state, tabIndex, and onChange
+- Keyboard-first arrow nav (requires prior pointer focus) deferred — not essential for current milestone; probable fix is a `focusin` guard on the group element; candidate for Phase 39 polish
 
 ## Self-Check: PASSED
 
