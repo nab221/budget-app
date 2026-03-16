@@ -23,6 +23,7 @@ import {
   isFirstSyncFallback,
   formatDiffSummary,
 } from '../utils/snapshot-diff.js';
+import { parseLegacyBackup, runLegacyImport } from '../utils/legacy-import.js';
 
 // Phase 23.1: Constants for dirty-state tracking and timestamps
 const CLOUD_IS_DIRTY_KEY = 'budget_cloud_is_dirty';
@@ -478,8 +479,10 @@ export const cloudSyncUI = {
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button id="settingsLocalExportBtn" class="ghost">Export Backup</button>
           <button id="settingsLocalImportBtn" class="ghost">Import Backup</button>
+          <button id="settingsLegacyImportBtn" class="ghost" title="Import a v2 budget backup file">Import v2 Legacy</button>
         </div>
       </div>
+      <input type="file" id="legacyImportFile" accept=".json" style="display:none" aria-hidden="true">
     `);
 
     document.getElementById('settingsLocalExportBtn')?.addEventListener('click', () => {
@@ -488,6 +491,43 @@ export const cloudSyncUI = {
 
     document.getElementById('settingsLocalImportBtn')?.addEventListener('click', () => {
       document.getElementById('importFile')?.click();
+    });
+
+    document.getElementById('settingsLegacyImportBtn')?.addEventListener('click', () => {
+      document.getElementById('legacyImportFile')?.click();
+    });
+
+    document.getElementById('legacyImportFile')?.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      e.target.value = '';
+
+      let payload;
+      try {
+        payload = JSON.parse(await file.text());
+      } catch {
+        notificationUI.error('Invalid file: not a valid JSON backup.');
+        return;
+      }
+
+      const { valid, reasons } = parseLegacyBackup(payload);
+      if (!valid) {
+        notificationUI.error(`Cannot import: ${reasons.join(' ')}`);
+        return;
+      }
+
+      try {
+        const summary = await runLegacyImport(payload, { db });
+        notificationUI.success(
+          `Legacy import complete: ${summary.imported} imported, ${summary.skipped} skipped (conflicts).`
+        );
+        if (summary.imported > 0) {
+          window.location.reload();
+        }
+      } catch (err) {
+        console.error('[legacy-import] import error:', err);
+        notificationUI.error(`Legacy import failed: ${err.message}`);
+      }
     });
 
     document.getElementById('settingsLocalSelectFileBtn')?.addEventListener('click', () => {

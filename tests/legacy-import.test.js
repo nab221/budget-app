@@ -206,20 +206,22 @@ describe('importLegacyData — no-overwrite default', () => {
     };
 
     // Simulate existing store with id=10 already present
+    // Note: categories use different ids to isolate the recurrentExpenses collision
     const fakeStore = {
       recurrentExpenses: [{ id: 10, label: 'OldRent', amount: 90000 }],
       oneOffExpenses: [],
       income: [],
       debts: [],
-      categories: [{ id: 1, name: 'Groceries', group: 'expenses' }],
+      categories: [{ id: 99, name: 'OtherCategory', group: 'expenses' }],
       assets: [],
       statements: [],
     };
 
     const result = await importLegacyData(mapped, { existingData: fakeStore, conflictPolicy: 'skip' });
 
-    expect(result.imported).toBe(0); // record was skipped
-    expect(result.skipped).toBe(1);  // 1 conflict skipped
+    // recurrentExpenses[0] (id=10) conflicts; categories[0] (id=1) does not conflict with id=99
+    expect(result.imported).toBe(1); // categories record was imported (no collision)
+    expect(result.skipped).toBe(1);  // 1 recurrentExpenses conflict skipped
     expect(result.conflicts).toBe(1);
   });
 
@@ -239,15 +241,16 @@ describe('importLegacyData — no-overwrite default', () => {
       oneOffExpenses: [],
       income: [],
       debts: [],
-      categories: [],
+      categories: [], // no categories conflict
       assets: [],
       statements: [],
     };
 
     // No conflictPolicy provided — default must be skip
+    // mapped.categories[0] has id=1, fakeStore.categories is empty → no conflict → imported
     const result = await importLegacyData(mapped, { existingData: fakeStore });
-    expect(result.skipped).toBe(1);
-    expect(result.imported).toBe(0);
+    expect(result.skipped).toBe(1);    // recurrentExpenses[0] id=5 skipped
+    expect(result.imported).toBe(1);   // categories[0] id=1 imported (no collision)
   });
 
   it('reports correct imported count for non-conflicting records', async () => {
