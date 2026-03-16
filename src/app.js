@@ -270,10 +270,16 @@ async function init() {
       refreshBankHolidaysBtn.disabled = true;
       refreshBankHolidaysBtn.textContent = 'Refreshing...';
       try {
-        await refreshBankHolidaysCache();
-        notificationUI.success('Bank holidays updated.');
+        const result = await refreshBankHolidaysCache();
+        if (result.success) {
+          notificationUI.success('Bank holidays updated.');
+        } else {
+          notificationUI.error('Failed to refresh bank holidays. Using fallback holiday data.');
+          console.warn('[app] Bank holidays refresh failed:', result.error);
+        }
       } catch (err) {
         console.warn('[app] Bank holidays refresh failed:', err);
+        notificationUI.error('Failed to refresh bank holidays.');
       } finally {
         refreshBankHolidaysBtn.disabled = false;
         refreshBankHolidaysBtn.textContent = 'Refresh bank holidays';
@@ -289,7 +295,20 @@ async function init() {
         [
           {
             label: 'Clean up',
-            onClick: () => cleanOrphanedRecords(issues).then(() => notificationUI.success('Orphaned records removed.')),
+            onClick: async () => {
+              try {
+                const { valid: stillValid, issues: freshIssues } = await validateDataIntegrity();
+                if (stillValid || !freshIssues.length) {
+                  notificationUI.info('No orphaned records remain.');
+                  return;
+                }
+                await cleanOrphanedRecords(freshIssues);
+                notificationUI.success('Orphaned records removed.');
+              } catch (err) {
+                console.warn('[app] Orphan cleanup failed:', err);
+                notificationUI.error('Failed to remove orphaned records.');
+              }
+            },
           },
         ],
         8000

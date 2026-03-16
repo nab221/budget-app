@@ -72,7 +72,7 @@ function loadBankHolidays() {
     const raw = localStorage.getItem(CACHE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
+      if (Array.isArray(parsed) && parsed.length > 0) {
         return new Set(parsed);
       }
     }
@@ -120,7 +120,10 @@ export function isUKBankHoliday(date) {
   const holidays = loadBankHolidays();
 
   // maxCachedYear guard — compute max year from loaded set
-  const maxYear = Math.max(...Array.from(holidays).map(d => parseInt(d.split('-')[0], 10)));
+  const years = Array.from(holidays)
+    .map(d => parseInt(d.split('-')[0], 10))
+    .filter(Number.isFinite);
+  const maxYear = years.length ? Math.max(...years) : STATIC_MAX_YEAR;
 
   if (year > maxYear) {
     console.warn(
@@ -203,7 +206,7 @@ export function adjustedPaymentDate(nominalDate, adjustment) {
  * On any failure: logs a console.warn and leaves localStorage unchanged.
  * This function should always be called fire-and-forget (without await) on app startup.
  *
- * @returns {Promise<void>}
+ * @returns {Promise<{success: boolean, count?: number, error?: string}>}
  */
 export async function refreshBankHolidaysCache() {
   try {
@@ -215,9 +218,11 @@ export async function refreshBankHolidaysCache() {
     const dates = data['england-and-wales'].events.map(e => e.date);
     localStorage.setItem(CACHE_KEY, JSON.stringify(dates));
     localStorage.setItem(CACHE_DATE_KEY, new Date().toISOString().split('T')[0]);
+    return { success: true, count: dates.length };
   } catch (err) {
     console.warn('[banking-calendar] Failed to refresh bank holidays cache:', err);
     // Fall back to static data — no further action needed
+    return { success: false, error: err?.message || String(err) };
   }
 }
 

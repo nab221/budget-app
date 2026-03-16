@@ -290,11 +290,25 @@ export const backupUI = {
           [
             {
               label: 'Clean up',
-              onClick: () => cleanOrphanedRecords(importIssues).then(() => notificationUI.success('Orphaned records removed.')),
+              onClick: async () => {
+                try {
+                  await cleanOrphanedRecords(importIssues);
+                  notificationUI.success('Orphaned records removed. Reloading...');
+                  window.location.reload();
+                } catch (err) {
+                  console.warn('[backup] Orphan cleanup failed:', err);
+                  notificationUI.error('Failed to remove orphaned records.');
+                }
+              },
+            },
+            {
+              label: 'Reload anyway',
+              onClick: () => window.location.reload(),
             },
           ],
-          8000
+          0
         );
+        return;
       }
 
       notificationUI.success('Import successful! The app will now reload.');

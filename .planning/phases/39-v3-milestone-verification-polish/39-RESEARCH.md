@@ -174,10 +174,12 @@ The dominant risk is not missing intent in plans, but drift between planned seam
 npm ci
 npm test -- --run
 npm run build
-npm run preview
 npx vitest run --coverage
+npx vite preview --host 127.0.0.1 --port 4173 &
+PREVIEW_PID=$!
+trap 'kill $PREVIEW_PID' EXIT
 npx lhci autorun
-npx @axe-core/cli http://localhost:4173 --exit
+npx @axe-core/cli http://127.0.0.1:4173 --exit
 ```
 
 ### Focused Regression Commands

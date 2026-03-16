@@ -9,18 +9,24 @@ Change the cloud snapshot preview modal to show a delta (what has changed since 
 ## Background
 
 ### Current State
-`src/ui/cloud-sync.js` stores the timestamp of the last previewed snapshot in `localStorage` under `CLOUD_LAST_PREVIEWED_SNAPSHOT_KEY`. The `_bindPreviewListener()` method (line 1403) constructs a full summary of all store record-counts and displays it in a modal. It does not highlight what is new, updated, or deleted compared to the previous cloud state — every preview looks the same regardless of whether one record changed or the entire dataset was replaced.
+`src/ui/cloud-sync.js` stores metadata in `localStorage` under `CLOUD_LAST_PREVIEWED_SNAPSHOT_KEY`, but the current flow effectively behaves like timestamp-only tracking and `_bindPreviewListener()` constructs a full summary of all store record-counts. It does not highlight what is new, updated, or deleted compared to the previous preview baseline — every preview looks the same regardless of whether one record changed or the entire dataset was replaced.
 
 ### Delta Logic
 On cloud pull, before applying the incoming payload to IndexedDB:
 1. Read the current IndexedDB state for every monitored store
 2. Compare it against the incoming payload (keyed by record `id`)
 3. Compute per-store: `added`, `deleted`, `updated` counts
-4. If no previous local snapshot exists (first sync), fall back to the existing full-summary view
-5. Display concise human-readable delta lines in the modal:
+4. Load the previous preview baseline from `CLOUD_LAST_PREVIEWED_SNAPSHOT_KEY` as a serialized per-store snapshot (`id` + `updatedAt`/version metadata)
+5. If no previous snapshot baseline exists (first sync), fall back to the existing full-summary view
+6. Display concise human-readable delta lines in the modal:
    - "+ 2 expenses added"
    - "1 income record deleted"
    - "credit card balance updated"
+
+The preview baseline must be deterministic:
+- `CLOUD_LAST_PREVIEWED_SNAPSHOT_KEY` stores a serialized snapshot map, not only a timestamp
+- after each successful preview, persist the latest baseline snapshot for the next diff
+- "No changes since last snapshot" is shown only when diff counts are zero against that stored baseline
 
 ### New Module: `src/utils/snapshot-diff.js`
 ```js

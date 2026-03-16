@@ -161,7 +161,8 @@ describe('refreshBankHolidaysCache', () => {
       json: async () => mockResponse
     });
 
-    await refreshBankHolidaysCache();
+    const result = await refreshBankHolidaysCache();
+    expect(result).toEqual({ success: true, count: mockDates.length });
 
     const stored = localStorage.getItem(CACHE_KEY);
     expect(stored).not.toBeNull();
@@ -177,7 +178,7 @@ describe('refreshBankHolidaysCache', () => {
     global.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    await expect(refreshBankHolidaysCache()).resolves.toBeUndefined();
+    await expect(refreshBankHolidaysCache()).resolves.toMatchObject({ success: false, error: 'Network error' });
     expect(warnSpy).toHaveBeenCalled();
     expect(localStorage.getItem(CACHE_KEY)).toBeNull();
     expect(localStorage.getItem(CACHE_DATE_KEY)).toBeNull();
@@ -187,7 +188,7 @@ describe('refreshBankHolidaysCache', () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 503 });
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    await expect(refreshBankHolidaysCache()).resolves.toBeUndefined();
+    await expect(refreshBankHolidaysCache()).resolves.toMatchObject({ success: false, error: 'HTTP 503' });
     expect(warnSpy).toHaveBeenCalled();
   });
 });

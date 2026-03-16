@@ -37,7 +37,8 @@ Expected coverage gaps (based on phase scope):
 
 ## Files to Change
 - `.github/workflows/deploy.yml` — update `node-version` to `'24'`, upgrade `actions/setup-node` to `v4`
-- `src/ui/settings.js` — add "Import v2.x Data" section
+- `src/ui/cloud-sync.js` — add or wire "Import v2.x Data" entry in the Settings cloud/sync section
+- `src/ui/backup.js` — add import action wiring and modal/flow integration for v2.x JSON
 - `src/utils/legacy-import.js` — new module: v2.x → v3.0 transform and DB write logic
 - `tests/legacy-import.test.js` — new test file
 
