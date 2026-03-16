@@ -465,3 +465,103 @@ describe('getLatestSnapshotMeta', () => {
     await expect(getLatestSnapshotMeta()).rejects.toThrow('Meta fetch failed');
   });
 });
+
+describe('TECH-06: affordability data included in generic db.tables snapshot (Phase 34)', () => {
+  // Regression test: verifies that the generic db.tables.map() path in pushSnapshot()
+  // includes affordability-specific tables (userPreferences) automatically, without any
+  // allowlist modification. This matches the Phase 33 pattern for incomeSources/spendingBuckets.
+  //
+  // The mock simulates a db.tables array that includes userPreferences (schema v22).
+  // If the generic path works correctly, userPreferences must appear in the snapshot payload.
+
+  const {
+    mockUpsertTECH06,
+    mockGetSessionTECH06,
+  } = vi.hoisted(() => ({
+    mockUpsertTECH06: vi.fn(),
+    mockGetSessionTECH06: vi.fn(),
+  }));
+
+  beforeEach(() => {
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://tech06.supabase.co');
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'tech06-anon-key');
+    vi.resetModules();
+
+    vi.doMock('@supabase/supabase-js', () => ({
+      createClient: vi.fn(() => ({
+        auth: {
+          getSession: mockGetSessionTECH06,
+          onAuthStateChange: vi.fn(),
+          signInWithOtp: vi.fn(),
+          signInWithOAuth: vi.fn(),
+          signOut: vi.fn(),
+        },
+        from: vi.fn(() => ({
+          upsert: mockUpsertTECH06,
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              order: vi.fn(() => ({
+                limit: vi.fn(() => ({
+                  maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+                })),
+              })),
+            })),
+          })),
+        })),
+      })),
+    }));
+
+    // Override db mock to include userPreferences table (schema v22 simulation)
+    vi.doMock('../db/schema.js', () => ({
+      db: {
+        tables: [
+          { name: 'income', toArray: vi.fn().mockResolvedValue([]) },
+          { name: 'userPreferences', toArray: vi.fn().mockResolvedValue([{ key: 'safetyBuffer', value: 20000 }]) },
+          { name: 'incomeSources', toArray: vi.fn().mockResolvedValue([]) },
+          { name: 'spendingBuckets', toArray: vi.fn().mockResolvedValue([]) },
+        ],
+        verno: 22,
+      },
+    }));
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.clearAllMocks();
+    vi.resetModules();
+    localStorage.clear();
+  });
+
+  it('includes userPreferences table in cloud snapshot payload via generic db.tables path', async () => {
+    mockGetSessionTECH06.mockResolvedValue({ data: { session: { user: { id: 'u-tech06' } } } });
+    mockUpsertTECH06.mockResolvedValue({ error: null });
+
+    const { pushSnapshot } = await import('./supabase-sync.js');
+    await pushSnapshot();
+
+    expect(mockUpsertTECH06).toHaveBeenCalledOnce();
+    const [row] = mockUpsertTECH06.mock.calls[0];
+    const parsed = JSON.parse(row.payload);
+
+    // userPreferences must be in the payload — TECH-06 requirement
+    expect(parsed).toHaveProperty('userPreferences');
+    expect(parsed.userPreferences).toHaveLength(1);
+    expect(parsed.userPreferences[0]).toMatchObject({ key: 'safetyBuffer', value: 20000 });
+    expect(row.schema_version).toBe(22);
+  });
+
+  it('includes incomeSources and spendingBuckets (Phase 33 stores) in the same generic path', async () => {
+    mockGetSessionTECH06.mockResolvedValue({ data: { session: { user: { id: 'u-tech06' } } } });
+    mockUpsertTECH06.mockResolvedValue({ error: null });
+
+    const { pushSnapshot } = await import('./supabase-sync.js');
+    await pushSnapshot();
+
+    const [row] = mockUpsertTECH06.mock.calls[0];
+    const parsed = JSON.parse(row.payload);
+
+    // Phase 33 stores also covered — regression guard
+    expect(parsed).toHaveProperty('incomeSources');
+    expect(parsed).toHaveProperty('spendingBuckets');
+  });
+});
