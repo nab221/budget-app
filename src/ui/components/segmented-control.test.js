@@ -59,38 +59,7 @@ describe('createSegmentedControl', () => {
     expect(onChange).toHaveBeenCalledWith('all');
   });
 
-  it('Test 3: ArrowRight moves focus to next segment; ArrowLeft moves to previous (wrapping)', () => {
-    createSegmentedControl({
-      container,
-      name: 'view',
-      options: OPTIONS,
-      value: 'current',
-      onChange: vi.fn(),
-    });
-
-    const buttons = Array.from(container.querySelectorAll('[role="radio"]'));
-
-    // ArrowRight from index 0 -> index 1 should have tabIndex 0
-    const arrowRight = new document.defaultView.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true });
-    buttons[0].dispatchEvent(arrowRight);
-
-    expect(buttons[1].tabIndex).toBe(0);
-    expect(buttons[0].tabIndex).toBe(-1);
-    expect(buttons[2].tabIndex).toBe(-1);
-
-    // ArrowLeft from index 1 back to index 0
-    const arrowLeft = new document.defaultView.KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true });
-    buttons[1].dispatchEvent(arrowLeft);
-    expect(buttons[0].tabIndex).toBe(0);
-    expect(buttons[1].tabIndex).toBe(-1);
-
-    // ArrowLeft from index 0 should wrap to index 2
-    buttons[0].dispatchEvent(new document.defaultView.KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
-    expect(buttons[2].tabIndex).toBe(0);
-    expect(buttons[0].tabIndex).toBe(-1);
-  });
-
-  it('Test 4: Enter and Space activate the currently focused segment', () => {
+  it('Test 3: ArrowRight auto-selects next segment and moves focus (WAI-ARIA radiogroup pattern); ArrowLeft wraps', () => {
     const onChange = vi.fn();
     createSegmentedControl({
       container,
@@ -102,17 +71,62 @@ describe('createSegmentedControl', () => {
 
     const buttons = Array.from(container.querySelectorAll('[role="radio"]'));
 
-    // Move focus to 'ytd' button (index 1) via ArrowRight
+    // ArrowRight from index 0: focus AND selection moves to index 1
+    buttons[0].dispatchEvent(new document.defaultView.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+
+    // Focus moved (roving tabIndex)
+    expect(buttons[1].tabIndex).toBe(0);
+    expect(buttons[0].tabIndex).toBe(-1);
+    expect(buttons[2].tabIndex).toBe(-1);
+    // Auto-selected: onChange called with 'ytd'
+    expect(onChange).toHaveBeenCalledWith('ytd');
+    expect(buttons[1].getAttribute('aria-checked')).toBe('true');
+    expect(buttons[0].getAttribute('aria-checked')).toBe('false');
+    onChange.mockClear();
+
+    // ArrowLeft from index 1 back to index 0
+    buttons[1].dispatchEvent(new document.defaultView.KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+    expect(buttons[0].tabIndex).toBe(0);
+    expect(buttons[1].tabIndex).toBe(-1);
+    expect(onChange).toHaveBeenCalledWith('current');
+    onChange.mockClear();
+
+    // ArrowLeft from index 0 should wrap to index 2
+    buttons[0].dispatchEvent(new document.defaultView.KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+    expect(buttons[2].tabIndex).toBe(0);
+    expect(buttons[0].tabIndex).toBe(-1);
+    expect(onChange).toHaveBeenCalledWith('all');
+  });
+
+  it('Test 4: Enter and Space re-confirm the already-selected segment (no double-activation side-effects)', () => {
+    const onChange = vi.fn();
+    createSegmentedControl({
+      container,
+      name: 'view',
+      options: OPTIONS,
+      value: 'current',
+      onChange,
+    });
+
+    const buttons = Array.from(container.querySelectorAll('[role="radio"]'));
+
+    // ArrowRight auto-selects 'ytd' (index 1)
     buttons[0].dispatchEvent(new document.defaultView.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
     expect(buttons[1].tabIndex).toBe(0);
+    expect(onChange).toHaveBeenCalledWith('ytd');
+    onChange.mockClear();
 
-    // Activate with Enter
+    // Enter re-confirms the focused/selected segment (calls onChange again — idempotent from UX view)
     buttons[1].dispatchEvent(new document.defaultView.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     expect(onChange).toHaveBeenCalledWith('ytd');
     onChange.mockClear();
 
-    // Move to 'all' and activate with Space
+    // ArrowRight auto-selects 'all' (index 2)
     buttons[1].dispatchEvent(new document.defaultView.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    expect(onChange).toHaveBeenCalledWith('all');
+    onChange.mockClear();
+
+    // Space re-confirms 'all'
     buttons[2].dispatchEvent(new document.defaultView.KeyboardEvent('keydown', { key: ' ', bubbles: true }));
     expect(onChange).toHaveBeenCalledWith('all');
   });

@@ -131,9 +131,16 @@ describe('dashboard view-toggle: CSS navigator styles (Phase 36)', () => {
   const cssPath = path.resolve(process.cwd(), 'css/main.css');
   const css = fs.readFileSync(cssPath, 'utf8');
 
-  it('CSS contains dashboard-navigator-shell sticky rule for desktop', () => {
+  it('CSS contains dashboard-navigator-shell sticky rule for desktop with correct top offset', () => {
     expect(css).toContain('.dashboard-navigator-shell');
     expect(css).toContain('position: sticky');
+    // Must use --header-height variable (not top: 0 which causes header overlap)
+    expect(css).toContain('top: var(--header-height');
+    // Must NOT use top: 0 for the desktop sticky rule
+    // (top:0 causes navigator to render over the page header)
+    const shellBlock = css.slice(css.indexOf('.dashboard-navigator-shell'));
+    const desktopBlock = shellBlock.slice(0, shellBlock.indexOf('}') + 1);
+    expect(desktopBlock).not.toContain('top: 0');
   });
 
   it('CSS contains dashboard-navigator-shell fixed rule for mobile', () => {
@@ -190,5 +197,16 @@ describe('dashboard view-toggle: fallback seam safety', () => {
     const src = fs.readFileSync(dashPath, 'utf8');
     // The mount is guarded by if (segMount) check
     expect(src).toContain('if (segMount)');
+  });
+
+  it('dashboard.js measures header height and sets --header-height CSS variable at init time', () => {
+    const dashPath = path.resolve(process.cwd(), 'src/ui/dashboard.js');
+    const src = fs.readFileSync(dashPath, 'utf8');
+    // Must read header element and call getBoundingClientRect
+    expect(src).toContain('querySelector(\'header\')');
+    expect(src).toContain('getBoundingClientRect');
+    // Must set --header-height on documentElement
+    expect(src).toContain('--header-height');
+    expect(src).toContain('setProperty');
   });
 });

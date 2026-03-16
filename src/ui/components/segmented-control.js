@@ -2,8 +2,11 @@
  * Segmented control component.
  *
  * Renders a radiogroup/radio ARIA widget inside `container`.
- * Supports roving keyboard navigation (ArrowLeft/ArrowRight),
- * activation via Enter/Space, and touch-friendly 44px minimum height.
+ * Follows the WAI-ARIA radiogroup authoring practices:
+ *   - Arrow keys move focus AND auto-select (same as native radio buttons)
+ *   - Enter/Space confirm the currently focused (already-selected) option
+ *   - Tab moves focus in/out of the group as a single stop
+ * Touch-friendly: buttons have a minimum 44px height.
  *
  * @param {Object} opts
  * @param {HTMLElement} opts.container  - Mount point element
@@ -13,7 +16,7 @@
  * @param {function}    opts.onChange   - Called with next value when selection changes
  */
 export function createSegmentedControl({ container, name, options, value, onChange }) {
-  // Track internal focused index for roving tabindex
+  // Track internal focused/selected index for roving tabindex
   let focusedIndex = options.findIndex(o => o.value === value);
   if (focusedIndex < 0) focusedIndex = 0;
 
@@ -43,12 +46,14 @@ export function createSegmentedControl({ container, name, options, value, onChan
 
     btn.addEventListener('keydown', (e) => {
       if (e.key === 'ArrowRight') {
+        // WAI-ARIA radiogroup: arrow keys move focus AND auto-select
         e.preventDefault();
-        moveFocus((focusedIndex + 1) % options.length);
+        activate((focusedIndex + 1) % options.length);
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        moveFocus((focusedIndex - 1 + options.length) % options.length);
+        activate((focusedIndex - 1 + options.length) % options.length);
       } else if (e.key === 'Enter' || e.key === ' ') {
+        // Confirm the currently focused option (already selected by arrow nav)
         e.preventDefault();
         activate(focusedIndex);
       }
@@ -61,17 +66,11 @@ export function createSegmentedControl({ container, name, options, value, onChan
   container.appendChild(group);
 
   /**
-   * Move roving focus to the given index without activating.
-   */
-  function moveFocus(nextIdx) {
-    buttons[focusedIndex].tabIndex = -1;
-    focusedIndex = nextIdx;
-    buttons[focusedIndex].tabIndex = 0;
-    buttons[focusedIndex].focus();
-  }
-
-  /**
-   * Activate (select) the option at index, update ARIA and call onChange.
+   * Activate (select) the option at index:
+   *  - Updates ARIA checked state
+   *  - Updates is-active class
+   *  - Moves roving tabIndex to this button and calls .focus()
+   *  - Calls onChange with the new value
    */
   function activate(idx) {
     const nextValue = options[idx].value;
@@ -87,10 +86,11 @@ export function createSegmentedControl({ container, name, options, value, onChan
       }
     });
 
-    // Update focus to the activated button
+    // Rove the tabIndex to the activated button and move browser focus
     buttons[focusedIndex].tabIndex = -1;
     focusedIndex = idx;
     buttons[focusedIndex].tabIndex = 0;
+    buttons[focusedIndex].focus();
 
     if (typeof onChange === 'function') {
       onChange(nextValue);

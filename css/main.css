@@ -590,10 +590,12 @@ body.privacy-enabled .chart-container:hover canvas {
 }
 
 /* ── DASHBOARD NAVIGATOR SHELL (Phase 36) ── */
-/* Desktop: sticky below header so navigator remains visible without scrolling */
+/* Desktop: sticky BELOW header. top uses --header-height set by JS at init time.
+   Fallback of 56px matches the mobile variable value and prevents header overlap
+   even if the JS measurement hasn't run yet. */
 .dashboard-navigator-shell {
   position: sticky;
-  top: 0;
+  top: var(--header-height, 56px);
   z-index: 98;
   background: var(--bg);
   padding: 6px 0;
