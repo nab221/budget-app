@@ -17,7 +17,7 @@ A personal UK household budget planner — not a transaction ledger, but a **for
 > Based on my current account balance and all upcoming committed outgoings, tell me what I can afford to pay extra toward my debts between now and my next payday.
 
 The app must therefore model:
-1. **Two income sources** arriving on different dates each month
+1. **Configurable income sources** arriving on different dates each month
 2. **All recurring fixed expenses** (mortgage, personal loan, utilities, subscriptions, etc.) with exact debit dates that respect the banking calendar
 3. **Credit card statements** with minimum payments and the ability to pay extra
 4. **Childcare Tax-Free accounts** for two children — how much to top up each period
@@ -62,7 +62,7 @@ The app must therefore model:
 
 **Target features:**
 - Pay-Period Affordability Engine with balance entry and payment timeline (PLAN-01, PLAN-02, PLAN-05)
-- Income configuration (2 sources) and Spending Buckets (PLAN-04, PLAN-06)
+- Income configuration (unbounded sources) and Spending Buckets (PLAN-04, PLAN-06)
 - Banking Calendar utility + recurrence engine working-day support (TECH-02, TECH-03, PLAN-03)
 - Debt Model Refactor: loans & mortgages use amortisation model, no statement import (DEBT-01, DEBT-03)
 - Childcare Top-Up Planner integrated into affordability calculation (CHILD-01, CHILD-02, CHILD-03)
@@ -72,4 +72,4 @@ The app must therefore model:
 - GitHub Actions Node.js 24 upgrade (TECH-01)
 
 ---
-*Last updated: 2026-03-14 — Milestone v3.0 started*
+*Last updated: 2026-03-15 — Milestone v3.0 started*
