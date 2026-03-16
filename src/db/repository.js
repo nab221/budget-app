@@ -2,7 +2,7 @@ import { db } from './schema.js';
 import { generateUUID } from '../utils/security.js';
 import { toPence, fromPence } from '../utils/currency.js';
 import { findBestMatch } from '../utils/string-similarity.js';
-import { calculateTopUp, getEntitlementPeriod, calculateFundingGap } from '../utils/childcare.js';
+import { calculateTopUp, getEntitlementPeriod, calculateFundingGap, monthlyEquivalentFromProvider, calculateRequiredTopUp } from '../utils/childcare.js';
 import { calcMinPayment, calculateBalanceChain, simulatePayoff } from '../utils/finance.js';
 export { calcMinPayment, calculateBalanceChain, simulatePayoff };
 import { advanceNextDate } from '../utils/recurrence.js';
@@ -1071,6 +1071,85 @@ export const childcareRepository = {
     await this._recalculateBalances(accountId);
     triggerSync();
   },
+
+  /**
+   * Logs a parent deposit plus the 20% government top-up automatically.
+   * Creates two ledger entries: one deposit + one top-up (if cap remaining).
+   * @param {number} accountId
+   * @param {string} date - YYYY-MM-DD
+   * @param {number} amountPounds - deposit amount in pounds
+   * @param {number|null} categoryId - optional budget category
+   * @returns {Promise<{ depositId, topUpId, topUpAmount }>}
+   */
+  async addDeposit(accountId, date, amountPounds, categoryId = null) {
+    const account = await db.childcareAccounts.get(accountId);
+    if (!account) throw new Error('Childcare account not found');
+
+    const amountPence = toPence(amountPounds);
+    const quarterlyCapPence = account.isDisabled ? 100000 : 50000;
+
+    // Calculate remaining quarterly cap based on ledger top-ups this period
+    const allEntries = await db.childcareLedger
+      .where('accountId').equals(accountId)
+      .toArray();
+    const topUpsThisQuarter = allEntries
+      .filter(e => e.type === 'top-up')
+      .reduce((sum, e) => sum + (e.amount || 0), 0);
+    const remainingCapPence = Math.max(0, quarterlyCapPence - topUpsThisQuarter);
+
+    // Log deposit
+    const depositId = await db.childcareLedger.add({
+      accountId,
+      date,
+      type: 'deposit',
+      amount: amountPence,
+      description: 'Parent deposit',
+      categoryId,
+      runningBalance: 0
+    });
+
+    // Calculate and log top-up
+    const topUpAmount = calculateTopUp(amountPence, remainingCapPence);
+    let topUpId = null;
+    if (topUpAmount > 0) {
+      topUpId = await db.childcareLedger.add({
+        accountId,
+        date,
+        type: 'top-up',
+        amount: topUpAmount,
+        description: '20% government top-up',
+        runningBalance: 0
+      });
+    }
+
+    await this._recalculateBalances(accountId);
+    triggerSync();
+    return { depositId, topUpId, topUpAmount };
+  },
+
+  /**
+   * Logs a childcare spend against the account.
+   * @param {number} accountId
+   * @param {string} date - YYYY-MM-DD
+   * @param {number} amountPounds - spend amount in pounds
+   * @param {string} description - provider or description
+   * @returns {Promise<number>} ledger entry id
+   */
+  async addSpend(accountId, date, amountPounds, description = '') {
+    const amountPence = toPence(amountPounds);
+    const id = await db.childcareLedger.add({
+      accountId,
+      date,
+      type: 'spend',
+      amount: amountPence,
+      description,
+      runningBalance: 0
+    });
+    await this._recalculateBalances(accountId);
+    triggerSync();
+    return id;
+  },
+
   async _recalculateBalances(accountId) {
     const account = await db.childcareAccounts.get(accountId);
     const entries = await db.childcareLedger
@@ -1086,6 +1165,102 @@ export const childcareRepository = {
       }
       await db.childcareLedger.update(entry.id, { runningBalance: currentBalance });
     }
+  },
+
+  // ---------------------------------------------------------------------------
+  // Phase 35: Provider CRUD seams (CHILD-01)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Returns all providers for a given childcare account.
+   * @param {number} accountId
+   * @returns {Promise<Array>}
+   */
+  async getAccountProviders(accountId) {
+    return await db.childcareProviders
+      .where('accountId').equals(accountId)
+      .toArray();
+  },
+
+  /**
+   * Adds a new provider record for an account.
+   * @param {Object} provider - { accountId, name, frequency, monthlyEquivalentPence?, termlyAmountPence? }
+   * @returns {Promise<number>} new provider id
+   */
+  async addProvider(provider) {
+    const id = await db.childcareProviders.add({ ...provider });
+    triggerSync();
+    return id;
+  },
+
+  /**
+   * Updates an existing provider record.
+   * @param {number} providerId
+   * @param {Object} updates
+   */
+  async updateProvider(providerId, updates) {
+    await db.childcareProviders.update(providerId, updates);
+    triggerSync();
+  },
+
+  /**
+   * Deletes a provider record.
+   * @param {number} providerId
+   */
+  async deleteProvider(providerId) {
+    await db.childcareProviders.delete(providerId);
+    triggerSync();
+  },
+
+  /**
+   * Computes the required top-up contract row for a single account.
+   * Delegates formula math to childcare.js utilities.
+   *
+   * @param {number} accountId
+   * @param {number} [pendingGovernmentBonusPence=0]
+   * @returns {Promise<{ accountId, childName, requiredTopUpPence, description }>}
+   */
+  async getRequiredTopUpForAccount(accountId, pendingGovernmentBonusPence = 0) {
+    const account = await db.childcareAccounts.get(accountId);
+    if (!account) throw new Error(`Childcare account ${accountId} not found`);
+
+    const providers = await this.getAccountProviders(accountId);
+    const currentBalancePence = await this.getBalance(accountId);
+
+    // Sum monthly-equivalent totals across all providers using pure helper
+    const providerMonthlyTotal = providers.reduce(
+      (sum, p) => sum + monthlyEquivalentFromProvider(p),
+      0
+    );
+
+    // Delegate required top-up formula to pure helper
+    const requiredTopUpPence = calculateRequiredTopUp(
+      providerMonthlyTotal,
+      currentBalancePence,
+      pendingGovernmentBonusPence
+    );
+
+    return {
+      accountId,
+      childName: account.childName,
+      requiredTopUpPence,
+      description: `Childcare top-up: ${account.childName}`
+    };
+  },
+
+  /**
+   * Returns required top-up rows for all accounts plus a total.
+   * This is the affordability aggregate contract consumed by CHILD-02.
+   *
+   * @returns {Promise<{ topUps: Array, totalTopUpPence: number }>}
+   */
+  async getAllRequiredTopUps() {
+    const accounts = await this.getAccounts();
+    const topUps = await Promise.all(
+      accounts.map(acc => this.getRequiredTopUpForAccount(acc.id))
+    );
+    const totalTopUpPence = topUps.reduce((sum, t) => sum + t.requiredTopUpPence, 0);
+    return { topUps, totalTopUpPence };
   }
 };
 

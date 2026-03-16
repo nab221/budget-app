@@ -56,7 +56,17 @@ function createMockTable(initialRows = []) {
       toArray: async () => rows.filter(r => r[field] === value),
       delete: async () => {
         rows = rows.filter(r => r[field] !== value);
-      }
+      },
+      reverse: () => ({
+        sortBy: async (sortField) => {
+          const matched = rows.filter(r => r[field] === value);
+          return matched.sort((a, b) => {
+            const av = a[sortField] || '';
+            const bv = b[sortField] || '';
+            return bv < av ? -1 : bv > av ? 1 : 0;
+          });
+        }
+      })
     }),
     startsWith: (value) => {
       const matched = () => rows.filter(r => r[field] && r[field].startsWith(value));
@@ -156,6 +166,8 @@ vi.mock('./schema.js', () => {
   const netWorthSnapshots = createMockTable();
   const bankHolidayOverrides = createMockTable();
 
+  const childcareProviders = createMockTable();
+
   return {
     db: {
       balanceSnapshots,
@@ -166,6 +178,7 @@ vi.mock('./schema.js', () => {
       oneOffExpenses,
       childcareAccounts,
       childcareLedger,
+      childcareProviders,
       debts,
       assets,
       statements,
@@ -187,6 +200,7 @@ const {
   debtRepository,
   recurrentExpenseRepository,
   statementRepository,
+  childcareRepository,
   getYearlyDailySpending,
   getYearlyDailyIncome,
   getDashboardData
@@ -859,5 +873,101 @@ describe('getDashboardData', () => {
     const data = await getDashboardData('month');
     expect(data.ccPayments).toBeGreaterThan(0);
     expect(data.loanPayments).toBe(20000 + 138900);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 35: childcareRepository provider CRUD and top-up aggregate tests
+// ---------------------------------------------------------------------------
+
+describe('childcareRepository provider seams (Phase 35 - CHILD-01)', () => {
+  beforeEach(() => {
+    clearTable(db.childcareAccounts);
+    clearTable(db.childcareLedger);
+    clearTable(db.childcareProviders);
+  });
+
+  it('PROV-01: getAccountProviders returns only providers for the target account', async () => {
+    const accId1 = await db.childcareAccounts.add({ childName: 'Alice', targetMonthlySpend: 0, openingBalance: 0 });
+    const accId2 = await db.childcareAccounts.add({ childName: 'Bob', targetMonthlySpend: 0, openingBalance: 0 });
+    await db.childcareProviders.add({ accountId: accId1, name: 'Nursery A', frequency: 'monthly', monthlyEquivalentPence: 50000 });
+    await db.childcareProviders.add({ accountId: accId2, name: 'Nursery B', frequency: 'monthly', monthlyEquivalentPence: 60000 });
+
+    const providers = await childcareRepository.getAccountProviders(accId1);
+    expect(providers).toHaveLength(1);
+    expect(providers[0].name).toBe('Nursery A');
+    expect(providers[0].accountId).toBe(accId1);
+  });
+
+  it('PROV-02: addProvider persists a provider record scoped to an account', async () => {
+    const accId = await db.childcareAccounts.add({ childName: 'Charlie', targetMonthlySpend: 0, openingBalance: 0 });
+    const id = await childcareRepository.addProvider({ accountId: accId, name: 'Sunshine Nursery', frequency: 'monthly', monthlyEquivalentPence: 45000 });
+    expect(typeof id).toBe('number');
+
+    const providers = await childcareRepository.getAccountProviders(accId);
+    expect(providers).toHaveLength(1);
+    expect(providers[0].name).toBe('Sunshine Nursery');
+  });
+
+  it('PROV-03: updateProvider modifies an existing provider record', async () => {
+    const accId = await db.childcareAccounts.add({ childName: 'Daisy', targetMonthlySpend: 0, openingBalance: 0 });
+    const provId = await db.childcareProviders.add({ accountId: accId, name: 'Old Name', frequency: 'monthly', monthlyEquivalentPence: 30000 });
+
+    await childcareRepository.updateProvider(provId, { name: 'New Name', monthlyEquivalentPence: 40000 });
+
+    const providers = await childcareRepository.getAccountProviders(accId);
+    expect(providers[0].name).toBe('New Name');
+    expect(providers[0].monthlyEquivalentPence).toBe(40000);
+  });
+
+  it('PROV-04: deleteProvider removes the record and leaves others intact', async () => {
+    const accId = await db.childcareAccounts.add({ childName: 'Eve', targetMonthlySpend: 0, openingBalance: 0 });
+    const p1 = await db.childcareProviders.add({ accountId: accId, name: 'A', frequency: 'monthly', monthlyEquivalentPence: 10000 });
+    await db.childcareProviders.add({ accountId: accId, name: 'B', frequency: 'monthly', monthlyEquivalentPence: 20000 });
+
+    await childcareRepository.deleteProvider(p1);
+
+    const remaining = await childcareRepository.getAccountProviders(accId);
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].name).toBe('B');
+  });
+
+  it('PROV-05: getRequiredTopUpForAccount returns top-up contract row', async () => {
+    const accId = await db.childcareAccounts.add({ childName: 'Finn', targetMonthlySpend: 0, openingBalance: 0 });
+    await db.childcareProviders.add({ accountId: accId, name: 'Provider', frequency: 'monthly', monthlyEquivalentPence: 60000 });
+    // No ledger entries → balance = 0
+
+    const result = await childcareRepository.getRequiredTopUpForAccount(accId);
+    expect(result).toHaveProperty('accountId', accId);
+    expect(result).toHaveProperty('requiredTopUpPence');
+    expect(result).toHaveProperty('childName');
+    expect(result).toHaveProperty('description');
+    // With 60000p monthly total, 0 balance, 0 bonus → required = 60000
+    expect(result.requiredTopUpPence).toBe(60000);
+  });
+
+  it('PROV-06: getAllRequiredTopUps returns aggregate total for affordability', async () => {
+    const accId1 = await db.childcareAccounts.add({ childName: 'Grace', targetMonthlySpend: 0, openingBalance: 0 });
+    const accId2 = await db.childcareAccounts.add({ childName: 'Henry', targetMonthlySpend: 0, openingBalance: 0 });
+    await db.childcareProviders.add({ accountId: accId1, name: 'NurseryG', frequency: 'monthly', monthlyEquivalentPence: 40000 });
+    await db.childcareProviders.add({ accountId: accId2, name: 'NurseryH', frequency: 'monthly', monthlyEquivalentPence: 50000 });
+
+    const result = await childcareRepository.getAllRequiredTopUps();
+    expect(result).toHaveProperty('topUps');
+    expect(result).toHaveProperty('totalTopUpPence');
+    expect(result.topUps).toHaveLength(2);
+    expect(result.totalTopUpPence).toBe(90000);
+  });
+
+  it('PROV-ANTI: income source behavior is unchanged (no cap logic introduced)', async () => {
+    // Anti-regression: incomeSourceRepository has no "cap" or "limit" related keys
+    // This test would fail if income-source cap logic were accidentally added
+    const { incomeSourceRepository } = await import('./repository.js');
+    expect(typeof incomeSourceRepository.getAll).toBe('function');
+    expect(typeof incomeSourceRepository.validateAndAdd).toBe('function');
+    // Confirm no cap-specific methods were added
+    expect(incomeSourceRepository.getCap).toBeUndefined();
+    expect(incomeSourceRepository.setMonthlyLimit).toBeUndefined();
+    expect(incomeSourceRepository.enforceCap).toBeUndefined();
   });
 });
