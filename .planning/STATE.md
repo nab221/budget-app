@@ -3,9 +3,36 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Milestone Verification & Polish
 status: completed
-last_updated: "2026-03-15T21:47:05.662Z"
+last_updated: "2026-03-16T14:58:26.277Z"
 progress:
   total_phases: 24
+  completed_phases: 9
+  total_plans: 29
+  completed_plans: 19
+---
+
+---
+gsd_state_version: 1.0
+milestone: v3.0
+milestone_name: Milestone Verification & Polish
+status: completed
+last_updated: "2026-03-16T13:10:42.424Z"
+progress:
+  total_phases: 24
+  completed_phases: 9
+  total_plans: 29
+  completed_plans: 19
+  percent: 66
+---
+
+---
+gsd_state_version: 1.0
+milestone: v3.0
+milestone_name: Milestone Verification & Polish
+status: completed
+last_updated: "2026-03-15T21:47:05.662Z"
+progress:
+  [███████░░░] 66%
   completed_phases: 8
   total_plans: 26
   completed_plans: 18
@@ -188,9 +215,9 @@ last_updated: 2026-03-14
 
 ## Current Focus
 
-**Phase 32 — Debt Model Refactor — Loans & Mortgage**
+**Phase 33 — Income & Spending Configuration**
 
-Status: Complete — 32-01 done, 32-02 done (human verification approved 2026-03-15)
+Status: In Progress — 33-01 done (2026-03-16)
 
 ## Phase Progress
 
@@ -202,7 +229,7 @@ Status: Complete — 32-01 done, 32-02 done (human verification approved 2026-03
 | 30 | Magic Link PWA / Auth Fix | ✅ Complete (30-01 done — device test approved 2026-03-15) |
 | 31 | Banking Calendar Utility & Recurrence Upgrade | ✅ Complete (31-01, 31-02 done) |
 | 32 | Debt Model Refactor — Loans & Mortgage | ✅ Complete (32-01, 32-02 done — human verify approved 2026-03-15) |
-| 33 | Income & Spending Configuration | ⬜ Not Started |
+| 33 | Income & Spending Configuration | 🔄 In Progress (33-01 done) |
 | 34 | Pay-Period Affordability Engine | ⬜ Not Started |
 | 35 | Childcare Top-Up Planner | ⬜ Not Started |
 | 36 | Navigator & View Toggle Redesign | ⬜ Not Started |
@@ -212,6 +239,7 @@ Status: Complete — 32-01 done, 32-02 done (human verification approved 2026-03
 
 ## Decisions Log
 
+- 2026-03-16 (33-01): Schema v21 adds incomeSources and spendingBuckets stores; monthlyAmount stored as raw pence (no double-conversion); all payDateRules apply next-working-day banking-calendar adjustment for adjustedDate; getUpcomingIncomeEvents uses merge-sort cursor strategy for N-source merging; supabase-sync.js generic db.tables path covers new stores without allowlist; incomeSpendingSettings wired into settings render and init; PLAN-04, PLAN-06, TECH-06 satisfied; 73 new TDD tests; 295 Vitest tests across db and ui suites pass.
 - 2026-03-15 (32-02): Schema v20 adds paymentDayOfMonth to debts (default 1); confirmBalance() in debtRepository accepts raw pence, validation delegated to UI; _buildAmortisationModalHTML wraps calculateAmortisationSchedule in try/catch; _buildHistoryModalHTML branches by debtType (personal-loan/mortgage/loan -> amortisation, credit-card -> statement); CONFIRM_BALANCE_WARNING_THRESHOLD=0.05; submitConfirmBalance validates > 0, < currentBalance, 5% threshold; 11 new TDD tests; 453 Vitest tests pass.
 - 2026-03-15 (32-01): calculateAmortisationSchedule is pure sync function in finance.js; integer-pence arithmetic; paymentDayOfMonth via setDate(); adjustedPaymentDate() for next-working-day; 600-month maxMonths guard; plan worked example had rounding drift in months 2-3 (corrected in tests); DEBT-01 satisfied; 14 new TDD tests; 442 Vitest tests pass.
 - 2026-03-15 (31-02): advanceNextDate returns predictedPaymentDate alongside nextDate (additive, backward-compat); recurrentExpenseDefaults centralises paymentAdjustment:'none'; startup IIFE checks cache staleness before calling refreshBankHolidaysCache fire-and-forget; Dexie v19 migration sets paymentAdjustment='none' for all existing records; TECH-03 and PLAN-03 satisfied; 8 new TDD tests; 428 Vitest tests pass.
