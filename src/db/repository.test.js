@@ -57,10 +57,18 @@ function createMockTable(initialRows = []) {
       delete: async () => {
         rows = rows.filter(r => r[field] !== value);
       },
+      sortBy: async (sortField) => {
+        const matched = rows.filter(r => r[field] === value);
+        return [...matched].sort((a, b) => {
+          const av = a[sortField] || '';
+          const bv = b[sortField] || '';
+          return av < bv ? -1 : av > bv ? 1 : 0;
+        });
+      },
       reverse: () => ({
         sortBy: async (sortField) => {
           const matched = rows.filter(r => r[field] === value);
-          return matched.sort((a, b) => {
+          return [...matched].sort((a, b) => {
             const av = a[sortField] || '';
             const bv = b[sortField] || '';
             return bv < av ? -1 : bv > av ? 1 : 0;
@@ -969,5 +977,140 @@ describe('childcareRepository provider seams (Phase 35 - CHILD-01)', () => {
     expect(incomeSourceRepository.getCap).toBeUndefined();
     expect(incomeSourceRepository.setMonthlyLimit).toBeUndefined();
     expect(incomeSourceRepository.enforceCap).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 35: childcareRepository.addDeposit and addSpend (gap closure - TECH-04)
+// ---------------------------------------------------------------------------
+
+describe('childcareRepository.addDeposit (Phase 35 - gap closure)', () => {
+  beforeEach(() => {
+    clearTable(db.childcareAccounts);
+    clearTable(db.childcareLedger);
+    clearTable(db.childcareProviders);
+  });
+
+  it('records a deposit entry and a top-up entry in the ledger', async () => {
+    const accId = await db.childcareAccounts.add({
+      childName: 'TestKid',
+      targetMonthlySpend: 0,
+      openingBalance: 0,
+      isDisabled: false
+    });
+
+    const result = await childcareRepository.addDeposit(accId, '2024-01-15', 100, null);
+
+    expect(typeof result.depositId).toBe('number');
+    expect(typeof result.topUpId).toBe('number');
+    // £100 deposit → 25% top-up = £25 = 2500p
+    expect(result.topUpAmount).toBe(2500);
+
+    const entries = await db.childcareLedger.where('accountId').equals(accId).toArray();
+    const deposit = entries.find(e => e.type === 'deposit');
+    const topUp = entries.find(e => e.type === 'top-up');
+    expect(deposit).toBeDefined();
+    expect(deposit.amount).toBe(10000); // £100 in pence
+    expect(topUp).toBeDefined();
+    expect(topUp.amount).toBe(2500);    // 25% top-up
+  });
+
+  it('throws when childcare account does not exist', async () => {
+    await expect(childcareRepository.addDeposit(9999, '2024-01-15', 50)).rejects.toThrow('Childcare account not found');
+  });
+
+  it('caps top-up at remaining quarterly cap', async () => {
+    const accId = await db.childcareAccounts.add({
+      childName: 'TestKid2',
+      targetMonthlySpend: 0,
+      openingBalance: 0,
+      isDisabled: false
+    });
+
+    // Pre-fill top-ups: £480 already used (48000p) out of £500 quarterly cap (50000p)
+    await db.childcareLedger.add({ accountId: accId, type: 'top-up', amount: 48000, date: '2024-01-01', runningBalance: 0 });
+
+    // Deposit £100 → normally 25% = £25, but only £20 remaining in cap
+    const result = await childcareRepository.addDeposit(accId, '2024-01-16', 100, null);
+    expect(result.topUpAmount).toBe(2000); // capped at remaining 2000p
+  });
+
+  it('does not create a top-up entry when cap is exhausted', async () => {
+    const accId = await db.childcareAccounts.add({
+      childName: 'TestKid3',
+      targetMonthlySpend: 0,
+      openingBalance: 0,
+      isDisabled: false
+    });
+
+    // Exhaust the quarterly cap
+    await db.childcareLedger.add({ accountId: accId, type: 'top-up', amount: 50000, date: '2024-01-01', runningBalance: 0 });
+
+    const result = await childcareRepository.addDeposit(accId, '2024-01-16', 100, null);
+    expect(result.topUpAmount).toBe(0);
+    expect(result.topUpId).toBeNull();
+  });
+
+  it('recalculates running balances after deposit', async () => {
+    const accId = await db.childcareAccounts.add({
+      childName: 'TestKid4',
+      targetMonthlySpend: 0,
+      openingBalance: 0,
+      isDisabled: false
+    });
+
+    await childcareRepository.addDeposit(accId, '2024-01-15', 80, null);
+
+    const entries = await db.childcareLedger.where('accountId').equals(accId).toArray();
+    // All entries should have non-zero runningBalance after recalculation
+    entries.forEach(e => {
+      expect(e.runningBalance).toBeGreaterThan(0);
+    });
+  });
+});
+
+describe('childcareRepository.addSpend (Phase 35 - gap closure)', () => {
+  beforeEach(() => {
+    clearTable(db.childcareAccounts);
+    clearTable(db.childcareLedger);
+  });
+
+  it('records a spend entry and returns ledger id', async () => {
+    const accId = await db.childcareAccounts.add({
+      childName: 'SpendKid',
+      targetMonthlySpend: 0,
+      openingBalance: 0
+    });
+
+    // First add a deposit so balance is positive
+    await db.childcareLedger.add({ accountId: accId, type: 'deposit', amount: 10000, date: '2024-01-01', runningBalance: 10000 });
+
+    const id = await childcareRepository.addSpend(accId, '2024-01-20', 50, 'Nursery fee');
+    expect(typeof id).toBe('number');
+
+    const entries = await db.childcareLedger.where('accountId').equals(accId).toArray();
+    const spend = entries.find(e => e.type === 'spend');
+    expect(spend).toBeDefined();
+    expect(spend.amount).toBe(5000); // £50 in pence
+    expect(spend.description).toBe('Nursery fee');
+  });
+
+  it('recalculates running balance after spend', async () => {
+    const accId = await db.childcareAccounts.add({
+      childName: 'SpendKid2',
+      targetMonthlySpend: 0,
+      openingBalance: 0
+    });
+
+    // Add deposit then spend
+    await db.childcareLedger.add({ accountId: accId, type: 'deposit', amount: 20000, date: '2024-01-01', runningBalance: 0 });
+    await childcareRepository.addSpend(accId, '2024-01-15', 50, 'Provider');
+
+    const entries = await db.childcareLedger
+      .where('accountId').equals(accId)
+      .sortBy('date');
+    // deposit (20000p) then spend (5000p) → final running balance = 15000p
+    const last = entries[entries.length - 1];
+    expect(last.runningBalance).toBe(15000);
   });
 });
