@@ -692,7 +692,9 @@ body.privacy-enabled .chart-container:hover canvas {
 #spendingHeatmapContainer,
 #incomeHeatmapContainer,
 #incomeTabHeatmapContainer,
-#expensesTabHeatmapContainer {
+#expensesTabHeatmapContainer,
+#transactionsIncomeHeatmapContainer,
+#transactionsSpendingHeatmapContainer {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -703,7 +705,9 @@ body.privacy-enabled .chart-container:hover canvas {
 #spendingHeatmapContainer canvas,
 #incomeHeatmapContainer canvas,
 #incomeTabHeatmapContainer canvas,
-#expensesTabHeatmapContainer canvas {
+#expensesTabHeatmapContainer canvas,
+#transactionsIncomeHeatmapContainer canvas,
+#transactionsSpendingHeatmapContainer canvas {
   width: 100% !important;
   height: auto !important;
   max-height: none;
@@ -730,14 +734,18 @@ body.privacy-enabled .chart-container:hover canvas {
 body.privacy-enabled #spendingHeatmapContainer,
 body.privacy-enabled #incomeHeatmapContainer,
 body.privacy-enabled #incomeTabHeatmapContainer,
-body.privacy-enabled #expensesTabHeatmapContainer {
+body.privacy-enabled #expensesTabHeatmapContainer,
+body.privacy-enabled #transactionsIncomeHeatmapContainer,
+body.privacy-enabled #transactionsSpendingHeatmapContainer {
   filter: blur(15px);
   transition: filter 0.3s ease;
 }
 body.privacy-enabled #spendingHeatmapSection:hover #spendingHeatmapContainer,
 body.privacy-enabled #incomeHeatmapSection:hover #incomeHeatmapContainer,
 body.privacy-enabled #incomeTabHeatmapSection:hover #incomeTabHeatmapContainer,
-body.privacy-enabled #expensesTabHeatmapSection:hover #expensesTabHeatmapContainer {
+body.privacy-enabled #expensesTabHeatmapSection:hover #expensesTabHeatmapContainer,
+body.privacy-enabled #transactionsIncomeHeatmapSection:hover #transactionsIncomeHeatmapContainer,
+body.privacy-enabled #transactionsSpendingHeatmapSection:hover #transactionsSpendingHeatmapContainer {
   filter: blur(0);
 }
 

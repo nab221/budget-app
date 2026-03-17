@@ -44,7 +44,7 @@ vi.mock('../src/db/repository.js', () => ({
     getCategories:         vi.fn(async () => []),
   },
   getYearlyDailyIncome:    vi.fn(async () => ({})),
-  getYearlyDailyExpenses:  vi.fn(async () => ({})),
+  getYearlyDailySpending:  vi.fn(async () => ({})),
 }));
 
 // ---------------------------------------------------------------------------
@@ -230,18 +230,14 @@ describe('Group A — panelId routing (REQ-40-02)', () => {
     const activeTab = document.querySelector('#mainTabs .tab.active');
     if (activeTab) activeTab.dataset.tab = 'transactions';
 
-    // Mirror the CURRENT app.js renderAll() routing logic verbatim:
-    // After Plan 02, the 'income' branch should become 'transactions'.
-    // Using the CURRENT logic (panelId === 'income') — this will NOT call render()
-    // when panelId is 'transactions', causing this test to FAIL (correct RED state).
+    // Mirror the POST-Plan-02 app.js renderAll() routing logic:
     const panelId = document.querySelector('#mainTabs .tab.active')?.dataset.tab ?? 'dashboard';
     const renderTasks = [];
-    // CURRENT app.js line: if (panelId === 'income') renderTasks.push(transactionUI.render())
-    // This does NOT match 'transactions' → render() never pushed → test FAILS
-    if (panelId === 'income') renderTasks.push(transactionUI.render());
+    // POST Plan-02 app.js line: if (panelId === 'transactions') renderTasks.push(transactionUI.render())
+    if (panelId === 'transactions') renderTasks.push(transactionUI.render());
     await Promise.all(renderTasks);
 
-    // INTENDED post-Plan-02 assertion: render() IS called for 'transactions'
+    // render() IS called for 'transactions'
     expect(renderSpy).toHaveBeenCalledTimes(1);
   });
 
@@ -249,19 +245,18 @@ describe('Group A — panelId routing (REQ-40-02)', () => {
     const { transactionUI } = await import('../src/ui/transactions.js');
     const renderSpy = vi.spyOn(transactionUI, 'render').mockResolvedValue(undefined);
 
-    // Set up DOM: active tab is 'income' (the OLD key, still in app.js before Plan 02)
+    // Set up DOM: active tab is 'income' (the OLD key, removed after Plan 02)
     const activeTab = document.querySelector('#mainTabs .tab.active');
     if (activeTab) activeTab.dataset.tab = 'income';
 
-    // Mirror the CURRENT app.js renderAll() logic:
+    // Mirror the POST-Plan-02 app.js renderAll() logic:
     const panelId = document.querySelector('#mainTabs .tab.active')?.dataset.tab ?? 'dashboard';
     const renderTasks = [];
-    // CURRENT app.js line: if (panelId === 'income') renderTasks.push(transactionUI.render())
-    // This DOES match 'income' → render() IS pushed → test FAILS the 'not.toHaveBeenCalled' assertion
-    if (panelId === 'income') renderTasks.push(transactionUI.render());
+    // POST Plan-02 app.js: only 'transactions' triggers transactionUI.render(); 'income' does NOT
+    if (panelId === 'transactions') renderTasks.push(transactionUI.render());
     await Promise.all(renderTasks);
 
-    // INTENDED post-Plan-02 assertion: 'income' panelId should NOT call transactionUI.render()
+    // 'income' panelId should NOT call transactionUI.render()
     expect(renderSpy).not.toHaveBeenCalled();
   });
 });
@@ -382,10 +377,10 @@ describe('Group C — dual heatmap containers (REQ-40-04)', () => {
   it('renderHeatmap() calls renderSpendingHeatmap with "transactionsSpendingHeatmapContainer"', async () => {
     const { transactionUI } = await import('../src/ui/transactions.js');
     const { renderSpendingHeatmap } = await import('../src/ui/heatmap.js');
-    const { getYearlyDailyIncome, getYearlyDailyExpenses } = await import('../src/db/repository.js');
+    const { getYearlyDailyIncome, getYearlyDailySpending } = await import('../src/db/repository.js');
 
     getYearlyDailyIncome.mockResolvedValue({});
-    getYearlyDailyExpenses.mockResolvedValue({});
+    getYearlyDailySpending.mockResolvedValue({});
 
     await transactionUI.renderHeatmap();
 

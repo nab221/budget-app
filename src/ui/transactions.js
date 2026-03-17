@@ -1,7 +1,10 @@
 import {
   incomeRepository,
+  recurrentExpenseRepository,
+  oneOffExpenseRepository,
   categoryRepository,
-  getYearlyDailyIncome
+  getYearlyDailyIncome,
+  getYearlyDailySpending
 } from '../db/repository.js';
 import { formatGBP, fromPence } from '../utils/currency.js';
 import { safeHTML, renderTabSummary, modalUI } from './render.js';
@@ -298,20 +301,45 @@ export const transactionUI = {
     await this.renderMonthPicker();
     await this.renderHeatmap();
     await this.renderCategoryFilter();
-    await this.renderIncome(this.currentMonth);
+    await this.renderTransactions(this.currentMonth);
   },
 
   async renderHeatmap() {
-    const container = document.getElementById('incomeTabHeatmapContainer');
-    if (!container) return;
+    const year = parseInt(this.currentMonth.slice(0, 4), 10);
+    const incomeContainer = document.getElementById('transactionsIncomeHeatmapContainer');
+    const spendingContainer = document.getElementById('transactionsSpendingHeatmapContainer');
+    if (!incomeContainer && !spendingContainer) return;
 
     try {
-      const year = parseInt(this.currentMonth.slice(0, 4), 10);
-      const currentYearData = await getYearlyDailyIncome(year);
-      renderSpendingHeatmap('incomeTabHeatmapContainer', year, currentYearData);
+      const [incomeData, spendingData] = await Promise.all([
+        getYearlyDailyIncome(year),
+        getYearlyDailySpending(year)
+      ]);
+      if (incomeContainer) renderSpendingHeatmap('transactionsIncomeHeatmapContainer', year, incomeData);
+      if (spendingContainer) renderSpendingHeatmap('transactionsSpendingHeatmapContainer', year, spendingData);
     } catch (err) {
-      console.warn('Could not render income tab heatmap:', err);
+      console.warn('Could not render transactions heatmaps:', err);
     }
+  },
+
+  /**
+   * Pure helper: merge income, recurrent, and oneOff expense arrays into a
+   * single array sorted by displayDate descending.
+   */
+  _buildMergedRows(incomeItems, recurrentItems, oneOffItems) {
+    const incomeRows = incomeItems.map(i => ({
+      ...i, _rowType: 'income', displayDate: i.date, displayLabel: i.source
+    }));
+    const recurrentRows = recurrentItems.map(i => ({
+      ...i, _rowType: 'expense', type: 'recurrent',
+      displayDate: i.nextDate || i.date, displayLabel: i.label
+    }));
+    const oneOffRows = oneOffItems.map(i => ({
+      ...i, _rowType: 'expense', type: 'oneoff',
+      displayDate: i.date, displayLabel: i.note
+    }));
+    return [...incomeRows, ...recurrentRows, ...oneOffRows]
+      .sort((a, b) => (b.displayDate || '').localeCompare(a.displayDate || ''));
   },
 
   async renderMonthPicker() {
@@ -373,75 +401,117 @@ export const transactionUI = {
     `;
   },
 
-  async renderIncome(month) {
-    const allItems = await incomeRepository.getByMonth(month || this.currentMonth);
-    const categories = await categoryRepository.getCategories();
+  async renderTransactions(month) {
+    const targetMonth = month || this.currentMonth;
+    const [allIncomeItems, allRecurrentItems, allOneOffItems, categories] = await Promise.all([
+      incomeRepository.getByMonth(targetMonth),
+      recurrentExpenseRepository.getByMonth(targetMonth),
+      oneOffExpenseRepository.getByMonth(targetMonth),
+      categoryRepository.getCategories()
+    ]);
     const catMap = Object.fromEntries(categories.map(c => [c.id, c.name]));
-    
+
+    // Filter recurrent items to current month only
+    const recurrentItems = allRecurrentItems.filter(item =>
+      (item.nextDate || item.date || '').startsWith(targetMonth)
+    );
+
     const body = document.getElementById('incBody');
     if (!body) return;
 
-    // Apply Filter using utility (Search and Categories)
-    const items = filterTransactions(allItems, this.searchQuery, this.selectedCategories, ['source'], catMap);
+    // Build merged rows
+    const allMerged = this._buildMergedRows(allIncomeItems, recurrentItems, allOneOffItems);
 
-    // Calculate total based on filtered items
-    const filteredTotal = items.reduce((sum, i) => sum + i.amount, 0);
-    
+    // Apply search filter across displayLabel fields
+    const filtered = this.searchQuery
+      ? allMerged.filter(item => (item.displayLabel || '').toLowerCase().includes(this.searchQuery.toLowerCase()))
+      : allMerged;
+
+    // Calculate totals from filtered items
+    const incomeTotal = filtered.filter(r => r._rowType === 'income').reduce((sum, i) => sum + i.amount, 0);
+    const expenseTotal = filtered.filter(r => r._rowType === 'expense').reduce((sum, i) => sum + i.amount, 0);
+
     // Render Tab Summary
     renderTabSummary('incomeSummary', [
-      { label: 'Total Income', value: filteredTotal, color: 'var(--accent)' }
+      { label: 'Income', value: incomeTotal, color: 'var(--success)' },
+      { label: 'Expenses', value: expenseTotal, color: 'var(--danger)' }
     ]);
 
     if (this.reconciliationMode) {
-      this.renderReconHeader(items);
+      this.renderReconHeader(allIncomeItems);
     }
 
-    if (items.length === 0) {
-      body.innerHTML = '<tr><td colspan="4" class="hint" style="text-align:center">No income found matching your search and category selection.</td></tr>';
-      this.updateTotal('income', 0);
+    if (filtered.length === 0) {
+      body.innerHTML = '<tr><td colspan="4" class="hint" style="text-align:center">No transactions found for this month.</td></tr>';
+      this.updateTotal('transactions', 0);
       return;
     }
 
-    // Sort items by date descending
-    items.sort((a, b) => b.date.localeCompare(a.date));
+    // Render merged table rows
+    body.innerHTML = safeHTML`${filtered.map(item => {
+      if (item._rowType === 'income') {
+        const isReconciled = item.isReconciled === true;
+        const isCleared = item.isCleared === true;
+        const canSwipe = !isReconciled && !this.reconciliationMode;
 
-    // Render data rows
-    // Swipe gestures are additive for touch users — inline buttons remain for keyboard and mouse users.
-    body.innerHTML = safeHTML`${items.map(item => {
-      const isReconciled = item.isReconciled === true;
-      const isCleared = item.isCleared === true;
-      const canSwipe = !isReconciled && !this.reconciliationMode;
-
-      return safeHTML`
-        <tr class="swipe-row ${isReconciled ? 'reconciled-row' : ''} ${isCleared ? 'cleared-row' : ''}" data-id="${item.id}">
-          <td class="nw">
-            ${canSwipe ? `<div class="swipe-action-left">Edit</div>` : ''}
-            ${canSwipe ? `<div class="swipe-action-right">Delete</div>` : ''}
-            ${this._formatDateCompact(item.date)}
-          </td>
-          <td>
-            ${item.source}
-            ${item.categoryId ? `<span class="tag" style="margin-left:6px">${catMap[item.categoryId]}</span>` : ''}
-            ${isReconciled ? `<span class="pill" style="background:var(--success); color:#fff; font-size:0.65rem; margin-left:6px">✓ Reconciled</span>` : ''}
-          </td>
-          <td class="r"><span class="privacy-blur">${formatGBP(item.amount)}</span></td>
-          <td class="r col-actions">
-            ${this.reconciliationMode ? `
-              <div style="display:flex; align-items:center; justify-content:flex-end; gap:8px">
-                <label style="font-size:0.75rem; color:var(--text-soft)">Cleared:</label>
-                <input type="checkbox" ${isCleared ? 'checked' : ''} ${isReconciled ? 'disabled' : ''}
-                  onclick="toggleIncCleared(${item.id}, ${isCleared})"/>
-              </div>
-            ` : `
-              <button class="sm ghost btn-edit" ${isReconciled ? 'disabled title="Reconciled items cannot be edited"' : ''} onclick="transactionUI._handleEdit(${item.id})">Edit</button>
-              <button class="sm danger btn-delete" ${isReconciled ? 'disabled title="Reconciled items cannot be deleted"' : ''} onclick="transactionUI._handleDelete(${item.id})">✕</button>
-            `}
-          </td>
-        </tr>
-      `;
+        return safeHTML`
+          <tr class="swipe-row ${isReconciled ? 'reconciled-row' : ''} ${isCleared ? 'cleared-row' : ''}" data-id="${item.id}" data-row-type="income">
+            <td class="nw">
+              ${canSwipe ? `<div class="swipe-action-left">Edit</div>` : ''}
+              ${canSwipe ? `<div class="swipe-action-right">Delete</div>` : ''}
+              ${this._formatDateCompact(item.displayDate)}
+            </td>
+            <td>
+              <span class="pill" style="background:var(--success);color:#fff;font-size:.65rem">IN</span>
+              ${item.displayLabel}
+              ${item.categoryId ? `<span class="tag" style="margin-left:6px">${catMap[item.categoryId]}</span>` : ''}
+              ${isReconciled ? `<span class="pill" style="background:var(--success); color:#fff; font-size:0.65rem; margin-left:6px">&#x2713; Reconciled</span>` : ''}
+            </td>
+            <td class="r"><span class="privacy-blur">${formatGBP(item.amount)}</span></td>
+            <td class="r col-actions">
+              ${this.reconciliationMode ? `
+                <div style="display:flex; align-items:center; justify-content:flex-end; gap:8px">
+                  <label style="font-size:0.75rem; color:var(--text-soft)">Cleared:</label>
+                  <input type="checkbox" ${isCleared ? 'checked' : ''} ${isReconciled ? 'disabled' : ''}
+                    onclick="toggleIncCleared(${item.id}, ${isCleared})"/>
+                </div>
+              ` : `
+                <button class="sm ghost btn-edit" ${isReconciled ? 'disabled title="Reconciled items cannot be edited"' : ''} onclick="transactionUI._handleEdit(${item.id})">Edit</button>
+                <button class="sm danger btn-delete" ${isReconciled ? 'disabled title="Reconciled items cannot be deleted"' : ''} onclick="transactionUI._handleDelete(${item.id})">&#x2715;</button>
+              `}
+            </td>
+          </tr>
+        `;
+      } else {
+        // Expense row
+        const isDebt = item.isDebtPayment === true;
+        return safeHTML`
+          <tr class="swipe-row" data-id="${item.id}" data-row-type="expense" data-type="${item.type}"
+            ${isDebt ? `onclick="document.querySelector('[data-tab=\\'debts\\']').click()"` : ''}>
+            <td class="nw">
+              ${!isDebt ? `<div class="swipe-action-left">Edit</div>` : ''}
+              ${!isDebt ? `<div class="swipe-action-right">Delete</div>` : ''}
+              ${this._formatDateCompact(item.displayDate)}
+            </td>
+            <td>
+              <span class="pill" style="background:var(--danger);color:#fff;font-size:.65rem">OUT</span>
+              ${item.displayLabel}
+              ${item.categoryId ? `<span class="tag" style="margin-left:6px">${catMap[item.categoryId]}</span>` : ''}
+              ${isDebt ? `<span class="pill" style="background:var(--info,#2563eb);color:#fff;font-size:0.65rem;margin-left:6px">Debt</span>` : ''}
+            </td>
+            <td class="r"><span class="privacy-blur">${formatGBP(item.amount)}</span></td>
+            <td class="r col-actions">
+              ${isDebt ? '' : `
+                <button class="sm ghost btn-edit" onclick="window.expensesUI?.editExpense(${item.id}, '${item.type}')">Edit</button>
+                <button class="sm danger btn-delete" onclick="window.deleteExpense(${item.id}, '${item.type}')">&#x2715;</button>
+              `}
+            </td>
+          </tr>
+        `;
+      }
     }).join('')}`;
 
-    this.updateTotal('income', filteredTotal);
+    this.updateTotal('transactions', incomeTotal - expenseTotal);
     this._initSwipe(body);
   },
 
@@ -553,9 +623,11 @@ export const transactionUI = {
   },
 
   /**
-   * Initialise SwipeHandler instances for all income rows.
+   * Initialise SwipeHandler instances for all transaction rows.
+   * Income rows: swipe-right = edit (transactionUI._handleEdit), swipe-left = delete (transactionUI._handleDelete).
+   * Non-debt expense rows: swipe-right = edit (expensesUI.editExpense), swipe-left = delete (deleteExpense).
+   * Debt-linked expense rows: no swipe (locked).
    * Destroys existing instances before each rebuild to prevent memory leaks.
-   * Swipe gestures are additive for touch users; keyboard/mouse users use inline buttons.
    */
   _initSwipe(tableBody) {
     // Destroy existing instances first to prevent memory leaks
@@ -565,7 +637,31 @@ export const transactionUI = {
 
     tableBody.querySelectorAll('.swipe-row').forEach(row => {
       const id = Number(row.dataset.id);
-      const isLocked = row.classList.contains('reconciled-row') || this.reconciliationMode;
+      const rowType = row.dataset.rowType; // 'income' | 'expense'
+      const expenseType = row.dataset.type; // 'recurrent' | 'oneoff' (only for expense rows)
+      const isDebtRow = rowType === 'expense' && row.dataset.isDebt === 'true';
+      const isLocked = row.classList.contains('reconciled-row') || this.reconciliationMode || isDebtRow;
+
+      // For expense rows that are debt-linked, no swipe setup needed (no action divs)
+      if (rowType === 'expense' && row.querySelector('[data-tab="debts"]')) return;
+
+      const handleEdit = () => {
+        this.closeAllRows();
+        if (rowType === 'expense') {
+          window.expensesUI?.editExpense(id, expenseType);
+        } else {
+          this.editTransaction(id);
+        }
+      };
+
+      const handleDelete = () => {
+        this.closeAllRows();
+        if (rowType === 'expense') {
+          window.deleteExpense && window.deleteExpense(id, expenseType);
+        } else {
+          window.deleteTransaction('income', id);
+        }
+      };
 
       const handler = new SwipeHandler(row, {
         threshold: 80,
@@ -604,9 +700,9 @@ export const transactionUI = {
             this.currentOpenRow = row;
             // Trigger action immediately on full swipe
             if (deltaX > 0) {
-              this._handleEdit(id);
+              handleEdit();
             } else {
-              this._handleDelete(id);
+              handleDelete();
             }
           } else {
             row.style.transform = '';
@@ -619,8 +715,8 @@ export const transactionUI = {
       // Wire up revealed action divs via JS (onclick attrs are stripped by DOMPurify)
       const editDiv = row.querySelector('.swipe-action-left');
       const deleteDiv = row.querySelector('.swipe-action-right');
-      if (editDiv) editDiv.addEventListener('click', () => this._handleEdit(id));
-      if (deleteDiv) deleteDiv.addEventListener('click', () => this._handleDelete(id));
+      if (editDiv) editDiv.addEventListener('click', handleEdit);
+      if (deleteDiv) deleteDiv.addEventListener('click', handleDelete);
 
       // Close row on tap if it's currently open (but not on the action divs themselves)
       row.onclick = (e) => {
