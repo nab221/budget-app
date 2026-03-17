@@ -397,6 +397,10 @@ Stopped at: Completed 39.1-03-PLAN.md
 - 2026-03-14 (27-01): Use local escHtml in _renderSignedIn; use .onclick on modal buttons to prevent handler accumulation; add _previewListenerBound guard mirroring _authListenerBound pattern.
 - 2026-03-14: v3.0 roadmap critically reviewed by Opus 4.6. Key changes applied: INTEGRITY-01 moved to Phase 27 (P0, earliest phase); TECH-06 added to Phase 33 and Phase 35; Phase 31 complexity raised to Medium-High; Phase 33 given hard dependency on Phase 31; schema version map corrected (v13→P31, v14→P32, v15→P33, v16→P35); INTEGRITY-02 (legacy import) added to Phase 38; CodeRabbit feedback incorporated across all phases.
 
+## Roadmap Evolution
+
+- Phase 40 added: Redesign income and transactions tab structure
+
 ## Blocked / Risks
 
 - None at present.
