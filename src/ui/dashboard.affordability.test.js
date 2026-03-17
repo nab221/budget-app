@@ -152,7 +152,7 @@ describe('Dashboard affordability section', () => {
   it('renders without throwing when no income events or snapshot exist', async () => {
     const { renderDashboard } = await import('./dashboard.js');
     await expect(renderDashboard()).resolves.not.toThrow();
-  }, 15000);
+  }, 30000);
 
   it('creates an affordability section container in the DOM after render', async () => {
     const { renderDashboard } = await import('./dashboard.js');

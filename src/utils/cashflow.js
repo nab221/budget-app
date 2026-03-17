@@ -429,8 +429,12 @@ export async function getDailyRollingData(targetMonth) {
   startDate.setDate(startDate.getDate() - 365);
   const startDateStr = startDate.toISOString().split('T')[0];
 
-  const endDate = new Date(anchorDate);
-  endDate.setDate(endDate.getDate() + 45);
+  // endDate must be at least 45 days from today so balance[todayIndex+n] (n<45) is always in range
+  const endDateFromAnchor = new Date(anchorDate);
+  endDateFromAnchor.setDate(endDateFromAnchor.getDate() + 45);
+  const endDateFromToday = new Date(today);
+  endDateFromToday.setDate(endDateFromToday.getDate() + 45);
+  const endDate = endDateFromAnchor > endDateFromToday ? endDateFromAnchor : endDateFromToday;
   const endDateStr = endDate.toISOString().split('T')[0];
 
   // 1. Fetch all data needed
