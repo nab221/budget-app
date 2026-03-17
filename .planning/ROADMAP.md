@@ -681,7 +681,7 @@ For each childcare account:
 - `index.html` — add tab nav entry
 - `src/db/repository.js` — ensure incomeSourceRepository exposes what the new tab needs
 
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] 39.1-01-PLAN.md — Wave 0 test scaffold (income-sources + income-spending-settings tests)
