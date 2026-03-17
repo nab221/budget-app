@@ -681,6 +681,13 @@ For each childcare account:
 - `index.html` — add tab nav entry
 - `src/db/repository.js` — ensure incomeSourceRepository exposes what the new tab needs
 
+**Plans:** 3 plans
+
+Plans:
+- [ ] 39.1-01-PLAN.md — Wave 0 test scaffold (income-sources + income-spending-settings tests)
+- [ ] 39.1-02-PLAN.md — Build incomeSourcesUI module (CRUD + confirm/adjust flow)
+- [ ] 39.1-03-PLAN.md — Wire tab into app.js + index.html + Settings cleanup + human verify
+
 ---
 
 ## Requirements Coverage Matrix
