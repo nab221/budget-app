@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Milestone Verification & Polish
 status: in_progress
-last_updated: "2026-03-17T00:01:09.325Z"
+last_updated: "2026-03-17T08:19:23.075Z"
 progress:
-  total_phases: 24
+  total_phases: 25
   completed_phases: 14
-  total_plans: 29
-  completed_plans: 24
+  total_plans: 32
+  completed_plans: 25
 ---
 
 ---
@@ -282,9 +282,11 @@ last_updated: 2026-03-14
 
 ## Current Focus
 
-**Phase 38 — GitHub Actions Node24 & Technical Hygiene**
+**Phase 39.1 — Income Sources Tab**
 
-Status: Complete — 38-01 done (2026-03-16)
+Status: In Progress — 39.1-01 done (2026-03-17)
+
+Stopped at: Completed 39.1-01-PLAN.md
 
 ## Phase Progress
 
@@ -303,9 +305,11 @@ Status: Complete — 38-01 done (2026-03-16)
 | 37 | Cloud Snapshot Delta Preview | ✅ Complete (37-01 done — 2026-03-16) |
 | 38 | GitHub Actions Node.js 24, Legacy Import & Technical Hygiene | ✅ Complete (38-01 done — 2026-03-16) |
 | 39 | v3.0 Milestone Verification & Polish | ⬜ Not Started |
+| 39.1 | Income Sources Tab | 🔄 In Progress (39.1-01 done) |
 
 ## Decisions Log
 
+- 2026-03-17 (39.1-01): Stub module pattern established: created src/ui/income-sources.js as no-op stub since Vite resolves paths before vi.mock hoisting; 6-test RED scaffold in tests/income-sources.test.js (CRUD add/edit/delete, pending cards, confirmIncome, adjustIncome); income-spending-settings scaffold Test A GREEN (buckets present), Test B RED (income sources still in render — Plan 03 removes); 698 existing tests pass; PLAN-06-ext satisfied.
 - 2026-03-16 (38-01): CI Node 24 already compliant — idempotent no-op (actions/setup-node@v6, node-version:24, FORCE_JAVASCRIPT_ACTIONS_TO_NODE24); legacy v2 import pipeline in src/utils/legacy-import.js (detectLegacyShape, validateLegacyData, mapLegacyToCurrent, importLegacyData, runLegacyImport) with skip-by-default conflict policy; APR normalisation '4.9%'->4.9; Import v2 Legacy button wired into cloud-sync.js _renderLocalSettingsActions; @vitest/coverage-v8@3.2.4 installed (pinned to match vitest@3.2.4); 38-coverage-audit.md: 10/15 phase 31-37 modules pass >=80% threshold, 4 deferred (debts.js 72%, repository.js 74%, ui/childcare.js 0%, cloud-sync.js 69%); childcareRepository.addDeposit/addSpend tests added; mock sortBy() bug fixed; 686 tests pass; TECH-01, INTEGRITY-02, TECH-04 satisfied.
 - 2026-03-16 (37-01): computeSnapshotDiff reads db.tables async before modal assembly; _previewHandler stored on cloudSyncUI for removeEventListener cleanup in tests; delta labels use plain English (added/removed/changed); isFirstSyncFallback returns true when all local stores empty; formatDiffSummary/computeSnapshotDiff guarded with ?? [] / ?? {} for mock-environment safety; 25 new tests (18 unit + 7 Phase 37 UI); 61 cloud-sync tests pass; pre-existing dashboard.affordability ordering failure deferred to Phase 39.
 - 2026-03-16 (36-01): Arrow keys auto-select (WAI-ARIA radiogroup: focus movement = selection); Enter/Space re-confirm; JS measures real rendered header height via getBoundingClientRect() at initDashboard() time and writes --header-height CSS variable; desktop sticky top: var(--header-height) not top:0; activate() owns focus, ARIA, tabIndex, and onChange; legacy viewSelect fallback retained; 25 new TDD/regression tests; 637 total Vitest tests pass. DEFERRED: keyboard-first arrow nav (requires prior pointer focus to initialise browser focus on the control) — not essential for current milestone; probable fix is a focusin guard on the group element; candidate for Phase 39 polish.
