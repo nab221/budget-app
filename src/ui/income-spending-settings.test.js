@@ -3,7 +3,10 @@
 /**
  * income-spending-settings.test.js
  *
- * Phase 33: Tests for the incomeSpendingSettings UI module.
+ * Phase 33 / post-Plan-39.1-03: Tests for the incomeSpendingSettings UI module.
+ *
+ * Income Sources CRUD has been moved to the dedicated Pay Sources tab (Plan 39.1-03).
+ * This file tests only the Spending Buckets functionality that remains in Settings.
  */
 
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -11,19 +14,9 @@ import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 // ---------------------------------------------------------------------------
 // Mock repository
 // ---------------------------------------------------------------------------
-const mockSources = [];
 const mockBuckets = [];
 
 vi.mock('../db/repository.js', () => ({
-  incomeSourceRepository: {
-    getAll: vi.fn(async () => [...mockSources]),
-    get: vi.fn(async (id) => mockSources.find(s => s.id === id) ?? null),
-    add: vi.fn(async (data) => { const id = mockSources.length + 1; mockSources.push({ id, ...data }); return id; }),
-    update: vi.fn(async (id, data) => { const idx = mockSources.findIndex(s => s.id === id); if (idx !== -1) mockSources[idx] = { ...mockSources[idx], ...data }; return 1; }),
-    delete: vi.fn(async (id) => { const idx = mockSources.findIndex(s => s.id === id); if (idx !== -1) mockSources.splice(idx, 1); }),
-    validateAndAdd: vi.fn(async (data) => { const id = mockSources.length + 1; mockSources.push({ id, ...data }); return id; }),
-    validateAndUpdate: vi.fn(async (id, data) => { const idx = mockSources.findIndex(s => s.id === id); if (idx !== -1) mockSources[idx] = { ...mockSources[idx], ...data }; return 1; }),
-  },
   spendingBucketRepository: {
     getAll: vi.fn(async () => [...mockBuckets]),
     get: vi.fn(async (id) => mockBuckets.find(b => b.id === id) ?? null),
@@ -33,22 +26,6 @@ vi.mock('../db/repository.js', () => ({
     seedDefaults: vi.fn(async () => true),
     count: vi.fn(async () => mockBuckets.length),
   },
-}));
-
-// ---------------------------------------------------------------------------
-// Mock income.js helpers
-// ---------------------------------------------------------------------------
-vi.mock('../utils/income.js', () => ({
-  getNextIncomeEvent: vi.fn((source, _fromDate) => {
-    if (!source.isActive) return null;
-    return {
-      sourceId: source.id,
-      sourceName: source.name,
-      amount: source.monthlyAmount,
-      nominalDate: '2026-03-25',
-      adjustedDate: '2026-03-25'
-    };
-  })
 }));
 
 // ---------------------------------------------------------------------------
@@ -82,7 +59,6 @@ function getContainer() {
 describe('incomeSpendingSettings', () => {
   beforeEach(() => {
     setupDOM();
-    mockSources.splice(0);
     mockBuckets.splice(0);
     vi.clearAllMocks();
   });
@@ -92,19 +68,16 @@ describe('incomeSpendingSettings', () => {
   });
 
   describe('render', () => {
-    it('renders the "Income Sources" heading', async () => {
-      await incomeSpendingSettings.render();
-      expect(getContainer().innerHTML).toContain('Income Sources');
-    });
-
     it('renders the "Spending Buckets" heading', async () => {
       await incomeSpendingSettings.render();
       expect(getContainer().innerHTML).toContain('Spending Buckets');
     });
 
-    it('renders the "+ Add Source" button', async () => {
+    it('does NOT render income sources section (moved to Pay Sources tab)', async () => {
       await incomeSpendingSettings.render();
-      expect(getContainer().querySelector('#addIncomeSourceBtn')).not.toBeNull();
+      expect(getContainer().innerHTML).not.toContain('Income Sources');
+      expect(getContainer().querySelector('#addIncomeSourceBtn')).toBeNull();
+      expect(getContainer().querySelectorAll('.js-edit-source').length).toBe(0);
     });
 
     it('renders the "+ Add Bucket" button', async () => {
@@ -112,43 +85,9 @@ describe('incomeSpendingSettings', () => {
       expect(getContainer().querySelector('#addSpendingBucketBtn')).not.toBeNull();
     });
 
-    it('renders empty state message when no income sources exist', async () => {
-      await incomeSpendingSettings.render();
-      expect(getContainer().innerHTML).toContain('No income sources');
-    });
-
     it('renders empty state message when no spending buckets exist', async () => {
       await incomeSpendingSettings.render();
       expect(getContainer().innerHTML).toContain('No spending buckets');
-    });
-
-    it('renders all income source rows', async () => {
-      mockSources.push(
-        { id: 1, name: 'Salary', monthlyAmount: 350000, payDateRule: 'nth-of-month', payDateDay: 25, isActive: true, displayOrder: 0 },
-        { id: 2, name: 'Freelance', monthlyAmount: 50000, payDateRule: 'last-day', payDateDay: null, isActive: true, displayOrder: 1 }
-      );
-      await incomeSpendingSettings.render();
-      const rows = getContainer().querySelectorAll('[data-source-id]');
-      expect(rows.length).toBe(2);
-    });
-
-    it('renders projected payday for each source row', async () => {
-      mockSources.push({ id: 1, name: 'Salary', monthlyAmount: 350000, payDateRule: 'nth-of-month', payDateDay: 25, isActive: true, displayOrder: 0 });
-      await incomeSpendingSettings.render();
-      const html = getContainer().innerHTML;
-      // formatDate('2026-03-25') -> '25 Mar 2026'
-      expect(html).toContain('Mar 2026');
-    });
-
-    it('renders 3+ income sources without any cap warning', async () => {
-      for (let i = 1; i <= 4; i++) {
-        mockSources.push({ id: i, name: `Source ${i}`, monthlyAmount: 10000, payDateRule: 'last-day', payDateDay: null, isActive: true, displayOrder: i - 1 });
-      }
-      await incomeSpendingSettings.render();
-      const rows = getContainer().querySelectorAll('[data-source-id]');
-      expect(rows.length).toBe(4);
-      expect(getContainer().innerHTML).not.toContain('maximum');
-      expect(getContainer().innerHTML).not.toContain('limit');
     });
 
     it('renders all spending bucket rows', async () => {
@@ -162,57 +101,12 @@ describe('incomeSpendingSettings', () => {
     });
   });
 
-  describe('add income source button', () => {
-    it('shows the income source form on click', async () => {
-      await incomeSpendingSettings.render();
-      const addBtn = getContainer().querySelector('#addIncomeSourceBtn');
-      addBtn.click();
-      expect(getContainer().querySelector('#incomeSourceForm')).not.toBeNull();
-    });
-
-    it('removes the form when the add button is clicked a second time (toggle)', async () => {
-      await incomeSpendingSettings.render();
-      const addBtn = getContainer().querySelector('#addIncomeSourceBtn');
-      addBtn.click();
-      addBtn.click();
-      expect(getContainer().querySelector('#incomeSourceForm')).toBeNull();
-    });
-  });
-
   describe('add spending bucket button', () => {
     it('shows the spending bucket form on click', async () => {
       await incomeSpendingSettings.render();
       const addBtn = getContainer().querySelector('#addSpendingBucketBtn');
       addBtn.click();
       expect(getContainer().querySelector('#spendingBucketForm')).not.toBeNull();
-    });
-  });
-
-  describe('income source form', () => {
-    async function openForm() {
-      await incomeSpendingSettings.render();
-      getContainer().querySelector('#addIncomeSourceBtn').click();
-    }
-
-    it('shows payDateDay field when rule is nth-of-month', async () => {
-      await openForm();
-      const dayWrapper = getContainer().querySelector('#isf-day-wrapper');
-      expect(dayWrapper.style.visibility).not.toBe('hidden');
-    });
-
-    it('cancel button removes the form', async () => {
-      await openForm();
-      getContainer().querySelector('#isf-cancel').click();
-      expect(getContainer().querySelector('#incomeSourceForm')).toBeNull();
-    });
-
-    it('shows error when name is empty on save', async () => {
-      await openForm();
-      const form = getContainer().querySelector('#incomeSourceForm');
-      form.querySelector('#isf-name').value = '';
-      getContainer().querySelector('#isf-save').click();
-      // After attempted save with no name, error should show
-      expect(getContainer().querySelector('#isf-error').textContent).toContain('required');
     });
   });
 
