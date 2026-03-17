@@ -656,6 +656,33 @@ For each childcare account:
 
 ---
 
+### Phase 39.1 — Income Sources Tab
+
+**Priority:** P0
+**Requirements:** PLAN-06-ext (extends Phase 33 income sources)
+**Complexity:** Medium
+
+**Objective:** Add a dedicated "Income Sources" tab (parallel to Debts tab) where users configure their planned income streams. The tab manages income source records and auto-generates expected income transactions that the user confirms or adjusts — mirroring the credit card reconciliation pattern from the Debts tab. Configured sources feed directly into the Pay-Period Affordability Engine dashboard widget.
+
+**Verification Checklist:**
+- [ ] "Income Sources" tab appears in main navigation alongside Debts, Assets, etc.
+- [ ] User can add / edit / delete income sources with: name, expected amount, pay date rule (fixed day, last working day, etc.)
+- [ ] Each pay cycle auto-generates a pending income transaction (same mechanism as debt card auto-suggests repayments)
+- [ ] User can confirm income transaction (accept expected amount) or adjust amount before confirming
+- [ ] Confirmed transactions appear in the Income tab as normal income records
+- [ ] Affordability dashboard widget correctly reads active income sources for pay-period projection
+- [ ] Settings "Income Sources" section removed or redirects to new tab (no duplication)
+- [ ] Mobile layout matches Debts tab pattern (card list, add FAB or header button)
+
+**Files to Change:**
+- `src/ui/income-sources.js` — new tab module (CRUD + confirmation flow)
+- `src/ui/income-spending-settings.js` — remove or redirect income sources section
+- `src/app.js` — register new tab, wire up navigation
+- `index.html` — add tab nav entry
+- `src/db/repository.js` — ensure incomeSourceRepository exposes what the new tab needs
+
+---
+
 ## Requirements Coverage Matrix
 
 | Requirement | Phase |
