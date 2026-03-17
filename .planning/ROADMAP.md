@@ -690,6 +690,20 @@ Plans:
 
 ---
 
+### Phase 40 — Redesign income and transactions tab structure
+
+**Goal:** Rename "Pay Sources" tab to "Income", rename current "Income" tab to "Transactions" (merged IN/OUT view), move both heatmaps into the Transactions tab, and reposition dashboard heatmaps below the actionable summary cards.
+**Requirements:** 40-01, 40-02, 40-03, 40-04, 40-05
+**Depends on:** Phase 39.1
+**Plans:** 3 plans
+
+Plans:
+- [ ] 40-01-PLAN.md — Wave 0: RED test scaffold for merged transactions view
+- [ ] 40-02-PLAN.md — Rename tabs, build merged IN/OUT view, dual heatmaps, dashboard reorder
+- [ ] 40-03-PLAN.md — Human verify checkpoint
+
+---
+
 ## Requirements Coverage Matrix
 
 | Requirement | Phase |
@@ -726,16 +740,11 @@ Plans:
 | TECH-01 | 38 |
 | TECH-04 | 38 |
 | INTEGRITY-02 | 38 |
-
-### Phase 40: Redesign income and transactions tab structure
-
-**Goal:** [To be planned]
-**Requirements**: TBD
-**Depends on:** Phase 39.1
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (run /gsd:plan-phase 40 to break down)
+| 40-01 | 40 |
+| 40-02 | 40 |
+| 40-03 | 40 |
+| 40-04 | 40 |
+| 40-05 | 40 |
 
 ---
-*Last updated: 2026-03-14*
+*Last updated: 2026-03-17*
