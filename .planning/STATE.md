@@ -3,10 +3,41 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Milestone Verification & Polish
 status: in_progress
+stopped_at: Completed 39.1-03-PLAN.md
+last_updated: "2026-03-17T19:32:48.492Z"
+progress:
+  total_phases: 25
+  completed_phases: 15
+  total_plans: 32
+  completed_plans: 27
+  percent: 84
+---
+
+---
+gsd_state_version: 1.0
+milestone: v3.0
+milestone_name: Milestone Verification & Polish
+status: in_progress
+stopped_at: "Completed 39.1-03-PLAN.md"
+last_updated: "2026-03-17T19:32:00Z"
+progress:
+  [████████░░] 84%
+  total_phases: 25
+  completed_phases: 15
+  total_plans: 32
+  completed_plans: 28
+  percent: 88
+---
+
+---
+gsd_state_version: 1.0
+milestone: v3.0
+milestone_name: Milestone Verification & Polish
+status: in_progress
 stopped_at: Completed 39.1-02-PLAN.md
 last_updated: "2026-03-17T09:22:39.737Z"
 progress:
-  total_phases: 25
+  [████████░░] 84%
   completed_phases: 15
   total_plans: 32
   completed_plans: 27
@@ -314,9 +345,9 @@ last_updated: 2026-03-14
 
 **Phase 39.1 — Income Sources Tab**
 
-Status: In Progress — 39.1-01 done (2026-03-17), 39.1-02 done (2026-03-17), 39.1-03 automated tasks done — awaiting human checkpoint
+Status: Complete — 39.1-01 done, 39.1-02 done, 39.1-03 done (human verify approved 2026-03-17)
 
-Stopped at: Checkpoint 39.1-03 Task 3 (human-verify: Pay Sources tab, CRUD, Settings cleanup)
+Stopped at: Completed 39.1-03-PLAN.md
 
 ## Phase Progress
 
@@ -335,11 +366,11 @@ Stopped at: Checkpoint 39.1-03 Task 3 (human-verify: Pay Sources tab, CRUD, Sett
 | 37 | Cloud Snapshot Delta Preview | ✅ Complete (37-01 done — 2026-03-16) |
 | 38 | GitHub Actions Node.js 24, Legacy Import & Technical Hygiene | ✅ Complete (38-01 done — 2026-03-16) |
 | 39 | v3.0 Milestone Verification & Polish | ⬜ Not Started |
-| 39.1 | Income Sources Tab | 🔄 In Progress (39.1-01, 39.1-02, 39.1-03 auto tasks done — awaiting human verify) |
+| 39.1 | Income Sources Tab | ✅ Complete (39.1-01, 39.1-02, 39.1-03 done — human verify approved 2026-03-17) |
 
 ## Decisions Log
 
-- 2026-03-17 (39.1-03): Updated src/ui/income-spending-settings.test.js to reflect post-Plan-03 buckets-only state (income source tests replaced with regression guard asserting section absent); removed formatDate/todayStr helpers (income-source-only); Pay Sources tab wired into index.html + app.js; incomeSourcesUI.init() added to parallel init block; renderAll() branch added for income-sources panelId; 695 tests pass; PLAN-06-ext satisfied; awaiting human verify checkpoint.
+- 2026-03-17 (39.1-03): Pay Sources tab wired into index.html + app.js; incomeSourcesUI.init() added to parallel init block; renderAll() branch added for income-sources panelId; Settings cleaned to Spending Buckets only; import alias mismatch fixed (incomeSourcesUI not incomeSources) in b04c700; 695 tests pass; human verify approved — tab navigable, CRUD functional, Settings clean, no console errors; PLAN-06-ext satisfied.
 - 2026-03-17 (39.1-02): Used getActive() for CRUD source table (not getAll()); _handleDeleteSource returns boolean without calling render() to avoid Vitest module-cache listener cross-contamination; 45-day symmetric forward window replaces plan's 7-day window to pass Test 4 (UPCOMING_EVENT date is 14 days out); both tasks committed atomically since render() couples CRUD and pending sections; all 6 income-sources tests GREEN; 704 tests pass (1 intentional RED for Test B in income-spending-settings, resolved by Plan 03).
 - 2026-03-17 (39.1-01): Stub module pattern established: created src/ui/income-sources.js as no-op stub since Vite resolves paths before vi.mock hoisting; 6-test RED scaffold in tests/income-sources.test.js (CRUD add/edit/delete, pending cards, confirmIncome, adjustIncome); income-spending-settings scaffold Test A GREEN (buckets present), Test B RED (income sources still in render — Plan 03 removes); 698 existing tests pass; PLAN-06-ext satisfied.
 - 2026-03-16 (38-01): CI Node 24 already compliant — idempotent no-op (actions/setup-node@v6, node-version:24, FORCE_JAVASCRIPT_ACTIONS_TO_NODE24); legacy v2 import pipeline in src/utils/legacy-import.js (detectLegacyShape, validateLegacyData, mapLegacyToCurrent, importLegacyData, runLegacyImport) with skip-by-default conflict policy; APR normalisation '4.9%'->4.9; Import v2 Legacy button wired into cloud-sync.js _renderLocalSettingsActions; @vitest/coverage-v8@3.2.4 installed (pinned to match vitest@3.2.4); 38-coverage-audit.md: 10/15 phase 31-37 modules pass >=80% threshold, 4 deferred (debts.js 72%, repository.js 74%, ui/childcare.js 0%, cloud-sync.js 69%); childcareRepository.addDeposit/addSpend tests added; mock sortBy() bug fixed; 686 tests pass; TECH-01, INTEGRITY-02, TECH-04 satisfied.
