@@ -43,13 +43,13 @@
         <button id="mobileMenuBtn" class="mobile-menu-btn" aria-label="Toggle Menu">☰</button>
         <div class="tabs" id="mainTabs">
           <button class="tab active" data-tab="dashboard" aria-label="Dashboard"><span class="tab-label">Dashboard</span></button>
-          <button class="tab" data-tab="income" aria-label="Income"><span class="tab-label">Income</span></button>
+          <button class="tab" data-tab="transactions" aria-label="Transactions"><span class="tab-label">Transactions</span></button>
           <button class="tab" data-tab="expenses" aria-label="Expenses"><span class="tab-label">Expenses</span></button>
           <button class="tab" data-tab="debts" aria-label="Debts"><span class="tab-label">Debts</span></button>
           <button class="tab" data-tab="payoff" aria-label="Payoff"><span class="tab-label">Payoff</span></button>
           <button class="tab" data-tab="assets" aria-label="Assets"><span class="tab-label">Assets</span></button>
           <button class="tab" data-tab="childcare" aria-label="Childcare"><span class="tab-label">Childcare</span></button>
-          <button class="tab" data-tab="income-sources" aria-label="Pay Sources"><span class="tab-label">Pay Sources</span></button>
+          <button class="tab" data-tab="income-sources" aria-label="Income"><span class="tab-label">Income</span></button>
           <button class="tab" data-tab="settings" aria-label="Settings"><span class="tab-label">Settings</span></button>
         </div>
       </nav>
@@ -63,32 +63,6 @@
             <div class="chart-container" id="rollingOverviewChartContainer" style="margin-bottom: 20px">
               <h3 class="chart-title">Rolling Financial Overview</h3>
               <canvas id="rollingOverviewChart"></canvas>
-            </div>
-
-            <!-- Income Heatmap Section -->
-            <div class="card" id="incomeHeatmapSection" style="margin-bottom: 20px; overflow-x: auto; -webkit-overflow-scrolling: touch;">
-              <div class="card-hd">
-                <h3 class="chart-title">Income Heatmap</h3>
-              </div>
-              <div class="chart-container" style="padding: 15px; min-width: 800px; border-bottom: none">
-                <div id="incomeHeatmapContainer" class="privacy-blur"></div>
-              </div>
-              <div class="hint" style="padding: 0 15px 15px; font-size: 0.7rem; color: var(--text-soft)">
-                Grey means no income. Greener and darker cells indicate higher daily income.
-              </div>
-            </div>
-
-            <!-- Spending Heatmap Section -->
-            <div class="card" id="spendingHeatmapSection" style="margin-bottom: 20px; overflow-x: auto; -webkit-overflow-scrolling: touch;">
-              <div class="card-hd">
-                <h3 class="chart-title">Spending Heatmap</h3>
-              </div>
-              <div class="chart-container" style="padding: 15px; min-width: 800px; border-bottom: none">
-                <div id="spendingHeatmapContainer" class="privacy-blur"></div>
-              </div>
-              <div class="hint" style="padding: 0 15px 15px; font-size: 0.7rem; color: var(--text-soft)">
-                Grey means no spend. Greener and darker cells indicate higher daily spending.
-              </div>
             </div>
 
             <!-- Phase 36: Dashboard Navigator Controls Row -->
@@ -122,23 +96,54 @@
                 </div>
               </div>
             </div>
-          </div>
 
-          <!-- INCOME -->
-          <div class="tab-panel" data-panel="income">
-            <!-- Month Picker (Navigation) -->
-            <div id="incMonthPicker" class="month-nav" style="margin-bottom:20px"></div>
-
-            <div class="card" id="incomeTabHeatmapSection" style="margin-bottom: 20px; overflow-x: auto; -webkit-overflow-scrolling: touch;">
+            <!-- Income Heatmap Section -->
+            <div class="card" id="incomeHeatmapSection" style="margin-bottom: 20px; overflow-x: auto; -webkit-overflow-scrolling: touch;">
               <div class="card-hd">
                 <h3 class="chart-title">Income Heatmap</h3>
               </div>
               <div class="chart-container" style="padding: 15px; min-width: 800px; border-bottom: none">
-                <div id="incomeTabHeatmapContainer" class="privacy-blur"></div>
+                <div id="incomeHeatmapContainer" class="privacy-blur"></div>
               </div>
               <div class="hint" style="padding: 0 15px 15px; font-size: 0.7rem; color: var(--text-soft)">
                 Grey means no income. Greener and darker cells indicate higher daily income.
               </div>
+            </div>
+
+            <!-- Spending Heatmap Section -->
+            <div class="card" id="spendingHeatmapSection" style="margin-bottom: 20px; overflow-x: auto; -webkit-overflow-scrolling: touch;">
+              <div class="card-hd">
+                <h3 class="chart-title">Spending Heatmap</h3>
+              </div>
+              <div class="chart-container" style="padding: 15px; min-width: 800px; border-bottom: none">
+                <div id="spendingHeatmapContainer" class="privacy-blur"></div>
+              </div>
+              <div class="hint" style="padding: 0 15px 15px; font-size: 0.7rem; color: var(--text-soft)">
+                Grey means no spend. Greener and darker cells indicate higher daily spending.
+              </div>
+            </div>
+          </div>
+
+          <!-- TRANSACTIONS -->
+          <div class="tab-panel" data-panel="transactions">
+            <!-- Month Picker (Navigation) -->
+            <div id="incMonthPicker" class="month-nav" style="margin-bottom:20px"></div>
+
+            <!-- Income Heatmap -->
+            <div class="card" id="transactionsIncomeHeatmapSection" style="margin-bottom: 20px; overflow-x: auto; -webkit-overflow-scrolling: touch;">
+              <div class="card-hd"><h3 class="chart-title">Income Heatmap</h3></div>
+              <div class="chart-container" style="padding: 15px; min-width: 800px; border-bottom: none">
+                <div id="transactionsIncomeHeatmapContainer" class="privacy-blur"></div>
+              </div>
+              <div class="hint" style="padding: 0 15px 15px; font-size: 0.7rem; color: var(--text-soft)">Grey means no income. Greener and darker cells indicate higher daily income.</div>
+            </div>
+            <!-- Spending Heatmap -->
+            <div class="card" id="transactionsSpendingHeatmapSection" style="margin-bottom: 20px; overflow-x: auto; -webkit-overflow-scrolling: touch;">
+              <div class="card-hd"><h3 class="chart-title">Spending Heatmap</h3></div>
+              <div class="chart-container" style="padding: 15px; min-width: 800px; border-bottom: none">
+                <div id="transactionsSpendingHeatmapContainer" class="privacy-blur"></div>
+              </div>
+              <div class="hint" style="padding: 0 15px 15px; font-size: 0.7rem; color: var(--text-soft)">Grey means no spend. Greener and darker cells indicate higher daily spending.</div>
             </div>
 
             <div id="incomeSummary" style="margin-bottom:20px"></div>

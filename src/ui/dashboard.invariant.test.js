@@ -9,23 +9,27 @@ describe('dashboard layout invariants (Phase 17)', () => {
 
   it('maintains the correct vertical order for invariant/variant separation', () => {
     const rollingPos = html.indexOf('id="rollingOverviewChartContainer"');
-    const incomeHeatmapPos = html.indexOf('id="incomeHeatmapSection"');
-    const spendingHeatmapPos = html.indexOf('id="spendingHeatmapSection"');
     const pickerPos = html.indexOf('id="dashboardMonthPicker"');
     const gridPos = html.indexOf('id="summaryGrid"');
+    const spendingAnalyticsPos = html.indexOf('id="spendingBreakdownChart"');
+    const incomeHeatmapPos = html.indexOf('id="incomeHeatmapSection"');
+    const spendingHeatmapPos = html.indexOf('id="spendingHeatmapSection"');
 
     // All must exist
     expect(rollingPos).toBeGreaterThan(-1);
-    expect(incomeHeatmapPos).toBeGreaterThan(-1);
-    expect(spendingHeatmapPos).toBeGreaterThan(-1);
     expect(pickerPos).toBeGreaterThan(-1);
     expect(gridPos).toBeGreaterThan(-1);
+    expect(spendingAnalyticsPos).toBeGreaterThan(-1);
+    expect(incomeHeatmapPos).toBeGreaterThan(-1);
+    expect(spendingHeatmapPos).toBeGreaterThan(-1);
 
-    // Verify order: Rolling -> Income Heatmap -> Spending Heatmap -> Month Picker -> KPI Grid
-    expect(rollingPos).toBeLessThan(incomeHeatmapPos);
-    expect(incomeHeatmapPos).toBeLessThan(spendingHeatmapPos);
-    expect(spendingHeatmapPos).toBeLessThan(pickerPos);
+    // Phase 40 order: Rolling -> Navigator/Picker -> KPI Grid -> Spending Analytics -> Income Heatmap -> Spending Heatmap
+    // (heatmaps moved to bottom of dashboard to free up prime real estate for affordability cards)
+    expect(rollingPos).toBeLessThan(pickerPos);
     expect(pickerPos).toBeLessThan(gridPos);
+    expect(gridPos).toBeLessThan(spendingAnalyticsPos);
+    expect(spendingAnalyticsPos).toBeLessThan(incomeHeatmapPos);
+    expect(incomeHeatmapPos).toBeLessThan(spendingHeatmapPos);
   });
 
   it('confirms legacy #viewSelect is removed and segmented control mount is co-located with dashboardMonthPicker', () => {

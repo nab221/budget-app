@@ -131,7 +131,7 @@ async function init() {
       const renderTasks = [];
       
       if (panelId === 'dashboard') renderTasks.push(renderDashboard());
-      if (panelId === 'income') renderTasks.push(transactionUI.render());
+      if (panelId === 'transactions') renderTasks.push(transactionUI.render());
       if (panelId === 'expenses') renderTasks.push(expensesUI.render());
       if (panelId === 'debts') renderTasks.push(debtUI.render());
       if (panelId === 'assets') renderTasks.push(assetUI.render());
