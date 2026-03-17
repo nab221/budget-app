@@ -23,6 +23,7 @@ import { renderPayoffPlanner } from './ui/payoff.js';
 import { initPWA, installApp, checkExportReminder } from './ui/pwa-ux.js';
 import { initFileSyncUI, refreshPersistenceWarning } from './ui/file-sync.js';
 import { childcareUI } from './ui/childcare.js';
+import { incomeSourcesUI } from './ui/income-sources.js';
 import { calculateBalanceChain } from './utils/finance.js';
 import { 
   BALANCE_START_DATE_KEY, 
@@ -136,6 +137,7 @@ async function init() {
       if (panelId === 'assets') renderTasks.push(assetUI.render());
       if (panelId === 'payoff') renderTasks.push(renderPayoffPlanner());
       if (panelId === 'childcare') renderTasks.push(childcareUI.render());
+      if (panelId === 'income-sources') renderTasks.push(incomeSourcesUI.render());
       if (panelId === 'settings') {
         renderTasks.push(categoryUI.render());
         renderTasks.push(targetsUI.renderTargetSettings());
@@ -257,6 +259,7 @@ async function init() {
     debtUI.init(),
     assetUI.init(),
     childcareUI.init(),
+    incomeSourcesUI.init(),
     templateUI.init(),
     pdfImportUI.init(),
     categoryUI.init(),

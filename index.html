@@ -49,6 +49,7 @@
           <button class="tab" data-tab="payoff" aria-label="Payoff"><span class="tab-label">Payoff</span></button>
           <button class="tab" data-tab="assets" aria-label="Assets"><span class="tab-label">Assets</span></button>
           <button class="tab" data-tab="childcare" aria-label="Childcare"><span class="tab-label">Childcare</span></button>
+          <button class="tab" data-tab="income-sources" aria-label="Pay Sources"><span class="tab-label">Pay Sources</span></button>
           <button class="tab" data-tab="settings" aria-label="Settings"><span class="tab-label">Settings</span></button>
         </div>
       </nav>
@@ -342,6 +343,13 @@
             <div id="childcareAccountList"></div>
             <!-- Ledger view (shown when an account is selected) -->
             <div id="childcareLedgerSection" style="display:none"></div>
+          </div>
+
+          <!-- PAY SOURCES -->
+          <div class="tab-panel" data-panel="income-sources">
+            <div id="incomeSourcesSummary"></div>
+            <div id="incomePendingConfirmations"></div>
+            <div id="incomeSourceList"></div>
           </div>
 
           <!-- SETTINGS -->
