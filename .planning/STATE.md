@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Milestone Verification & Polish
 status: in_progress
-stopped_at: Completed 40-01-PLAN.md
-last_updated: "2026-03-17T22:18:00.881Z"
+stopped_at: Completed 40-02-PLAN.md
+last_updated: "2026-03-17T22:49:41.800Z"
 progress:
   total_phases: 26
   completed_phases: 15
   total_plans: 35
-  completed_plans: 28
+  completed_plans: 29
   percent: 80
 ---
 
@@ -358,11 +358,11 @@ last_updated: 2026-03-14
 
 ## Current Focus
 
-**Phase 39.1 — Income Sources Tab**
+**Phase 40 — Redesign Income and Transactions Tab Structure**
 
-Status: Complete — 39.1-01 done, 39.1-02 done, 39.1-03 done (human verify approved 2026-03-17)
+Status: In Progress — 40-01 done (RED scaffold), 40-02 done (full implementation), 40-03 pending (human verify)
 
-Stopped at: Completed 40-01-PLAN.md
+Stopped at: Completed 40-02-PLAN.md
 
 ## Phase Progress
 
@@ -382,9 +382,11 @@ Stopped at: Completed 40-01-PLAN.md
 | 38 | GitHub Actions Node.js 24, Legacy Import & Technical Hygiene | ✅ Complete (38-01 done — 2026-03-16) |
 | 39 | v3.0 Milestone Verification & Polish | ⬜ Not Started |
 | 39.1 | Income Sources Tab | ✅ Complete (39.1-01, 39.1-02, 39.1-03 done — human verify approved 2026-03-17) |
+| 40 | Redesign Income and Transactions Tab Structure | 🔄 In Progress (40-01 done, 40-02 done — 40-03 pending) |
 
 ## Decisions Log
 
+- 2026-03-17 (40-02): Full Phase 40 implementation: Income tab renamed to Transactions (data-tab/panel); Pay Sources label renamed to Income; _buildMergedRows() pure helper on transactionUI; renderTransactions() replaces renderIncome() with merged IN/OUT cashflow view from all three repos; dual heatmaps (income+spending) in Transactions panel; dashboard heatmaps moved below .grid2; app.js routes 'transactions' panelId; getYearlyDailySpending is actual export (not getYearlyDailyExpenses); dashboard.invariant.test.js order assertion updated; 709 tests pass; build succeeds.
 - 2026-03-17 (39.1-03): Pay Sources tab wired into index.html + app.js; incomeSourcesUI.init() added to parallel init block; renderAll() branch added for income-sources panelId; Settings cleaned to Spending Buckets only; import alias mismatch fixed (incomeSourcesUI not incomeSources) in b04c700; 695 tests pass; human verify approved — tab navigable, CRUD functional, Settings clean, no console errors; PLAN-06-ext satisfied.
 - 2026-03-17 (39.1-02): Used getActive() for CRUD source table (not getAll()); _handleDeleteSource returns boolean without calling render() to avoid Vitest module-cache listener cross-contamination; 45-day symmetric forward window replaces plan's 7-day window to pass Test 4 (UPCOMING_EVENT date is 14 days out); both tasks committed atomically since render() couples CRUD and pending sections; all 6 income-sources tests GREEN; 704 tests pass (1 intentional RED for Test B in income-spending-settings, resolved by Plan 03).
 - 2026-03-17 (39.1-01): Stub module pattern established: created src/ui/income-sources.js as no-op stub since Vite resolves paths before vi.mock hoisting; 6-test RED scaffold in tests/income-sources.test.js (CRUD add/edit/delete, pending cards, confirmIncome, adjustIncome); income-spending-settings scaffold Test A GREEN (buckets present), Test B RED (income sources still in render — Plan 03 removes); 698 existing tests pass; PLAN-06-ext satisfied.
