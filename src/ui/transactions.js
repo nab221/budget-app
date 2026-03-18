@@ -639,11 +639,11 @@ export const transactionUI = {
       const id = Number(row.dataset.id);
       const rowType = row.dataset.rowType; // 'income' | 'expense'
       const expenseType = row.dataset.type; // 'recurrent' | 'oneoff' (only for expense rows)
-      const isDebtRow = rowType === 'expense' && row.dataset.isDebt === 'true';
+      // For expense rows that are debt-linked, no swipe setup needed (no action divs rendered)
+      const isDebtRow = rowType === 'expense' && !row.querySelector('.btn-edit');
       const isLocked = row.classList.contains('reconciled-row') || this.reconciliationMode || isDebtRow;
 
-      // For expense rows that are debt-linked, no swipe setup needed (no action divs)
-      if (rowType === 'expense' && row.querySelector('[data-tab="debts"]')) return;
+      if (isDebtRow) return;
 
       const handleEdit = () => {
         this.closeAllRows();
@@ -718,11 +718,22 @@ export const transactionUI = {
       if (editDiv) editDiv.addEventListener('click', handleEdit);
       if (deleteDiv) deleteDiv.addEventListener('click', handleDelete);
 
-      // Close row on tap if it's currently open (but not on the action divs themselves)
+      // Close row on tap if it's currently open; for income rows, also navigate to Income tab
       row.onclick = (e) => {
+        const onActionDiv = e.target.classList.contains('swipe-action-left') ||
+                            e.target.classList.contains('swipe-action-right');
         if (this.currentOpenRow === row) {
-          if (!e.target.classList.contains('swipe-action-left') && !e.target.classList.contains('swipe-action-right')) {
-            this.closeAllRows();
+          if (!onActionDiv) this.closeAllRows();
+          return;
+        }
+        // Tap on a non-open income row → navigate to the Income tab
+        if (rowType === 'income') {
+          const onBtn = e.target.classList.contains('btn-edit') ||
+                        e.target.classList.contains('btn-delete') ||
+                        e.target.type === 'checkbox';
+          if (!onBtn && !onActionDiv) {
+            const incomeTab = document.querySelector('[data-tab="income-sources"]');
+            if (incomeTab) incomeTab.click();
           }
         }
       };
