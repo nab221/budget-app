@@ -692,15 +692,18 @@ Plans:
 
 ### Phase 40 — Redesign income and transactions tab structure
 
-**Goal:** Rename "Pay Sources" tab to "Income", rename current "Income" tab to "Transactions" (merged IN/OUT view), move both heatmaps into the Transactions tab, and reposition dashboard heatmaps below the actionable summary cards.
+**Goal:** Rename "Pay Sources" tab to "Income", rename current "Income" tab to "Transactions" (merged IN/OUT view), move both heatmaps into the Transactions tab, and reposition dashboard heatmaps below the actionable summary cards. Gap-closure plans also remove the Expenses tab (unified into Transactions) and fix interactions.
 **Requirements:** 40-01, 40-02, 40-03, 40-04, 40-05
 **Depends on:** Phase 39.1
-**Plans:** 2/3 plans executed
+**Plans:** 6 plans (3 executed, 3 gap-closure)
 
 Plans:
-- [ ] 40-01-PLAN.md — Wave 0: RED test scaffold for merged transactions view
-- [ ] 40-02-PLAN.md — Rename tabs, build merged IN/OUT view, dual heatmaps, dashboard reorder
-- [ ] 40-03-PLAN.md — Human verify checkpoint
+- [x] 40-01-PLAN.md — Wave 0: RED test scaffold for merged transactions view
+- [x] 40-02-PLAN.md — Rename tabs, build merged IN/OUT view, dual heatmaps, dashboard reorder
+- [x] 40-03-PLAN.md — Human verify checkpoint (gaps found 2026-03-18)
+- [ ] 40-04-PLAN.md — GAP-02 + GAP-03: Fix expense swipe CRUD and income row tap navigation in Transactions tab
+- [ ] 40-05-PLAN.md — GAP-04 + GAP-05: Fix duplicate income entry bug; add tab icons and fix tab ordering
+- [ ] 40-06-PLAN.md — GAP-01: Remove Expenses tab, unify expense management into Transactions tab
 
 ---
 
@@ -740,10 +743,11 @@ Plans:
 | TECH-01 | 38 |
 | TECH-04 | 38 |
 | INTEGRITY-02 | 38 |
-| 40-01 | 40 | 2/3 | In Progress|  |
-| 40-03 | 40 |
-| 40-04 | 40 |
-| 40-05 | 40 |
+| 40-01 | 40 (40-02) |
+| 40-02 | 40 (40-01, 40-02) |
+| 40-03 | 40 (40-01, 40-02, 40-03, 40-04, 40-05, 40-06) |
+| 40-04 | 40 (40-05, 40-06) |
+| 40-05 | 40 (40-04, 40-05, 40-06) |
 
 ---
-*Last updated: 2026-03-17*
+*Last updated: 2026-03-18*
