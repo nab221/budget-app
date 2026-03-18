@@ -360,6 +360,151 @@ describe('Group B — merged row model (REQ-40-03)', () => {
 // 'incomeTabHeatmapContainer', so all Group C assertions FAIL.
 // ===========================================================================
 
+// ===========================================================================
+// GROUP D — Expense swipe CRUD and income row tap navigation (GAP-02, GAP-03)
+// ===========================================================================
+
+describe('Group D — expense swipe CRUD and income tap navigation (GAP-02, GAP-03)', () => {
+  it('swipe-right on non-debt expense row calls window.expensesUI.editExpense()', async () => {
+    const { transactionUI } = await import('../src/ui/transactions.js');
+
+    // Set up window.expensesUI mock
+    const editExpenseMock = vi.fn();
+    window.expensesUI = { editExpense: editExpenseMock };
+
+    // Render a proper table so jsdom preserves <tr> elements (bare <tr> in a <div> is dropped)
+    const container = document.getElementById('incBody');
+    container.innerHTML = `
+      <table><tbody id="tableBody">
+        <tr class="swipe-row" data-id="10" data-row-type="expense" data-type="recurrent">
+          <td><div class="swipe-action-left">Edit</div><div class="swipe-action-right">Delete</div>01-Jan</td>
+          <td>Rent</td>
+          <td>£120.00</td>
+          <td><button class="sm ghost btn-edit">Edit</button><button class="sm danger btn-delete">&#x2715;</button></td>
+        </tr>
+      </tbody></table>
+    `;
+    const tableBody = container.querySelector('tbody');
+
+    transactionUI._initSwipe(tableBody);
+
+    // Simulate click on the swipe-action-left div (Edit action)
+    const editDiv = tableBody.querySelector('.swipe-action-left');
+    editDiv.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(editExpenseMock).toHaveBeenCalledWith(10, 'recurrent');
+
+    delete window.expensesUI;
+  });
+
+  it('swipe-left on non-debt expense row calls window.deleteExpense()', async () => {
+    const { transactionUI } = await import('../src/ui/transactions.js');
+
+    const deleteExpenseMock = vi.fn();
+    window.deleteExpense = deleteExpenseMock;
+
+    const container = document.getElementById('incBody');
+    container.innerHTML = `
+      <table><tbody>
+        <tr class="swipe-row" data-id="20" data-row-type="expense" data-type="oneoff">
+          <td><div class="swipe-action-left">Edit</div><div class="swipe-action-right">Delete</div>01-Jan</td>
+          <td>Dentist</td>
+          <td>£80.00</td>
+          <td><button class="sm ghost btn-edit">Edit</button><button class="sm danger btn-delete">&#x2715;</button></td>
+        </tr>
+      </tbody></table>
+    `;
+    const tableBody = container.querySelector('tbody');
+
+    transactionUI._initSwipe(tableBody);
+
+    const deleteDiv = tableBody.querySelector('.swipe-action-right');
+    deleteDiv.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(deleteExpenseMock).toHaveBeenCalledWith(20, 'oneoff');
+
+    delete window.deleteExpense;
+  });
+
+  it('clicking a closed income row navigates to the income-sources tab', async () => {
+    const { transactionUI } = await import('../src/ui/transactions.js');
+
+    // Add an income-sources tab button to the DOM
+    const nav = document.getElementById('mainTabs');
+    const incomeTabBtn = document.createElement('button');
+    incomeTabBtn.setAttribute('data-tab', 'income-sources');
+    incomeTabBtn.className = 'tab';
+    const clickSpy = vi.fn();
+    incomeTabBtn.addEventListener('click', clickSpy);
+    nav.appendChild(incomeTabBtn);
+
+    const container = document.getElementById('incBody');
+    container.innerHTML = `
+      <table><tbody>
+        <tr class="swipe-row" data-id="1" data-row-type="income">
+          <td>20-Mar</td>
+          <td>NHS Salary</td>
+          <td>£3000.00</td>
+          <td><button class="sm ghost btn-edit">Edit</button><button class="sm danger btn-delete">&#x2715;</button></td>
+        </tr>
+      </tbody></table>
+    `;
+    const tableBody = container.querySelector('tbody');
+
+    transactionUI.currentOpenRow = null;
+    transactionUI._initSwipe(tableBody);
+
+    // Click the income row (not on a button)
+    const row = tableBody.querySelector('tr');
+    row.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+
+    nav.removeChild(incomeTabBtn);
+  });
+
+  it('clicking an open (swiped) income row closes it without navigating', async () => {
+    const { transactionUI } = await import('../src/ui/transactions.js');
+
+    const nav = document.getElementById('mainTabs');
+    const incomeTabBtn = document.createElement('button');
+    incomeTabBtn.setAttribute('data-tab', 'income-sources');
+    incomeTabBtn.className = 'tab';
+    const clickSpy = vi.fn();
+    incomeTabBtn.addEventListener('click', clickSpy);
+    nav.appendChild(incomeTabBtn);
+
+    const container = document.getElementById('incBody');
+    container.innerHTML = `
+      <table><tbody>
+        <tr class="swipe-row swipe-active" data-id="1" data-row-type="income" style="transform:translateX(80px)">
+          <td>20-Mar</td>
+          <td>NHS Salary</td>
+          <td>£3000.00</td>
+          <td><button class="sm ghost btn-edit">Edit</button><button class="sm danger btn-delete">&#x2715;</button></td>
+        </tr>
+      </tbody></table>
+    `;
+    const tableBody = container.querySelector('tbody');
+    const row = tableBody.querySelector('tr');
+
+    transactionUI.currentOpenRow = row; // mark as open before _initSwipe
+    transactionUI._initSwipe(tableBody);
+
+    // Re-set after _initSwipe resets currentOpenRow
+    transactionUI.currentOpenRow = row;
+
+    row.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    // Should NOT navigate
+    expect(clickSpy).not.toHaveBeenCalled();
+    // Row should be closed
+    expect(transactionUI.currentOpenRow).toBeNull();
+
+    nav.removeChild(incomeTabBtn);
+  });
+});
+
 describe('Group C — dual heatmap containers (REQ-40-04)', () => {
   it('renderHeatmap() calls renderSpendingHeatmap with "transactionsIncomeHeatmapContainer"', async () => {
     const { transactionUI } = await import('../src/ui/transactions.js');
