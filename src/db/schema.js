@@ -533,6 +533,141 @@ db.version(18).stores({
   }
 });
 
+db.version(19).stores({
+  income: '++id, date, source, amount, categoryId, isCleared, isReconciled',
+  recurrentExpenses: '++id, date, categoryId, label, amount, status, frequency, nextDate, predictedPaymentDate, isEssential, cycleTotal, cycleCurrent, endDate, isDebtPayment, linkedStatementId, isRecurring, recurrenceId, parentDate, debtType, isCleared, isReconciled, linkedDebtId, paymentAdjustment',
+  oneOffExpenses: '++id, date, categoryId, note, amount, isRecurring, frequency, recurrenceId, parentDate, isCleared, isReconciled',
+  debts: '++id, name, debtType, apr, creditLimit, currentBalance, promoEndDate, postPromoApr, originalPrincipal, termMonths, fixedMonthlyPayment, interestRate, earlyRepaymentFee, earlyRepaymentFeeIsPercent, earlyRepaymentAllowed, isInterestOnly',
+  statements: '++id, debtId, date, amount, interest, fees, actualPaymentDate, linkedExpenseId',
+  assets: '++id, name, type, asOfDate, currentBalance',
+  categories: '++id, name, group',
+  targets: '++id, bucket, amount',
+  netWorthSnapshots: '++id, month, totalAssets, totalDebt, netWorth',
+  categoryMappings: '++id, description, categoryId',
+  childcareAccounts: '++id, childName, targetMonthlySpend, entitlementStart, isDisabled, openingBalance',
+  childcareLedger: '++id, accountId, date, type, amount, runningBalance',
+  balanceSnapshots: '++id, month, openingBalance, closingBalance, incomeTotal, expenseTotal',
+  dailyBalanceSnapshots: '++id, date, openingBalance, closingBalance, incomeTotal, expenseTotal',
+  expectedIncome: '++id, date, source, amount, categoryId, status',
+  bankHolidayOverrides: '++id, date, isOpen'
+}).upgrade(async tx => {
+  await tx.table('recurrentExpenses').toCollection().modify(item => {
+    if (item.paymentAdjustment === undefined) item.paymentAdjustment = 'none';
+  });
+});
+
+db.version(20).stores({
+  income: '++id, date, source, amount, categoryId, isCleared, isReconciled',
+  recurrentExpenses: '++id, date, categoryId, label, amount, status, frequency, nextDate, predictedPaymentDate, isEssential, cycleTotal, cycleCurrent, endDate, isDebtPayment, linkedStatementId, isRecurring, recurrenceId, parentDate, debtType, isCleared, isReconciled, linkedDebtId, paymentAdjustment',
+  oneOffExpenses: '++id, date, categoryId, note, amount, isRecurring, frequency, recurrenceId, parentDate, isCleared, isReconciled',
+  debts: '++id, name, debtType, apr, creditLimit, currentBalance, promoEndDate, postPromoApr, originalPrincipal, termMonths, fixedMonthlyPayment, interestRate, earlyRepaymentFee, earlyRepaymentFeeIsPercent, earlyRepaymentAllowed, isInterestOnly, paymentDayOfMonth',
+  statements: '++id, debtId, date, amount, interest, fees, actualPaymentDate, linkedExpenseId',
+  assets: '++id, name, type, asOfDate, currentBalance',
+  categories: '++id, name, group',
+  targets: '++id, bucket, amount',
+  netWorthSnapshots: '++id, month, totalAssets, totalDebt, netWorth',
+  categoryMappings: '++id, description, categoryId',
+  childcareAccounts: '++id, childName, targetMonthlySpend, entitlementStart, isDisabled, openingBalance',
+  childcareLedger: '++id, accountId, date, type, amount, runningBalance',
+  balanceSnapshots: '++id, month, openingBalance, closingBalance, incomeTotal, expenseTotal',
+  dailyBalanceSnapshots: '++id, date, openingBalance, closingBalance, incomeTotal, expenseTotal',
+  expectedIncome: '++id, date, source, amount, categoryId, status',
+  bankHolidayOverrides: '++id, date, isOpen'
+}).upgrade(async tx => {
+  await tx.table('debts').toCollection().modify(d => {
+    if (d.paymentDayOfMonth === undefined) d.paymentDayOfMonth = 1;
+  });
+});
+
+// Define version 21 schema: Income Sources & Spending Buckets (Phase 33)
+// Adds incomeSources for per-source payday configuration and spendingBuckets
+// for estimated-outgoing configuration used by Phase 34 affordability engine.
+// Both stores are covered by the existing generic db.tables snapshot path in
+// supabase-sync.js and require no allowlist registration.
+db.version(21).stores({
+  income: '++id, date, source, amount, categoryId, isCleared, isReconciled',
+  recurrentExpenses: '++id, date, categoryId, label, amount, status, frequency, nextDate, predictedPaymentDate, isEssential, cycleTotal, cycleCurrent, endDate, isDebtPayment, linkedStatementId, isRecurring, recurrenceId, parentDate, debtType, isCleared, isReconciled, linkedDebtId, paymentAdjustment',
+  oneOffExpenses: '++id, date, categoryId, note, amount, isRecurring, frequency, recurrenceId, parentDate, isCleared, isReconciled',
+  debts: '++id, name, debtType, apr, creditLimit, currentBalance, promoEndDate, postPromoApr, originalPrincipal, termMonths, fixedMonthlyPayment, interestRate, earlyRepaymentFee, earlyRepaymentFeeIsPercent, earlyRepaymentAllowed, isInterestOnly, paymentDayOfMonth',
+  statements: '++id, debtId, date, amount, interest, fees, actualPaymentDate, linkedExpenseId',
+  assets: '++id, name, type, asOfDate, currentBalance',
+  categories: '++id, name, group',
+  targets: '++id, bucket, amount',
+  netWorthSnapshots: '++id, month, totalAssets, totalDebt, netWorth',
+  categoryMappings: '++id, description, categoryId',
+  childcareAccounts: '++id, childName, targetMonthlySpend, entitlementStart, isDisabled, openingBalance',
+  childcareLedger: '++id, accountId, date, type, amount, runningBalance',
+  balanceSnapshots: '++id, month, openingBalance, closingBalance, incomeTotal, expenseTotal',
+  dailyBalanceSnapshots: '++id, date, openingBalance, closingBalance, incomeTotal, expenseTotal',
+  expectedIncome: '++id, date, source, amount, categoryId, status',
+  bankHolidayOverrides: '++id, date, isOpen',
+  incomeSources: '++id, name, monthlyAmount, payDateRule, payDateDay, isActive, displayOrder',
+  spendingBuckets: '++id, name, monthlyAmount, icon, displayOrder'
+});
+// No upgrade() needed — new tables start empty; default bucket seeding handled in repository.
+
+// Define version 22 schema: Pay-Period Affordability Settings (Phase 34)
+// Adds userPreferences key-value table for persisted affordability settings.
+// The initial use is safetyBuffer (integer pence, default 20000 = £200).
+// Covered by the existing generic db.tables snapshot path in supabase-sync.js —
+// no allowlist registration required.
+db.version(22).stores({
+  income: '++id, date, source, amount, categoryId, isCleared, isReconciled',
+  recurrentExpenses: '++id, date, categoryId, label, amount, status, frequency, nextDate, predictedPaymentDate, isEssential, cycleTotal, cycleCurrent, endDate, isDebtPayment, linkedStatementId, isRecurring, recurrenceId, parentDate, debtType, isCleared, isReconciled, linkedDebtId, paymentAdjustment',
+  oneOffExpenses: '++id, date, categoryId, note, amount, isRecurring, frequency, recurrenceId, parentDate, isCleared, isReconciled',
+  debts: '++id, name, debtType, apr, creditLimit, currentBalance, promoEndDate, postPromoApr, originalPrincipal, termMonths, fixedMonthlyPayment, interestRate, earlyRepaymentFee, earlyRepaymentFeeIsPercent, earlyRepaymentAllowed, isInterestOnly, paymentDayOfMonth',
+  statements: '++id, debtId, date, amount, interest, fees, actualPaymentDate, linkedExpenseId',
+  assets: '++id, name, type, asOfDate, currentBalance',
+  categories: '++id, name, group',
+  targets: '++id, bucket, amount',
+  netWorthSnapshots: '++id, month, totalAssets, totalDebt, netWorth',
+  categoryMappings: '++id, description, categoryId',
+  childcareAccounts: '++id, childName, targetMonthlySpend, entitlementStart, isDisabled, openingBalance',
+  childcareLedger: '++id, accountId, date, type, amount, runningBalance',
+  balanceSnapshots: '++id, month, openingBalance, closingBalance, incomeTotal, expenseTotal',
+  dailyBalanceSnapshots: '++id, date, openingBalance, closingBalance, incomeTotal, expenseTotal',
+  expectedIncome: '++id, date, source, amount, categoryId, status',
+  bankHolidayOverrides: '++id, date, isOpen',
+  incomeSources: '++id, name, monthlyAmount, payDateRule, payDateDay, isActive, displayOrder',
+  spendingBuckets: '++id, name, monthlyAmount, icon, displayOrder',
+  userPreferences: '&key, value'
+});
+// No upgrade() needed — userPreferences starts empty; defaults applied at read time.
+
+// Define version 23 schema: Childcare Providers (Phase 35)
+// Adds childcareProviders store for account-scoped provider records.
+// Each provider record captures name, billing frequency (monthly/termly),
+// and the relevant amount fields for monthly-equivalent calculation.
+// Covered by the existing generic db.tables snapshot path in supabase-sync.js —
+// no allowlist registration required (TECH-06 compliant).
+db.version(23).stores({
+  income: '++id, date, source, amount, categoryId, isCleared, isReconciled',
+  recurrentExpenses: '++id, date, categoryId, label, amount, status, frequency, nextDate, predictedPaymentDate, isEssential, cycleTotal, cycleCurrent, endDate, isDebtPayment, linkedStatementId, isRecurring, recurrenceId, parentDate, debtType, isCleared, isReconciled, linkedDebtId, paymentAdjustment',
+  oneOffExpenses: '++id, date, categoryId, note, amount, isRecurring, frequency, recurrenceId, parentDate, isCleared, isReconciled',
+  debts: '++id, name, debtType, apr, creditLimit, currentBalance, promoEndDate, postPromoApr, originalPrincipal, termMonths, fixedMonthlyPayment, interestRate, earlyRepaymentFee, earlyRepaymentFeeIsPercent, earlyRepaymentAllowed, isInterestOnly, paymentDayOfMonth',
+  statements: '++id, debtId, date, amount, interest, fees, actualPaymentDate, linkedExpenseId',
+  assets: '++id, name, type, asOfDate, currentBalance',
+  categories: '++id, name, group',
+  targets: '++id, bucket, amount',
+  netWorthSnapshots: '++id, month, totalAssets, totalDebt, netWorth',
+  categoryMappings: '++id, description, categoryId',
+  childcareAccounts: '++id, childName, targetMonthlySpend, entitlementStart, isDisabled, openingBalance',
+  childcareLedger: '++id, accountId, date, type, amount, runningBalance',
+  balanceSnapshots: '++id, month, openingBalance, closingBalance, incomeTotal, expenseTotal',
+  dailyBalanceSnapshots: '++id, date, openingBalance, closingBalance, incomeTotal, expenseTotal',
+  expectedIncome: '++id, date, source, amount, categoryId, status',
+  bankHolidayOverrides: '++id, date, isOpen',
+  incomeSources: '++id, name, monthlyAmount, payDateRule, payDateDay, isActive, displayOrder',
+  spendingBuckets: '++id, name, monthlyAmount, icon, displayOrder',
+  userPreferences: '&key, value',
+  childcareProviders: '++id, accountId, name, frequency'
+});
+// No upgrade() needed — childcareProviders starts empty.
+// Schema notes: frequency = 'monthly' | 'termly'
+// monthly providers: monthlyEquivalentPence stored directly
+// termly providers: termlyAmountPence stored (monthlyEquivalent = termlyAmountPence / 3)
+// pendingGovernmentBonusPence: optional field for unconfirmed gov bonus credit
+
 // Handle schema updates in other tabs
 db.on('versionchange', function() {
   db.close();

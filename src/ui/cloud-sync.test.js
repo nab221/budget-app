@@ -58,9 +58,12 @@ vi.mock('../utils/haptics.js', () => ({
   triggerHaptic: vi.fn(),
 }));
 
+// Phase 37: db mock supports .tables for delta preview tests
+const mockDbTables = [];
 vi.mock('../db/schema.js', () => ({
   db: {
     verno: 1,
+    get tables() { return mockDbTables; },
   },
 }));
 
@@ -74,11 +77,20 @@ vi.mock('./notifications.js', () => ({
   },
 }));
 
+// Phase 37: snapshot-diff mock — auto-mock with vi.fn() exports
+vi.mock('../utils/snapshot-diff.js', () => ({
+  computeSnapshotDiff: vi.fn(),
+  isFirstSyncFallback: vi.fn(),
+  formatDiffSummary: vi.fn(),
+  canonicalizeRecordForDiff: vi.fn((r) => JSON.stringify(r)),
+}));
+
 import { cloudSyncUI } from './cloud-sync.js';
 import { notificationUI } from './notifications.js';
 import { templateUI } from './templates.js';
 import { importBackupData } from '../db/backup.js';
 import * as supabaseSync from '../utils/supabase-sync.js';
+import * as snapshotDiff from '../utils/snapshot-diff.js';
 
 describe('cloud-sync header actions (Phase 23)', () => {
   beforeEach(() => {
@@ -859,6 +871,12 @@ describe('cloud-sync sync visibility (Phase 25)', () => {
         document.body.innerHTML += `${body}${footer}`;
       });
 
+      // Reset preview handler so Phase 25 gets a clean listener
+      if (cloudSyncUI._previewHandler) {
+        window.removeEventListener('budget:import-cloud-preview', cloudSyncUI._previewHandler);
+        cloudSyncUI._previewHandler = null;
+      }
+      cloudSyncUI._previewListenerBound = false;
       cloudSyncUI._bindPreviewListener();
 
       window.dispatchEvent(new CustomEvent('budget:import-cloud-preview', {
@@ -870,12 +888,220 @@ describe('cloud-sync sync visibility (Phase 25)', () => {
         },
       }));
 
+      // Handler is async — wait for db.tables read + modal render
+      await new Promise((r) => setTimeout(r, 0));
+
       document.getElementById('confirmCloudImportBtn')?.click();
       await Promise.resolve();
 
       expect(localStorage.getItem(supabaseSync.CLOUD_LAST_SYNC_KEY)).toBe(String(Date.parse(updatedAt)));
       expect(importBackupData).toHaveBeenCalled();
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 37 — Cloud Snapshot Delta Preview
+// ---------------------------------------------------------------------------
+describe('cloud-sync delta preview (Phase 37)', () => {
+  const updatedAt = '2026-03-16T12:00:00.000Z';
+
+  function dispatchPreview(tableData = { income: [{ id: 1, amount: 100 }] }) {
+    window.dispatchEvent(
+      new CustomEvent('budget:import-cloud-preview', {
+        detail: {
+          updated_at: updatedAt,
+          schema_version: 1,
+          counts: { income: 1 },
+          tableData,
+        },
+      })
+    );
+  }
+
+  beforeEach(() => {
+    configured = true;
+    localStorage.clear();
+    vi.clearAllMocks();
+    mockGetFileSyncState.mockReturnValue({ fileName: null, status: 'idle', statusText: '' });
+    mockGetSession.mockResolvedValue(null);
+    currentSupabaseClient = {
+      auth: {
+        signOut: mockSignOut,
+        onAuthStateChange: mockOnAuthStateChange.mockImplementation(() => ({
+          data: { subscription: { unsubscribe: mockUnsubscribe } },
+        })),
+      },
+    };
+
+    // Reset preview listener: remove old handler if present, then re-arm
+    if (cloudSyncUI._previewHandler) {
+      window.removeEventListener('budget:import-cloud-preview', cloudSyncUI._previewHandler);
+      cloudSyncUI._previewHandler = null;
+    }
+    cloudSyncUI._previewListenerBound = false;
+
+    // Default: non-empty local baseline (delta mode active)
+    mockDbTables.length = 0;
+    mockDbTables.push({
+      name: 'income',
+      toArray: vi.fn().mockResolvedValue([{ id: 1, amount: 100 }]),
+    });
+
+    // snapshot-diff defaults: non-first-sync with one change
+    vi.mocked(snapshotDiff.isFirstSyncFallback).mockReturnValue(false);
+    vi.mocked(snapshotDiff.computeSnapshotDiff).mockReturnValue({
+      income: { added: 1, deleted: 0, updated: 0 },
+    });
+    vi.mocked(snapshotDiff.formatDiffSummary).mockReturnValue([
+      { store: 'income', added: 1, deleted: 0, updated: 0 },
+    ]);
+
+    vi.mocked(templateUI.showModal).mockImplementation((_title, body, footer) => {
+      document.body.innerHTML = `${body}${footer || ''}`;
+    });
+
+    document.body.innerHTML = '<div id="cloudSyncActionsHeader"></div>';
+  });
+
+  // Test 1: delta mode shows formatted diff lines
+  it('shows delta lines in the preview modal when a non-empty local baseline exists', async () => {
+    cloudSyncUI._bindPreviewListener();
+    dispatchPreview();
+    // Wait for async db.tables reads to settle
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(snapshotDiff.isFirstSyncFallback).toHaveBeenCalled();
+    expect(snapshotDiff.computeSnapshotDiff).toHaveBeenCalled();
+    expect(snapshotDiff.formatDiffSummary).toHaveBeenCalled();
+    expect(templateUI.showModal).toHaveBeenCalled();
+    // Modal body should include store name from diff line
+    const [, body] = vi.mocked(templateUI.showModal).mock.calls[0];
+    expect(body).toContain('income');
+  });
+
+  // Test 2: first-sync fallback shows full-summary counts
+  it('shows full-summary count view when no local baseline exists (first sync)', async () => {
+    mockDbTables.length = 0;
+    mockDbTables.push({
+      name: 'income',
+      toArray: vi.fn().mockResolvedValue([]),
+    });
+    vi.mocked(snapshotDiff.isFirstSyncFallback).mockReturnValue(true);
+
+    cloudSyncUI._bindPreviewListener();
+    dispatchPreview();
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(snapshotDiff.computeSnapshotDiff).not.toHaveBeenCalled();
+    expect(snapshotDiff.formatDiffSummary).not.toHaveBeenCalled();
+    // Full-summary path renders count lines from the event's counts field
+    const [, body] = vi.mocked(templateUI.showModal).mock.calls[0];
+    expect(body).toContain('income');
+  });
+
+  // Test 3: zero diff shows "No changes" message
+  it('shows "No changes since last snapshot" message when computed diff is empty', async () => {
+    vi.mocked(snapshotDiff.formatDiffSummary).mockReturnValue([]);
+
+    cloudSyncUI._bindPreviewListener();
+    dispatchPreview();
+    await new Promise((r) => setTimeout(r, 0));
+
+    const [, body] = vi.mocked(templateUI.showModal).mock.calls[0];
+    expect(body).toContain('No changes since last snapshot');
+  });
+
+  // Test 4: confirm path still calls importBackupData and writes last-sync
+  it('confirm button calls importBackupData and records last-sync timestamp', async () => {
+    const tableData = { income: [{ id: 1, amount: 100 }] };
+    cloudSyncUI._bindPreviewListener();
+    dispatchPreview(tableData);
+    await new Promise((r) => setTimeout(r, 0));
+
+    document.getElementById('confirmCloudImportBtn')?.click();
+    await Promise.resolve();
+
+    expect(importBackupData).toHaveBeenCalledWith(tableData);
+    expect(localStorage.getItem(supabaseSync.CLOUD_LAST_SYNC_KEY)).toBe(
+      String(Date.parse(updatedAt))
+    );
+  });
+
+  // Test 5: cancel path records preview timestamp but does NOT import
+  it('cancel button records preview timestamp but does not call importBackupData', async () => {
+    cloudSyncUI._bindPreviewListener();
+    dispatchPreview();
+    await new Promise((r) => setTimeout(r, 0));
+
+    document.getElementById('cancelCloudImportBtn')?.click();
+    await Promise.resolve();
+
+    expect(importBackupData).not.toHaveBeenCalled();
+    expect(localStorage.getItem('budget_cloud_last_previewed_snapshot')).not.toBeNull();
+  });
+
+  // Test 6: snapshot-diff mock covers utility module; UI test file covers preview branches
+  it('delta mode renders without errors when diff lines include added, deleted and updated counts', async () => {
+    vi.mocked(snapshotDiff.formatDiffSummary).mockReturnValue([
+      { store: 'income', added: 2, deleted: 1, updated: 3 },
+      { store: 'debts', added: 0, deleted: 0, updated: 1 },
+    ]);
+
+    cloudSyncUI._bindPreviewListener();
+    dispatchPreview();
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(templateUI.showModal).toHaveBeenCalledTimes(1);
+    const [, body] = vi.mocked(templateUI.showModal).mock.calls[0];
+    expect(body).toContain('income');
+    expect(body).toContain('debts');
+  });
+
+  // --- Task 3: UX copy and anti-regression tests ---
+
+  it('delta lines use plain-English labels: "added", "removed", "changed"', async () => {
+    vi.mocked(snapshotDiff.formatDiffSummary).mockReturnValue([
+      { store: 'income', added: 2, deleted: 1, updated: 3 },
+    ]);
+
+    cloudSyncUI._bindPreviewListener();
+    dispatchPreview();
+    await new Promise((r) => setTimeout(r, 0));
+
+    const [, body] = vi.mocked(templateUI.showModal).mock.calls[0];
+    expect(body).toContain('added');
+    expect(body).toContain('removed');
+    expect(body).toContain('changed');
+  });
+
+  it('first-sync path includes a "First sync" context label', async () => {
+    vi.mocked(snapshotDiff.isFirstSyncFallback).mockReturnValue(true);
+
+    cloudSyncUI._bindPreviewListener();
+    dispatchPreview();
+    await new Promise((r) => setTimeout(r, 0));
+
+    const [, body] = vi.mocked(templateUI.showModal).mock.calls[0];
+    expect(body).toContain('First sync');
+  });
+
+  it('confirm button label remains "Replace Local Data" in delta mode', async () => {
+    cloudSyncUI._bindPreviewListener();
+    dispatchPreview();
+    await new Promise((r) => setTimeout(r, 0));
+
+    const [,, footer] = vi.mocked(templateUI.showModal).mock.calls[0];
+    expect(footer).toContain('Replace Local Data');
+  });
+
+  it('confirmation copy includes destructive-action warning', async () => {
+    cloudSyncUI._bindPreviewListener();
+    dispatchPreview();
+    await new Promise((r) => setTimeout(r, 0));
+
+    const [, body] = vi.mocked(templateUI.showModal).mock.calls[0];
+    expect(body).toContain('This cannot be undone');
   });
 });
 

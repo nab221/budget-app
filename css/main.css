@@ -55,7 +55,7 @@ body {
 .shell { max-width: 1200px; margin: 0 auto; padding: 14px; }
 
 /* ── HEADER ── */
-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; position: sticky; top: 0; z-index: 100; background: var(--bg); }
 header h1 { font-size: 1.5rem; display: flex; align-items: center; gap: 8px; }
 .pill { font-size: .65rem; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent-border); }
 .toolbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
@@ -208,19 +208,25 @@ input[type="number"] { text-align: right; }
   font-size: 1rem;
   line-height: 1;
 }
-.tab[data-tab="dashboard"]::before { content: "🏠"; }
-.tab[data-tab="income"]::before    { content: "💰"; }
-.tab[data-tab="expenses"]::before  { content: "💸"; }
-.tab[data-tab="debts"]::before     { content: "💳"; }
-.tab[data-tab="payoff"]::before    { content: "📈"; }
-.tab[data-tab="assets"]::before    { content: "🏦"; }
-.tab[data-tab="childcare"]::before { content: "👶"; }
-.tab[data-tab="settings"]::before  { content: "⚙️"; }
+.tab[data-tab="dashboard"]::before      { content: "🏠"; }
+.tab[data-tab="transactions"]::before   { content: "💸"; }
+.tab[data-tab="income-sources"]::before { content: "💰"; }
+.tab[data-tab="expenses"]::before       { content: "💸"; }
+.tab[data-tab="debts"]::before          { content: "💳"; }
+.tab[data-tab="payoff"]::before         { content: "📈"; }
+.tab[data-tab="assets"]::before         { content: "🏦"; }
+.tab[data-tab="childcare"]::before      { content: "👶"; }
+.tab[data-tab="settings"]::before       { content: "⚙️"; }
 
 @media (max-width: 768px) {
+  :root {
+    --bottom-bar-height: 72px;
+    --header-height: 56px;
+  }
+
   .mobile-menu-btn { display: none; } /* Replaced by bottom nav */
-  .shell { padding-bottom: 80px; } /* Space for bottom nav */
-  
+  .shell { padding-bottom: calc(var(--bottom-bar-height) + 8px); } /* Space for bottom nav */
+
   .nav-container {
     position: fixed;
     bottom: 0;
@@ -232,6 +238,7 @@ input[type="number"] { text-align: right; }
     z-index: 1000;
     box-shadow: 0 -4px 12px rgba(0,0,0,0.05);
     backdrop-filter: blur(10px);
+    padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
   }
 
   .tabs {
@@ -255,10 +262,11 @@ input[type="number"] { text-align: right; }
     font-size: 0.65rem;
     color: var(--text-dim);
     box-shadow: none !important;
+    min-height: 44px;
   }
 
   .tab:hover { background: none; }
-  
+
   .tab.active {
     background: none;
     color: var(--accent);
@@ -269,15 +277,35 @@ input[type="number"] { text-align: right; }
     margin-bottom: 2px;
   }
 
-  /* Hide tabs that don't fit well or are secondary if needed, or allow horizontal scroll if many */
-  .tabs {
-    overflow-x: auto;
-    justify-content: flex-start;
-    padding-left: 10px;
-    padding-right: 10px;
+  .month-nav {
+    position: sticky;
+    top: var(--header-height);
+    z-index: 99;
+    background: var(--bg-alt);
+  }
+}
+
+@media (max-width: 420px) {
+  .tab {
+    font-size: 0.55rem;
+    min-width: 44px;
+  }
+  .tab-label {
+    max-width: 6ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 360px) {
+  .tab-label {
+    display: none;
   }
   .tab {
-    min-width: 70px;
+    font-size: 0;
+    gap: 0;
+    min-width: 44px;
   }
 }
 
@@ -507,7 +535,7 @@ body.privacy-enabled .chart-container:hover canvas {
   cursor: pointer;
 }
 
-/* Segmented Control for Chart Binning */
+/* Segmented Control for Chart Binning (legacy radio-input variant) */
 .segmented-control {
   display: flex;
   background: var(--bg-alt);
@@ -531,6 +559,68 @@ body.privacy-enabled .chart-container:hover canvas {
   background: var(--card);
   color: var(--accent);
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* ── DASHBOARD VIEW-TOGGLE SEGMENTED CONTROL (Phase 36) ── */
+/* Button-based radiogroup variant used for This Month / Year to Date / All Time */
+.segmented-control__btn {
+  min-height: 44px; /* Touch target minimum */
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-soft);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background var(--tr), color var(--tr), box-shadow var(--tr);
+  white-space: nowrap;
+}
+.segmented-control__btn:hover {
+  background: var(--bg);
+  color: var(--text);
+}
+.segmented-control__btn.is-active {
+  background: var(--card);
+  color: var(--accent);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+.segmented-control__btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ── DASHBOARD NAVIGATOR SHELL (Phase 36) ── */
+/* Desktop: sticky BELOW header. top uses --header-height set by JS at init time.
+   Fallback of 56px matches the mobile variable value and prevents header overlap
+   even if the JS measurement hasn't run yet. */
+.dashboard-navigator-shell {
+  position: sticky;
+  top: var(--header-height, 56px);
+  z-index: 98;
+  background: var(--bg);
+  padding: 6px 0;
+}
+
+@media (max-width: 768px) {
+  /* Mobile: fixed below header, full-width, clear of bottom nav */
+  .dashboard-navigator-shell {
+    position: fixed;
+    top: var(--header-height, 56px);
+    left: 0;
+    right: 0;
+    z-index: 999;
+    background: var(--bg-alt);
+    border-bottom: 1px solid var(--border);
+    padding: 6px 12px;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  }
+
+  /* Push dashboard content down so fixed navigator does not obscure first card */
+  .tab-panel[data-panel="dashboard"] {
+    padding-top: 72px;
+  }
 }
 
 /* ── STATEMENT TABLE ── */
@@ -580,6 +670,7 @@ body.privacy-enabled .chart-container:hover canvas {
 .swipe-active .swipe-action-left,
 .swipe-active .swipe-action-right {
   visibility: visible;
+  z-index: 1;
 }
 
 .swipe-action-left {
@@ -602,7 +693,9 @@ body.privacy-enabled .chart-container:hover canvas {
 #spendingHeatmapContainer,
 #incomeHeatmapContainer,
 #incomeTabHeatmapContainer,
-#expensesTabHeatmapContainer {
+#expensesTabHeatmapContainer,
+#transactionsIncomeHeatmapContainer,
+#transactionsSpendingHeatmapContainer {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -613,7 +706,9 @@ body.privacy-enabled .chart-container:hover canvas {
 #spendingHeatmapContainer canvas,
 #incomeHeatmapContainer canvas,
 #incomeTabHeatmapContainer canvas,
-#expensesTabHeatmapContainer canvas {
+#expensesTabHeatmapContainer canvas,
+#transactionsIncomeHeatmapContainer canvas,
+#transactionsSpendingHeatmapContainer canvas {
   width: 100% !important;
   height: auto !important;
   max-height: none;
@@ -640,14 +735,18 @@ body.privacy-enabled .chart-container:hover canvas {
 body.privacy-enabled #spendingHeatmapContainer,
 body.privacy-enabled #incomeHeatmapContainer,
 body.privacy-enabled #incomeTabHeatmapContainer,
-body.privacy-enabled #expensesTabHeatmapContainer {
+body.privacy-enabled #expensesTabHeatmapContainer,
+body.privacy-enabled #transactionsIncomeHeatmapContainer,
+body.privacy-enabled #transactionsSpendingHeatmapContainer {
   filter: blur(15px);
   transition: filter 0.3s ease;
 }
 body.privacy-enabled #spendingHeatmapSection:hover #spendingHeatmapContainer,
 body.privacy-enabled #incomeHeatmapSection:hover #incomeHeatmapContainer,
 body.privacy-enabled #incomeTabHeatmapSection:hover #incomeTabHeatmapContainer,
-body.privacy-enabled #expensesTabHeatmapSection:hover #expensesTabHeatmapContainer {
+body.privacy-enabled #expensesTabHeatmapSection:hover #expensesTabHeatmapContainer,
+body.privacy-enabled #transactionsIncomeHeatmapSection:hover #transactionsIncomeHeatmapContainer,
+body.privacy-enabled #transactionsSpendingHeatmapSection:hover #transactionsSpendingHeatmapContainer {
   filter: blur(0);
 }
 
@@ -809,6 +908,9 @@ button.sync-action-busy::after {
   outline-offset: 2px;
 }
 
+.sync-status-indicator {
+  flex-shrink: 0;
+}
 .sync-status-indicator.pulse {
   animation: pulse 1.5s ease-in-out infinite;
 }
@@ -832,4 +934,62 @@ button.sync-action-busy::after {
   body.privacy-enabled #expensesTabHeatmapContainer {
     transition: none !important;
   }
+}
+
+/* ── Phase 29: Badge chip (category label in Expense cell) ── */
+.badge-chip {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  background: var(--chip-bg, #e8ecf0);
+  color: var(--chip-color, #445566);
+  white-space: nowrap;
+  vertical-align: middle;
+  margin-top: 3px;
+}
+
+/* ── Phase 29: Status icon (✓/○/✗ in Expense cell) ── */
+.status-icon {
+  font-size: 0.88rem;
+  display: inline-block;
+  margin-left: 5px;
+  vertical-align: middle;
+  line-height: 1;
+}
+
+/* ── Phase 29: Compact date cells ── */
+.date-compact {
+  display: inline-block;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+.date-year {
+  font-size: 0.72rem;
+  opacity: 0.65;
+}
+
+/* ── Phase 29: Prevent Amount header wrapping on mobile ── */
+@media (max-width: 768px) {
+  th.col-amount {
+    white-space: nowrap;
+    min-width: 60px;
+  }
+
+  /* Hide inline edit/delete buttons on mobile — swipe gestures replace them */
+  .btn-edit,
+  .btn-delete,
+  .desktop-only {
+    display: none;
+  }
+}
+
+/* ── Phase 29: Debt-linked expense row indicator ── */
+.expense-row.debt-linked {
+  background: var(--debt-linked-bg, #f5f0ff);
+  cursor: pointer;
+}
+.expense-row.debt-linked:hover {
+  background: var(--debt-linked-hover-bg, #ede7ff);
 }

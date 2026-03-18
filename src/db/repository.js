@@ -2,7 +2,7 @@ import { db } from './schema.js';
 import { generateUUID } from '../utils/security.js';
 import { toPence, fromPence } from '../utils/currency.js';
 import { findBestMatch } from '../utils/string-similarity.js';
-import { calculateTopUp, getEntitlementPeriod, calculateFundingGap } from '../utils/childcare.js';
+import { calculateTopUp, getEntitlementPeriod, calculateFundingGap, monthlyEquivalentFromProvider, calculateRequiredTopUp } from '../utils/childcare.js';
 import { calcMinPayment, calculateBalanceChain, simulatePayoff } from '../utils/finance.js';
 export { calcMinPayment, calculateBalanceChain, simulatePayoff };
 import { advanceNextDate } from '../utils/recurrence.js';
@@ -74,11 +74,13 @@ export const incomeRepository = {
     return await db.income.where('date').between(startStr, endStr, true, true).toArray();
   }
 };
+const recurrentExpenseDefaults = { ...integrityDefaults, paymentAdjustment: 'none' };
+
 export const recurrentExpenseRepository = {
-  ...createBaseRepository(db.recurrentExpenses, ['amount'], integrityDefaults),
+  ...createBaseRepository(db.recurrentExpenses, ['amount'], recurrentExpenseDefaults),
   async add(data) {
-    const base = createBaseRepository(db.recurrentExpenses, ['amount'], integrityDefaults);
-    const id = await base.add(data);
+    const base = createBaseRepository(db.recurrentExpenses, ['amount'], recurrentExpenseDefaults);
+    const id = await base.add({ paymentAdjustment: 'none', ...data });
     const date = data.nextDate || data.date || new Date().toISOString().slice(0, 10);
     triggerBalanceRecalc(date).catch(() => {});
     return id;
@@ -215,6 +217,22 @@ export const debtRepository = {
     await this.deleteLinkedExpenses(id);
     await db.debts.delete(id);
     triggerSync();
+  },
+
+  /**
+   * Confirm the current balance of a debt (used for loan/mortgage balance updates).
+   * Validation (balance must be > 0 and < previous) is handled by the UI caller.
+   * @param {number} id - debt record id
+   * @param {number} newBalancePence - new balance in pence (integer)
+   * @returns {{ previousBalance: number, newBalance: number }}
+   */
+  async confirmBalance(id, newBalancePence) {
+    const debt = await db.debts.get(id);
+    if (!debt) throw new Error('Debt not found');
+    const previousBalance = debt.currentBalance;
+    await db.debts.update(id, { currentBalance: newBalancePence });
+    triggerSync();
+    return { previousBalance, newBalance: newBalancePence };
   },
 
   /**
@@ -787,6 +805,204 @@ export async function adjustBalance(enteredAmountPence, date) {
   await triggerBalanceRecalc(date);
 }
 
+// ---------------------------------------------------------------------------
+// Phase 33: Income Sources Repository
+// ---------------------------------------------------------------------------
+
+/**
+ * Validates payDateDay for nth-of-month rule.
+ * Throws a descriptive Error when the value is missing, non-integer, or out of range.
+ * @param {string} payDateRule
+ * @param {*} payDateDay
+ */
+function validatePayDateDay(payDateRule, payDateDay) {
+  if (payDateRule !== 'nth-of-month') return; // only relevant for this rule
+  if (payDateDay === null || payDateDay === undefined) {
+    throw new Error('payDateDay is required when payDateRule is nth-of-month');
+  }
+  if (!Number.isInteger(payDateDay)) {
+    throw new Error('payDateDay must be an integer when payDateRule is nth-of-month');
+  }
+  if (payDateDay < 1 || payDateDay > 28) {
+    throw new Error('payDateDay must be between 1 and 28 (inclusive) when payDateRule is nth-of-month');
+  }
+}
+
+export const incomeSourceRepository = {
+  ...createBaseRepository(db.incomeSources, []),
+
+  /**
+   * Returns all income sources ordered by displayOrder ascending.
+   */
+  async getAll() {
+    const all = await db.incomeSources.toArray();
+    return all.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+  },
+
+  /**
+   * Returns only active income sources ordered by displayOrder ascending.
+   */
+  async getActive() {
+    const all = await this.getAll();
+    return all.filter(s => s.isActive);
+  },
+
+  /**
+   * Validates payDateDay and then adds the income source.
+   * Throws when payDateRule is 'nth-of-month' and payDateDay is invalid.
+   * @param {Object} data
+   * @returns {Promise<number>} new record id
+   */
+  async validateAndAdd(data) {
+    validatePayDateDay(data.payDateRule, data.payDateDay);
+    return this.add(data);
+  },
+
+  /**
+   * Validates payDateDay and then updates the income source.
+   * @param {number} id
+   * @param {Object} data
+   */
+  async validateAndUpdate(id, data) {
+    const existing = await db.incomeSources.get(id);
+    const rule = data.payDateRule ?? (existing ? existing.payDateRule : undefined);
+    const day = data.payDateDay !== undefined ? data.payDateDay : (existing ? existing.payDateDay : null);
+    validatePayDateDay(rule, day);
+    return this.update(id, data);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Phase 33: Spending Buckets Repository
+// ---------------------------------------------------------------------------
+
+const DEFAULT_SPENDING_BUCKETS = [
+  { name: 'Groceries', monthlyAmount: 0, icon: null, displayOrder: 0 },
+  { name: 'Eating Out', monthlyAmount: 0, icon: null, displayOrder: 1 },
+  { name: 'Petrol/Transport', monthlyAmount: 0, icon: null, displayOrder: 2 },
+  { name: 'Entertainment', monthlyAmount: 0, icon: null, displayOrder: 3 },
+  { name: 'Clothing', monthlyAmount: 0, icon: null, displayOrder: 4 },
+  { name: 'Personal Care', monthlyAmount: 0, icon: null, displayOrder: 5 },
+  { name: 'Misc', monthlyAmount: 0, icon: null, displayOrder: 6 }
+];
+
+export const spendingBucketRepository = {
+  ...createBaseRepository(db.spendingBuckets, []),
+
+  /**
+   * Returns all spending buckets ordered by displayOrder ascending.
+   */
+  async getAll() {
+    const all = await db.spendingBuckets.toArray();
+    return all.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+  },
+
+  /**
+   * Seeds the default spending buckets exactly once when the store is empty.
+   * Subsequent calls are no-ops.
+   * @returns {Promise<boolean>} true if seeded, false if already populated
+   */
+  async seedDefaults() {
+    const count = await db.spendingBuckets.count();
+    if (count > 0) return false;
+    await db.spendingBuckets.bulkAdd(DEFAULT_SPENDING_BUCKETS);
+    triggerSync();
+    return true;
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Phase 34: User Preferences Repository
+// ---------------------------------------------------------------------------
+
+/**
+ * Default value for safetyBuffer (£200 in pence).
+ * @type {number}
+ */
+const DEFAULT_SAFETY_BUFFER_PENCE = 20000;
+
+/**
+ * Key-value store for user preferences.
+ * Uses the userPreferences table added in schema v22.
+ * The primary key is `key` (unique string), `value` is JSON-serialisable.
+ */
+export const userPreferencesRepository = {
+  /**
+   * Returns the value for a given preference key, or the provided default if missing.
+   * @param {string} key
+   * @param {*} [defaultValue]
+   * @returns {Promise<*>}
+   */
+  async get(key, defaultValue = undefined) {
+    const row = await db.userPreferences.get(key);
+    return row !== undefined ? row.value : defaultValue;
+  },
+
+  /**
+   * Persists a preference value by key (upsert).
+   * @param {string} key
+   * @param {*} value
+   */
+  async set(key, value) {
+    await db.userPreferences.put({ key, value });
+    triggerSync();
+  }
+};
+
+/**
+ * Returns the persisted safetyBuffer in pence.
+ * Defaults to £200 (20000 pence) when no value has been saved.
+ * @returns {Promise<number>}
+ */
+export async function getSafetyBuffer() {
+  return userPreferencesRepository.get('safetyBuffer', DEFAULT_SAFETY_BUFFER_PENCE);
+}
+
+/**
+ * Persists the safetyBuffer value in pence.
+ * @param {number} amountPence - integer pence (e.g. 20000 for £200)
+ */
+export async function setSafetyBuffer(amountPence) {
+  return userPreferencesRepository.set('safetyBuffer', amountPence);
+}
+
+/**
+ * Returns the most recent daily balance snapshot, which serves as the
+ * opening-balance input for the pay-period affordability view.
+ * Returns null if no snapshot exists.
+ * @returns {Promise<{ date: string, closingBalance: number }|null>}
+ */
+export async function getLatestDailySnapshot() {
+  return db.dailyBalanceSnapshots.orderBy('date').last() || null;
+}
+
+/**
+ * Writes a balance snapshot for the given date using the existing
+ * dailyBalanceSnapshots path. Creates or updates the record.
+ * Triggers a sync event after write.
+ *
+ * @param {string} date - YYYY-MM-DD
+ * @param {number} balancePence - integer pence
+ */
+export async function saveBalanceSnapshot(date, balancePence) {
+  const existing = await db.dailyBalanceSnapshots.where('date').equals(date).first();
+  if (existing) {
+    await db.dailyBalanceSnapshots.update(existing.id, {
+      closingBalance: balancePence,
+      openingBalance: balancePence
+    });
+  } else {
+    await db.dailyBalanceSnapshots.add({
+      date,
+      openingBalance: balancePence,
+      closingBalance: balancePence,
+      incomeTotal: 0,
+      expenseTotal: 0
+    });
+  }
+  triggerSync();
+}
+
 /**
  * Childcare Repository
  */
@@ -855,6 +1071,85 @@ export const childcareRepository = {
     await this._recalculateBalances(accountId);
     triggerSync();
   },
+
+  /**
+   * Logs a parent deposit plus the 20% government top-up automatically.
+   * Creates two ledger entries: one deposit + one top-up (if cap remaining).
+   * @param {number} accountId
+   * @param {string} date - YYYY-MM-DD
+   * @param {number} amountPounds - deposit amount in pounds
+   * @param {number|null} categoryId - optional budget category
+   * @returns {Promise<{ depositId, topUpId, topUpAmount }>}
+   */
+  async addDeposit(accountId, date, amountPounds, categoryId = null) {
+    const account = await db.childcareAccounts.get(accountId);
+    if (!account) throw new Error('Childcare account not found');
+
+    const amountPence = toPence(amountPounds);
+    const quarterlyCapPence = account.isDisabled ? 100000 : 50000;
+
+    // Calculate remaining quarterly cap based on ledger top-ups this period
+    const allEntries = await db.childcareLedger
+      .where('accountId').equals(accountId)
+      .toArray();
+    const topUpsThisQuarter = allEntries
+      .filter(e => e.type === 'top-up')
+      .reduce((sum, e) => sum + (e.amount || 0), 0);
+    const remainingCapPence = Math.max(0, quarterlyCapPence - topUpsThisQuarter);
+
+    // Log deposit
+    const depositId = await db.childcareLedger.add({
+      accountId,
+      date,
+      type: 'deposit',
+      amount: amountPence,
+      description: 'Parent deposit',
+      categoryId,
+      runningBalance: 0
+    });
+
+    // Calculate and log top-up
+    const topUpAmount = calculateTopUp(amountPence, remainingCapPence);
+    let topUpId = null;
+    if (topUpAmount > 0) {
+      topUpId = await db.childcareLedger.add({
+        accountId,
+        date,
+        type: 'top-up',
+        amount: topUpAmount,
+        description: '20% government top-up',
+        runningBalance: 0
+      });
+    }
+
+    await this._recalculateBalances(accountId);
+    triggerSync();
+    return { depositId, topUpId, topUpAmount };
+  },
+
+  /**
+   * Logs a childcare spend against the account.
+   * @param {number} accountId
+   * @param {string} date - YYYY-MM-DD
+   * @param {number} amountPounds - spend amount in pounds
+   * @param {string} description - provider or description
+   * @returns {Promise<number>} ledger entry id
+   */
+  async addSpend(accountId, date, amountPounds, description = '') {
+    const amountPence = toPence(amountPounds);
+    const id = await db.childcareLedger.add({
+      accountId,
+      date,
+      type: 'spend',
+      amount: amountPence,
+      description,
+      runningBalance: 0
+    });
+    await this._recalculateBalances(accountId);
+    triggerSync();
+    return id;
+  },
+
   async _recalculateBalances(accountId) {
     const account = await db.childcareAccounts.get(accountId);
     const entries = await db.childcareLedger
@@ -870,6 +1165,102 @@ export const childcareRepository = {
       }
       await db.childcareLedger.update(entry.id, { runningBalance: currentBalance });
     }
+  },
+
+  // ---------------------------------------------------------------------------
+  // Phase 35: Provider CRUD seams (CHILD-01)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Returns all providers for a given childcare account.
+   * @param {number} accountId
+   * @returns {Promise<Array>}
+   */
+  async getAccountProviders(accountId) {
+    return await db.childcareProviders
+      .where('accountId').equals(accountId)
+      .toArray();
+  },
+
+  /**
+   * Adds a new provider record for an account.
+   * @param {Object} provider - { accountId, name, frequency, monthlyEquivalentPence?, termlyAmountPence? }
+   * @returns {Promise<number>} new provider id
+   */
+  async addProvider(provider) {
+    const id = await db.childcareProviders.add({ ...provider });
+    triggerSync();
+    return id;
+  },
+
+  /**
+   * Updates an existing provider record.
+   * @param {number} providerId
+   * @param {Object} updates
+   */
+  async updateProvider(providerId, updates) {
+    await db.childcareProviders.update(providerId, updates);
+    triggerSync();
+  },
+
+  /**
+   * Deletes a provider record.
+   * @param {number} providerId
+   */
+  async deleteProvider(providerId) {
+    await db.childcareProviders.delete(providerId);
+    triggerSync();
+  },
+
+  /**
+   * Computes the required top-up contract row for a single account.
+   * Delegates formula math to childcare.js utilities.
+   *
+   * @param {number} accountId
+   * @param {number} [pendingGovernmentBonusPence=0]
+   * @returns {Promise<{ accountId, childName, requiredTopUpPence, description }>}
+   */
+  async getRequiredTopUpForAccount(accountId, pendingGovernmentBonusPence = 0) {
+    const account = await db.childcareAccounts.get(accountId);
+    if (!account) throw new Error(`Childcare account ${accountId} not found`);
+
+    const providers = await this.getAccountProviders(accountId);
+    const currentBalancePence = await this.getBalance(accountId);
+
+    // Sum monthly-equivalent totals across all providers using pure helper
+    const providerMonthlyTotal = providers.reduce(
+      (sum, p) => sum + monthlyEquivalentFromProvider(p),
+      0
+    );
+
+    // Delegate required top-up formula to pure helper
+    const requiredTopUpPence = calculateRequiredTopUp(
+      providerMonthlyTotal,
+      currentBalancePence,
+      pendingGovernmentBonusPence
+    );
+
+    return {
+      accountId,
+      childName: account.childName,
+      requiredTopUpPence,
+      description: `Childcare top-up: ${account.childName}`
+    };
+  },
+
+  /**
+   * Returns required top-up rows for all accounts plus a total.
+   * This is the affordability aggregate contract consumed by CHILD-02.
+   *
+   * @returns {Promise<{ topUps: Array, totalTopUpPence: number }>}
+   */
+  async getAllRequiredTopUps() {
+    const accounts = await this.getAccounts();
+    const topUps = await Promise.all(
+      accounts.map(acc => this.getRequiredTopUpForAccount(acc.id))
+    );
+    const totalTopUpPence = topUps.reduce((sum, t) => sum + t.requiredTopUpPence, 0);
+    return { topUps, totalTopUpPence };
   }
 };
 

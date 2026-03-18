@@ -63,6 +63,44 @@ export function getEntitlementPeriod(entitlementStart, targetDate) {
 }
 
 /**
+ * Compute the monthly-equivalent amount for a single childcare provider.
+ *
+ * Providers can be configured as monthly (fixed monthly cost) or termly
+ * (a one-off termly cost that is divided across 3 months).
+ *
+ * @param {Object} provider - Provider record.
+ * @param {string} provider.frequency - 'monthly' or 'termly'.
+ * @param {number} [provider.monthlyEquivalentPence] - Used when frequency='monthly'.
+ * @param {number} [provider.termlyAmountPence] - Used when frequency='termly'.
+ * @returns {number} Monthly-equivalent cost in pence (integer, floored).
+ */
+export function monthlyEquivalentFromProvider(provider) {
+  if (!provider) return 0;
+  if (provider.frequency === 'termly') {
+    return Math.floor((provider.termlyAmountPence || 0) / 3);
+  }
+  // Default: monthly
+  return provider.monthlyEquivalentPence || 0;
+}
+
+/**
+ * Calculate the required childcare top-up for a single account this period.
+ *
+ * Formula: max(0, providerMonthlyEquivalentTotal - currentBalancePence - pendingGovernmentBonusPence)
+ *
+ * The result is floored at zero — the required top-up is never negative.
+ *
+ * @param {number} providerMonthlyEquivalentTotalPence - Sum of monthly-equivalent costs across all providers.
+ * @param {number} currentBalancePence - Current TFC account balance in pence.
+ * @param {number} pendingGovernmentBonusPence - Pending government bonus (not yet credited) in pence.
+ * @returns {number} Required top-up amount in pence.
+ */
+export function calculateRequiredTopUp(providerMonthlyEquivalentTotalPence, currentBalancePence, pendingGovernmentBonusPence) {
+  const needed = providerMonthlyEquivalentTotalPence - currentBalancePence - (pendingGovernmentBonusPence || 0);
+  return Math.max(0, needed);
+}
+
+/**
  * Calculate the funding gap and suggested user deposit to cover a target monthly spend.
  *
  * The funding gap is how much extra is needed compared to the current account balance.

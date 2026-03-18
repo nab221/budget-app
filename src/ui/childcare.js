@@ -1,9 +1,23 @@
 import { childcareRepository, categoryRepository } from '../db/repository.js';
 import { formatGBP, fromPence } from '../utils/currency.js';
-import { calculateFundingGap, getEntitlementPeriod } from '../utils/childcare.js';
+import { calculateFundingGap, getEntitlementPeriod, monthlyEquivalentFromProvider } from '../utils/childcare.js';
 import { safeHTML, modalUI, renderTabSummary } from './render.js';
 import { triggerHaptic } from '../utils/haptics.js';
 import { notificationUI } from './notifications.js';
+
+/**
+ * Simple HTML escaping to prevent XSS
+ * @param {string} str
+ * @returns {string}
+ */
+function escHtml(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 /**
  * Childcare UI Module
@@ -41,6 +55,24 @@ export const childcareUI = {
     window.childcareEditAccount = async (accountId) => {
       const account = await childcareRepository.getAccount(accountId);
       if (account) this._showAccountModal(account);
+    };
+
+    window.childcareAddProvider = (accountId) => this._showProviderModal(accountId);
+    window.childcareEditProvider = async (providerId, accountId) => {
+      const providers = await childcareRepository.getAccountProviders(accountId);
+      const provider = providers.find(p => p.id === providerId);
+      if (provider) this._showProviderModal(accountId, provider);
+    };
+    window.childcareDeleteProvider = async (providerId, accountId, providerName) => {
+      if (!confirm(`Remove provider "${providerName}"?`)) return;
+      try {
+        await childcareRepository.deleteProvider(providerId);
+        triggerHaptic('delete');
+        await this.render();
+      } catch (err) {
+        console.error('Failed to delete provider:', err);
+        notificationUI.error('Failed to remove provider: ' + err.message);
+      }
     };
 
     window.childcareDeleteAccount = async (accountId, childName) => {
@@ -215,30 +247,83 @@ export const childcareUI = {
     const today = new Date().toISOString().slice(0, 10);
     const cardPromises = accounts.map(async (account) => {
       const balance = await childcareRepository.getBalance(account.id);
+      const providers = await childcareRepository.getAccountProviders(account.id);
+      const topUpResult = await childcareRepository.getRequiredTopUpForAccount(account.id);
       const { gap } = calculateFundingGap(account.targetMonthlySpend || 0, balance);
 
+      // --- Entitlement period display (CHILD-03) ---
+      let entitlementSection = '';
       let reconfirmAlert = '';
       if (account.entitlementStart) {
         try {
           const period = getEntitlementPeriod(account.entitlementStart, today);
+          const periodStartStr = period.start.toISOString().slice(0, 10);
+          const periodEndStr = period.end.toISOString().slice(0, 10);
+          entitlementSection = `
+            <div style="font-size:.82rem;color:var(--text-soft);margin-top:8px">
+              <span style="font-weight:600;color:var(--text)">Entitlement period:</span>
+              ${periodStartStr} – ${periodEndStr}
+              (Period ${period.periodIndex + 1})
+            </div>`;
+
           const msUntilEnd = period.end.getTime() - new Date(today).getTime();
           const daysUntilEnd = Math.ceil(msUntilEnd / (1000 * 60 * 60 * 24));
           if (daysUntilEnd >= 0 && daysUntilEnd <= 7) {
             reconfirmAlert = `
               <div style="background:var(--warn);color:#000;border-radius:6px;padding:8px 12px;font-size:.8rem;margin-top:10px">
-                <strong>Reconfirmation Due:</strong> Period ends in ${daysUntilEnd}d (${period.end.toISOString().slice(0, 10)}).
+                <strong>Reconfirmation Due:</strong> Period ends in ${daysUntilEnd}d (${periodEndStr}).
               </div>`;
           }
         } catch (e) {}
       }
 
-      const gapSection = gap > 0 ? `
+      // --- Providers subsection (CHILD-01) ---
+      let providersSection = '';
+      if (providers.length > 0) {
+        const providerRows = providers.map(p => {
+          const monthly = monthlyEquivalentFromProvider(p);
+          const freqLabel = p.frequency === 'termly' ? 'termly' : 'monthly';
+          return `
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:.8rem;padding:3px 0;border-bottom:1px solid var(--border-light)">
+              <span>${p.name} <span class="hint">(${freqLabel})</span></span>
+              <span style="font-weight:600">${formatGBP(monthly)}/mo
+                <button class="sm ghost js-childcare-edit-provider" style="padding:0 4px;font-size:.7rem" data-provider-id="${p.id}" data-account-id="${account.id}" type="button" title="Edit">✏️</button>
+                <button class="sm danger js-childcare-delete-provider" style="padding:0 4px;font-size:.7rem" data-provider-id="${p.id}" data-account-id="${account.id}" data-provider-name="${escHtml(p.name)}" type="button" title="Remove">×</button>
+              </span>
+            </div>`;
+        }).join('');
+
+        providersSection = `
+          <div style="margin-top:10px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+              <span style="font-size:.82rem;font-weight:600;color:var(--text)">Providers</span>
+              <button class="sm ghost" style="font-size:.75rem" onclick="event.stopPropagation();childcareAddProvider(${account.id})">+ Add</button>
+            </div>
+            ${providerRows}
+          </div>`;
+      } else {
+        providersSection = `
+          <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center">
+            <span class="hint" style="font-size:.78rem">No providers added yet</span>
+            <button class="sm ghost" style="font-size:.75rem" onclick="event.stopPropagation();childcareAddProvider(${account.id})">+ Add Provider</button>
+          </div>`;
+      }
+
+      // --- Required top-up this period (CHILD-01) ---
+      const requiredTopUp = topUpResult.requiredTopUpPence;
+      const topUpSection = requiredTopUp > 0 ? `
         <div style="background:var(--bg-alt);border-radius:6px;padding:10px 12px;margin-top:10px;font-size:.85rem">
-          <div style="color:var(--warn);font-weight:600">Funding Gap: ${formatGBP(gap)}</div>
+          <div style="color:var(--warn);font-weight:700">Required top-up this period: ${formatGBP(requiredTopUp)}</div>
+          <div class="hint" style="font-size:.75rem;margin-top:2px">Based on provider costs minus current balance</div>
         </div>` : `
         <div style="background:var(--accent-soft);border-radius:6px;padding:8px 12px;margin-top:10px;font-size:.85rem;color:var(--accent)">
-          Balance covers target
+          Fully funded this period
         </div>`;
+
+      const gapSection = gap > 0 && requiredTopUp === 0 ? `
+        <div style="background:var(--bg-alt);border-radius:6px;padding:10px 12px;margin-top:6px;font-size:.82rem">
+          <div style="color:var(--text-soft)">Funding Gap (target): ${formatGBP(gap)}</div>
+        </div>` : '';
 
       return `
         <div class="card clickable-card" onclick="childcareViewLedger(${account.id})" style="border:1px solid var(--border);padding:16px;margin-bottom:14px;cursor:pointer">
@@ -257,9 +342,12 @@ export const childcareUI = {
               </div>
             </div>
           </div>
-          <div style="font-size:.85rem;color:var(--text-soft)">
+          ${entitlementSection}
+          <div style="font-size:.85rem;color:var(--text-soft);margin-top:6px">
             Target monthly spend: <strong style="color:var(--text)">${formatGBP(account.targetMonthlySpend || 0)}</strong>
           </div>
+          ${providersSection}
+          ${topUpSection}
           ${gapSection}
           ${reconfirmAlert}
           <div class="hint" style="font-size:.7rem;margin-top:10px;text-align:right">Click card to view history</div>
@@ -270,6 +358,51 @@ export const childcareUI = {
     const cards = await Promise.all(cardPromises);
     container.innerHTML = headerHTML + cards.join('');
     this._rebindStaticButtons();
+
+    // Event delegation for provider edit/delete buttons
+    container.addEventListener('click', async (e) => {
+      const editBtn = e.target.closest('.js-childcare-edit-provider');
+      if (editBtn) {
+        e.stopPropagation();
+        const providerId = Number(editBtn.dataset.providerId);
+        const accountId = Number(editBtn.dataset.accountId);
+        await childcareUI._handleEditProvider(providerId, accountId);
+        return;
+      }
+
+      const deleteBtn = e.target.closest('.js-childcare-delete-provider');
+      if (deleteBtn) {
+        e.stopPropagation();
+        const providerId = Number(deleteBtn.dataset.providerId);
+        const accountId = Number(deleteBtn.dataset.accountId);
+        const providerName = deleteBtn.dataset.providerName;
+        await childcareUI._handleDeleteProvider(providerId, accountId, providerName);
+      }
+    }, true); // Use capture phase to ensure stopPropagation works
+  },
+
+  /**
+   * Handle edit provider action
+   */
+  async _handleEditProvider(providerId, accountId) {
+    const providers = await childcareRepository.getAccountProviders(accountId);
+    const provider = providers.find(p => p.id === providerId);
+    if (provider) this._showProviderModal(accountId, provider);
+  },
+
+  /**
+   * Handle delete provider action
+   */
+  async _handleDeleteProvider(providerId, accountId, providerName) {
+    if (!confirm(`Remove provider "${providerName}"?`)) return;
+    try {
+      await childcareRepository.deleteProvider(providerId);
+      triggerHaptic('delete');
+      await this.render();
+    } catch (err) {
+      console.error('Failed to delete provider:', err);
+      notificationUI.error('Failed to remove provider: ' + err.message);
+    }
   },
 
   /**
@@ -346,6 +479,99 @@ export const childcareUI = {
     if (logDepBtn) logDepBtn.onclick = () => this._showLogDepositModal(accountId);
     const logSpendBtn = document.getElementById('childcareLogSpendBtn');
     if (logSpendBtn) logSpendBtn.onclick = () => this._showLogSpendModal(accountId);
+  },
+
+  /**
+   * Shows the modal to add or edit a provider for an account.
+   * @param {number} accountId
+   * @param {Object|null} provider - Existing provider for edit, null for add
+   */
+  async _showProviderModal(accountId, provider = null) {
+    const isEdit = !!provider;
+    const content = `
+      <div class="form-row">
+        <div><label>Provider Name</label><input id="modalProviderName" type="text" value="${provider?.name || ''}" placeholder="e.g. Sunshine Nursery"/></div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label>Billing Frequency</label>
+          <select id="modalProviderFrequency">
+            <option value="monthly" ${(!provider || provider.frequency === 'monthly') ? 'selected' : ''}>Monthly</option>
+            <option value="termly" ${provider?.frequency === 'termly' ? 'selected' : ''}>Termly</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row" id="modalProviderMonthlyRow" style="${provider?.frequency === 'termly' ? 'display:none' : ''}">
+        <div><label>Monthly Cost (£)</label><input id="modalProviderMonthlyAmount" type="number" step="0.01" value="${provider ? fromPence(provider.monthlyEquivalentPence || 0) : ''}" placeholder="0.00"/></div>
+      </div>
+      <div class="form-row" id="modalProviderTermlyRow" style="${provider?.frequency !== 'termly' ? 'display:none' : ''}">
+        <div><label>Termly Cost (£)</label><input id="modalProviderTermlyAmount" type="number" step="0.01" value="${provider ? fromPence(provider.termlyAmountPence || 0) : ''}" placeholder="0.00"/></div>
+      </div>
+      <p class="hint" style="font-size:.75rem;margin-top:8px">Termly cost is divided by 3 to calculate monthly equivalent.</p>
+    `;
+    const footer = `
+      <button class="ghost" onclick="modalUI.close()">Cancel</button>
+      <button class="primary" id="modalProviderSaveBtn">${isEdit ? 'Update Provider' : 'Add Provider'}</button>
+    `;
+    modalUI.show(isEdit ? 'Edit Provider' : 'Add Provider', content, footer);
+
+    // Toggle visibility on frequency change
+    const freqSelect = document.getElementById('modalProviderFrequency');
+    if (freqSelect) {
+      freqSelect.onchange = () => {
+        const monthlyRow = document.getElementById('modalProviderMonthlyRow');
+        const termlyRow = document.getElementById('modalProviderTermlyRow');
+        if (freqSelect.value === 'termly') {
+          if (monthlyRow) monthlyRow.style.display = 'none';
+          if (termlyRow) termlyRow.style.display = '';
+        } else {
+          if (monthlyRow) monthlyRow.style.display = '';
+          if (termlyRow) termlyRow.style.display = 'none';
+        }
+      };
+    }
+
+    document.getElementById('modalProviderSaveBtn').onclick = () =>
+      this._handleSaveProvider(accountId, provider?.id);
+  },
+
+  /**
+   * Handle provider form submission.
+   * @param {number} accountId
+   * @param {number|undefined} existingId
+   */
+  async _handleSaveProvider(accountId, existingId) {
+    const name = (document.getElementById('modalProviderName')?.value || '').trim();
+    const frequency = document.getElementById('modalProviderFrequency')?.value || 'monthly';
+    const monthlyAmount = parseFloat(document.getElementById('modalProviderMonthlyAmount')?.value || '0');
+    const termlyAmount = parseFloat(document.getElementById('modalProviderTermlyAmount')?.value || '0');
+
+    if (!name) {
+      notificationUI.warning('Please enter a provider name.');
+      return;
+    }
+
+    const providerData = {
+      accountId,
+      name,
+      frequency,
+      monthlyEquivalentPence: frequency === 'monthly' ? Math.round((isNaN(monthlyAmount) ? 0 : monthlyAmount) * 100) : 0,
+      termlyAmountPence: frequency === 'termly' ? Math.round((isNaN(termlyAmount) ? 0 : termlyAmount) * 100) : 0
+    };
+
+    try {
+      if (existingId) {
+        await childcareRepository.updateProvider(existingId, providerData);
+      } else {
+        await childcareRepository.addProvider(providerData);
+      }
+      triggerHaptic('success');
+      modalUI.close();
+      await this.render();
+    } catch (err) {
+      console.error('Failed to save provider:', err);
+      notificationUI.error('Error: ' + err.message);
+    }
   },
 
   /**

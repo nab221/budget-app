@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateTopUp, getEntitlementPeriod, calculateFundingGap } from './childcare';
+import { calculateTopUp, getEntitlementPeriod, calculateFundingGap, monthlyEquivalentFromProvider, calculateRequiredTopUp } from './childcare';
 
 describe('TFC Calculation Utilities', () => {
 
@@ -149,4 +149,60 @@ describe('TFC Calculation Utilities', () => {
     });
   });
 
+});
+
+// ---------------------------------------------------------------------------
+// Phase 35: monthlyEquivalentFromProvider
+// ---------------------------------------------------------------------------
+describe('monthlyEquivalentFromProvider', () => {
+  it('returns monthly amount unchanged for monthly-frequency providers', () => {
+    const provider = { monthlyEquivalentPence: 50000, frequency: 'monthly' };
+    expect(monthlyEquivalentFromProvider(provider)).toBe(50000);
+  });
+
+  it('returns amount divided by 3 for termly-frequency providers', () => {
+    // Termly cost of £1500 → monthly equivalent £500
+    const provider = { termlyAmountPence: 150000, frequency: 'termly' };
+    expect(monthlyEquivalentFromProvider(provider)).toBe(50000);
+  });
+
+  it('floors termly division to integer pence', () => {
+    // £100 termly → 33.33... pence → floor to 33
+    const provider = { termlyAmountPence: 100, frequency: 'termly' };
+    expect(monthlyEquivalentFromProvider(provider)).toBe(33);
+  });
+
+  it('returns 0 for providers with no amount', () => {
+    const provider = { frequency: 'monthly' };
+    expect(monthlyEquivalentFromProvider(provider)).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 35: calculateRequiredTopUp
+// ---------------------------------------------------------------------------
+describe('calculateRequiredTopUp', () => {
+  it('computes max(0, total - balance - bonus) when total exceeds balance + bonus', () => {
+    // providerTotal: £600 (60000p), balance: £200 (20000p), bonus: £50 (5000p)
+    // required = 60000 - 20000 - 5000 = 35000
+    expect(calculateRequiredTopUp(60000, 20000, 5000)).toBe(35000);
+  });
+
+  it('returns 0 when balance covers total', () => {
+    // balance + bonus >= total → no top-up needed
+    expect(calculateRequiredTopUp(50000, 50000, 0)).toBe(0);
+  });
+
+  it('returns 0 when balance + bonus exceeds total', () => {
+    expect(calculateRequiredTopUp(50000, 40000, 20000)).toBe(0);
+  });
+
+  it('returns 0 when all inputs are zero', () => {
+    expect(calculateRequiredTopUp(0, 0, 0)).toBe(0);
+  });
+
+  it('floors result at zero (never negative)', () => {
+    // balance alone is far more than total
+    expect(calculateRequiredTopUp(10000, 100000, 0)).toBe(0);
+  });
 });

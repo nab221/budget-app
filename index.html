@@ -42,14 +42,14 @@
       <nav class="nav-container">
         <button id="mobileMenuBtn" class="mobile-menu-btn" aria-label="Toggle Menu">☰</button>
         <div class="tabs" id="mainTabs">
-          <button class="tab active" data-tab="dashboard">Dashboard</button>
-          <button class="tab" data-tab="income">Income</button>
-          <button class="tab" data-tab="expenses">Expenses</button>
-          <button class="tab" data-tab="debts">Debts</button>
-          <button class="tab" data-tab="payoff">Payoff Planner</button>
-          <button class="tab" data-tab="assets">Assets</button>
-          <button class="tab" data-tab="childcare">Childcare</button>
-          <button class="tab" data-tab="settings">Settings</button>
+          <button class="tab active" data-tab="dashboard" aria-label="Dashboard"><span class="tab-label">Dashboard</span></button>
+          <button class="tab" data-tab="transactions" aria-label="Transactions"><span class="tab-label">Transactions</span></button>
+          <button class="tab" data-tab="income-sources" aria-label="Income"><span class="tab-label">Income</span></button>
+          <button class="tab" data-tab="debts" aria-label="Debts"><span class="tab-label">Debts</span></button>
+          <button class="tab" data-tab="payoff" aria-label="Payoff"><span class="tab-label">Payoff</span></button>
+          <button class="tab" data-tab="assets" aria-label="Assets"><span class="tab-label">Assets</span></button>
+          <button class="tab" data-tab="childcare" aria-label="Childcare"><span class="tab-label">Childcare</span></button>
+          <button class="tab" data-tab="settings" aria-label="Settings"><span class="tab-label">Settings</span></button>
         </div>
       </nav>
 
@@ -62,6 +62,38 @@
             <div class="chart-container" id="rollingOverviewChartContainer" style="margin-bottom: 20px">
               <h3 class="chart-title">Rolling Financial Overview</h3>
               <canvas id="rollingOverviewChart"></canvas>
+            </div>
+
+            <!-- Phase 36: Dashboard Navigator Controls Row -->
+            <!-- dashboardMonthPicker: month nav (visible in 'current' mode only) -->
+            <!-- dashboardViewSegmentedControl: view toggle (This Month / Year to Date / All Time) -->
+            <div class="dashboard-navigator-shell" style="display:flex; justify-content:center; align-items:center; gap:12px; margin: 0 0 20px 0; flex-wrap:wrap">
+              <div id="dashboardMonthPicker" class="month-nav" style="margin-bottom:0; padding:5px"></div>
+              <div id="dashboardViewSegmentedControl"></div>
+            </div>
+
+            <div class="sum-grid" id="summaryGrid" style="margin-bottom: 20px">
+              <!-- Summary items will be rendered here -->
+            </div>
+
+            <!-- Spending Analytics Section -->
+            <div class="grid2" style="margin-bottom: 20px">
+              <div class="card">
+                <div class="card-hd">
+                  <h3 class="chart-title">Spending by Category</h3>
+                </div>
+                <div class="chart-container" style="height: 250px; border-bottom: none">
+                  <canvas id="spendingBreakdownChart"></canvas>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-hd">
+                  <h3 class="chart-title">Savings Rate</h3>
+                </div>
+                <div id="savingsRateKPI" class="grid1" style="height: 250px; display: flex; flex-direction: column; justify-content: center; align-items: center">
+                  <!-- Injected by dashboard.js -->
+                </div>
+              </div>
             </div>
 
             <!-- Income Heatmap Section -->
@@ -89,57 +121,28 @@
                 Grey means no spend. Greener and darker cells indicate higher daily spending.
               </div>
             </div>
-
-            <!-- Phase 17: Dashboard Month Picker Reflow -->
-            <div style="display:flex; justify-content:center; align-items:center; gap:12px; margin: 0 0 20px 0; flex-wrap:wrap">
-              <div id="dashboardMonthPicker" class="month-nav" style="margin-bottom:0; padding:5px"></div>
-              <select id="viewSelect" style="font-size:.9rem; padding:6px 12px; font-weight:600; border-radius:6px">
-                <option value="current">Month View</option>
-                <option value="ytd">Year to Date</option>
-                <option value="all">All Time</option>
-              </select>
-            </div>
-
-            <div class="sum-grid" id="summaryGrid" style="margin-bottom: 20px">
-              <!-- Summary items will be rendered here -->
-            </div>
-
-            <!-- Spending Analytics Section -->
-            <div class="grid2" style="margin-bottom: 20px">
-              <div class="card">
-                <div class="card-hd">
-                  <h3 class="chart-title">Spending by Category</h3>
-                </div>
-                <div class="chart-container" style="height: 250px; border-bottom: none">
-                  <canvas id="spendingBreakdownChart"></canvas>
-                </div>
-              </div>
-              <div class="card">
-                <div class="card-hd">
-                  <h3 class="chart-title">Savings Rate</h3>
-                </div>
-                <div id="savingsRateKPI" class="grid1" style="height: 250px; display: flex; flex-direction: column; justify-content: center; align-items: center">
-                  <!-- Injected by dashboard.js -->
-                </div>
-              </div>
-            </div>
           </div>
 
-          <!-- INCOME -->
-          <div class="tab-panel" data-panel="income">
+          <!-- TRANSACTIONS -->
+          <div class="tab-panel" data-panel="transactions">
             <!-- Month Picker (Navigation) -->
             <div id="incMonthPicker" class="month-nav" style="margin-bottom:20px"></div>
 
-            <div class="card" id="incomeTabHeatmapSection" style="margin-bottom: 20px; overflow-x: auto; -webkit-overflow-scrolling: touch;">
-              <div class="card-hd">
-                <h3 class="chart-title">Income Heatmap</h3>
-              </div>
+            <!-- Income Heatmap -->
+            <div class="card" id="transactionsIncomeHeatmapSection" style="margin-bottom: 20px; overflow-x: auto; -webkit-overflow-scrolling: touch;">
+              <div class="card-hd"><h3 class="chart-title">Income Heatmap</h3></div>
               <div class="chart-container" style="padding: 15px; min-width: 800px; border-bottom: none">
-                <div id="incomeTabHeatmapContainer" class="privacy-blur"></div>
+                <div id="transactionsIncomeHeatmapContainer" class="privacy-blur"></div>
               </div>
-              <div class="hint" style="padding: 0 15px 15px; font-size: 0.7rem; color: var(--text-soft)">
-                Grey means no income. Greener and darker cells indicate higher daily income.
+              <div class="hint" style="padding: 0 15px 15px; font-size: 0.7rem; color: var(--text-soft)">Grey means no income. Greener and darker cells indicate higher daily income.</div>
+            </div>
+            <!-- Spending Heatmap -->
+            <div class="card" id="transactionsSpendingHeatmapSection" style="margin-bottom: 20px; overflow-x: auto; -webkit-overflow-scrolling: touch;">
+              <div class="card-hd"><h3 class="chart-title">Spending Heatmap</h3></div>
+              <div class="chart-container" style="padding: 15px; min-width: 800px; border-bottom: none">
+                <div id="transactionsSpendingHeatmapContainer" class="privacy-blur"></div>
               </div>
+              <div class="hint" style="padding: 0 15px 15px; font-size: 0.7rem; color: var(--text-soft)">Grey means no spend. Greener and darker cells indicate higher daily spending.</div>
             </div>
 
             <div id="incomeSummary" style="margin-bottom:20px"></div>
@@ -150,9 +153,15 @@
             </div>
 
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:10px">
-              <div style="display:flex; gap:8px">
+              <div style="display:flex; gap:8px; flex-wrap:wrap">
                 <button id="addIncBtn" class="primary">+ Add Income</button>
+                <button id="addExpenseBtn" class="primary">+ Add Expense</button>
                 <button id="toggleIncReconBtn" class="ghost sm">🔍 Reconciliation Mode</button>
+                <button id="toggleExpReconBtn" class="ghost sm">🔍 Expense Recon</button>
+                <div id="markAllPaidRow">
+                  <button id="markAllPaidBtn" class="ghost sm">✓ Mark all as paid</button>
+                </div>
+                <button id="triggerRecurrenceBtn" class="ghost sm">🔁 Trigger Recurrence</button>
               </div>
 
               <!-- Search Bar & Category Filter -->
@@ -162,67 +171,16 @@
                   <!-- Filter injected by transactions.js -->
                 </div>
               </div>
-            </div>            <table class="tbl"><thead><tr><th>Date</th><th>Source</th><th class="r">Amount</th><th></th></tr></thead><tbody id="incBody"></tbody></table>
-          </div>
-
-          <!-- EXPENSES -->
-          <div class="tab-panel" data-panel="expenses">
-            <!-- Month Picker (Navigation) -->
-            <div id="expMonthPicker" class="month-nav" style="margin-bottom:20px"></div>
-
-            <div class="card" id="expensesTabHeatmapSection" style="margin-bottom: 20px; overflow-x: auto; -webkit-overflow-scrolling: touch;">
-              <div class="card-hd">
-                <h3 class="chart-title">Spending Heatmap</h3>
-              </div>
-              <div class="chart-container" style="padding: 15px; min-width: 800px; border-bottom: none">
-                <div id="expensesTabHeatmapContainer" class="privacy-blur"></div>
-              </div>
-              <div class="hint" style="padding: 0 15px 15px; font-size: 0.7rem; color: var(--text-soft)">
-                Grey means no spend. Greener and darker cells indicate higher daily spending.
+            </div>
+            <!-- Expense Filters -->
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:6px">
+              <input type="text" id="expSearch" placeholder="Search expenses..." style="font-size:.8rem; width:180px"/>
+              <div id="expCategoryFilterContainer"></div>
+              <div id="expReconHeader" class="card hidden" style="margin-top:8px; background:var(--bg-alt); border: 2px solid var(--danger);">
+                <!-- Injected by expenses.js -->
               </div>
             </div>
-
-            <div id="expensesSummary" style="margin-bottom:20px"></div>
-
-            <!-- Reconciliation Header (Hidden by default) -->
-            <div id="expReconHeader" class="card hidden" style="margin-bottom:16px; background:var(--bg-alt); border: 2px solid var(--danger);">
-              <!-- Injected by expenses.js -->
-            </div>
-
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:10px">
-              <div style="display:flex; gap:8px">
-                <button id="addExpenseBtn" class="primary">+ Add Expense</button>
-                <button id="toggleExpReconBtn" class="ghost sm">🔍 Reconciliation Mode</button>
-                
-                <div id="markAllPaidRow">
-                  <button id="markAllPaidBtn" class="ghost sm">✓ Mark all as paid</button>
-                </div>
-                <button id="triggerRecurrenceBtn" class="ghost sm">🔁 Trigger Recurrence</button>
-              </div>
-
-              <!-- Search/Filter Bar -->
-              <div style="display:flex; gap:8px; align-items:center">
-                <input type="text" id="expSearch" placeholder="Search expenses..." style="font-size:.8rem; width:180px"/>
-                <div id="expCategoryFilterContainer">
-                  <!-- Multi-select injected by expenses.js -->
-                </div>
-              </div>
-            </div>
-
-            <!-- Unified Expense Table -->
-            <table class="tbl">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Category</th>
-                  <th>Expense</th>
-                  <th class="r">Amount</th>
-                  <th>Status</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody id="expenseBody"></tbody>
-            </table>
+            <div id="expensesSummary" style="margin-bottom:10px"></div>            <table class="tbl"><thead><tr><th>Date</th><th>Source</th><th class="r col-amount">Amount</th><th></th></tr></thead><tbody id="incBody"></tbody></table>
           </div>
 
           <!-- PAYOFF PLANNER -->
@@ -348,6 +306,15 @@
             <div id="childcareLedgerSection" style="display:none"></div>
           </div>
 
+          <!-- PAY SOURCES -->
+          <div class="tab-panel" data-panel="income-sources">
+            <div id="incomeSourcesContainer">
+              <div id="incomeSourcesSummary"></div>
+              <div id="incomePendingConfirmations"></div>
+              <div id="incomeSourceList"></div>
+            </div>
+          </div>
+
           <!-- SETTINGS -->
           <div class="tab-panel" data-panel="settings">
             <h3 style="font-size:.9rem;margin-bottom:8px">Manage Categories</h3>
@@ -382,6 +349,10 @@
                 <label for="hapticsEnabledCheckbox" style="font-size:.85rem;margin:0">Haptic Feedback</label>
               </div>
               <div class="hint" style="margin-top:4px;font-size:.75rem">Vibrate on success, deletion, or errors (supported mobile devices only).</div>
+              <div style="margin-top:10px">
+                <button id="refreshBankHolidaysBtn" class="secondary" style="font-size:.85rem">Refresh bank holidays</button>
+                <div class="hint" style="margin-top:4px;font-size:.75rem">Update the cached UK bank holidays list from GOV.UK (requires internet connection).</div>
+              </div>
             </div>
 
             <div style="margin-top:20px; padding-top:20px; border-top:1px solid var(--border)">

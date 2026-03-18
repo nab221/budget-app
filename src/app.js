@@ -23,6 +23,7 @@ import { renderPayoffPlanner } from './ui/payoff.js';
 import { initPWA, installApp, checkExportReminder } from './ui/pwa-ux.js';
 import { initFileSyncUI, refreshPersistenceWarning } from './ui/file-sync.js';
 import { childcareUI } from './ui/childcare.js';
+import { incomeSources as incomeSourcesUI } from './ui/income-sources.js';
 import { calculateBalanceChain } from './utils/finance.js';
 import { 
   BALANCE_START_DATE_KEY, 
@@ -31,7 +32,10 @@ import {
   HAPTICS_ENABLED_KEY
 } from './utils/storage.js';
 import { RecurrenceManager } from './utils/recurrence.js';
+import { refreshBankHolidaysCache } from './utils/banking-calendar.js';
 import { triggerHaptic, initHaptics } from './utils/haptics.js';
+import { validateDataIntegrity, cleanOrphanedRecords } from './utils/data-integrity.js';
+import { incomeSpendingSettings } from './ui/income-spending-settings.js';
 
 export { BALANCE_START_DATE_KEY };
 
@@ -99,6 +103,20 @@ async function init() {
         console.error('Failed to run recurrence check:', err);
       }
     })(),
+    (async () => {
+      try {
+        // Refresh bank holidays cache if stale (>365 days old) or missing — fire-and-forget
+        const cacheDate = localStorage.getItem('uk_bank_holidays_cache_date');
+        const parsedCacheTs = cacheDate ? Date.parse(cacheDate) : NaN;
+        const hasValidCacheTs = Number.isFinite(parsedCacheTs);
+        const isStale = !hasValidCacheTs || (Date.now() - parsedCacheTs) > 365 * 24 * 60 * 60 * 1000;
+        if (isStale) {
+          refreshBankHolidaysCache(); // fire-and-forget — no await
+        }
+      } catch (err) {
+        console.warn('[app] Bank holidays cache check failed:', err);
+      }
+    })(),
     refreshPersistenceWarning()
   ]);
 
@@ -113,15 +131,19 @@ async function init() {
       const renderTasks = [];
       
       if (panelId === 'dashboard') renderTasks.push(renderDashboard());
-      if (panelId === 'income') renderTasks.push(transactionUI.render());
-      if (panelId === 'expenses') renderTasks.push(expensesUI.render());
+      if (panelId === 'transactions') {
+        renderTasks.push(transactionUI.render());
+        renderTasks.push(expensesUI.render());
+      }
       if (panelId === 'debts') renderTasks.push(debtUI.render());
       if (panelId === 'assets') renderTasks.push(assetUI.render());
       if (panelId === 'payoff') renderTasks.push(renderPayoffPlanner());
       if (panelId === 'childcare') renderTasks.push(childcareUI.render());
+      if (panelId === 'income-sources') renderTasks.push(incomeSourcesUI.render());
       if (panelId === 'settings') {
         renderTasks.push(categoryUI.render());
         renderTasks.push(targetsUI.renderTargetSettings());
+        renderTasks.push(incomeSpendingSettings.render());
       }
 
       await Promise.all(renderTasks);
@@ -135,6 +157,11 @@ async function init() {
   const mainTabs = document.getElementById('mainTabs');
   const mobileMenuBtn = document.getElementById('mobileMenuBtn');
 
+  // HAMBURGER TOGGLE — desktop narrow-width only.
+  // On mobile (≤768px), #mobileMenuBtn is hidden via CSS (display: none) and this
+  // handler is inert. The bottom tab bar (Phase 28) replaces the hamburger pattern
+  // on mobile. This code is retained for any future desktop narrow-width use case.
+  // Do NOT remove without verifying desktop behaviour.
   if (mobileMenuBtn && mainTabs) {
     mobileMenuBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -226,6 +253,7 @@ async function init() {
   // 4. Parallel Module Initialization
   await Promise.all([
     categoryRepository.seedDefaultCategories(),
+    incomeSpendingSettings.init(),
     netWorthRepository.checkAndTakeSnapshot(),
     initFileSyncUI(),
     transactionUI.init(),
@@ -233,6 +261,7 @@ async function init() {
     debtUI.init(),
     assetUI.init(),
     childcareUI.init(),
+    incomeSourcesUI.init(),
     templateUI.init(),
     pdfImportUI.init(),
     categoryUI.init(),
@@ -243,6 +272,61 @@ async function init() {
   ]);
 
   console.log('Budget App initialized successfully.');
+
+  // Wire "Refresh bank holidays" Settings button
+  const refreshBankHolidaysBtn = document.getElementById('refreshBankHolidaysBtn');
+  if (refreshBankHolidaysBtn) {
+    refreshBankHolidaysBtn.addEventListener('click', async () => {
+      refreshBankHolidaysBtn.disabled = true;
+      refreshBankHolidaysBtn.textContent = 'Refreshing...';
+      try {
+        const result = await refreshBankHolidaysCache();
+        if (result.success) {
+          notificationUI.success('Bank holidays updated.');
+        } else {
+          notificationUI.error('Failed to refresh bank holidays. Using fallback holiday data.');
+          console.warn('[app] Bank holidays refresh failed:', result.error);
+        }
+      } catch (err) {
+        console.warn('[app] Bank holidays refresh failed:', err);
+        notificationUI.error('Failed to refresh bank holidays.');
+      } finally {
+        refreshBankHolidaysBtn.disabled = false;
+        refreshBankHolidaysBtn.textContent = 'Refresh bank holidays';
+      }
+    });
+  }
+
+  // Phase 27: Non-blocking data integrity check after initial render
+  validateDataIntegrity().then(({ valid, issues }) => {
+    if (!valid) {
+      notificationUI.warning(
+        `⚠️ ${issues.length} data integrity issue${issues.length !== 1 ? 's' : ''} found.`,
+        [
+          {
+            label: 'Clean up',
+            onClick: async () => {
+              try {
+                const { valid: stillValid, issues: freshIssues } = await validateDataIntegrity();
+                if (stillValid || !freshIssues.length) {
+                  notificationUI.info('No orphaned records remain.');
+                  return;
+                }
+                await cleanOrphanedRecords(freshIssues);
+                notificationUI.success('Orphaned records removed.');
+              } catch (err) {
+                console.warn('[app] Orphan cleanup failed:', err);
+                notificationUI.error('Failed to remove orphaned records.');
+              }
+            },
+          },
+        ],
+        8000
+      );
+    }
+  }).catch(err => {
+    console.warn('[app] Data integrity check failed:', err);
+  });
 }
 
 // Start the application

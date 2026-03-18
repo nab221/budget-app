@@ -43,6 +43,7 @@ vi.mock('../db/repository.js', () => ({
     add: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
+    confirmBalance: vi.fn(async () => ({ previousBalance: 100000, newBalance: 90000 })),
   },
   statementRepository: {
     getAll: vi.fn(async () => []),
@@ -107,11 +108,18 @@ vi.mock('../utils/finance.js', () => ({
   calcMinPayment: vi.fn(() => 0),
   calcUtilization: vi.fn(() => 0),
   simulatePayoff: vi.fn(() => ({ monthsToClear: 0 })),
+  calculateAmortisationSchedule: vi.fn(() => ({
+    schedule: [],
+    projectedPayoffDate: 'Jun 2030',
+    remainingTermMonths: 52,
+    totalInterestRemaining: 250000,
+  })),
 }));
 
-import { debtUI } from './debts.js';
+import { debtUI, CONFIRM_BALANCE_WARNING_THRESHOLD } from './debts.js';
 import { modalUI } from './render.js';
 import { debtRepository, statementRepository, recurrentExpenseRepository, oneOffExpenseRepository } from '../db/repository.js';
+import { calculateAmortisationSchedule } from '../utils/finance.js';
 import {
   renderStatementBalanceChart,
   renderStatementInterestChart,
@@ -1184,5 +1192,153 @@ describe('debtUI statement charts', () => {
 
     expect(renderStatementUtilisationChart).not.toHaveBeenCalled();
     expect(renderStatementBalanceChart).toHaveBeenCalledOnce();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 32: Amortisation modal branching (AMORT-01 to AMORT-04)
+// ---------------------------------------------------------------------------
+
+describe('AMORT: _buildHistoryModalHTML branching by debtType', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    document.body.innerHTML = '';
+  });
+
+  const loanDebt = {
+    id: 10,
+    name: 'Car Loan',
+    debtType: 'loan',
+    currentBalance: 800000,
+    interestRate: 6.9,
+    fixedMonthlyPayment: 15000,
+    paymentDayOfMonth: 1,
+  };
+
+  const mortgageDebt = {
+    id: 11,
+    name: 'Home Mortgage',
+    debtType: 'mortgage',
+    currentBalance: 25000000,
+    interestRate: 3.5,
+    fixedMonthlyPayment: 120000,
+    paymentDayOfMonth: 1,
+  };
+
+  const ccDebt = {
+    id: 12,
+    name: 'TSB Card',
+    debtType: 'credit-card',
+    currentBalance: 150000,
+    apr: 19.9,
+    creditLimit: 500000,
+  };
+
+  it('AMORT-01: personal-loan modal does NOT contain "Log Statement"', () => {
+    const html = debtUI._buildHistoryModalHTML(loanDebt);
+    expect(html).not.toContain('Log Statement');
+  });
+
+  it('AMORT-02: mortgage modal does NOT contain "Import PDF"', () => {
+    const html = debtUI._buildHistoryModalHTML(mortgageDebt);
+    expect(html).not.toContain('Import PDF');
+  });
+
+  it('AMORT-03: credit-card modal DOES contain "Log Statement"', () => {
+    const html = debtUI._buildHistoryModalHTML(ccDebt);
+    expect(html).toContain('Log Statement');
+  });
+
+  it('AMORT-04: personal-loan modal contains _buildAmortisationModalHTML markers', () => {
+    const html = debtUI._buildHistoryModalHTML(loanDebt);
+    expect(html).toContain('Confirm Current Balance');
+    expect(html).toContain('confirmBalanceForm');
+  });
+
+  it('AMORT-05: CONFIRM_BALANCE_WARNING_THRESHOLD is 0.05', () => {
+    expect(CONFIRM_BALANCE_WARNING_THRESHOLD).toBe(0.05);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 32: submitConfirmBalance validation (CB-VALID-01 to CB-VALID-03)
+// ---------------------------------------------------------------------------
+
+describe('CB-VALID: submitConfirmBalance inline validation', () => {
+  function buildConfirmBalanceDOM(debtId, currentBalancePounds) {
+    document.body.innerHTML = `
+      <input id="confirmBalanceInput-${debtId}" type="number" value="${currentBalancePounds - 10}" />
+      <span id="confirmBalanceError-${debtId}"></span>
+      <div id="confirmBalanceForm-${debtId}" class="hidden"></div>
+    `;
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    document.body.innerHTML = '';
+  });
+
+  it('CB-VALID-01: balance >= currentBalance shows inline error', async () => {
+    const debtId = 20;
+    debtRepository.get.mockResolvedValueOnce({
+      id: debtId,
+      currentBalance: 100000, // £1000 in pence
+    });
+    buildConfirmBalanceDOM(debtId, 1000);
+    // Set a value >= current (same value)
+    document.getElementById(`confirmBalanceInput-${debtId}`).value = '1000';
+
+    await debtUI.submitConfirmBalance(debtId);
+
+    const errSpan = document.getElementById(`confirmBalanceError-${debtId}`);
+    expect(errSpan.textContent).toContain('less than current balance');
+    expect(debtRepository.confirmBalance).not.toHaveBeenCalled();
+  });
+
+  it('CB-VALID-02: balance <= 0 shows inline error "Balance must be greater than zero"', async () => {
+    const debtId = 21;
+    debtRepository.get.mockResolvedValueOnce({
+      id: debtId,
+      currentBalance: 100000,
+    });
+    buildConfirmBalanceDOM(debtId, 1000);
+    document.getElementById(`confirmBalanceInput-${debtId}`).value = '0';
+
+    await debtUI.submitConfirmBalance(debtId);
+
+    const errSpan = document.getElementById(`confirmBalanceError-${debtId}`);
+    expect(errSpan.textContent).toContain('greater than zero');
+    expect(debtRepository.confirmBalance).not.toHaveBeenCalled();
+  });
+
+  it('CB-VALID-03: difference > 5% triggers window.confirm before saving', async () => {
+    const debtId = 22;
+    debtRepository.get.mockResolvedValueOnce({
+      id: debtId,
+      currentBalance: 100000, // £1000
+      interestRate: 5,
+      fixedMonthlyPayment: 10000,
+      paymentDayOfMonth: 1,
+    });
+    // Mock a second get() call inside submitConfirmBalance for refresh
+    debtRepository.get.mockResolvedValue({
+      id: debtId,
+      currentBalance: 80000,
+      interestRate: 5,
+      fixedMonthlyPayment: 10000,
+      paymentDayOfMonth: 1,
+    });
+    buildConfirmBalanceDOM(debtId, 1000);
+    // Enter a value 20% lower (800) — well above the 5% threshold
+    document.getElementById(`confirmBalanceInput-${debtId}`).value = '800';
+
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+
+    await debtUI.submitConfirmBalance(debtId);
+
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(debtRepository.confirmBalance).not.toHaveBeenCalled(); // user cancelled
+
+    confirmSpy.mockRestore();
   });
 });

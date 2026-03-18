@@ -50,11 +50,25 @@ export function renderSpendingHeatmap(containerId, year, dailyData, options = {}
 
   const yearNum = parseInt(year);
 
+  // Phase 27: Pre-filter dailyData to target year to prevent cross-year scale distortion
+  const filteredDailyData = Object.fromEntries(
+    Object.entries(dailyData).filter(([k]) => {
+      // Parse YYYY-MM-DD string in local timezone, not UTC
+      const parts = k.split('-');
+      if (parts.length !== 3) return false;
+      const year = parseInt(parts[0]);
+      const month = parseInt(parts[1]);
+      const day = parseInt(parts[2]);
+      if (Number.isNaN(year) || Number.isNaN(month) || Number.isNaN(day)) return false;
+      return year === yearNum;
+    })
+  );
+
   // Clear container if requested
   if (clear) container.innerHTML = '';
-  
+
   // Calculate Quartiles for Color Scaling
-  const dataForScale = allYearsData || dailyData;
+  const dataForScale = allYearsData || filteredDailyData;
   const nonZeroTotals = Object.values(dataForScale)
     .map(d => typeof d === 'number' ? d : d.total) // Handle if data is just numbers or objects
     .filter(t => t > 0)
@@ -142,7 +156,7 @@ export function renderSpendingHeatmap(containerId, year, dailyData, options = {}
 
       // Get data for this date
       const dateStr = formatLocalDateKey(date);
-      const data = dailyData[dateStr] || { total: 0 };
+      const data = filteredDailyData[dateStr] || { total: 0 };
       
       // Draw Cell
       const x = labelWidth + week * (cellSize + cellGap);
@@ -243,7 +257,7 @@ export function renderSpendingHeatmap(containerId, year, dailyData, options = {}
     const date = getCellAt(mouseX, mouseY);
     if (date) {
       const dateStr = formatLocalDateKey(date);
-      const data = dailyData[dateStr] || { total: 0 };
+      const data = filteredDailyData[dateStr] || { total: 0 };
       showTooltip(e, date, data);
       canvas.style.cursor = 'pointer';
     } else {
@@ -267,7 +281,7 @@ export function renderSpendingHeatmap(containerId, year, dailyData, options = {}
     if (date) {
       e.preventDefault(); // Only prevent if we hit a cell
       const dateStr = formatLocalDateKey(date);
-      const data = dailyData[dateStr] || { total: 0 };
+      const data = filteredDailyData[dateStr] || { total: 0 };
       showTooltip(touch, date, data);
     } else {
       hideTooltip();

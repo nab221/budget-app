@@ -22,6 +22,28 @@ import { SwipeHandler } from '../utils/gestures.js';
 import { renderSpendingHeatmap } from './heatmap.js';
 
 /**
+ * Returns true if the expense record is linked to a debt entry.
+ * Uses isDebtPayment (Phase 18 field) or linkedDebtId (repository field).
+ */
+function isDebtLinked(expense) {
+  return !!(expense.isDebtPayment || expense.linkedDebtId);
+}
+
+/**
+ * Renders a compact accessible status icon for an expense status string.
+ */
+function renderStatusIcon(status) {
+  const map = {
+    paid:      { icon: '✓', label: 'Paid' },
+    pending:   { icon: '○', label: 'Pending' },
+    cancelled: { icon: '✗', label: 'Cancelled' },
+  };
+  const s = (status || 'pending').toLowerCase();
+  const { icon, label } = map[s] || map.pending;
+  return `<span class="status-icon" aria-label="${label}">${icon}</span>`;
+}
+
+/**
  * Expenses UI Module
  * Handles the unified "Expenses" tab.
  */
@@ -213,31 +235,37 @@ export const expensesUI = {
     };
 
     window.toggleExpenseStatus = async (id, type, currentStatus) => {
-      if (type !== 'recurrent') return;
       try {
-        const item = await recurrentExpenseRepository.get(id);
-        if (!item) return;
+        if (type === 'recurrent') {
+          const item = await recurrentExpenseRepository.get(id);
+          if (!item) return;
 
-        // Intercept for specialized debt payments
-        if (item.isDebtPayment && item.linkedStatementId) {
-          if (currentStatus === 'pending') {
-            await expensesUI.showDebtPaymentConfirmation(item);
-            return;
-          } else if (currentStatus === 'paid') {
-            if (confirm('Un-pay this debt payment? This will reset the linked statement.')) {
-              await statementRepository.resetPayment(item.linkedStatementId);
-              await this.render();
+          // Intercept for specialized debt payments
+          if (item.isDebtPayment && item.linkedStatementId) {
+            if (currentStatus === 'pending') {
+              await expensesUI.showDebtPaymentConfirmation(item);
+              return;
+            } else if (currentStatus === 'paid') {
+              if (confirm('Un-pay this debt payment? This will reset the linked statement.')) {
+                await statementRepository.resetPayment(item.linkedStatementId);
+                await this.render();
+              }
+              return;
             }
-            return;
           }
-        }
 
-        const newStatus = currentStatus === 'paid' ? 'pending' : 'paid';
-        const updates = { status: newStatus };
-        if (newStatus === 'paid' && item.cycleTotal > 0) {
-          updates.cycleCurrent = Math.min((item.cycleCurrent || 0) + 1, item.cycleTotal);
+          const newStatus = currentStatus === 'paid' ? 'pending' : 'paid';
+          const updates = { status: newStatus };
+          if (newStatus === 'paid' && item.cycleTotal > 0) {
+            updates.cycleCurrent = Math.min((item.cycleCurrent || 0) + 1, item.cycleTotal);
+          } else if (newStatus === 'pending' && item.cycleTotal > 0) {
+            updates.cycleCurrent = Math.max((item.cycleCurrent || 0) - 1, 0);
+          }
+          await recurrentExpenseRepository.update(id, updates);
+        } else {
+          const newStatus = currentStatus === 'paid' ? 'pending' : 'paid';
+          await oneOffExpenseRepository.update(id, { status: newStatus });
         }
-        await recurrentExpenseRepository.update(id, updates);
         triggerHaptic('tap');
         await this.render();
       } catch (err) {
@@ -693,7 +721,10 @@ export const expensesUI = {
     }
 
     if (items.length === 0) {
-      container.innerHTML = '<tr><td colspan="6" class="hint" style="text-align:center;padding:20px">No matching expenses found for this month.</td></tr>';
+      const tableEl = container.closest('table');
+      const headerCols = tableEl?.querySelectorAll('thead th') || [];
+      const columnCount = headerCols.length > 0 ? headerCols.length : (this.reconciliationMode ? 3 : 4);
+      container.innerHTML = `<tr><td colspan="${columnCount}" class="hint" style="text-align:center;padding:20px">No matching expenses found for this month.</td></tr>`;
       this.updateTotal(0);
       return;
     }
@@ -707,7 +738,8 @@ export const expensesUI = {
       const isFinished = item.type === 'recurrent' && item.cycleTotal > 0 && (item.cycleCurrent || 0) >= item.cycleTotal;
       const isReconciled = item.isReconciled === true;
       const isCleared = item.isCleared === true;
-      const canSwipe = !isReconciled;
+      const canSwipe = !isReconciled && !this.reconciliationMode;
+      const debtLinked = isDebtLinked(item);
 
       const badgeHTML = [];
       if (item.type === 'recurrent') {
@@ -730,41 +762,49 @@ export const expensesUI = {
         badgeHTML.push(`<span class="pill" style="background:var(--success); color:#fff; font-size:0.65rem">✓ Reconciled</span>`);
       }
 
-      return safeHTML`
-        <tr class="swipe-row ${isPaid ? 'paid-row' : ''} ${isFinished ? 'finished-row' : ''} ${isReconciled ? 'reconciled-row' : ''} ${isCleared ? 'cleared-row' : ''}" data-id="${item.id}" data-type="${item.type}">
-          <td class="nw">
-            ${canSwipe ? `<div class="swipe-action-right" onclick="deleteExpense(${item.id}, '${item.type}')">Delete</div>` : ''}
-            ${canSwipe && this.reconciliationMode ? `<div class="swipe-action-left" onclick="toggleExpCleared(${item.id}, '${item.type}', ${isCleared})">Clear</div>` : ''}
-            ${item.displayDate}
-          </td>
-          <td>${catName}</td>
-          <td>
-            ${item.displayLabel || '—'}
-            <div style="display:flex; gap:4px; margin-top:2px; flex-wrap:wrap">
-              ${badgeHTML.join('')}
-            </div>
-          </td>
-          <td class="r nw"><span class="privacy-blur">${formatGBP(item.amount)}</span></td>
-          <td>
-            ${item.type === 'recurrent' ? `
-              <button class="sm ${isPaid ? 'success' : 'ghost'}" ${this.reconciliationMode || isReconciled ? 'disabled' : ''} onclick="toggleExpenseStatus(${item.id}, 'recurrent', '${item.status}')" title="${isPaid ? 'Paid' : 'Mark as Paid'}">
-                ${isPaid ? '✓ Paid' : '○ Pending'}
-              </button>
-            ` : '<span class="hint">—</span>'}
-          </td>
-          <td class="r nw">
-            ${this.reconciliationMode ? `
+      // Reconciliation mode renders a dedicated cleared checkbox column
+      if (this.reconciliationMode) {
+        return safeHTML`
+          <tr class="swipe-row expense-row ${isPaid ? 'paid-row' : ''} ${isFinished ? 'finished-row' : ''} ${isReconciled ? 'reconciled-row' : ''} ${isCleared ? 'cleared-row' : ''}${debtLinked ? ' debt-linked' : ''}"
+              data-id="${item.id}" data-type="${item.type}" data-debt-linked="${debtLinked}" data-status="${item.status || 'pending'}">
+            <td class="col-date">${this._formatDateCompact(item.displayDate)}</td>
+            <td class="col-expense">
+              <span class="expense-name">${item.displayLabel || '—'}</span>
+              <br>
+              <span class="badge-chip">${catName}</span>
+              ${renderStatusIcon(item.status)}
+              <div style="display:flex; gap:4px; margin-top:2px; flex-wrap:wrap">${badgeHTML.join('')}</div>
+            </td>
+            <td class="col-amount r nw">
               <div style="display:flex; align-items:center; justify-content:flex-end; gap:8px">
-                <label style="font-size:0.75rem; color:var(--text-soft)">Cleared:</label>
-                <input type="checkbox" ${isCleared ? 'checked' : ''} ${isReconciled ? 'disabled' : ''} 
+                <span class="privacy-blur">${formatGBP(item.amount)}</span>
+                <input type="checkbox" ${isCleared ? 'checked' : ''} ${isReconciled ? 'disabled' : ''}
                   onclick="toggleExpCleared(${item.id}, '${item.type}', ${isCleared})"/>
               </div>
-            ` : `
-              <button class="sm ghost" ${isReconciled ? 'disabled title="Reconciled items cannot be edited"' : ''} onclick="expensesUI.editExpense(${item.id}, '${item.type}')" title="${item.isDebtPayment ? 'Edit in Debts tab' : 'Edit'}">
-                ${item.isDebtPayment ? '↗ Debts' : 'Edit'}
-              </button>
-              ${item.isDebtPayment ? '' : `<button class="sm danger" ${isReconciled ? 'disabled title="Reconciled items cannot be deleted"' : ''} onclick="deleteExpense(${item.id}, '${item.type}')">✕</button>`}
-            `}
+            </td>
+          </tr>
+        `;
+      }
+
+      return safeHTML`
+        <tr class="swipe-row expense-row ${isPaid ? 'paid-row' : ''} ${isFinished ? 'finished-row' : ''} ${isReconciled ? 'reconciled-row' : ''} ${isCleared ? 'cleared-row' : ''}${debtLinked ? ' debt-linked' : ''}"
+            data-id="${item.id}" data-type="${item.type}" data-debt-linked="${debtLinked}" data-status="${item.status || 'pending'}">
+          <td class="col-date">
+            ${canSwipe && !debtLinked ? `<div class="swipe-action-left">Edit</div>` : ''}
+            ${canSwipe && !debtLinked ? `<div class="swipe-action-right">Delete</div>` : ''}
+            ${this._formatDateCompact(item.displayDate)}
+          </td>
+          <td class="col-expense">
+            <span class="expense-name">${item.displayLabel || '—'}</span>
+            <br>
+            <span class="badge-chip">${catName}</span>
+            ${renderStatusIcon(item.status)}
+            <div style="display:flex; gap:4px; margin-top:2px; flex-wrap:wrap">${badgeHTML.join('')}</div>
+          </td>
+          <td class="col-amount r nw"><span class="privacy-blur">${formatGBP(item.amount)}</span></td>
+          <td class="col-actions desktop-only">
+            ${canSwipe && !debtLinked ? `<button class="sm ghost btn-edit" ${isReconciled ? 'disabled' : ''} onclick="expensesUI.editExpense(${item.id}, '${item.type}')">Edit</button>` : ''}
+            ${canSwipe && !debtLinked ? `<button class="sm danger btn-delete" ${isReconciled ? 'disabled' : ''} onclick="deleteExpense(${item.id}, '${item.type}')">✕</button>` : ''}
           </td>
         </tr>
       `;
@@ -780,36 +820,8 @@ export const expensesUI = {
 
     try {
       const year = parseInt(this.selectedMonth.slice(0, 4), 10);
-      const prevYear = year - 1;
-
-      const [currentYearData, prevYearData] = await Promise.all([
-        getYearlyDailySpending(year),
-        getYearlyDailySpending(prevYear)
-      ]);
-
-      const hasPrevYearData = Object.values(prevYearData).some(d => d.total > 0);
-      const allData = { ...currentYearData, ...prevYearData };
-
-      renderSpendingHeatmap('expensesTabHeatmapContainer', year, currentYearData, {
-        allYearsData: allData
-      });
-
-      if (hasPrevYearData) {
-        const spacer = document.createElement('div');
-        spacer.style.height = '20px';
-        container.appendChild(spacer);
-
-        const prevLabel = document.createElement('div');
-        prevLabel.className = 'chart-title';
-        prevLabel.style.textAlign = 'center';
-        prevLabel.textContent = `Prior Year (${prevYear})`;
-        container.appendChild(prevLabel);
-
-        renderSpendingHeatmap('expensesTabHeatmapContainer', prevYear, prevYearData, {
-          clear: false,
-          allYearsData: allData
-        });
-      }
+      const currentYearData = await getYearlyDailySpending(year);
+      renderSpendingHeatmap('expensesTabHeatmapContainer', year, currentYearData);
     } catch (err) {
       console.warn('Could not render expenses tab heatmap:', err);
     }
@@ -817,6 +829,7 @@ export const expensesUI = {
 
   /**
    * Initialize swipe gestures for all rows in the current render.
+   * Debt-linked rows get click-to-navigate (Debts tab) instead of swipe.
    */
   setupGestures() {
     // Cleanup old instances
@@ -826,6 +839,26 @@ export const expensesUI = {
     const rows = document.querySelectorAll('#expenseBody .swipe-row');
     rows.forEach(row => {
       const isLocked = row.classList.contains('reconciled-row');
+      const isLinked = row.dataset.debtLinked === 'true';
+
+      // Debt-linked rows: navigate to Debts tab on click, no swipe
+      if (isLinked) {
+        row.style.cursor = 'pointer';
+        row.onclick = (e) => {
+          e.stopPropagation();
+          const debtsTabBtn = document.querySelector('[data-tab="debts"]');
+          if (debtsTabBtn) debtsTabBtn.click();
+        };
+        // Hide swipe action hints (defensive — debt rows don't render them, but guard anyway)
+        const actionRight = row.querySelector('.swipe-action-right');
+        const actionLeft  = row.querySelector('.swipe-action-left');
+        if (actionRight) actionRight.style.display = 'none';
+        if (actionLeft)  actionLeft.style.display  = 'none';
+        return;
+      }
+
+      const rowId = Number(row.dataset.id);
+      const rowType = row.dataset.type;
 
       const instance = new SwipeHandler(row, {
         threshold: 80,
@@ -845,12 +878,10 @@ export const expensesUI = {
             return;
           }
 
+          // Right swipe (positive delta) reveals Edit (on the left)
           // Left swipe (negative delta) reveals Delete (on the right)
-          // Right swipe (positive delta) reveals Clear (on the left) - only in Recon Mode
-          if (deltaX < 0 || (deltaX > 0 && this.reconciliationMode)) {
-            row.style.transform = `translateX(${deltaX}px)`;
-            row.classList.add('swipe-active');
-          }
+          row.style.transform = `translateX(${deltaX}px)`;
+          row.classList.add('swipe-active');
         },
         onEnd: (deltaX, isThresholdMet) => {
           if (isLocked) {
@@ -862,14 +893,22 @@ export const expensesUI = {
             return;
           }
 
+          // If the row is already open and this was a tap (not a swipe), keep it open
+          // so the click event can reach the action div's listener.
+          if (this.currentOpenRow === row && Math.abs(deltaX) < 15) return;
+
           if (isThresholdMet) {
-            // Keep the row open at the threshold offset
             const finalOffset = deltaX < 0 ? -80 : 80;
             row.style.transform = `translateX(${finalOffset}px)`;
             row.classList.add('swipe-active');
             this.currentOpenRow = row;
+            // Trigger action immediately on full swipe
+            if (deltaX > 0) {
+              this.editExpense(rowId, rowType);
+            } else {
+              window.deleteExpense(rowId, rowType);
+            }
           } else {
-            // Snap back if threshold not met
             row.style.transform = '';
             row.classList.remove('swipe-active');
             if (this.currentOpenRow === row) this.currentOpenRow = null;
@@ -877,15 +916,24 @@ export const expensesUI = {
         }
       });
 
-      // Close row on tap if it's currently open
+      // Wire up revealed action divs via JS (onclick attrs are stripped by DOMPurify)
+      const editDiv = row.querySelector('.swipe-action-left');
+      const deleteDiv = row.querySelector('.swipe-action-right');
+      if (editDiv) editDiv.addEventListener('click', () => this.editExpense(rowId, rowType));
+      if (deleteDiv) deleteDiv.addEventListener('click', () => window.deleteExpense(rowId, rowType));
+
+      // Tap on row: close if open, otherwise toggle payment status
       row.onclick = (e) => {
+        const target = e.target;
+        if (!(target instanceof Element)) return;
+        if (this.reconciliationMode || isLocked) return;
+        if (target.classList.contains('swipe-action-left') || target.classList.contains('swipe-action-right')) return;
+        if (target.closest('input, button, a, select, textarea, [contenteditable], .no-row-toggle')) return;
         if (this.currentOpenRow === row) {
-          // If the click target is one of the revealed action buttons, don't close immediately 
-          // (the button's own onclick will handle the action)
-          if (!e.target.classList.contains('swipe-action-left') && !e.target.classList.contains('swipe-action-right')) {
-            this.closeAllRows();
-          }
+          this.closeAllRows();
+          return;
         }
+        window.toggleExpenseStatus(rowId, rowType, row.dataset.status || 'pending');
       };
 
       this._swipeInstances.push(instance);
@@ -1014,6 +1062,29 @@ export const expensesUI = {
           notificationUI.error('Error: ' + err.message);
         }
       };
+    }
+  },
+
+  /**
+   * Formats a date string as a two-line compact display: dd-MMM on line 1, YYYY on line 2.
+   */
+  _formatDateCompact(dateStr) {
+    const fallback = '<span class="date-compact">--<br><span class="date-year">----</span></span>';
+    try {
+      if (typeof dateStr !== 'string' || !dateStr.trim()) return fallback;
+      const isoDate = dateStr.split('T')[0];
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return fallback;
+
+      const [yyyy, mm, dd] = isoDate.split('-').map(Number);
+      const d = new Date(Date.UTC(yyyy, mm - 1, dd));
+      if (Number.isNaN(d.getTime())) return fallback;
+
+      const day = String(d.getUTCDate()).padStart(2, '0');
+      const mmm = d.toLocaleString('en-GB', { month: 'short', timeZone: 'UTC' });
+      const year = d.getUTCFullYear();
+      return `<span class="date-compact">${day}-${mmm}<br><span class="date-year">${year}</span></span>`;
+    } catch (_err) {
+      return fallback;
     }
   },
 

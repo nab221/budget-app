@@ -17,6 +17,13 @@ import { templateUI } from './templates.js';
 import { triggerHaptic } from '../utils/haptics.js';
 import { notificationUI } from './notifications.js';
 import { db } from '../db/schema.js';
+import { validateDataIntegrity, cleanOrphanedRecords } from '../utils/data-integrity.js';
+import {
+  computeSnapshotDiff,
+  isFirstSyncFallback,
+  formatDiffSummary,
+} from '../utils/snapshot-diff.js';
+import { parseLegacyBackup, runLegacyImport } from '../utils/legacy-import.js';
 
 // Phase 23.1: Constants for dirty-state tracking and timestamps
 const CLOUD_IS_DIRTY_KEY = 'budget_cloud_is_dirty';
@@ -32,6 +39,8 @@ const NO_CLOUD_SNAPSHOT_MESSAGE = 'No cloud snapshot found';
 export const cloudSyncUI = {
   _initialized: false,
   _authListenerBound: false,
+  _previewListenerBound: false,
+  _previewHandler: null,
   _authSubscription: null,
   _authBoundClient: null,
   _isDirty: false,
@@ -315,7 +324,7 @@ export const cloudSyncUI = {
       // Phase 23.2: Status dot + timestamp + Sync button only (Sign Out moved inside sync modal)
       headerActionsEl.innerHTML = `
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <span id="syncStatusDot" class="sync-status-indicator" title="Synced" style="display:inline-block;width:0.6em;height:0.6em;border-radius:50%;background:#22c55e;margin:0 4px"></span>
+          <span id="syncStatusDot" class="sync-status-indicator" title="Synced" style="display:inline-block;width:0.6em;height:0.6em;border-radius:50%;background:#22c55e;margin:0 4px;flex-shrink:0"></span>
           <span id="lastSyncedTime" style="font-size:.75rem;color:var(--text-soft)">Last synced: never</span>
           <button id="headerSyncMenuBtn" class="ghost">☁ Sync</button>
           <span id="localFileSyncDot" style="display:inline-block;width:0.6em;height:0.6em;border-radius:50%;background:#6b7280;margin:0 2px" title="Local file sync"></span>
@@ -470,8 +479,10 @@ export const cloudSyncUI = {
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button id="settingsLocalExportBtn" class="ghost">Export Backup</button>
           <button id="settingsLocalImportBtn" class="ghost">Import Backup</button>
+          <button id="settingsLegacyImportBtn" class="ghost" title="Import a v2 budget backup file">Import v2 Legacy</button>
         </div>
       </div>
+      <input type="file" id="legacyImportFile" accept=".json" style="display:none" aria-hidden="true">
     `);
 
     document.getElementById('settingsLocalExportBtn')?.addEventListener('click', () => {
@@ -480,6 +491,43 @@ export const cloudSyncUI = {
 
     document.getElementById('settingsLocalImportBtn')?.addEventListener('click', () => {
       document.getElementById('importFile')?.click();
+    });
+
+    document.getElementById('settingsLegacyImportBtn')?.addEventListener('click', () => {
+      document.getElementById('legacyImportFile')?.click();
+    });
+
+    document.getElementById('legacyImportFile')?.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      e.target.value = '';
+
+      let payload;
+      try {
+        payload = JSON.parse(await file.text());
+      } catch {
+        notificationUI.error('Invalid file: not a valid JSON backup.');
+        return;
+      }
+
+      const { valid, reasons } = parseLegacyBackup(payload);
+      if (!valid) {
+        notificationUI.error(`Cannot import: ${reasons.join(' ')}`);
+        return;
+      }
+
+      try {
+        const summary = await runLegacyImport(payload, { db });
+        notificationUI.success(
+          `Legacy import complete: ${summary.imported} imported, ${summary.skipped} skipped (conflicts).`
+        );
+        if (summary.imported > 0) {
+          window.location.reload();
+        }
+      } catch (err) {
+        console.error('[legacy-import] import error:', err);
+        notificationUI.error(`Legacy import failed: ${err.message}`);
+      }
     });
 
     document.getElementById('settingsLocalSelectFileBtn')?.addEventListener('click', () => {
@@ -863,6 +911,25 @@ export const cloudSyncUI = {
       await pullSnapshot();
       this._clearErrorState();
       await this._refreshSection();
+
+      // Phase 27: Run integrity check after successful cloud pull (non-blocking)
+      validateDataIntegrity().then(({ valid, issues }) => {
+        if (!valid) {
+          notificationUI.warning(
+            `⚠️ ${issues.length} data integrity issue${issues.length !== 1 ? 's' : ''} found after sync.`,
+            [
+              {
+                label: 'Clean up',
+                onClick: () => cleanOrphanedRecords(issues).then(() => notificationUI.success('Orphaned records removed.')),
+              },
+            ],
+            8000
+          );
+        }
+      }).catch(err => {
+        console.warn('[cloudSyncUI] Post-pull integrity check failed:', err);
+      });
+
       return null;
     } catch (err) {
       if (this._isNoCloudSnapshotError(err)) {
@@ -998,12 +1065,18 @@ export const cloudSyncUI = {
    */
   async _showSignInModal() {
     return new Promise((resolve) => {
+      const iosNotice = window.navigator.standalone === true
+        ? `<p class="auth-ios-notice" style="font-size:.85rem;background:var(--info-bg,#eff6ff);border:1px solid var(--info-border,#93c5fd);border-radius:6px;padding:8px 10px;margin:0">
+            <strong>iOS tip:</strong> Magic links open in Safari, not this app. ` +
+          `Continue sign-in in <strong>Safari</strong>, or use Safari/browser mode before requesting the link.</p>`
+        : '';
       const body = `
         <div style="display:flex;flex-direction:column;gap:12px">
-          <input 
-            type="email" 
-            id="signInEmailInput" 
-            placeholder="your@email.com" 
+          ${iosNotice}
+          <input
+            type="email"
+            id="signInEmailInput"
+            placeholder="your@email.com"
             style="padding:8px;font-size:.9rem;min-width:250px"
             autocomplete="email"
           />
@@ -1176,7 +1249,8 @@ export const cloudSyncUI = {
 
       templateUI.showModal('☁ Cloud', body, footer);
 
-      document.getElementById('_cloudPushBtn')?.addEventListener('click', async () => {
+      const pushBtnModal = document.getElementById('_cloudPushBtn');
+      if (pushBtnModal) pushBtnModal.onclick = async () => {
         try {
           const retryPush = async () => {
             const retryErr = await this._executePushSync({ announceStart: true, successAlert: true });
@@ -1192,9 +1266,10 @@ export const cloudSyncUI = {
         } finally {
           resolve();
         }
-      });
+      };
 
-      document.getElementById('_cloudPullBtn')?.addEventListener('click', async () => {
+      const pullBtnModal = document.getElementById('_cloudPullBtn');
+      if (pullBtnModal) pullBtnModal.onclick = async () => {
         try {
           const retryPull = async () => {
             const retryErr = await this._executePullSync({ announceStart: true });
@@ -1210,9 +1285,10 @@ export const cloudSyncUI = {
         } finally {
           resolve();
         }
-      });
+      };
 
-      document.getElementById('_cloudSignOutBtn')?.addEventListener('click', async () => {
+      const signOutBtnModal = document.getElementById('_cloudSignOutBtn');
+      if (signOutBtnModal) signOutBtnModal.onclick = async () => {
         templateUI.closeModal();
         try {
           const supabase = getSupabaseClient();
@@ -1222,11 +1298,12 @@ export const cloudSyncUI = {
           notificationUI.error('Sign out failed: ' + err.message);
         }
         resolve();
-      });
+      };
     });
   },
 
   _renderSignedIn(session, statusEl, actionsEl) {
+    const escHtml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const lastSyncMs = localStorage.getItem(CLOUD_LAST_SYNC_KEY);
     const lastSyncText = lastSyncMs
       ? `Last synced: ${new Date(parseInt(lastSyncMs)).toLocaleString()}`
@@ -1234,7 +1311,7 @@ export const cloudSyncUI = {
 
     statusEl.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-        <span style="color:var(--success);font-size:.85rem">Signed in as ${session.user.email}</span>
+        <span style="color:var(--success);font-size:.85rem">Signed in as ${escHtml(session.user.email)}</span>
         <button id="cloudSignOutBtn" class="ghost" style="font-size:.75rem;padding:2px 8px">Sign Out</button>
       </div>
     `;
@@ -1352,6 +1429,10 @@ export const cloudSyncUI = {
       }
 
       if (event === 'SIGNED_IN') {
+        // Clean up PKCE ?code= parameter to prevent stale-code errors on refresh
+        if (window.location.search.includes('code=')) {
+          window.history.replaceState({}, '', window.location.pathname);
+        }
         void this._runAutoPullAfterSignIn(session);
       }
     });
@@ -1362,12 +1443,27 @@ export const cloudSyncUI = {
 
   /**
    * Listens for the preview event dispatched by pullSnapshot().
-   * Shows a modal with snapshot metadata and record counts.
+   * Phase 37: Renders a delta-first preview (added/deleted/updated per store)
+   * when a non-empty local baseline exists; falls back to full-summary counts
+   * on first sync (all local stores empty).  Shows "No changes since last
+   * snapshot" when the computed diff is all-zero.
    * Only calls importBackupData() after explicit user confirmation.
    */
   _bindPreviewListener() {
-    window.addEventListener('budget:import-cloud-preview', async (e) => {
+    if (this._previewListenerBound) return;
+    this._previewListenerBound = true;
+    this._previewHandler = async (e) => {
       const { updated_at, schema_version, counts, tableData } = e.detail;
+
+      // --- Phase 37: Build local store map for diff computation ---
+      const currentStoreMap = {};
+      for (const table of db.tables) {
+        try {
+          currentStoreMap[table.name] = await table.toArray();
+        } catch {
+          currentStoreMap[table.name] = [];
+        }
+      }
 
       const localVersion = db.verno;
       const versionWarning =
@@ -1387,14 +1483,43 @@ export const cloudSyncUI = {
       const escapeHtml = (s) =>
         String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-      const countLines = Object.entries(counts)
-        .filter(([, n]) => n > 0)
-        .map(([t, n]) => `${n} ${escapeHtml(t)}`)
-        .join(' · ');
+      // --- Phase 37: Choose delta vs full-summary rendering path ---
+      let previewContent;
+      if (isFirstSyncFallback(currentStoreMap)) {
+        // First sync: no local baseline — show the incoming record counts so the
+        // user understands what they are about to import.
+        const countLines = Object.entries(counts)
+          .filter(([, n]) => n > 0)
+          .map(([t, n]) => `${n} ${escapeHtml(t)}`)
+          .join(' · ');
+        previewContent = `
+          <p style="margin-top:6px;color:var(--text-soft);font-size:.85rem">${countLines || 'No data'}</p>
+          <p style="margin-top:6px;font-size:.8rem;color:var(--text-soft)">First sync — no local data to compare against.</p>
+        `;
+      } else {
+        // Delta mode: show only what changed since the last local snapshot.
+        const diffMap = computeSnapshotDiff(currentStoreMap, tableData) ?? {};
+        const diffLines = formatDiffSummary(diffMap) ?? [];
+
+        if (diffLines.length === 0) {
+          previewContent = `<p style="margin-top:6px;color:var(--text-soft);font-size:.85rem">No changes since last snapshot</p>`;
+        } else {
+          const deltaRows = diffLines
+            .map(({ store, added, deleted, updated }) => {
+              const parts = [];
+              if (added > 0) parts.push(`${added} added`);
+              if (deleted > 0) parts.push(`${deleted} removed`);
+              if (updated > 0) parts.push(`${updated} changed`);
+              return `<span style="display:inline-block;margin-right:12px"><strong>${escapeHtml(store)}</strong>: ${parts.join(', ')}</span>`;
+            })
+            .join('');
+          previewContent = `<p style="margin-top:6px;color:var(--text-soft);font-size:.85rem">${deltaRows}</p>`;
+        }
+      }
 
       const body = `
         <p>Cloud snapshot from <strong>${date}</strong></p>
-        <p style="margin-top:6px;color:var(--text-soft);font-size:.85rem">${countLines || 'No data'}</p>
+        ${previewContent}
         ${versionWarning}
         <p style="margin-top:12px"><strong>Replace local data?</strong> This cannot be undone.</p>
       `;
@@ -1441,6 +1566,7 @@ export const cloudSyncUI = {
           restorePullBtn();
         }
       };
-    });
+    };
+    window.addEventListener('budget:import-cloud-preview', this._previewHandler);
   },
 };
