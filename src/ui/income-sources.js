@@ -115,6 +115,13 @@ export const incomeSources = {
   CONTAINER_ID: 'incomeSourcesContainer',
 
   /**
+   * Stores the currently bound click handler so it can be removed before
+   * re-attaching on each render, preventing listener accumulation.
+   * @type {Function|null}
+   */
+  _boundClickHandler: null,
+
+  /**
    * Initialize the module: bind refresh event and do first render.
    */
   async init() {
@@ -444,7 +451,12 @@ export const incomeSources = {
    * @param {HTMLElement} container
    */
   _bindEvents(container) {
-    container.addEventListener('click', async e => {
+    // Remove any previously bound handler to prevent accumulation across re-renders
+    if (this._boundClickHandler) {
+      container.removeEventListener('click', this._boundClickHandler);
+    }
+
+    this._boundClickHandler = async e => {
       const btn = e.target.closest('[data-action]');
       if (!btn) return;
       const action = btn.dataset.action;
@@ -531,7 +543,9 @@ export const incomeSources = {
         await this.adjustIncome(event, amountPounds);
         return;
       }
-    });
+    };
+
+    container.addEventListener('click', this._boundClickHandler);
 
     // --- Rule select toggle for day wrapper (if form is already visible) ---
     const ruleSelect = container.querySelector('#isf-rule');
