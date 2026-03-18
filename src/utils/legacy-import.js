@@ -291,10 +291,15 @@ export async function runLegacyImport(payload, options = {}) {
         : records.filter(r => r.id == null || !existingIds.has(r.id));
 
       if (toWrite.length > 0) {
-        await db.table(tableName).bulkAdd(toWrite);
+        if (conflictPolicy === 'overwrite') {
+          await db.table(tableName).bulkPut(toWrite);
+        } else {
+          await db.table(tableName).bulkAdd(toWrite);
+        }
       }
     } catch (err) {
       console.warn(`[legacy-import] ${tableName}: write error`, err);
+      // Continue with next table rather than failing the entire import
     }
   }
 

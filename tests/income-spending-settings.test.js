@@ -74,15 +74,6 @@ describe('incomeSpendingSettings — post-Plan-03 state', () => {
   beforeEach(() => {
     setupContainer();
     vi.clearAllMocks();
-
-    // Re-prime mocks after clearAllMocks
-    const spendingBucketRepository = vi.mocked(
-      (async () => (await import('../src/db/repository.js')).spendingBucketRepository)()
-    );
-    // Re-mock defaults that clearAllMocks wiped
-    // (The vi.mock factory runs once; individual mock.mockResolvedValue calls
-    //  are cleared by clearAllMocks, so we restore them here)
-    // Access the mock directly via the module mock
   });
 
   afterEach(() => {

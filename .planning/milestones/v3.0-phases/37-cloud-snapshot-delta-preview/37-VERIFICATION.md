@@ -47,7 +47,7 @@ re_verification: false
 |------|----|-----|--------|---------|
 | `src/ui/cloud-sync.js` | `src/utils/snapshot-diff.js` | `_bindPreviewListener` computes local-vs-incoming diff before rendering modal body | WIRED | Imports `computeSnapshotDiff`, `isFirstSyncFallback`, `formatDiffSummary` at file top (lines 22-25). All three are called inside `_previewHandler` (lines 1448, 1461, 1462). |
 | `src/ui/cloud-sync.js` | `src/db/schema.js` | Read current local baseline from Dexie tables prior to import | WIRED | `db` imported from `schema.js` (line 19). `db.tables` iterated at line 1420; `table.toArray()` called for each table to build `currentStoreMap`. |
-| `src/ui/cloud-sync.js` | `src/db/backup.js` | Confirm button keeps `importBackupData(tableData)` as the sole import trigger | WIRED | `importBackupData` imported (line 15). Called exclusively inside `confirmCloudImportBtn.onclick` handler (line 1516). Cancel path does not call it. Pattern `confirmCloudImportBtn|importBackupData(tableData)` confirmed present. |
+| `src/ui/cloud-sync.js` | `src/db/backup.js` | Confirm button keeps `importBackupData(tableData)` as the sole import trigger | WIRED | `importBackupData` imported (line 15). Called exclusively inside `confirmCloudImportBtn.onclick` handler (line 1516). Cancel path does not call it. Pattern `confirmCloudImportBtn\|importBackupData(tableData)` confirmed present. |
 
 ---
 

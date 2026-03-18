@@ -581,7 +581,7 @@ async function renderPayPeriodSection() {
     eventsForBounds = getUpcomingIncomeEvents(activeSources, referenceDate, activeSources.length + 5);
   } else if (_payPeriodOffset < 0) {
     // Backward navigation is clamped at 0 (can't go before current snapshot date)
-    _payPeriodOffset = 0;
+    // (Clamping is done in the navigation handler, not in render)
   }
 
   // Derive pay-period bounds from income-event collection
@@ -609,8 +609,10 @@ async function renderPayPeriodSection() {
   prevBtn.onclick = () => {
     if (_payPeriodOffset > 0) {
       _payPeriodOffset--;
-      renderPayPeriodSection().catch(console.error);
+    } else {
+      _payPeriodOffset = Math.max(0, _payPeriodOffset - 1);
     }
+    renderPayPeriodSection().catch(console.error);
   };
   // Disable prev if at start (offset=0)
   if (_payPeriodOffset <= 0) prevBtn.disabled = true;
@@ -854,7 +856,10 @@ function openPayPeriodBalanceModal(currentBalancePence, safetyBufferPence) {
       const dateVal = document.getElementById('ppSnapshotDateInput').value;
       const bufVal = parseFloat(document.getElementById('ppSafetyBufferInput').value);
 
-      if (isNaN(balVal) || !dateVal) return;
+      if (isNaN(balVal) || !dateVal) {
+        notificationUI.warning('Please enter a valid balance and date.');
+        return;
+      }
 
       const balPence = Math.round(balVal * 100);
       await saveBalanceSnapshot(dateVal, balPence);

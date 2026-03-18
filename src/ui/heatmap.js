@@ -53,8 +53,14 @@ export function renderSpendingHeatmap(containerId, year, dailyData, options = {}
   // Phase 27: Pre-filter dailyData to target year to prevent cross-year scale distortion
   const filteredDailyData = Object.fromEntries(
     Object.entries(dailyData).filter(([k]) => {
-      const parsed = new Date(k);
-      return !Number.isNaN(parsed.getTime()) && parsed.getFullYear() === yearNum;
+      // Parse YYYY-MM-DD string in local timezone, not UTC
+      const parts = k.split('-');
+      if (parts.length !== 3) return false;
+      const year = parseInt(parts[0]);
+      const month = parseInt(parts[1]);
+      const day = parseInt(parts[2]);
+      if (Number.isNaN(year) || Number.isNaN(month) || Number.isNaN(day)) return false;
+      return year === yearNum;
     })
   );
 

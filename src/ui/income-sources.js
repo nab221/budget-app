@@ -139,7 +139,7 @@ export const incomeSources = {
 
     const activeSources = await incomeSourceRepository.getActive();
 
-    // --- Pending confirmations (45-day lookback, 7-day forward window) ---
+    // --- Pending confirmations (45-day lookback, 45-day forward window) ---
     const upcoming = getUpcomingIncomeEvents(activeSources, lookbackDate(), 10)
       .filter(ev => ev.adjustedDate <= lookForwardDate());
 

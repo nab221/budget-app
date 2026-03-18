@@ -6,6 +6,20 @@ import { triggerHaptic } from '../utils/haptics.js';
 import { notificationUI } from './notifications.js';
 
 /**
+ * Simple HTML escaping to prevent XSS
+ * @param {string} str
+ * @returns {string}
+ */
+function escHtml(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
  * Childcare UI Module
  *
  * Provides a dedicated "Childcare" tab for managing Tax-Free Childcare accounts,
@@ -273,8 +287,8 @@ export const childcareUI = {
             <div style="display:flex;justify-content:space-between;align-items:center;font-size:.8rem;padding:3px 0;border-bottom:1px solid var(--border-light)">
               <span>${p.name} <span class="hint">(${freqLabel})</span></span>
               <span style="font-weight:600">${formatGBP(monthly)}/mo
-                <button class="sm ghost" style="padding:0 4px;font-size:.7rem" onclick="event.stopPropagation();childcareEditProvider(${p.id},${account.id})" title="Edit">✏️</button>
-                <button class="sm danger" style="padding:0 4px;font-size:.7rem" onclick="event.stopPropagation();childcareDeleteProvider(${p.id},${account.id},'${p.name.replace(/'/g, "\\'")}')" title="Remove">×</button>
+                <button class="sm ghost js-childcare-edit-provider" style="padding:0 4px;font-size:.7rem" data-provider-id="${p.id}" data-account-id="${account.id}" type="button" title="Edit">✏️</button>
+                <button class="sm danger js-childcare-delete-provider" style="padding:0 4px;font-size:.7rem" data-provider-id="${p.id}" data-account-id="${account.id}" data-provider-name="${escHtml(p.name)}" type="button" title="Remove">×</button>
               </span>
             </div>`;
         }).join('');
@@ -344,6 +358,51 @@ export const childcareUI = {
     const cards = await Promise.all(cardPromises);
     container.innerHTML = headerHTML + cards.join('');
     this._rebindStaticButtons();
+
+    // Event delegation for provider edit/delete buttons
+    container.addEventListener('click', async (e) => {
+      const editBtn = e.target.closest('.js-childcare-edit-provider');
+      if (editBtn) {
+        e.stopPropagation();
+        const providerId = Number(editBtn.dataset.providerId);
+        const accountId = Number(editBtn.dataset.accountId);
+        await childcareUI._handleEditProvider(providerId, accountId);
+        return;
+      }
+
+      const deleteBtn = e.target.closest('.js-childcare-delete-provider');
+      if (deleteBtn) {
+        e.stopPropagation();
+        const providerId = Number(deleteBtn.dataset.providerId);
+        const accountId = Number(deleteBtn.dataset.accountId);
+        const providerName = deleteBtn.dataset.providerName;
+        await childcareUI._handleDeleteProvider(providerId, accountId, providerName);
+      }
+    }, true); // Use capture phase to ensure stopPropagation works
+  },
+
+  /**
+   * Handle edit provider action
+   */
+  async _handleEditProvider(providerId, accountId) {
+    const providers = await childcareRepository.getAccountProviders(accountId);
+    const provider = providers.find(p => p.id === providerId);
+    if (provider) this._showProviderModal(accountId, provider);
+  },
+
+  /**
+   * Handle delete provider action
+   */
+  async _handleDeleteProvider(providerId, accountId, providerName) {
+    if (!confirm(`Remove provider "${providerName}"?`)) return;
+    try {
+      await childcareRepository.deleteProvider(providerId);
+      triggerHaptic('delete');
+      await this.render();
+    } catch (err) {
+      console.error('Failed to delete provider:', err);
+      notificationUI.error('Failed to remove provider: ' + err.message);
+    }
   },
 
   /**
