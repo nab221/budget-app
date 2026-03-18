@@ -695,7 +695,7 @@ Plans:
 **Goal:** Rename "Pay Sources" tab to "Income", rename current "Income" tab to "Transactions" (merged IN/OUT view), move both heatmaps into the Transactions tab, and reposition dashboard heatmaps below the actionable summary cards. Gap-closure plans also remove the Expenses tab (unified into Transactions) and fix interactions.
 **Requirements:** 40-01, 40-02, 40-03, 40-04, 40-05
 **Depends on:** Phase 39.1
-**Plans:** 4/6 plans executed
+**Plans:** 5/6 plans executed
 
 Plans:
 - [x] 40-01-PLAN.md — Wave 0: RED test scaffold for merged transactions view
@@ -743,7 +743,7 @@ Plans:
 | TECH-01 | 38 |
 | TECH-04 | 38 |
 | INTEGRITY-02 | 38 |
-| 40-01 | 40 (40-02) | 4/6 | In Progress|  |
+| 40-01 | 40 (40-02) | 5/6 | In Progress|  |
 | 40-03 | 40 (40-01, 40-02, 40-03, 40-04, 40-05, 40-06) |
 | 40-04 | 40 (40-05, 40-06) |
 | 40-05 | 40 (40-04, 40-05, 40-06) |

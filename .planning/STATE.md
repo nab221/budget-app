@@ -3,10 +3,25 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Milestone Verification & Polish
 status: in_progress
+stopped_at: Completed 40-04-PLAN.md
+last_updated: "2026-03-18T08:02:24.168Z"
+progress:
+  total_phases: 26
+  completed_phases: 15
+  total_plans: 38
+  completed_plans: 32
+  percent: 84
+---
+
+---
+gsd_state_version: 1.0
+milestone: v3.0
+milestone_name: Milestone Verification & Polish
+status: in_progress
 stopped_at: Completed 40-05-PLAN.md
 last_updated: "2026-03-18T07:59:22.695Z"
 progress:
-  total_phases: 26
+  [████████░░] 84%
   completed_phases: 15
   total_plans: 38
   completed_plans: 31
@@ -377,7 +392,7 @@ last_updated: 2026-03-14
 
 Status: In Progress — 40-01 done, 40-02 done, 40-04 done (swipe fixes), 40-05 done (tab icons, nav order, listener dedup)
 
-Stopped at: Completed 40-05-PLAN.md
+Stopped at: Completed 40-04-PLAN.md
 
 ## Phase Progress
 
@@ -397,10 +412,11 @@ Stopped at: Completed 40-05-PLAN.md
 | 38 | GitHub Actions Node.js 24, Legacy Import & Technical Hygiene | ✅ Complete (38-01 done — 2026-03-16) |
 | 39 | v3.0 Milestone Verification & Polish | ⬜ Not Started |
 | 39.1 | Income Sources Tab | ✅ Complete (39.1-01, 39.1-02, 39.1-03 done — human verify approved 2026-03-17) |
-| 40 | Redesign Income and Transactions Tab Structure | 🔄 In Progress (40-01 done, 40-02 done — 40-03 pending) |
+| 40 | Redesign Income and Transactions Tab Structure | 🔄 In Progress (40-01 done, 40-02 done, 40-04 done — 40-03, 40-05, 40-06 pending) |
 
 ## Decisions Log
 
+- 2026-03-18 (40-04): Used !row.querySelector('.btn-edit') as debt-row sentinel (btn-edit absent on debt-linked rows); income row onclick updated to navigate to [data-tab="income-sources"] on tap of closed row; test rows wrapped in <table><tbody> for jsdom compatibility; 18/18 transactions-merged tests pass; GAP-02 and GAP-03 closed.
 - 2026-03-18 (40-05): CSS icon rules for data-tab="transactions" (💸) and "income-sources" (💰); dead data-tab="income" rule removed; nav reordered to Dashboard→Transactions→Income→Debts→Payoff→Assets→Childcare→Expenses→Settings; _boundClickHandler guard in income-sources.js _bindEvents() prevents listener accumulation across re-renders (Option B: remove-then-add); 2 new de-duplication tests (Tests 7+8) GREEN; 708/711 tests pass; build succeeds.
 - 2026-03-17 (40-02): Full Phase 40 implementation: Income tab renamed to Transactions (data-tab/panel); Pay Sources label renamed to Income; _buildMergedRows() pure helper on transactionUI; renderTransactions() replaces renderIncome() with merged IN/OUT cashflow view from all three repos; dual heatmaps (income+spending) in Transactions panel; dashboard heatmaps moved below .grid2; app.js routes 'transactions' panelId; getYearlyDailySpending is actual export (not getYearlyDailyExpenses); dashboard.invariant.test.js order assertion updated; 709 tests pass; build succeeds.
 - 2026-03-17 (39.1-03): Pay Sources tab wired into index.html + app.js; incomeSourcesUI.init() added to parallel init block; renderAll() branch added for income-sources panelId; Settings cleaned to Spending Buckets only; import alias mismatch fixed (incomeSourcesUI not incomeSources) in b04c700; 695 tests pass; human verify approved — tab navigable, CRUD functional, Settings clean, no console errors; PLAN-06-ext satisfied.
