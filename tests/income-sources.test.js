@@ -245,3 +245,83 @@ describe('adjustIncome', () => {
     );
   });
 });
+
+// ---------------------------------------------------------------------------
+// Test 7 — Listener de-duplication: save-source fires exactly once
+// After calling render() multiple times, clicking the save-source button
+// must only invoke _handleAddSource once (not once per render).
+// ---------------------------------------------------------------------------
+describe('listener de-duplication: save-source', () => {
+  it('_handleAddSource fires exactly once after three renders', async () => {
+    const { incomeSources } = await import('../src/ui/income-sources.js');
+    const { incomeSourceRepository } = await import('../src/db/repository.js');
+
+    // Render three times to accumulate listeners (the bug: without the fix,
+    // each render adds a new click listener on the container)
+    await incomeSources.render();
+    await incomeSources.render();
+    await incomeSources.render();
+
+    // Spy on _handleAddSource to count invocations
+    const spy = vi.spyOn(incomeSources, '_handleAddSource').mockResolvedValue(undefined);
+
+    // Reveal the add-source form
+    const container = document.getElementById('incomeSourcesContainer');
+    const showBtn = container.querySelector('[data-action="show-add-form"]');
+    showBtn.click();
+
+    // Fill in required fields
+    const form = container.querySelector('#income-source-form');
+    form.querySelector('#isf-name').value = 'Test Source';
+    form.querySelector('#isf-amount').value = '1000';
+    form.querySelector('#isf-day').value = '25';
+
+    // Click the save button
+    const saveBtn = container.querySelector('[data-action="save-source"]');
+    saveBtn.click();
+
+    // Allow any async microtasks to flush
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    // Must have fired exactly once — not three times
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    spy.mockRestore();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Test 8 — Listener de-duplication: confirm-income fires exactly once
+// After calling render() multiple times, clicking the confirm-income button
+// must only invoke confirmIncome once.
+// ---------------------------------------------------------------------------
+describe('listener de-duplication: confirm-income', () => {
+  it('confirmIncome fires exactly once after three renders', async () => {
+    const { incomeSources } = await import('../src/ui/income-sources.js');
+    const { getUpcomingIncomeEvents } = await import('../src/utils/income.js');
+
+    // Always return one event so a pending card is rendered
+    getUpcomingIncomeEvents.mockReturnValue([UPCOMING_EVENT]);
+
+    // Render three times
+    await incomeSources.render();
+    await incomeSources.render();
+    await incomeSources.render();
+
+    // Spy on confirmIncome to count invocations
+    const spy = vi.spyOn(incomeSources, 'confirmIncome').mockResolvedValue(undefined);
+
+    // Click the confirm button on the pending card
+    const container = document.getElementById('incomeSourcesContainer');
+    const confirmBtn = container.querySelector('[data-action="confirm-income"]');
+    confirmBtn.click();
+
+    // Allow microtasks to flush
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    // Must have fired exactly once
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    spy.mockRestore();
+  });
+});
