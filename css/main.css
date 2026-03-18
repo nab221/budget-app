@@ -208,14 +208,15 @@ input[type="number"] { text-align: right; }
   font-size: 1rem;
   line-height: 1;
 }
-.tab[data-tab="dashboard"]::before { content: "🏠"; }
-.tab[data-tab="income"]::before    { content: "💰"; }
-.tab[data-tab="expenses"]::before  { content: "💸"; }
-.tab[data-tab="debts"]::before     { content: "💳"; }
-.tab[data-tab="payoff"]::before    { content: "📈"; }
-.tab[data-tab="assets"]::before    { content: "🏦"; }
-.tab[data-tab="childcare"]::before { content: "👶"; }
-.tab[data-tab="settings"]::before  { content: "⚙️"; }
+.tab[data-tab="dashboard"]::before      { content: "🏠"; }
+.tab[data-tab="transactions"]::before   { content: "💸"; }
+.tab[data-tab="income-sources"]::before { content: "💰"; }
+.tab[data-tab="expenses"]::before       { content: "💸"; }
+.tab[data-tab="debts"]::before          { content: "💳"; }
+.tab[data-tab="payoff"]::before         { content: "📈"; }
+.tab[data-tab="assets"]::before         { content: "🏦"; }
+.tab[data-tab="childcare"]::before      { content: "👶"; }
+.tab[data-tab="settings"]::before       { content: "⚙️"; }
 
 @media (max-width: 768px) {
   :root {
