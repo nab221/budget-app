@@ -2,39 +2,39 @@
 gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: UX Fixes
-status: completed
-stopped_at: Completed 40-02-PLAN.md — Browser verification approved; Phase 40 complete
-last_updated: "2026-03-19T08:04:08.241Z"
-last_activity: 2026-03-19 — 40-02 browser verification approved; all 4 requirements confirmed (HEADER-01, HEADER-02, HEADER-03, MONNAV-01)
+status: in-progress
+stopped_at: Completed 41-01-PLAN.md — bottom nav containment fix and iOS safe-area clearance
+last_updated: "2026-03-19T22:20:11.783Z"
+last_activity: 2026-03-19 — 41-01 complete; viewport-fit=cover added, nav-container moved to body, .shell safe-area padding updated (BOTNAV-01, BOTNAV-02, BOTNAV-03)
 progress:
   total_phases: 6
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
-  percent: 17
+  total_plans: 5
+  completed_plans: 3
+  percent: 50
 ---
 
 ## Current Position
 
-Phase: 40 of 44 (Sticky Header & Month Navigator) — COMPLETE
-Plan: 2 of 2 complete in current phase (40-01 and 40-02 done)
-Status: Phase Complete — ready for Phase 41
-Last activity: 2026-03-19 — 40-02 browser verification approved; all 4 requirements confirmed (HEADER-01, HEADER-02, HEADER-03, MONNAV-01)
+Phase: 41 of 44 (Bottom Nav Consistency & iOS Safe Area) — IN PROGRESS
+Plan: 1 of 3 complete in current phase (41-01 done)
+Status: In Progress — 41-02 next (visual browser verification of nav structure)
+Last activity: 2026-03-19 — 41-01 complete; viewport-fit=cover added, nav-container moved to body, .shell safe-area padding updated (BOTNAV-01, BOTNAV-02, BOTNAV-03)
 
-Progress: [██░░░░░░░░] 17%
+Progress: [█████░░░░░] 50%
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Based on my current account balance and all upcoming committed outgoings, tell me what I can afford to pay extra toward my debts between now and my next payday.
-**Current focus:** Phase 40 — Sticky Header & Month Navigator
+**Current focus:** Phase 41 — Bottom Nav Consistency & iOS Safe Area
 
 ## Accumulated Context
 
 - v3.0 shipped 2026-03-18 with Pay-Period Affordability Engine, Banking Calendar, Debt Model Refactor, Childcare Top-Up Planner, Mobile Navigation Overhaul (Phases 27–39)
 - Mobile bottom nav implemented in Phase 28 but inconsistencies remain across tabs — v3.1 targets these
-- 453+ Vitest tests passing at end of v3.0
+- 715 Vitest tests passing as of Phase 41 Plan 01
 
 ### Decisions
 
@@ -46,6 +46,7 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 - [Phase 40]: Used behavior: instant for tab scroll reset to prevent jarring animation during content change
 - [Phase 40]: CSS variables --header-height/--bottom-bar-height promoted to global :root with 56px/72px fallbacks; ResizeObserver overwrites at runtime
 - [Phase 40 Verified]: Browser verification in Chrome DevTools at 390px confirmed HEADER-01, HEADER-02, HEADER-03, MONNAV-01 all passing
+- [Phase 41]: viewport-fit=cover added to meta viewport — activates env(safe-area-inset-bottom) on iOS; .nav-container moved to direct body child to eliminate fixed-position containment trap; .shell mobile padding-bottom mirrors nav height including safe-area
 
 ### Blockers/Concerns
 
@@ -53,6 +54,6 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 
 ## Session Continuity
 
-Last session: 2026-03-19T07:58:17Z
-Stopped at: Completed 40-02-PLAN.md — Browser verification approved; Phase 40 complete
+Last session: 2026-03-19T22:20:11.766Z
+Stopped at: Completed 41-01-PLAN.md — bottom nav containment fix and iOS safe-area clearance
 Resume file: None

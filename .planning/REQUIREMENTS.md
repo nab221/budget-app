@@ -17,9 +17,9 @@
 
 ### Bottom Nav
 
-- [ ] **BOTNAV-01**: Mobile bottom tab bar is fixed and visible on all 8 tabs at all times
-- [ ] **BOTNAV-02**: Tab content on all tabs does not scroll behind the bottom nav bar
-- [ ] **BOTNAV-03**: Bottom nav iOS safe-area padding works correctly on iPhones with home indicator (viewport-fit=cover)
+- [x] **BOTNAV-01**: Mobile bottom tab bar is fixed and visible on all 8 tabs at all times
+- [x] **BOTNAV-02**: Tab content on all tabs does not scroll behind the bottom nav bar
+- [x] **BOTNAV-03**: Bottom nav iOS safe-area padding works correctly on iPhones with home indicator (viewport-fit=cover)
 - [ ] **BOTNAV-04**: PWA update bar appears above the bottom nav bar, not overlapping it
 
 ### Tab Buttons
@@ -76,9 +76,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | HEADER-02 | Phase 40 | Complete |
 | HEADER-03 | Phase 40 | Complete |
 | MONNAV-01 | Phase 40 | Complete |
-| BOTNAV-01 | Phase 41 | Pending |
-| BOTNAV-02 | Phase 41 | Pending |
-| BOTNAV-03 | Phase 41 | Pending |
+| BOTNAV-01 | Phase 41 | Complete |
+| BOTNAV-02 | Phase 41 | Complete |
+| BOTNAV-03 | Phase 41 | Complete |
 | BOTNAV-04 | Phase 41 | Pending |
 | TABUI-01 | Phase 42 | Pending |
 | TABUI-02 | Phase 42 | Pending |
