@@ -238,7 +238,7 @@ input[type="number"] { text-align: right; }
 
 @media (max-width: 768px) {
   .mobile-menu-btn { display: none; } /* Replaced by bottom nav */
-  .shell { padding-bottom: calc(var(--bottom-bar-height) + 8px); } /* Space for bottom nav */
+  .shell { padding-bottom: calc(var(--bottom-bar-height) + env(safe-area-inset-bottom, 0px) + 8px); } /* Space for bottom nav + iOS safe area */
 
   .nav-container {
     position: fixed;
