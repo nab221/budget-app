@@ -54,7 +54,11 @@ Plans:
   2. The last content item on every tab is fully visible above the bottom nav bar — no content is hidden behind the bar
   3. On an iPhone with a home indicator, the bottom nav bar does not overlap the home indicator; the safe-area inset is visually respected
   4. When a PWA service-worker update is available, the update notification bar appears above the bottom nav bar — the nav icons remain fully tappable
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 41-01-PLAN.md — HTML + CSS foundation (viewport-fit=cover, .nav-container moved to body, .shell safe-area padding)
+- [ ] 41-02-PLAN.md — PWA update bar implementation (onNeedRefresh wired, _showUpdateBar/_hideUpdateBar, mobile CSS offset)
+- [ ] 41-03-PLAN.md — Browser verification checkpoint (human confirms all 4 BOTNAV requirements in Chrome + Safari/iPhone)
 
 ### Phase 42: Tab Button Uniformity
 **Goal**: All 8 mobile bottom tab buttons are pixel-identical in height and shape whether active or inactive — the Payoff tab button does not change shape or size when tapped.
@@ -110,7 +114,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 40. Sticky Header & Month Navigator | 2/2 | Complete    | 2026-03-19 |
-| 41. Bottom Nav Consistency & iOS Safe Area | 0/? | Not started | - |
+| 41. Bottom Nav Consistency & iOS Safe Area | 0/3 | Not started | - |
 | 42. Tab Button Uniformity | 0/? | Not started | - |
 | 43. Debt History Modal | 0/? | Not started | - |
 | 44. Income Tab Cards | 0/? | Not started | - |
