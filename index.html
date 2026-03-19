@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Budget Console</title>
     <link rel="icon" type="image/png" href="/icons/icon-192.png">
     <link rel="stylesheet" href="/css/main.css">
@@ -37,21 +37,6 @@
           </label>
         </div>
       </header>
-
-      <!-- ════════ MAIN NAVIGATION ════════ -->
-      <nav class="nav-container">
-        <button id="mobileMenuBtn" class="mobile-menu-btn" aria-label="Toggle Menu">☰</button>
-        <div class="tabs" id="mainTabs">
-          <button class="tab active" data-tab="dashboard" aria-label="Dashboard"><span class="tab-label">Dashboard</span></button>
-          <button class="tab" data-tab="transactions" aria-label="Transactions"><span class="tab-label">Transactions</span></button>
-          <button class="tab" data-tab="income-sources" aria-label="Income"><span class="tab-label">Income</span></button>
-          <button class="tab" data-tab="debts" aria-label="Debts"><span class="tab-label">Debts</span></button>
-          <button class="tab" data-tab="payoff" aria-label="Payoff"><span class="tab-label">Payoff</span></button>
-          <button class="tab" data-tab="assets" aria-label="Assets"><span class="tab-label">Assets</span></button>
-          <button class="tab" data-tab="childcare" aria-label="Childcare"><span class="tab-label">Childcare</span></button>
-          <button class="tab" data-tab="settings" aria-label="Settings"><span class="tab-label">Settings</span></button>
-        </div>
-      </nav>
 
       <!-- ════════ MAIN CONTENT / TABS ════════ -->
       <section class="card">
@@ -404,6 +389,21 @@
         </div>
       </section>
     </div>
+
+    <!-- ════════ MAIN NAVIGATION ════════ -->
+    <nav class="nav-container">
+      <button id="mobileMenuBtn" class="mobile-menu-btn" aria-label="Toggle Menu">☰</button>
+      <div class="tabs" id="mainTabs">
+        <button class="tab active" data-tab="dashboard" aria-label="Dashboard"><span class="tab-label">Dashboard</span></button>
+        <button class="tab" data-tab="transactions" aria-label="Transactions"><span class="tab-label">Transactions</span></button>
+        <button class="tab" data-tab="income-sources" aria-label="Income"><span class="tab-label">Income</span></button>
+        <button class="tab" data-tab="debts" aria-label="Debts"><span class="tab-label">Debts</span></button>
+        <button class="tab" data-tab="payoff" aria-label="Payoff"><span class="tab-label">Payoff</span></button>
+        <button class="tab" data-tab="assets" aria-label="Assets"><span class="tab-label">Assets</span></button>
+        <button class="tab" data-tab="childcare" aria-label="Childcare"><span class="tab-label">Childcare</span></button>
+        <button class="tab" data-tab="settings" aria-label="Settings"><span class="tab-label">Settings</span></button>
+      </div>
+    </nav>
 
     <!-- ════════ MODALS ════════ -->
     <div id="modalOverlay" class="modal-overlay hidden">
