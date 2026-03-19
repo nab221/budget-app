@@ -296,6 +296,10 @@ input[type="number"] { text-align: right; }
     z-index: 99;
     background: var(--bg-alt);
   }
+
+  .update-bar {
+    bottom: calc(var(--bottom-bar-height) + env(safe-area-inset-bottom, 0px));
+  }
 }
 
 @media (max-width: 420px) {
