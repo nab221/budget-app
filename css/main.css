@@ -20,6 +20,8 @@
   --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   --radius: 10px;
   --tr: 0.15s ease-out;
+  --header-height: 56px;
+  --bottom-bar-height: 72px;
 }
 
 [data-theme='dark'] {
@@ -56,6 +58,22 @@ body {
 
 /* ── HEADER ── */
 header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; position: sticky; top: 0; z-index: 100; background: var(--bg); }
+header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(-50vw + 50%);
+  right: calc(-50vw + 50%);
+  background: var(--bg);
+  z-index: -1;
+}
+header.scrolled {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+[data-theme='dark'] header.scrolled {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+}
 header h1 { font-size: 1.5rem; display: flex; align-items: center; gap: 8px; }
 .pill { font-size: .65rem; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent-border); }
 .toolbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
@@ -219,11 +237,6 @@ input[type="number"] { text-align: right; }
 .tab[data-tab="settings"]::before       { content: "⚙️"; }
 
 @media (max-width: 768px) {
-  :root {
-    --bottom-bar-height: 72px;
-    --header-height: 56px;
-  }
-
   .mobile-menu-btn { display: none; } /* Replaced by bottom nav */
   .shell { padding-bottom: calc(var(--bottom-bar-height) + 8px); } /* Space for bottom nav */
 
