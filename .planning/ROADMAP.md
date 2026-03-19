@@ -109,7 +109,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 40. Sticky Header & Month Navigator | 2/2 | Complete | 2026-03-19 |
+| 40. Sticky Header & Month Navigator | 2/2 | Complete    | 2026-03-19 |
 | 41. Bottom Nav Consistency & iOS Safe Area | 0/? | Not started | - |
 | 42. Tab Button Uniformity | 0/? | Not started | - |
 | 43. Debt History Modal | 0/? | Not started | - |
