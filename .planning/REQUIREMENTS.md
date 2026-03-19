@@ -7,13 +7,13 @@
 
 ### Header
 
-- [ ] **HEADER-01**: User sees the top header stick at the top of all 8 tabs while scrolling
-- [ ] **HEADER-02**: User sees a shadow separator appear on the header only when the page is scrolled down
-- [ ] **HEADER-03**: Header height is dynamically measured so the month navigator always positions correctly below it without overlap
+- [x] **HEADER-01**: User sees the top header stick at the top of all 8 tabs while scrolling
+- [x] **HEADER-02**: User sees a shadow separator appear on the header only when the page is scrolled down
+- [x] **HEADER-03**: Header height is dynamically measured so the month navigator always positions correctly below it without overlap
 
 ### Month Navigator
 
-- [ ] **MONNAV-01**: User sees the month navigator (◀ Month ▶) stick at the top below the header on the Transactions tab while scrolling
+- [x] **MONNAV-01**: User sees the month navigator (◀ Month ▶) stick at the top below the header on the Transactions tab while scrolling
 
 ### Bottom Nav
 
@@ -72,10 +72,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| HEADER-01 | Phase 40 | Pending |
-| HEADER-02 | Phase 40 | Pending |
-| HEADER-03 | Phase 40 | Pending |
-| MONNAV-01 | Phase 40 | Pending |
+| HEADER-01 | Phase 40 | Complete |
+| HEADER-02 | Phase 40 | Complete |
+| HEADER-03 | Phase 40 | Complete |
+| MONNAV-01 | Phase 40 | Complete |
 | BOTNAV-01 | Phase 41 | Pending |
 | BOTNAV-02 | Phase 41 | Pending |
 | BOTNAV-03 | Phase 41 | Pending |

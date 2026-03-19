@@ -3,25 +3,25 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: UX Fixes
 status: planning
-stopped_at: Rebased onto origin/main v3.0 — Phase 40-01 pending re-implementation on correct codebase
-last_updated: "2026-03-19T00:00:00.000Z"
-last_activity: 2026-03-19 — reset local to origin/main v3.0; v3.1 planning restored; Phase 40 ready to execute
+stopped_at: Completed 40-01-PLAN.md — CSS/JS sticky header foundation
+last_updated: "2026-03-19T07:31:33.401Z"
+last_activity: 2026-03-18 — v3.1 roadmap created; 5 phases defined (40–44)
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 2
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
+  percent: 83
 ---
 
 ## Current Position
 
 Phase: 40 of 44 (Sticky Header & Month Navigator)
-Plan: 0 of ? in current phase
-Status: Ready to plan
-Last activity: 2026-03-18 — v3.1 roadmap created; 5 phases defined (40–44)
+Plan: 1 of 2 complete in current phase (40-01 done, 40-02 pending visual checkpoint)
+Status: In Progress
+Last activity: 2026-03-19 — 40-01 executed; CSS/JS sticky header foundation implemented
 
-Progress: [████████░░] 83%
+Progress: [████░░░░░░] 44%
 
 ## Project Reference
 
@@ -44,14 +44,14 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 - [v3.1 Research]: Moving `.nav-container` to direct child of `<body>` is the correct fix for fixed-position containment trap
 - [Phase 40]: Used ResizeObserver for --header-height so cloud-sync button injection doesn't break month-nav alignment
 - [Phase 40]: Used behavior: instant for tab scroll reset to prevent jarring animation during content change
+- [Phase 40]: CSS variables --header-height/--bottom-bar-height promoted to global :root with 56px/72px fallbacks; ResizeObserver overwrites at runtime
 
 ### Blockers/Concerns
 
 - [Phase 41] iOS safe-area fixes must be verified on real iPhone or Safari simulator — Chrome DevTools will not expose the missing `viewport-fit=cover` issue
-- [Phase 40] `cloud-sync.js` injects content into `<header>` — measure actual rendered height in DevTools before deciding between ResizeObserver and a hardcoded value for `--header-height`
 
 ## Session Continuity
 
-Last session: 2026-03-18T23:38:43.715Z
+Last session: 2026-03-19T07:31:33.383Z
 Stopped at: Completed 40-01-PLAN.md — CSS/JS sticky header foundation
 Resume file: None
