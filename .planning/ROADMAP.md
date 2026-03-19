@@ -22,7 +22,7 @@ Phases 27–39 archived to `.planning/milestones/v3.0-phases/`
 
 ## Phases
 
-- [ ] **Phase 40: Sticky Header & Month Navigator** — Top header sticks on all 8 tabs; scroll shadow appears when scrolled; month nav positions correctly below header
+- [x] **Phase 40: Sticky Header & Month Navigator** — Top header sticks on all 8 tabs; scroll shadow appears when scrolled; month nav positions correctly below header
 - [ ] **Phase 41: Bottom Nav Consistency & iOS Safe Area** — Mobile bottom bar fixed and visible on all 8 tabs; content does not scroll behind it; iOS home-indicator and PWA update bar handled correctly
 - [ ] **Phase 42: Tab Button Uniformity** — All 8 tab buttons identical height and shape in active and inactive states; Payoff tab no longer changes shape on tap
 - [ ] **Phase 43: Debt History Modal** — Loan and mortgage transaction history modal with expected payment dates, paid confirmation, and amount adjustment
@@ -42,8 +42,8 @@ Phases 27–39 archived to `.planning/milestones/v3.0-phases/`
   4. Month navigator (on the Transactions tab) sticks immediately below the header while scrolling with no gap, overlap, or misalignment regardless of whether notification banners are visible
 **Plans**: 2 plans
 Plans:
-- [ ] 40-01-PLAN.md — CSS + JS implementation (--header-height promotion, header::before, scroll shadow, ResizeObserver, scrollTo on tab switch)
-- [ ] 40-02-PLAN.md — Browser verification checkpoint (human confirms all 4 phase requirements)
+- [x] 40-01-PLAN.md — CSS + JS implementation (--header-height promotion, header::before, scroll shadow, ResizeObserver, scrollTo on tab switch)
+- [x] 40-02-PLAN.md — Browser verification checkpoint (human confirms all 4 phase requirements)
 
 ### Phase 41: Bottom Nav Consistency & iOS Safe Area
 **Goal**: The mobile bottom tab bar is fixed and visible at the bottom of every tab at all times, tab content does not scroll behind it, iOS home-indicator devices show correct safe-area padding, and the PWA update bar appears above (not over) the nav.
@@ -109,7 +109,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 40. Sticky Header & Month Navigator | 1/2 | In Progress|  |
+| 40. Sticky Header & Month Navigator | 2/2 | Complete | 2026-03-19 |
 | 41. Bottom Nav Consistency & iOS Safe Area | 0/? | Not started | - |
 | 42. Tab Button Uniformity | 0/? | Not started | - |
 | 43. Debt History Modal | 0/? | Not started | - |
