@@ -2,26 +2,26 @@
 gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: UX Fixes
-status: in-progress
-stopped_at: Completed 41-01-PLAN.md — bottom nav containment fix and iOS safe-area clearance
-last_updated: "2026-03-19T22:20:11.783Z"
-last_activity: 2026-03-19 — 41-01 complete; viewport-fit=cover added, nav-container moved to body, .shell safe-area padding updated (BOTNAV-01, BOTNAV-02, BOTNAV-03)
+status: executing
+stopped_at: Completed 41-02-PLAN.md — PWA update bar wired with onNeedRefresh, mobile CSS override, 722 tests passing
+last_updated: "2026-03-19T22:44:19.429Z"
+last_activity: 2026-03-19 — 41-02 complete; PWA update bar wired (onNeedRefresh, _showUpdateBar/_hideUpdateBar), mobile CSS override raising update-bar above nav, 722 tests passing (BOTNAV-04)
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 5
-  completed_plans: 3
-  percent: 50
+  completed_plans: 4
+  percent: 58
 ---
 
 ## Current Position
 
 Phase: 41 of 44 (Bottom Nav Consistency & iOS Safe Area) — IN PROGRESS
-Plan: 1 of 3 complete in current phase (41-01 done)
-Status: In Progress — 41-02 next (visual browser verification of nav structure)
-Last activity: 2026-03-19 — 41-01 complete; viewport-fit=cover added, nav-container moved to body, .shell safe-area padding updated (BOTNAV-01, BOTNAV-02, BOTNAV-03)
+Plan: 2 of 3 complete in current phase (41-01, 41-02 done)
+Status: In Progress — 41-03 next (browser verification checkpoint)
+Last activity: 2026-03-19 — 41-02 complete; PWA update bar wired (onNeedRefresh, _showUpdateBar/_hideUpdateBar), mobile CSS override, 722 tests passing (BOTNAV-04)
 
-Progress: [█████░░░░░] 50%
+Progress: [██████░░░░] 58%
 
 ## Project Reference
 
@@ -34,7 +34,7 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 
 - v3.0 shipped 2026-03-18 with Pay-Period Affordability Engine, Banking Calendar, Debt Model Refactor, Childcare Top-Up Planner, Mobile Navigation Overhaul (Phases 27–39)
 - Mobile bottom nav implemented in Phase 28 but inconsistencies remain across tabs — v3.1 targets these
-- 715 Vitest tests passing as of Phase 41 Plan 01
+- 722 Vitest tests passing as of Phase 41 Plan 02
 
 ### Decisions
 
@@ -47,6 +47,7 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 - [Phase 40]: CSS variables --header-height/--bottom-bar-height promoted to global :root with 56px/72px fallbacks; ResizeObserver overwrites at runtime
 - [Phase 40 Verified]: Browser verification in Chrome DevTools at 390px confirmed HEADER-01, HEADER-02, HEADER-03, MONNAV-01 all passing
 - [Phase 41]: viewport-fit=cover added to meta viewport — activates env(safe-area-inset-bottom) on iOS; .nav-container moved to direct body child to eliminate fixed-position containment trap; .shell mobile padding-bottom mirrors nav height including safe-area
+- [Phase 41]: Use resolve.alias in vitest.config.js to stub virtual:pwa-register — cleaner resolution than per-test vi.mock for virtual modules
 
 ### Blockers/Concerns
 
@@ -54,6 +55,6 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 
 ## Session Continuity
 
-Last session: 2026-03-19T22:20:11.766Z
-Stopped at: Completed 41-01-PLAN.md — bottom nav containment fix and iOS safe-area clearance
+Last session: 2026-03-19T22:44:19.405Z
+Stopped at: Completed 41-02-PLAN.md — PWA update bar wired with onNeedRefresh, mobile CSS override, 722 tests passing
 Resume file: None
