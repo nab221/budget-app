@@ -82,7 +82,12 @@ Plans:
   1. User opens a loan or mortgage debt card and finds a button to view transaction history; tapping it opens a modal listing every expected payment date from the loan start date up to today
   2. User selects an unconfirmed payment in the modal, confirms it as paid, and the payment subsequently appears on the debt heatmap
   3. User adjusts the payment amount on a specific historical entry before confirming — the confirmed amount saved reflects the edited value, not the scheduled amount
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 43-01-PLAN.md — Test stubs (Nyquist Wave 0: DEBT-05/06/07 failing tests + extended repository mock)
+- [ ] 43-02-PLAN.md — generateHistoricalSchedule + payment history list in modal HTML (DEBT-05)
+- [ ] 43-03-PLAN.md — getConfirmedPaymentMap + confirmLoanPayment + inline confirm wiring (DEBT-06, DEBT-07)
+- [ ] 43-04-PLAN.md — Human verification checkpoint (DEBT-05, DEBT-06, DEBT-07 confirmed in browser)
 
 ### Phase 44: Income Tab Cards
 **Goal**: The Income tab displays each configured income source as a card matching the Debt tab card layout, and users can open a modal per card to confirm, reschedule, or adjust individual income entries.
@@ -121,7 +126,7 @@ Plans:
 | 40. Sticky Header & Month Navigator | 2/2 | Complete    | 2026-03-19 |
 | 41. Bottom Nav Consistency & iOS Safe Area | 4/4 | Complete    | 2026-03-20 |
 | 42. Tab Button Uniformity | 3/3 | Complete    | 2026-03-20 |
-| 43. Debt History Modal | 0/? | Not started | - |
+| 43. Debt History Modal | 0/4 | Not started | - |
 | 44. Income Tab Cards | 0/? | Not started | - |
 | 45. Transactions Tab Fixes | 0/? | Not started | - |
 
