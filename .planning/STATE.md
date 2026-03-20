@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: UX Fixes
 status: verifying
-stopped_at: 42-02 verification FAILED — Payoff tab width expansion gap found; gap-closure plan required
-last_updated: "2026-03-20T17:00:00.000Z"
-last_activity: 2026-03-20 — 42-02 human verification REJECTED; Payoff tab width expansion bug found (see Blockers/Concerns)
+stopped_at: 42-03 awaiting re-verification — width:100vw fix applied to .nav-container and .tabs (bypasses containment trap)
+last_updated: "2026-03-20T18:45:00.000Z"
+last_activity: 2026-03-20 — 42-03 re-fix applied (100vw); awaiting human re-verification of tab bar width stability
 progress:
   total_phases: 6
   completed_phases: 2
@@ -52,10 +52,11 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 - [Phase 41]: CSS \!important on #cloudSyncActionsHeader at mobile breakpoint overrides JS classList.remove('hidden') — required because cloud-sync.js manages visibility via class manipulation
 - [Phase 42-tab-button-uniformity]: Mobile .tab.active must explicitly reset all 7 desktop properties (border-radius, box-shadow, padding, border, font-weight, background, color) — partial reset causes cascade leak
 - [Phase 42-tab-button-uniformity]: transition: color var(--tr) overrides desktop transition: all on mobile .tab — prevents pill-morph shape animation during tab tap
+- [Phase 42-03]: Root cause of tab bar width expansion was CSS containment trap — position:fixed on .nav-container is trapped by transformed/overflow ancestors on Transactions/Payoff/Settings tabs; width:100% resolves against trapped ancestor's wider content box. Fix: use width:100vw (viewport units) which bypass all containment traps.
 
 ### Blockers/Concerns
 
-- [Phase 42 GAP] 42-02 verification FAILED 2026-03-20 — Payoff tab button width expands to 61.38px when active (Dashboard active = 51.5px); entire tab bar grows from 412px to 491px. TABUI-01 and TABUI-02 unconfirmed. Fix: enforce `flex: 1` (or equal fixed widths) on `.tab` inside mobile `.tabs` container. Gap-closure plan required.
+- [Phase 42-03 PENDING] Tab bar width fix applied (100vw) — awaiting human re-verification. If approved, TABUI-01 and TABUI-02 confirmed and Phase 42 complete.
 - [Phase 41] iOS safe-area fixes must be verified on real iPhone or Safari simulator — Chrome DevTools will not expose the missing `viewport-fit=cover` issue
 - [Phase 41 BLOCKED] 41-03 verification FAILED 2026-03-20 — 4 issues require fixes before BOTNAV requirements can be confirmed:
   1. Bottom nav visible on desktop (regression) — must be hidden above mobile breakpoint
@@ -65,6 +66,6 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 
 ## Session Continuity
 
-Last session: 2026-03-20T17:00:00.000Z
-Stopped at: 42-02 human verification REJECTED — Payoff tab width expansion gap; gap-closure plan required before TABUI-01/TABUI-02 can be confirmed
+Last session: 2026-03-20T18:45:00.000Z
+Stopped at: 42-03 re-verification checkpoint — width:100vw fix applied; human must re-verify tab bar width stability
 Resume file: None
