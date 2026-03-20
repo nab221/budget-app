@@ -1050,6 +1050,27 @@ export const debtUI = {
       calcError = e.message;
     }
 
+    // Build payment history section HTML (synchronous — status spans populated in Plan 03)
+    const historyEntries = this.generateHistoricalSchedule(debt);
+    let historyHTML;
+    if (historyEntries === null) {
+      historyHTML = `<p style="color:var(--muted);margin-bottom:8px">No payment start date set.</p>`
+        + `<button class="ghost" style="margin-bottom:16px" onclick="event.stopPropagation(); debtUI.editDebt(${debt.id})">Set start date</button>`;
+    } else if (historyEntries.length === 0) {
+      historyHTML = `<p style="color:var(--muted);margin-bottom:16px">No historical payments found.</p>`;
+    } else {
+      const liItems = historyEntries.map(entry => {
+        const dateStr = new Date(entry.paymentDate + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        const amount = formatGBP(entry.principalPence + entry.interestPence);
+        return `<li class="loan-history-item" style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">`
+          + `<span>${dateStr}</span>`
+          + `<span>${amount}</span>`
+          + `<span class="loan-payment-status" id="loan-pmt-status-${debt.id}-${entry.paymentDate}"></span>`
+          + `</li>`;
+      }).join('');
+      historyHTML = `<ul id="loan-history-list-${debt.id}" class="loan-history-list" style="list-style:none;padding:0;margin:0 0 16px 0">${liItems}</ul>`;
+    }
+
     if (calcError) {
       return safeHTML`
         <p style="color:var(--danger);margin-bottom:16px">Unable to calculate amortisation: ${calcError}</p>
@@ -1064,6 +1085,8 @@ export const debtUI = {
             </div>
           </div>
         </div>
+        <h3 style="margin:24px 0 8px">Payment History</h3>
+        ${historyHTML}
       `;
     }
 
@@ -1091,6 +1114,8 @@ export const debtUI = {
           </div>
         </div>
       </div>
+      <h3 style="margin:24px 0 8px">Payment History</h3>
+      ${historyHTML}
     `;
   },
 
