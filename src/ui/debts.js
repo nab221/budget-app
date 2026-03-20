@@ -218,6 +218,24 @@ export const debtUI = {
     window.confirmLoanPayment = async (debtId, paymentDate, amountPounds) => {
       await debtUI.confirmLoanPayment(debtId, paymentDate, Number(amountPounds));
     };
+
+    window.showLoanPaymentPrompt = (debtId, paymentDate, scheduledAmountPounds) => {
+      const span = document.getElementById(`loan-pmt-status-${debtId}-${paymentDate}`);
+      if (!span) return;
+      span.dataset.originalContent = span.innerHTML;
+      span.innerHTML =
+        `<input id="loan-pmt-amount-${debtId}-${paymentDate}" type="number" step="0.01" min="0.01" ` +
+        `value="${scheduledAmountPounds.toFixed(2)}" style="width:90px" />` +
+        ` <button class="sm primary" onclick="confirmLoanPayment(${debtId}, '${paymentDate}', ` +
+        `parseFloat(document.getElementById('loan-pmt-amount-${debtId}-${paymentDate}').value))">✓ Confirm</button>` +
+        ` <button class="sm ghost" onclick="cancelLoanPaymentPrompt(${debtId}, '${paymentDate}')">Cancel</button>`;
+    };
+
+    window.cancelLoanPaymentPrompt = (debtId, paymentDate) => {
+      const span = document.getElementById(`loan-pmt-status-${debtId}-${paymentDate}`);
+      if (!span) return;
+      span.innerHTML = span.dataset.originalContent || '';
+    };
   },
 
   async openDebtModal(id = null) {
@@ -969,6 +987,12 @@ export const debtUI = {
     // Initial render of statements into the modal table
     await this.renderStatements(debtId);
 
+    // Populate payment status for loan/mortgage history list
+    const debtForType = await debtRepository.get(debtId);
+    if (debtForType && (debtForType.debtType === 'loan' || debtForType.debtType === 'mortgage')) {
+      await this._renderLoanPaymentStatuses(debtId);
+    }
+
     // Wire X button to _closeHistoryModal for cleanup
     if (modalUI.elements.close) {
       modalUI.elements.close.onclick = () => this._closeHistoryModal();
@@ -1080,6 +1104,33 @@ export const debtUI = {
     triggerHaptic('success');
     await debtUI.openHistoryModal(Number(debtId));
     if (window.app) window.app.renderAll();
+  },
+
+  async _renderLoanPaymentStatuses(debtId) {
+    const debt = await debtRepository.get(debtId);
+    if (!debt) return;
+    const historicalEntries = this.generateHistoricalSchedule(debt);
+    if (!historicalEntries) return;
+
+    const confirmedMap = await this.getConfirmedPaymentMap(debtId);
+
+    for (const entry of historicalEntries) {
+      const span = document.getElementById(`loan-pmt-status-${debtId}-${entry.paymentDate}`);
+      if (!span) continue;
+
+      const isPaid = confirmedMap.has(entry.paymentDate) &&
+        confirmedMap.get(entry.paymentDate).status === 'paid';
+
+      // Scheduled amount in pounds — principalPence + interestPence are in pence
+      const scheduledPounds = ((entry.principalPence || 0) + (entry.interestPence || 0)) / 100;
+
+      if (isPaid) {
+        span.innerHTML = '<span class="badge badge-success">Paid</span>';
+      } else {
+        // Show confirm button; onclick calls showLoanPaymentPrompt
+        span.innerHTML = `<button class="sm primary" onclick="showLoanPaymentPrompt(${debtId}, '${entry.paymentDate}', ${scheduledPounds})">Confirm Paid</button>`;
+      }
+    }
   },
 
   _buildAmortisationModalHTML(debt) {
