@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: UX Fixes
 status: executing
-stopped_at: Completed 43-03-PLAN.md — payment confirmation logic
-last_updated: "2026-03-20T21:53:45.816Z"
+stopped_at: Completed 43-04-PLAN.md — human verification of DEBT-05, DEBT-06, DEBT-07
+last_updated: "2026-03-20T22:22:05.250Z"
 last_activity: 2026-03-20 — 43-02 complete; DEBT-05a and DEBT-05b GREEN; payment history list added to amortisation modal
 progress:
   total_phases: 6
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 13
-  completed_plans: 12
+  completed_plans: 13
   percent: 70
 ---
 
@@ -62,6 +62,7 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 - [Phase 43]: generateHistoricalSchedule returns null (not []) for missing paymentStartDate — UI can distinguish unconfigured from no-past-payments
 - [Phase 43]: Used getAll+filter upsert pattern for confirmLoanPayment — consistent with existing recurrentExpense access; no dedicated query by linkedDebtId exists
 - [Phase 43]: span.innerHTML used directly in _renderLoanPaymentStatuses — post-render DOM updates consistent with showMarkPaidPrompt pattern; not safeHTML template literals
+- [Phase 43]: Human browser verification gates phase 43 completion — Vitest covers functional correctness; browser confirms UI rendering, heatmap wiring, and regression safety for DEBT-05/06/07
 
 ### Blockers/Concerns
 
@@ -75,6 +76,6 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 
 ## Session Continuity
 
-Last session: 2026-03-20T21:53:45.801Z
-Stopped at: Completed 43-03-PLAN.md — payment confirmation logic
+Last session: 2026-03-20T22:21:53.821Z
+Stopped at: Completed 43-04-PLAN.md — human verification of DEBT-05, DEBT-06, DEBT-07
 Resume file: None

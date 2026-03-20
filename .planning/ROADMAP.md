@@ -25,7 +25,7 @@ Phases 27–39 archived to `.planning/milestones/v3.0-phases/`
 - [x] **Phase 40: Sticky Header & Month Navigator** — Top header sticks on all 8 tabs; scroll shadow appears when scrolled; month nav positions correctly below header
 - [x] **Phase 41: Bottom Nav Consistency & iOS Safe Area** — VERIFICATION FAILED 2026-03-20; 4 issues require code fixes before BOTNAV requirements can be confirmed (completed 2026-03-20)
 - [x] **Phase 42: Tab Button Uniformity** — All 8 tab buttons identical height and shape in active and inactive states; Payoff tab no longer changes shape on tap
-- [ ] **Phase 43: Debt History Modal** — Loan and mortgage transaction history modal with expected payment dates, paid confirmation, and amount adjustment
+- [x] **Phase 43: Debt History Modal** — Loan and mortgage transaction history modal with expected payment dates, paid confirmation, and amount adjustment (completed 2026-03-20)
 - [ ] **Phase 44: Income Tab Cards** — Income tab shows income source cards; user can confirm, date-change, and amount-adjust income entries from a modal
 - [ ] **Phase 45: Transactions Tab Fixes** — Mark as paid for expenses, income confirm, single reconciliation mode, unified Add button, sort toggle, ±amount display, correct search label, full category filter
 
@@ -126,7 +126,7 @@ Plans:
 | 40. Sticky Header & Month Navigator | 2/2 | Complete    | 2026-03-19 |
 | 41. Bottom Nav Consistency & iOS Safe Area | 4/4 | Complete    | 2026-03-20 |
 | 42. Tab Button Uniformity | 3/3 | Complete    | 2026-03-20 |
-| 43. Debt History Modal | 3/4 | In Progress|  |
+| 43. Debt History Modal | 4/4 | Complete   | 2026-03-20 |
 | 44. Income Tab Cards | 0/? | Not started | - |
 | 45. Transactions Tab Fixes | 0/? | Not started | - |
 
