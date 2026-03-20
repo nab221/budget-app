@@ -245,6 +245,7 @@ input[type="number"] { text-align: right; }
     bottom: 0;
     left: 0;
     right: 0;
+    width: 100vw;     /* Viewport-relative width — immune to fixed-pos containment trap from transformed ancestors */
     background: var(--card);
     border-top: 1px solid var(--border);
     margin-bottom: 0;
@@ -261,8 +262,8 @@ input[type="number"] { text-align: right; }
     padding: 8px 0;
     gap: 0;
     overflow: hidden;
-    width: 100%;      /* Pin container to parent — prevents intrinsic growth when active tab changes */
-    max-width: 100%;  /* Belt-and-suspenders: prevent overflow on any layout edge case */
+    width: 100vw;     /* Viewport-relative width — bypasses containment trap; fixed to viewport not to trapped ancestor */
+    max-width: 100vw; /* Redundant but explicit: never exceed viewport width */
   }
 
   .tab {
