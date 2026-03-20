@@ -24,7 +24,7 @@ Phases 27–39 archived to `.planning/milestones/v3.0-phases/`
 
 - [x] **Phase 40: Sticky Header & Month Navigator** — Top header sticks on all 8 tabs; scroll shadow appears when scrolled; month nav positions correctly below header
 - [x] **Phase 41: Bottom Nav Consistency & iOS Safe Area** — VERIFICATION FAILED 2026-03-20; 4 issues require code fixes before BOTNAV requirements can be confirmed (completed 2026-03-20)
-- [ ] **Phase 42: Tab Button Uniformity** — All 8 tab buttons identical height and shape in active and inactive states; Payoff tab no longer changes shape on tap
+- [x] **Phase 42: Tab Button Uniformity** — All 8 tab buttons identical height and shape in active and inactive states; Payoff tab no longer changes shape on tap
 - [ ] **Phase 43: Debt History Modal** — Loan and mortgage transaction history modal with expected payment dates, paid confirmation, and amount adjustment
 - [ ] **Phase 44: Income Tab Cards** — Income tab shows income source cards; user can confirm, date-change, and amount-adjust income entries from a modal
 - [ ] **Phase 45: Transactions Tab Fixes** — Mark as paid for expenses, income confirm, single reconciliation mode, unified Add button, sort toggle, ±amount display, correct search label, full category filter
@@ -71,8 +71,8 @@ Plans:
 **Plans**: 2 plans
 Plans:
 - [x] 42-01-PLAN.md — CSS fix (expand mobile .tab.active reset, add transition: color, add .tab:active suppress rule)
-- [ ] 42-02-PLAN.md — Browser verification FAILED 2026-03-20 — Payoff tab width expansion gap found (61.38px vs 51.5px active width; bar grows 412px → 491px); TABUI-01 and TABUI-02 unconfirmed
-- [ ] 42-03-PLAN.md — Gap closure: enforce equal-width flex on .tab inside mobile .tabs container; re-verify all 8 tabs
+- [x] 42-02-PLAN.md — Browser verification FAILED 2026-03-20 — Payoff tab width expansion gap found (61.38px vs 51.5px active width; bar grows 412px → 491px); TABUI-01 and TABUI-02 unconfirmed
+- [x] 42-03-PLAN.md — Gap closure: width:100vw on .nav-container and .tabs bypasses CSS containment trap; human verification APPROVED 2026-03-20; TABUI-01 and TABUI-02 confirmed
 
 ### Phase 43: Debt History Modal
 **Goal**: Users can open a payment history modal for any loan or mortgage debt, see all expected historical payment dates, confirm individual payments as paid so they appear on the heatmap, and adjust the amount of any payment before confirming.
@@ -120,7 +120,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 40. Sticky Header & Month Navigator | 2/2 | Complete    | 2026-03-19 |
 | 41. Bottom Nav Consistency & iOS Safe Area | 4/4 | Complete    | 2026-03-20 |
-| 42. Tab Button Uniformity | 1/3 | Gap found — width expansion bug; closure plan needed |  |
+| 42. Tab Button Uniformity | 3/3 | Complete   | 2026-03-20 |
 | 43. Debt History Modal | 0/? | Not started | - |
 | 44. Income Tab Cards | 0/? | Not started | - |
 | 45. Transactions Tab Fixes | 0/? | Not started | - |

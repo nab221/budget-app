@@ -3,23 +3,23 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: UX Fixes
 status: verifying
-stopped_at: 42-03 awaiting re-verification — width:100vw fix applied to .nav-container and .tabs (bypasses containment trap)
-last_updated: "2026-03-20T18:45:00.000Z"
-last_activity: 2026-03-20 — 42-03 re-fix applied (100vw); awaiting human re-verification of tab bar width stability
+stopped_at: Phase 42 complete — TABUI-01 and TABUI-02 confirmed by human verification
+last_updated: "2026-03-20T19:33:30.381Z"
+last_activity: 2026-03-20 — 42-03 human verification APPROVED; Phase 42 complete
 progress:
   total_phases: 6
-  completed_phases: 2
-  total_plans: 8
-  completed_plans: 7
+  completed_phases: 3
+  total_plans: 9
+  completed_plans: 9
   percent: 58
 ---
 
 ## Current Position
 
-Phase: 41 of 44 (Bottom Nav Consistency & iOS Safe Area) — IN PROGRESS (BLOCKED)
-Plan: 2 of 3 complete in current phase (41-01, 41-02 done); 41-03 verification failed
-Status: BLOCKED — 41-03 browser verification failed; code fixes required before re-verification
-Last activity: 2026-03-20 — 41-03 verification FAILED; 4 issues found (see Blockers/Concerns)
+Phase: 42 of 44 (Tab Button Uniformity) — COMPLETE
+Plan: 3 of 3 complete in current phase (42-01, 42-02, 42-03 done)
+Status: COMPLETE — TABUI-01 and TABUI-02 confirmed by human verification 2026-03-20
+Last activity: 2026-03-20 — 42-03 human verification APPROVED; Phase 42 complete
 
 Progress: [██████░░░░] 58%
 
@@ -53,10 +53,12 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 - [Phase 42-tab-button-uniformity]: Mobile .tab.active must explicitly reset all 7 desktop properties (border-radius, box-shadow, padding, border, font-weight, background, color) — partial reset causes cascade leak
 - [Phase 42-tab-button-uniformity]: transition: color var(--tr) overrides desktop transition: all on mobile .tab — prevents pill-morph shape animation during tab tap
 - [Phase 42-03]: Root cause of tab bar width expansion was CSS containment trap — position:fixed on .nav-container is trapped by transformed/overflow ancestors on Transactions/Payoff/Settings tabs; width:100% resolves against trapped ancestor's wider content box. Fix: use width:100vw (viewport units) which bypass all containment traps.
+- [Phase 42 COMPLETE]: TABUI-01 and TABUI-02 confirmed by human verification 2026-03-20 — all 8 mobile tab buttons pixel-identical in height and shape; Payoff tab does not grow on activation
+- [Phase 42-tab-button-uniformity]: Use viewport units (100vw) instead of percentage (100%) on fixed-position nav containers to bypass CSS containment traps from transformed/overflow ancestors
 
 ### Blockers/Concerns
 
-- [Phase 42-03 PENDING] Tab bar width fix applied (100vw) — awaiting human re-verification. If approved, TABUI-01 and TABUI-02 confirmed and Phase 42 complete.
+- [Phase 42-03 RESOLVED] TABUI-01 and TABUI-02 confirmed by human verification 2026-03-20. Phase 42 complete.
 - [Phase 41] iOS safe-area fixes must be verified on real iPhone or Safari simulator — Chrome DevTools will not expose the missing `viewport-fit=cover` issue
 - [Phase 41 BLOCKED] 41-03 verification FAILED 2026-03-20 — 4 issues require fixes before BOTNAV requirements can be confirmed:
   1. Bottom nav visible on desktop (regression) — must be hidden above mobile breakpoint
@@ -66,6 +68,6 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 
 ## Session Continuity
 
-Last session: 2026-03-20T18:45:00.000Z
-Stopped at: 42-03 re-verification checkpoint — width:100vw fix applied; human must re-verify tab bar width stability
+Last session: 2026-03-20T19:33:30.367Z
+Stopped at: Phase 42 complete — TABUI-01 and TABUI-02 confirmed by human verification
 Resume file: None

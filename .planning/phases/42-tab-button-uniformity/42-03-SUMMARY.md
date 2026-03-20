@@ -10,7 +10,8 @@ requires:
     provides: Confirmed that .tabs container grows from 412px to 491px when Payoff tab is active; root cause is missing width constraint on mobile .tabs
 provides:
   - Mobile .tabs and .nav-container use 100vw width — immune to fixed-pos containment trap from transformed ancestors
-  - TABUI-01 and TABUI-02 confirmed (pending final human verification)
+  - TABUI-01 confirmed: all 8 mobile tab buttons identical height and shape in active and inactive states
+  - TABUI-02 confirmed: Payoff tab button does not grow or change shape on activation
 affects: [42-tab-button-uniformity, 41-bottom-nav]
 
 # Tech tracking
@@ -47,13 +48,16 @@ completed: 2026-03-20
 - **Duration:** 45 min
 - **Started:** 2026-03-20T18:00:00Z
 - **Completed:** 2026-03-20T18:45:00Z
-- **Tasks:** 2 (Task 1 complete; Task 2 awaiting re-verification)
+- **Tasks:** 2 (both complete — Task 2 human verification APPROVED)
 - **Files modified:** 1
 
 ## Accomplishments
 - Diagnosed root cause: `position:fixed` containment trap made `width:100%` resolve against ancestor's wider content box, not the viewport
 - Applied `width:100vw` fix to both `.nav-container` and `.tabs` — viewport units bypass the containment trap entirely
 - 722 Vitest tests pass with no regressions
+- Human verification APPROVED: `div#mainTabs.tabs` computed width stable across all 8 tab activations at 390px viewport; Payoff tab button width matches Dashboard tab button width (~48-49px each)
+- TABUI-01 confirmed: all 8 mobile tab buttons are pixel-identical in height and shape in both active and inactive states
+- TABUI-02 confirmed: Payoff tab button does not grow, shrink, gain a pill background, or change border-radius on activation
 
 ## Task Commits
 
@@ -93,9 +97,9 @@ Each task was committed atomically:
 - Note: The containment trap itself (Phase 41 blocker) is a separate architectural issue not resolved in this plan — this plan works around it for the tab bar specifically.
 
 ## Next Phase Readiness
-- TABUI-01 and TABUI-02 pending final human verification
-- CSS fix is committed and tests pass
-- Phase 42 can be marked complete after successful re-verification
+- Phase 42 complete — TABUI-01 and TABUI-02 both confirmed by human verification (approved 2026-03-20)
+- Phase 43 (Debt History Modal) and Phase 44 (Income Tab Cards) can now begin; both depend on Phase 40 (complete) not Phase 42
+- Phase 41 still has 41-03/41-04 pending (Bottom Nav verification failed 2026-03-20 — desktop display:none, iOS will-change, auto-save mobile hide need fixes before BOTNAV requirements confirmed)
 
 ---
 *Phase: 42-tab-button-uniformity*
