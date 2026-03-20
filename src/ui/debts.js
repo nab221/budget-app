@@ -214,6 +214,10 @@ export const debtUI = {
       await debtUI.render();
       if (window.app) window.app.renderAll();
     };
+
+    window.confirmLoanPayment = async (debtId, paymentDate, amountPounds) => {
+      await debtUI.confirmLoanPayment(debtId, paymentDate, Number(amountPounds));
+    };
   },
 
   async openDebtModal(id = null) {
@@ -1032,6 +1036,50 @@ export const debtUI = {
 
     const today = new Date().toISOString().slice(0, 10);
     return scheduleData.schedule.filter(entry => entry.paymentDate <= today);
+  },
+
+  async getConfirmedPaymentMap(debtId) {
+    const all = await recurrentExpenseRepository.getAll();
+    const confirmed = all.filter(e =>
+      Number(e.linkedDebtId) === Number(debtId) && e.isDebtPayment
+    );
+    return new Map(confirmed.map(e => [e.date || e.nextDate, e]));
+  },
+
+  async confirmLoanPayment(debtId, paymentDate, amountPounds) {
+    const confirmedMap = await this.getConfirmedPaymentMap(debtId);
+    const debt = await debtRepository.get(debtId);
+    const debtCategory = await db.categories.where('name').equals('Credit Cards & Loans').first();
+    const existing = confirmedMap.get(paymentDate);
+
+    if (existing) {
+      await recurrentExpenseRepository.update(existing.id, {
+        status: 'paid',
+        amount: amountPounds,   // repository converts to pence; pass pounds here
+        date: paymentDate,
+      });
+    } else {
+      await recurrentExpenseRepository.add({
+        date: paymentDate,
+        nextDate: paymentDate,
+        label: `${debt ? debt.name : 'Debt'} - payment`,
+        amount: amountPounds,   // repository converts to pence; pass pounds here
+        status: 'paid',
+        isDebtPayment: true,
+        linkedDebtId: Number(debtId),
+        isRecurring: true,
+        frequency: 'monthly',
+        isEssential: true,
+        isCleared: false,
+        isReconciled: false,
+        paymentAdjustment: 'none',
+        categoryId: debtCategory ? debtCategory.id : null,
+      });
+    }
+
+    triggerHaptic('success');
+    await debtUI.openHistoryModal(Number(debtId));
+    if (window.app) window.app.renderAll();
   },
 
   _buildAmortisationModalHTML(debt) {
