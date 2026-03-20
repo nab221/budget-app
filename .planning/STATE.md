@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: UX Fixes
 status: verifying
-stopped_at: Completed 42-01 — mobile tab button cascade fix, all 722 tests passing
-last_updated: "2026-03-20T16:24:43.004Z"
-last_activity: 2026-03-20 — 41-03 verification FAILED; 4 issues found (see Blockers/Concerns)
+stopped_at: 42-02 verification FAILED — Payoff tab width expansion gap found; gap-closure plan required
+last_updated: "2026-03-20T17:00:00.000Z"
+last_activity: 2026-03-20 — 42-02 human verification REJECTED; Payoff tab width expansion bug found (see Blockers/Concerns)
 progress:
   total_phases: 6
   completed_phases: 2
@@ -55,6 +55,7 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 
 ### Blockers/Concerns
 
+- [Phase 42 GAP] 42-02 verification FAILED 2026-03-20 — Payoff tab button width expands to 61.38px when active (Dashboard active = 51.5px); entire tab bar grows from 412px to 491px. TABUI-01 and TABUI-02 unconfirmed. Fix: enforce `flex: 1` (or equal fixed widths) on `.tab` inside mobile `.tabs` container. Gap-closure plan required.
 - [Phase 41] iOS safe-area fixes must be verified on real iPhone or Safari simulator — Chrome DevTools will not expose the missing `viewport-fit=cover` issue
 - [Phase 41 BLOCKED] 41-03 verification FAILED 2026-03-20 — 4 issues require fixes before BOTNAV requirements can be confirmed:
   1. Bottom nav visible on desktop (regression) — must be hidden above mobile breakpoint
@@ -64,6 +65,6 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 
 ## Session Continuity
 
-Last session: 2026-03-20T16:24:42.986Z
-Stopped at: Completed 42-01 — mobile tab button cascade fix, all 722 tests passing
+Last session: 2026-03-20T17:00:00.000Z
+Stopped at: 42-02 human verification REJECTED — Payoff tab width expansion gap; gap-closure plan required before TABUI-01/TABUI-02 can be confirmed
 Resume file: None

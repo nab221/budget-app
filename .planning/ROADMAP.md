@@ -70,8 +70,9 @@ Plans:
   2. User taps the Payoff tab button and it does not grow, shrink, gain a pill background, or change border-radius compared to its inactive state
 **Plans**: 2 plans
 Plans:
-- [ ] 42-01-PLAN.md — CSS fix (expand mobile .tab.active reset, add transition: color, add .tab:active suppress rule)
-- [ ] 42-02-PLAN.md — Browser verification checkpoint (human confirms TABUI-01 and TABUI-02 across all 8 tabs)
+- [x] 42-01-PLAN.md — CSS fix (expand mobile .tab.active reset, add transition: color, add .tab:active suppress rule)
+- [ ] 42-02-PLAN.md — Browser verification FAILED 2026-03-20 — Payoff tab width expansion gap found (61.38px vs 51.5px active width; bar grows 412px → 491px); TABUI-01 and TABUI-02 unconfirmed
+- [ ] 42-03-PLAN.md — Gap closure: enforce equal-width flex on .tab inside mobile .tabs container; re-verify all 8 tabs
 
 ### Phase 43: Debt History Modal
 **Goal**: Users can open a payment history modal for any loan or mortgage debt, see all expected historical payment dates, confirm individual payments as paid so they appear on the heatmap, and adjust the amount of any payment before confirming.
@@ -119,7 +120,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 40. Sticky Header & Month Navigator | 2/2 | Complete    | 2026-03-19 |
 | 41. Bottom Nav Consistency & iOS Safe Area | 4/4 | Complete    | 2026-03-20 |
-| 42. Tab Button Uniformity | 1/2 | In Progress|  |
+| 42. Tab Button Uniformity | 1/3 | Gap found — width expansion bug; closure plan needed |  |
 | 43. Debt History Modal | 0/? | Not started | - |
 | 44. Income Tab Cards | 0/? | Not started | - |
 | 45. Transactions Tab Fixes | 0/? | Not started | - |
