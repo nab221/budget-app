@@ -174,9 +174,6 @@ input[type="number"] { text-align: right; }
   position: relative;
   margin-bottom: 14px;
 }
-@media (min-width: 769px) {
-  .nav-container { display: none; }
-}
 .mobile-menu-btn {
   display: none;
   font-size: 1.5rem;
@@ -255,7 +252,6 @@ input[type="number"] { text-align: right; }
     box-shadow: 0 -4px 12px rgba(0,0,0,0.05);
     backdrop-filter: blur(10px);
     padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
-    will-change: transform;
   }
 
   .tabs {
@@ -931,10 +927,6 @@ button.sync-action-busy::after {
 
 .sync-status-indicator {
   flex-shrink: 0;
-}
-@media (max-width: 768px) {
-  .sync-status-indicator { display: none; }
-  #cloudSyncActionsHeader { display: none !important; }
 }
 .sync-status-indicator.pulse {
   animation: pulse 1.5s ease-in-out infinite;
