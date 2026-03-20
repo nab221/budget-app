@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: UX Fixes
-status: executing
-stopped_at: Completed 41-02-PLAN.md — PWA update bar wired with onNeedRefresh, mobile CSS override, 722 tests passing
-last_updated: "2026-03-20T00:00:00.000Z"
-last_activity: 2026-03-20 — 41-03 verification FAILED; 4 issues found: desktop nav regression, nav not fixed on all mobile tabs, header inconsistency Dashboard vs Transactions, auto-save UI visible on mobile
+status: verifying
+stopped_at: "Completed 41-04 Tasks 1-2; stopped at Task 3 checkpoint:human-verify — awaiting BOTNAV visual verification"
+last_updated: "2026-03-20T06:59:14.470Z"
+last_activity: 2026-03-20 — 41-03 verification FAILED; 4 issues found (see Blockers/Concerns)
 progress:
   total_phases: 6
-  completed_phases: 1
-  total_plans: 5
-  completed_plans: 4
+  completed_phases: 2
+  total_plans: 6
+  completed_plans: 6
   percent: 58
 ---
 
@@ -48,6 +48,8 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 - [Phase 40 Verified]: Browser verification in Chrome DevTools at 390px confirmed HEADER-01, HEADER-02, HEADER-03, MONNAV-01 all passing
 - [Phase 41]: viewport-fit=cover added to meta viewport — activates env(safe-area-inset-bottom) on iOS; .nav-container moved to direct body child to eliminate fixed-position containment trap; .shell mobile padding-bottom mirrors nav height including safe-area
 - [Phase 41]: Use resolve.alias in vitest.config.js to stub virtual:pwa-register — cleaner resolution than per-test vi.mock for virtual modules
+- [Phase 41]: Use typeof window.matchMedia === 'function' guard before calling matchMedia in _renderHeaderActions — jsdom in Vitest does not implement matchMedia, bare call throws TypeError
+- [Phase 41]: CSS \!important on #cloudSyncActionsHeader at mobile breakpoint overrides JS classList.remove('hidden') — required because cloud-sync.js manages visibility via class manipulation
 
 ### Blockers/Concerns
 
@@ -60,6 +62,6 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 
 ## Session Continuity
 
-Last session: 2026-03-20T00:00:00.000Z
-Stopped at: 41-03-PLAN.md — VERIFICATION FAILED; 4 issues documented in 41-03-SUMMARY.md; code fixes required before re-verification
+Last session: 2026-03-20T06:59:01.569Z
+Stopped at: Completed 41-04 Tasks 1-2; stopped at Task 3 checkpoint:human-verify — awaiting BOTNAV visual verification
 Resume file: None

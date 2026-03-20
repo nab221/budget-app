@@ -23,7 +23,7 @@ Phases 27–39 archived to `.planning/milestones/v3.0-phases/`
 ## Phases
 
 - [x] **Phase 40: Sticky Header & Month Navigator** — Top header sticks on all 8 tabs; scroll shadow appears when scrolled; month nav positions correctly below header
-- [ ] **Phase 41: Bottom Nav Consistency & iOS Safe Area** — VERIFICATION FAILED 2026-03-20; 4 issues require code fixes before BOTNAV requirements can be confirmed
+- [x] **Phase 41: Bottom Nav Consistency & iOS Safe Area** — VERIFICATION FAILED 2026-03-20; 4 issues require code fixes before BOTNAV requirements can be confirmed (completed 2026-03-20)
 - [ ] **Phase 42: Tab Button Uniformity** — All 8 tab buttons identical height and shape in active and inactive states; Payoff tab no longer changes shape on tap
 - [ ] **Phase 43: Debt History Modal** — Loan and mortgage transaction history modal with expected payment dates, paid confirmation, and amount adjustment
 - [ ] **Phase 44: Income Tab Cards** — Income tab shows income source cards; user can confirm, date-change, and amount-adjust income entries from a modal
@@ -115,7 +115,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 40. Sticky Header & Month Navigator | 2/2 | Complete    | 2026-03-19 |
-| 41. Bottom Nav Consistency & iOS Safe Area | 2/3 | BLOCKED (verification failed) | - |
+| 41. Bottom Nav Consistency & iOS Safe Area | 4/4 | Complete   | 2026-03-20 |
 | 42. Tab Button Uniformity | 0/? | Not started | - |
 | 43. Debt History Modal | 0/? | Not started | - |
 | 44. Income Tab Cards | 0/? | Not started | - |
