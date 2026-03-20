@@ -68,7 +68,10 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. User taps through all 8 tabs on a mobile device and observes that each tab button maintains the same height and outer shape in both active and inactive states
   2. User taps the Payoff tab button and it does not grow, shrink, gain a pill background, or change border-radius compared to its inactive state
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 42-01-PLAN.md — CSS fix (expand mobile .tab.active reset, add transition: color, add .tab:active suppress rule)
+- [ ] 42-02-PLAN.md — Browser verification checkpoint (human confirms TABUI-01 and TABUI-02 across all 8 tabs)
 
 ### Phase 43: Debt History Modal
 **Goal**: Users can open a payment history modal for any loan or mortgage debt, see all expected historical payment dates, confirm individual payments as paid so they appear on the heatmap, and adjust the amount of any payment before confirming.
@@ -116,7 +119,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 40. Sticky Header & Month Navigator | 2/2 | Complete    | 2026-03-19 |
 | 41. Bottom Nav Consistency & iOS Safe Area | 4/4 | Complete    | 2026-03-20 |
-| 42. Tab Button Uniformity | 0/? | Not started | - |
+| 42. Tab Button Uniformity | 0/2 | Not started | - |
 | 43. Debt History Modal | 0/? | Not started | - |
 | 44. Income Tab Cards | 0/? | Not started | - |
 | 45. Transactions Tab Fixes | 0/? | Not started | - |
