@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: UX Fixes
 status: verifying
-stopped_at: "Completed 41-04 Tasks 1-2; stopped at Task 3 checkpoint:human-verify — awaiting BOTNAV visual verification"
-last_updated: "2026-03-20T09:07:01.778Z"
+stopped_at: Completed 42-01 — mobile tab button cascade fix, all 722 tests passing
+last_updated: "2026-03-20T16:24:43.004Z"
 last_activity: 2026-03-20 — 41-03 verification FAILED; 4 issues found (see Blockers/Concerns)
 progress:
   total_phases: 6
   completed_phases: 2
-  total_plans: 6
-  completed_plans: 6
+  total_plans: 8
+  completed_plans: 7
   percent: 58
 ---
 
@@ -50,6 +50,8 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 - [Phase 41]: Use resolve.alias in vitest.config.js to stub virtual:pwa-register — cleaner resolution than per-test vi.mock for virtual modules
 - [Phase 41]: Use typeof window.matchMedia === 'function' guard before calling matchMedia in _renderHeaderActions — jsdom in Vitest does not implement matchMedia, bare call throws TypeError
 - [Phase 41]: CSS \!important on #cloudSyncActionsHeader at mobile breakpoint overrides JS classList.remove('hidden') — required because cloud-sync.js manages visibility via class manipulation
+- [Phase 42-tab-button-uniformity]: Mobile .tab.active must explicitly reset all 7 desktop properties (border-radius, box-shadow, padding, border, font-weight, background, color) — partial reset causes cascade leak
+- [Phase 42-tab-button-uniformity]: transition: color var(--tr) overrides desktop transition: all on mobile .tab — prevents pill-morph shape animation during tab tap
 
 ### Blockers/Concerns
 
@@ -62,6 +64,6 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 
 ## Session Continuity
 
-Last session: 2026-03-20T06:59:01.569Z
-Stopped at: Completed 41-04 Tasks 1-2; stopped at Task 3 checkpoint:human-verify — awaiting BOTNAV visual verification
+Last session: 2026-03-20T16:24:42.986Z
+Stopped at: Completed 42-01 — mobile tab button cascade fix, all 722 tests passing
 Resume file: None

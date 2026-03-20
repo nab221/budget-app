@@ -24,8 +24,8 @@
 
 ### Tab Buttons
 
-- [ ] **TABUI-01**: All 8 mobile tab buttons are identical in height and shape in both active and inactive states
-- [ ] **TABUI-02**: Payoff tab button does not change shape or size when tapped on mobile
+- [x] **TABUI-01**: All 8 mobile tab buttons are identical in height and shape in both active and inactive states
+- [x] **TABUI-02**: Payoff tab button does not change shape or size when tapped on mobile
 
 ### Debt History
 
@@ -80,8 +80,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BOTNAV-02 | Phase 41 | Complete |
 | BOTNAV-03 | Phase 41 | Complete |
 | BOTNAV-04 | Phase 41 | Complete |
-| TABUI-01 | Phase 42 | Pending |
-| TABUI-02 | Phase 42 | Pending |
+| TABUI-01 | Phase 42 | Complete |
+| TABUI-02 | Phase 42 | Complete |
 | DEBT-05 | Phase 43 | Pending |
 | DEBT-06 | Phase 43 | Pending |
 | DEBT-07 | Phase 43 | Pending |
