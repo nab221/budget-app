@@ -2,26 +2,26 @@
 gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: UX Fixes
-status: verifying
-stopped_at: Completed 43-01-PLAN.md — TDD red phase stubs for DEBT-05/06/07
-last_updated: "2026-03-20T20:47:28.280Z"
-last_activity: 2026-03-20 — 42-03 human verification APPROVED; Phase 42 complete
+status: executing
+stopped_at: Completed 43-02-PLAN.md — generateHistoricalSchedule and payment history list
+last_updated: "2026-03-20T20:58:10.125Z"
+last_activity: 2026-03-20 — 43-01 complete; 6 failing test stubs added for generateHistoricalSchedule, getConfirmedPaymentMap, confirmLoanPayment
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 13
-  completed_plans: 10
+  completed_plans: 11
   percent: 58
 ---
 
 ## Current Position
 
 Phase: 43 of 45 (Debt History Modal) — In Progress
-Plan: 1 of 4 complete in current phase (43-01 done)
-Status: In Progress — TDD red phase stubs for DEBT-05/06/07 committed
-Last activity: 2026-03-20 — 43-01 complete; 6 failing test stubs added for generateHistoricalSchedule, getConfirmedPaymentMap, confirmLoanPayment
+Plan: 2 of 4 complete in current phase (43-01 and 43-02 done)
+Status: In Progress — generateHistoricalSchedule implemented; payment history list rendering in modal
+Last activity: 2026-03-20 — 43-02 complete; DEBT-05a and DEBT-05b GREEN; payment history list added to amortisation modal
 
-Progress: [██████░░░░] 58%
+Progress: [███████░░░] 70%
 
 ## Project Reference
 
@@ -57,6 +57,9 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 - [Phase 42-tab-button-uniformity]: Use viewport units (100vw) instead of percentage (100%) on fixed-position nav containers to bypass CSS containment traps from transformed/overflow ancestors
 - [Phase 43]: Used real assertions in DEBT-05/06/07 test stubs (not placeholder fails) so Plan 02 has exact contracts to satisfy
 - [Phase 43]: Extended recurrentExpenseRepository mock with getAll+add at vi.mock level (not just beforeEach) to ensure module-level mock resolution
+- [Phase 43]: Used formatGBP (already imported) rather than formatCurrency — same function, already in scope
+- [Phase 43]: Build historyHTML as plain string before safeHTML interpolation — lets DOMPurify sanitize full combined output
+- [Phase 43]: generateHistoricalSchedule returns null (not []) for missing paymentStartDate — UI can distinguish unconfigured from no-past-payments
 
 ### Blockers/Concerns
 
@@ -70,6 +73,6 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 
 ## Session Continuity
 
-Last session: 2026-03-20T20:47:28.252Z
-Stopped at: Completed 43-01-PLAN.md — TDD red phase stubs for DEBT-05/06/07
+Last session: 2026-03-20T20:58:10.100Z
+Stopped at: Completed 43-02-PLAN.md — generateHistoricalSchedule and payment history list
 Resume file: None
