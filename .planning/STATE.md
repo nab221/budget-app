@@ -4,7 +4,7 @@ milestone: v3.1
 milestone_name: UX Fixes
 status: executing
 stopped_at: Completed 43-04-PLAN.md — human verification of DEBT-05, DEBT-06, DEBT-07
-last_updated: "2026-03-20T22:22:05.250Z"
+last_updated: "2026-03-20T22:36:02.839Z"
 last_activity: 2026-03-20 — 43-02 complete; DEBT-05a and DEBT-05b GREEN; payment history list added to amortisation modal
 progress:
   total_phases: 6
