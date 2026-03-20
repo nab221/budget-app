@@ -1,9 +1,10 @@
 ---
 phase: 41-bottom-nav-consistency-ios-safe-area
 verified: 2026-03-20T00:00:00Z
-status: gaps_found
-score: 1/6 must-haves verified
-re_verification: false
+status: passed
+score: 4/4 BOTNAV requirements verified
+re_verification: true
+re_verified: 2026-03-20T09:00:00Z
 gaps:
   - truth: "The mobile bottom nav bar is structurally free from any fixed-position containment trap — it is a direct child of <body>, not inside .shell"
     status: partial
@@ -210,3 +211,38 @@ Phase 41 has four confirmed failures from human verification (documented in 41-0
 
 _Verified: 2026-03-20_
 _Verifier: Claude (gsd-verifier)_
+
+---
+
+## Re-Verification: PASSED — 2026-03-20
+
+**Human verified after 41-04 gap closure. All 4 BOTNAV requirements accepted as passing.**
+
+| Requirement | Status | Evidence |
+|-------------|--------|----------|
+| BOTNAV-01 — Mobile fixed nav | ✓ PASS | Nav fixed at bottom on mobile; minor jank on Transactions/Payoff accepted as TODO |
+| BOTNAV-01 — Desktop nav shows | ✓ PASS | Horizontal tab bar renders below header on desktop |
+| BOTNAV-02 — Content clearance | ✓ PASS | Content clears nav bar on mobile |
+| BOTNAV-03 — iOS safe-area | ✓ PASS | env(safe-area-inset-bottom) padding active via viewport-fit=cover |
+| BOTNAV-04 — PWA update bar | ✓ PASS | Update bar renders above nav bar |
+| Cloud sync on mobile | ✓ PASS | Cloud sync button and dot visible on mobile header |
+| Local button desktop-only | ✓ PASS | 📁 Local button hidden on mobile |
+
+### Known TODOs (Accepted — Not Blocking Phase Completion)
+
+**TODO-NAV-01: Desktop nav disappears on scroll**
+- **Symptom:** Desktop horizontal tab bar is not sticky — it scrolls off-screen with page content.
+- **Expected:** Tab bar should remain visible while scrolling (sticky below header on desktop).
+- **Root cause:** `.nav-container { position: relative }` on desktop scrolls with `.shell`. Needs `position: sticky; top: var(--header-height)` or similar.
+- **Impact:** Minor UX inconvenience on desktop. User must scroll back to top to switch tabs.
+- **Accepted:** Yes — user agreed to proceed. Fix in a future phase.
+
+**TODO-NAV-02: Mobile nav still janky on Transactions and Payoff tabs**
+- **Symptom:** Bottom nav may not remain perfectly fixed while scrolling on Transactions and Payoff tabs on real devices.
+- **Expected:** Nav stays fixed at bottom on all 8 tabs at all times.
+- **Root cause:** Not yet diagnosed. Candidates: Chart.js canvas rendering on Payoff; large JS-rendered swipe-gesture list on Transactions; iOS Safari-specific compositing behaviour.
+- **Impact:** Minor UX issue. Nav is functionally present but may shift during active scroll.
+- **Accepted:** Yes — user agreed to proceed. Requires real-device diagnosis in a future phase.
+
+_Re-verified: 2026-03-20_
+_Verifier: Human (user)_
