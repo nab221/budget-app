@@ -278,13 +278,24 @@ input[type="number"] { text-align: right; }
     color: var(--text-dim);
     box-shadow: none !important;
     min-height: 44px;
+    transition: color var(--tr);  /* Override desktop "transition: all" — prevent shape animation on tap */
   }
 
   .tab:hover { background: none; }
 
+  .tab:active {
+    transform: none;    /* Suppress any UA or inherited transform on tap */
+    background: none;   /* Prevent UA active-state background flash */
+  }
+
   .tab.active {
     background: none;
     color: var(--accent);
+    border-radius: 0;       /* Match mobile .tab — reset desktop 999px */
+    box-shadow: none;       /* Reset desktop 0 4px 12px var(--accent-soft) */
+    padding: 6px 0;         /* Explicitly match mobile .tab — prevent cascade pulling desktop 8px 16px */
+    border: none;           /* Match mobile .tab */
+    font-weight: 500;       /* Match mobile .tab — prevent font-weight: 600 micro-reflow from desktop rule */
   }
 
   .tab::before {
