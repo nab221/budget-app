@@ -4,8 +4,8 @@ milestone: v3.1
 milestone_name: UX Fixes
 status: executing
 stopped_at: Completed 41-02-PLAN.md — PWA update bar wired with onNeedRefresh, mobile CSS override, 722 tests passing
-last_updated: "2026-03-19T22:44:19.429Z"
-last_activity: 2026-03-19 — 41-02 complete; PWA update bar wired (onNeedRefresh, _showUpdateBar/_hideUpdateBar), mobile CSS override raising update-bar above nav, 722 tests passing (BOTNAV-04)
+last_updated: "2026-03-20T00:00:00.000Z"
+last_activity: 2026-03-20 — 41-03 verification FAILED; 4 issues found: desktop nav regression, nav not fixed on all mobile tabs, header inconsistency Dashboard vs Transactions, auto-save UI visible on mobile
 progress:
   total_phases: 6
   completed_phases: 1
@@ -16,10 +16,10 @@ progress:
 
 ## Current Position
 
-Phase: 41 of 44 (Bottom Nav Consistency & iOS Safe Area) — IN PROGRESS
-Plan: 2 of 3 complete in current phase (41-01, 41-02 done)
-Status: In Progress — 41-03 next (browser verification checkpoint)
-Last activity: 2026-03-19 — 41-02 complete; PWA update bar wired (onNeedRefresh, _showUpdateBar/_hideUpdateBar), mobile CSS override, 722 tests passing (BOTNAV-04)
+Phase: 41 of 44 (Bottom Nav Consistency & iOS Safe Area) — IN PROGRESS (BLOCKED)
+Plan: 2 of 3 complete in current phase (41-01, 41-02 done); 41-03 verification failed
+Status: BLOCKED — 41-03 browser verification failed; code fixes required before re-verification
+Last activity: 2026-03-20 — 41-03 verification FAILED; 4 issues found (see Blockers/Concerns)
 
 Progress: [██████░░░░] 58%
 
@@ -52,9 +52,14 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 ### Blockers/Concerns
 
 - [Phase 41] iOS safe-area fixes must be verified on real iPhone or Safari simulator — Chrome DevTools will not expose the missing `viewport-fit=cover` issue
+- [Phase 41 BLOCKED] 41-03 verification FAILED 2026-03-20 — 4 issues require fixes before BOTNAV requirements can be confirmed:
+  1. Bottom nav visible on desktop (regression) — must be hidden above mobile breakpoint
+  2. Nav not fixed on Transactions, Payoff, Settings tabs — overflow/transform ancestor trapping fixed positioning
+  3. Header collapses differently on Dashboard vs Transactions — inconsistent sticky-header behaviour
+  4. Auto-save UI (cloud-sync button, traffic-light) visible on mobile — must be hidden on mobile to preserve header space; local storage does not function on mobile
 
 ## Session Continuity
 
-Last session: 2026-03-19T22:44:19.405Z
-Stopped at: Completed 41-02-PLAN.md — PWA update bar wired with onNeedRefresh, mobile CSS override, 722 tests passing
+Last session: 2026-03-20T00:00:00.000Z
+Stopped at: 41-03-PLAN.md — VERIFICATION FAILED; 4 issues documented in 41-03-SUMMARY.md; code fixes required before re-verification
 Resume file: None

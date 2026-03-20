@@ -23,7 +23,7 @@ Phases 27–39 archived to `.planning/milestones/v3.0-phases/`
 ## Phases
 
 - [x] **Phase 40: Sticky Header & Month Navigator** — Top header sticks on all 8 tabs; scroll shadow appears when scrolled; month nav positions correctly below header
-- [ ] **Phase 41: Bottom Nav Consistency & iOS Safe Area** — Mobile bottom bar fixed and visible on all 8 tabs; content does not scroll behind it; iOS home-indicator and PWA update bar handled correctly
+- [ ] **Phase 41: Bottom Nav Consistency & iOS Safe Area** — VERIFICATION FAILED 2026-03-20; 4 issues require code fixes before BOTNAV requirements can be confirmed
 - [ ] **Phase 42: Tab Button Uniformity** — All 8 tab buttons identical height and shape in active and inactive states; Payoff tab no longer changes shape on tap
 - [ ] **Phase 43: Debt History Modal** — Loan and mortgage transaction history modal with expected payment dates, paid confirmation, and amount adjustment
 - [ ] **Phase 44: Income Tab Cards** — Income tab shows income source cards; user can confirm, date-change, and amount-adjust income entries from a modal
@@ -56,9 +56,9 @@ Plans:
   4. When a PWA service-worker update is available, the update notification bar appears above the bottom nav bar — the nav icons remain fully tappable
 **Plans**: 3 plans
 Plans:
-- [ ] 41-01-PLAN.md — HTML + CSS foundation (viewport-fit=cover, .nav-container moved to body, .shell safe-area padding)
-- [ ] 41-02-PLAN.md — PWA update bar implementation (onNeedRefresh wired, _showUpdateBar/_hideUpdateBar, mobile CSS offset)
-- [ ] 41-03-PLAN.md — Browser verification checkpoint (human confirms all 4 BOTNAV requirements in Chrome + Safari/iPhone)
+- [x] 41-01-PLAN.md — HTML + CSS foundation (viewport-fit=cover, .nav-container moved to body, .shell safe-area padding)
+- [x] 41-02-PLAN.md — PWA update bar implementation (onNeedRefresh wired, _showUpdateBar/_hideUpdateBar, mobile CSS offset)
+- [ ] 41-03-PLAN.md — Browser verification checkpoint (FAILED — 4 issues found; code fixes needed before re-verification)
 
 ### Phase 42: Tab Button Uniformity
 **Goal**: All 8 mobile bottom tab buttons are pixel-identical in height and shape whether active or inactive — the Payoff tab button does not change shape or size when tapped.
@@ -114,7 +114,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 40. Sticky Header & Month Navigator | 2/2 | Complete    | 2026-03-19 |
-| 41. Bottom Nav Consistency & iOS Safe Area | 2/3 | In Progress|  |
+| 41. Bottom Nav Consistency & iOS Safe Area | 2/3 | BLOCKED (verification failed) | - |
 | 42. Tab Button Uniformity | 0/? | Not started | - |
 | 43. Debt History Modal | 0/? | Not started | - |
 | 44. Income Tab Cards | 0/? | Not started | - |
