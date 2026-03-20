@@ -29,9 +29,9 @@
 
 ### Debt History
 
-- [ ] **DEBT-05**: User can open a transaction history modal for loan and mortgage debts showing all expected payment dates from loan start up to today
-- [ ] **DEBT-06**: User can confirm each historical loan/mortgage payment as paid in the history modal so it appears in the heatmap
-- [ ] **DEBT-07**: User can adjust the payment amount for individual loan/mortgage payment entries before confirming
+- [x] **DEBT-05**: User can open a transaction history modal for loan and mortgage debts showing all expected payment dates from loan start up to today
+- [x] **DEBT-06**: User can confirm each historical loan/mortgage payment as paid in the history modal so it appears in the heatmap
+- [x] **DEBT-07**: User can adjust the payment amount for individual loan/mortgage payment entries before confirming
 
 ### Income Tab
 
@@ -82,9 +82,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BOTNAV-04 | Phase 41 | Complete |
 | TABUI-01 | Phase 42 | Complete |
 | TABUI-02 | Phase 42 | Complete |
-| DEBT-05 | Phase 43 | Pending |
-| DEBT-06 | Phase 43 | Pending |
-| DEBT-07 | Phase 43 | Pending |
+| DEBT-05 | Phase 43 | Complete |
+| DEBT-06 | Phase 43 | Complete |
+| DEBT-07 | Phase 43 | Complete |
 | INCOME-01 | Phase 44 | Pending |
 | INCOME-02 | Phase 44 | Pending |
 | INCOME-03 | Phase 44 | Pending |

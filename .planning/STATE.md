@@ -3,23 +3,23 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: UX Fixes
 status: verifying
-stopped_at: Phase 42 complete — TABUI-01 and TABUI-02 confirmed by human verification
-last_updated: "2026-03-20T19:47:49.908Z"
+stopped_at: Completed 43-01-PLAN.md — TDD red phase stubs for DEBT-05/06/07
+last_updated: "2026-03-20T20:47:28.280Z"
 last_activity: 2026-03-20 — 42-03 human verification APPROVED; Phase 42 complete
 progress:
   total_phases: 6
   completed_phases: 3
-  total_plans: 9
-  completed_plans: 9
+  total_plans: 13
+  completed_plans: 10
   percent: 58
 ---
 
 ## Current Position
 
-Phase: 42 of 44 (Tab Button Uniformity) — COMPLETE
-Plan: 3 of 3 complete in current phase (42-01, 42-02, 42-03 done)
-Status: COMPLETE — TABUI-01 and TABUI-02 confirmed by human verification 2026-03-20
-Last activity: 2026-03-20 — 42-03 human verification APPROVED; Phase 42 complete
+Phase: 43 of 45 (Debt History Modal) — In Progress
+Plan: 1 of 4 complete in current phase (43-01 done)
+Status: In Progress — TDD red phase stubs for DEBT-05/06/07 committed
+Last activity: 2026-03-20 — 43-01 complete; 6 failing test stubs added for generateHistoricalSchedule, getConfirmedPaymentMap, confirmLoanPayment
 
 Progress: [██████░░░░] 58%
 
@@ -55,6 +55,8 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 - [Phase 42-03]: Root cause of tab bar width expansion was CSS containment trap — position:fixed on .nav-container is trapped by transformed/overflow ancestors on Transactions/Payoff/Settings tabs; width:100% resolves against trapped ancestor's wider content box. Fix: use width:100vw (viewport units) which bypass all containment traps.
 - [Phase 42 COMPLETE]: TABUI-01 and TABUI-02 confirmed by human verification 2026-03-20 — all 8 mobile tab buttons pixel-identical in height and shape; Payoff tab does not grow on activation
 - [Phase 42-tab-button-uniformity]: Use viewport units (100vw) instead of percentage (100%) on fixed-position nav containers to bypass CSS containment traps from transformed/overflow ancestors
+- [Phase 43]: Used real assertions in DEBT-05/06/07 test stubs (not placeholder fails) so Plan 02 has exact contracts to satisfy
+- [Phase 43]: Extended recurrentExpenseRepository mock with getAll+add at vi.mock level (not just beforeEach) to ensure module-level mock resolution
 
 ### Blockers/Concerns
 
@@ -68,6 +70,6 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 
 ## Session Continuity
 
-Last session: 2026-03-20T19:33:30.367Z
-Stopped at: Phase 42 complete — TABUI-01 and TABUI-02 confirmed by human verification
+Last session: 2026-03-20T20:47:28.252Z
+Stopped at: Completed 43-01-PLAN.md — TDD red phase stubs for DEBT-05/06/07
 Resume file: None
