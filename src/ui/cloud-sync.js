@@ -283,6 +283,10 @@ export const cloudSyncUI = {
   },
 
   _renderHeaderActions(session) {
+    // Mobile: cloud sync header actions are hidden via CSS and suppressed here.
+    // Local storage is the only storage on mobile; cloud sync UI is desktop-only.
+    if (typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 768px)').matches) return;
+
     const headerActionsEl = document.getElementById('cloudSyncActionsHeader');
     const exportBtn = document.getElementById('exportBtn');
     const importLabel = document.querySelector('label[for="importFile"]');
