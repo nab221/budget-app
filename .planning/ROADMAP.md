@@ -126,7 +126,7 @@ Plans:
 | 40. Sticky Header & Month Navigator | 2/2 | Complete    | 2026-03-19 |
 | 41. Bottom Nav Consistency & iOS Safe Area | 4/4 | Complete    | 2026-03-20 |
 | 42. Tab Button Uniformity | 3/3 | Complete    | 2026-03-20 |
-| 43. Debt History Modal | 2/4 | In Progress|  |
+| 43. Debt History Modal | 3/4 | In Progress|  |
 | 44. Income Tab Cards | 0/? | Not started | - |
 | 45. Transactions Tab Fixes | 0/? | Not started | - |
 

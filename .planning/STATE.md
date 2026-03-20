@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: UX Fixes
 status: executing
-stopped_at: Completed 43-02-PLAN.md — generateHistoricalSchedule and payment history list
-last_updated: "2026-03-20T20:58:10.125Z"
-last_activity: 2026-03-20 — 43-01 complete; 6 failing test stubs added for generateHistoricalSchedule, getConfirmedPaymentMap, confirmLoanPayment
+stopped_at: Completed 43-03-PLAN.md — payment confirmation logic
+last_updated: "2026-03-20T21:53:45.816Z"
+last_activity: 2026-03-20 — 43-02 complete; DEBT-05a and DEBT-05b GREEN; payment history list added to amortisation modal
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 13
-  completed_plans: 11
-  percent: 58
+  completed_plans: 12
+  percent: 70
 ---
 
 ## Current Position
@@ -60,6 +60,8 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 - [Phase 43]: Used formatGBP (already imported) rather than formatCurrency — same function, already in scope
 - [Phase 43]: Build historyHTML as plain string before safeHTML interpolation — lets DOMPurify sanitize full combined output
 - [Phase 43]: generateHistoricalSchedule returns null (not []) for missing paymentStartDate — UI can distinguish unconfigured from no-past-payments
+- [Phase 43]: Used getAll+filter upsert pattern for confirmLoanPayment — consistent with existing recurrentExpense access; no dedicated query by linkedDebtId exists
+- [Phase 43]: span.innerHTML used directly in _renderLoanPaymentStatuses — post-render DOM updates consistent with showMarkPaidPrompt pattern; not safeHTML template literals
 
 ### Blockers/Concerns
 
@@ -73,6 +75,6 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 
 ## Session Continuity
 
-Last session: 2026-03-20T20:58:10.100Z
-Stopped at: Completed 43-02-PLAN.md — generateHistoricalSchedule and payment history list
+Last session: 2026-03-20T21:53:45.801Z
+Stopped at: Completed 43-03-PLAN.md — payment confirmation logic
 Resume file: None
