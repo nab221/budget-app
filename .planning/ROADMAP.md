@@ -99,7 +99,12 @@ Plans:
   3. User selects an income entry in the modal and confirms it as received — the entry is marked as received and the UI reflects the updated state
   4. User changes the date of an upcoming income entry in the modal — the new date is saved and displayed correctly
   5. User adjusts the amount of a specific income entry in the modal — the adjusted amount is saved and shown in the entry
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 44-01-PLAN.md — Test stubs (Nyquist Wave 0: INCOME-01..05 failing tests, mock setup for repository/render/income utils)
+- [ ] 44-02-PLAN.md — Card grid layout: _renderSourceCards replaces _renderSourceList, safeHTML import, open-income-modal delegation (INCOME-01)
+- [ ] 44-03-PLAN.md — Modal flow: openIncomeModal, _buildIncomeModalHTML, _renderIncomeEntryStatuses, window global handlers (INCOME-02, INCOME-03, INCOME-04, INCOME-05)
+- [ ] 44-04-PLAN.md — Human browser verification checkpoint (INCOME-01 through INCOME-05 confirmed)
 
 ### Phase 45: Transactions Tab Fixes
 **Goal**: Restore and improve the Transactions tab — mark-as-paid for expenses, income confirm, remove duplicate reconciliation mode, unified Add button, sort order toggle, ±amount prefix, correct search label, and full category filter including debts.
@@ -127,7 +132,7 @@ Plans:
 | 41. Bottom Nav Consistency & iOS Safe Area | 4/4 | Complete    | 2026-03-20 |
 | 42. Tab Button Uniformity | 3/3 | Complete    | 2026-03-20 |
 | 43. Debt History Modal | 4/4 | Complete    | 2026-03-20 |
-| 44. Income Tab Cards | 0/? | Not started | - |
+| 44. Income Tab Cards | 0/4 | Not started | - |
 | 45. Transactions Tab Fixes | 0/? | Not started | - |
 
 ---
