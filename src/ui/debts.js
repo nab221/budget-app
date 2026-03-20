@@ -1006,6 +1006,34 @@ export const debtUI = {
     }
   },
 
+  generateHistoricalSchedule(debt) {
+    if (!debt.paymentStartDate) return null;
+    if (!debt.fixedMonthlyPayment) return null;
+
+    // Use originalPrincipal if it is set and greater than currentBalance (indicates user entered original loan amount)
+    // Otherwise fall back to currentBalance. Both are stored in pence in the DB.
+    const balancePence = (debt.originalPrincipal && debt.originalPrincipal > debt.currentBalance)
+      ? debt.originalPrincipal
+      : (debt.currentBalance || 0);
+
+    let scheduleData;
+    try {
+      scheduleData = calculateAmortisationSchedule({
+        outstandingBalance: balancePence,
+        annualInterestRate: (debt.interestRate || 0) / 100,
+        monthlyPayment: debt.fixedMonthlyPayment,
+        paymentDayOfMonth: debt.paymentDayOfMonth || 1,
+        paymentAdjustment: debt.paymentAdjustment || 'none',
+        startDate: debt.paymentStartDate,
+      });
+    } catch (e) {
+      return null;
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+    return scheduleData.schedule.filter(entry => entry.paymentDate <= today);
+  },
+
   _buildAmortisationModalHTML(debt) {
     let scheduleData = null;
     let calcError = null;
