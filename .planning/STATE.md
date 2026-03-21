@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: UX Fixes
 status: executing
-stopped_at: Completed 44-02-PLAN.md
-last_updated: "2026-03-21T20:19:15.379Z"
-last_activity: 2026-03-20 — 43-02 complete; DEBT-05a and DEBT-05b GREEN; payment history list added to amortisation modal
+stopped_at: Completed 44-03-PLAN.md
+last_updated: "2026-03-21T20:57:51.584Z"
+last_activity: 2026-03-21 — 44-02 complete; INCOME-01a and INCOME-01b GREEN; card grid replaces flat table
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 17
-  completed_plans: 15
+  completed_plans: 16
   percent: 75
 ---
 
@@ -65,6 +65,8 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 - [Phase 43]: Human browser verification gates phase 43 completion — Vitest covers functional correctness; browser confirms UI rendering, heatmap wiring, and regression safety for DEBT-05/06/07
 - [Phase 44-income-tab-cards]: Wave 0 TDD: wrote failing test stubs before implementation — INCOME-01/02 RED, INCOME-03/04/05 GREEN (confirms existing confirmIncome/adjustIncome correctness)
 - [Phase 44-income-tab-cards]: Keep old rendering methods in place (not deleted); openIncomeModal stub prevents runtime errors before Plan 03
+- [Phase 44-income-tab-cards]: Global window handlers registered in _registerGlobalHandlers() called from init() — consistent with debt history modal pattern from Phase 43
+- [Phase 44-income-tab-cards]: confirmIncomeEntry re-opens modal via incomeSources.openIncomeModal(sourceId) after save — refreshes status spans without full page render; 90-day look-forward window used in modal (wider than 45-day render window)
 
 ### Blockers/Concerns
 
@@ -78,6 +80,6 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 
 ## Session Continuity
 
-Last session: 2026-03-21T20:19:15.362Z
-Stopped at: Completed 44-02-PLAN.md
+Last session: 2026-03-21T20:57:51.548Z
+Stopped at: Completed 44-03-PLAN.md
 Resume file: None
