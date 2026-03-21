@@ -97,6 +97,17 @@ function lookForwardDate() {
   return d.toISOString().split('T')[0];
 }
 
+/**
+ * Return a date 90 days in the future as YYYY-MM-DD.
+ * Used by the income modal to show upcoming entries in a wider window.
+ * @returns {string}
+ */
+function lookForwardDate90() {
+  const d = new Date();
+  d.setDate(d.getDate() + 90);
+  return d.toISOString().split('T')[0];
+}
+
 // ---------------------------------------------------------------------------
 // Rule label mapping
 // ---------------------------------------------------------------------------
@@ -123,10 +134,17 @@ export const incomeSources = {
   _boundClickHandler: null,
 
   /**
+   * Tracks the sourceId of the currently open income modal.
+   * @type {number|null}
+   */
+  activeSourceId: null,
+
+  /**
    * Initialize the module: bind refresh event and do first render.
    */
   async init() {
     modalUI.init();
+    this._registerGlobalHandlers();
     window.addEventListener('app:refresh', () => this.render());
     await this.render();
   },
@@ -681,11 +699,149 @@ export const incomeSources = {
 
   /**
    * Open the income modal for the given source.
-   * Stub — fully implemented in Plan 03.
+   * Shows upcoming income entries with confirm/adjust actions.
    * @param {number} sourceId
    */
   async openIncomeModal(sourceId) {
-    // Implemented in Plan 03
-    void sourceId;
+    this.activeSourceId = sourceId;
+    const source = await incomeSourceRepository.get(sourceId);
+    if (!source) return;
+
+    const title = `Income: ${source.name}`;
+    const content = this._buildIncomeModalHTML(source);
+    const footer = [
+      { label: 'Close', className: 'ghost', onClick: () => this._closeIncomeModal() }
+    ];
+
+    modalUI.show(title, content, footer);
+    await this._renderIncomeEntryStatuses(sourceId);
+
+    if (modalUI.elements.close) {
+      modalUI.elements.close.onclick = () => this._closeIncomeModal();
+    }
+  },
+
+  /**
+   * Close the income modal and clear active source.
+   */
+  _closeIncomeModal() {
+    this.activeSourceId = null;
+    modalUI.close();
+  },
+
+  /**
+   * Build the modal body HTML for a given income source.
+   * Renders upcoming income entries (±90 day window) as a list.
+   * @param {Object} source
+   * @returns {string}
+   */
+  _buildIncomeModalHTML(source) {
+    const upcoming = getUpcomingIncomeEvents([source], lookbackDate(), 10)
+      .filter(ev => ev.adjustedDate <= lookForwardDate90());
+
+    if (!upcoming.length) {
+      return `<p style="color:var(--text-muted);text-align:center;padding:24px 0">No upcoming income entries found for this source.</p>`;
+    }
+
+    const liItems = upcoming.map(ev => {
+      const dateStr = formatDate(ev.adjustedDate);
+      const amount = formatGBP(ev.amount);
+      return `<li class="income-modal-entry" style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">`
+        + `<span style="min-width:100px">${dateStr}</span>`
+        + `<span class="privacy-blur" style="min-width:80px;text-align:right">${amount}</span>`
+        + `<span class="income-entry-status" id="income-entry-status-${source.id}-${ev.adjustedDate}" style="margin-left:12px"></span>`
+        + `</li>`;
+    }).join('');
+
+    return `<ul id="income-modal-list-${source.id}" class="income-modal-list" style="list-style:none;padding:0;margin:0 0 8px 0">${liItems}</ul>`;
+  },
+
+  /**
+   * Populate the status spans in the open income modal with Received badges
+   * or Confirm buttons based on existing income entries.
+   * @param {number} sourceId
+   */
+  async _renderIncomeEntryStatuses(sourceId) {
+    const source = await incomeSourceRepository.get(sourceId);
+    if (!source) return;
+
+    const upcoming = getUpcomingIncomeEvents([source], lookbackDate(), 10)
+      .filter(ev => ev.adjustedDate <= lookForwardDate90());
+
+    const allIncome = await incomeRepository.getAll();
+    const confirmedDates = new Set(
+      allIncome
+        .filter(e => e.source === source.name)
+        .map(e => e.date)
+    );
+
+    for (const ev of upcoming) {
+      const span = document.getElementById(`income-entry-status-${sourceId}-${ev.adjustedDate}`);
+      if (!span) continue;
+
+      const isConfirmed = confirmedDates.has(ev.adjustedDate);
+      if (isConfirmed) {
+        span.innerHTML = '<span class="badge badge-success" style="white-space:nowrap">Received</span>';
+      } else {
+        span.innerHTML = `<button class="sm primary" onclick="showIncomeConfirmPrompt(${sourceId}, '${ev.adjustedDate}', ${ev.amount})">Confirm</button>`;
+      }
+    }
+  },
+
+  /**
+   * Register global window handlers for income modal interactions.
+   * Called once from init(). These handlers are attached to window so
+   * inline onclick attributes in dynamically rendered HTML can reach them.
+   */
+  _registerGlobalHandlers() {
+    window.showIncomeConfirmPrompt = (sourceId, adjustedDate, amountPence) => {
+      const span = document.getElementById(`income-entry-status-${sourceId}-${adjustedDate}`);
+      if (!span) return;
+      const amountPounds = (amountPence / 100).toFixed(2);
+      span.innerHTML = `<div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">`
+        + `<div style="display:flex;gap:8px;align-items:center">`
+        + `<label style="font-size:0.8rem;white-space:nowrap">Date:</label>`
+        + `<input type="date" id="income-date-override-${sourceId}-${adjustedDate}" value="${adjustedDate}" style="width:140px">`
+        + `</div>`
+        + `<div style="display:flex;gap:8px;align-items:center">`
+        + `<label style="font-size:0.8rem;white-space:nowrap">Amount (£):</label>`
+        + `<input type="number" step="0.01" min="0" id="income-amount-override-${sourceId}-${adjustedDate}" value="${amountPounds}" style="width:100px">`
+        + `</div>`
+        + `<div style="display:flex;gap:6px">`
+        + `<button class="sm primary" onclick="confirmIncomeEntry(${sourceId}, '${adjustedDate}')">Save</button>`
+        + `<button class="sm ghost" onclick="cancelIncomeConfirm(${sourceId}, '${adjustedDate}', ${amountPence})">Cancel</button>`
+        + `</div>`
+        + `</div>`;
+    };
+
+    window.confirmIncomeEntry = async (sourceId, adjustedDate) => {
+      const source = await incomeSourceRepository.get(sourceId);
+      if (!source) return;
+      const dateInput = document.getElementById(`income-date-override-${sourceId}-${adjustedDate}`);
+      const amtInput = document.getElementById(`income-amount-override-${sourceId}-${adjustedDate}`);
+      const finalDate = dateInput?.value || adjustedDate;
+      const finalAmountPounds = parseFloat(amtInput?.value || '0') || 0;
+      try {
+        await incomeRepository.add({
+          date: finalDate,
+          source: source.name,
+          amount: finalAmountPounds,   // pounds — repository's penceFields converts to pence
+          categoryId: null,
+          isCleared: false,
+          isReconciled: false,
+        });
+        triggerHaptic('success');
+        await incomeSources.openIncomeModal(sourceId);
+        if (window.app) window.app.renderAll();
+      } catch (err) {
+        notificationUI.error(err.message);
+      }
+    };
+
+    window.cancelIncomeConfirm = (sourceId, adjustedDate, amountPence) => {
+      const span = document.getElementById(`income-entry-status-${sourceId}-${adjustedDate}`);
+      if (!span) return;
+      span.innerHTML = `<button class="sm primary" onclick="showIncomeConfirmPrompt(${sourceId}, '${adjustedDate}', ${amountPence})">Confirm</button>`;
+    };
   },
 };
