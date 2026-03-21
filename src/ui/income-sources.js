@@ -13,6 +13,7 @@ import { getUpcomingIncomeEvents } from '../utils/income.js';
 import { formatGBP, fromPence } from '../utils/currency.js';
 import { notificationUI } from './notifications.js';
 import { triggerHaptic } from '../utils/haptics.js';
+import { safeHTML, modalUI } from './render.js';
 
 // ---------------------------------------------------------------------------
 // Local helpers (copied from income-spending-settings.js)
@@ -125,6 +126,7 @@ export const incomeSources = {
    * Initialize the module: bind refresh event and do first render.
    */
   async init() {
+    modalUI.init();
     window.addEventListener('app:refresh', () => this.render());
     await this.render();
   },
@@ -139,13 +141,8 @@ export const incomeSources = {
 
     const activeSources = await incomeSourceRepository.getActive();
 
-    // --- Pending confirmations (45-day lookback, 45-day forward window) ---
-    const upcoming = getUpcomingIncomeEvents(activeSources, lookbackDate(), 10)
-      .filter(ev => ev.adjustedDate <= lookForwardDate());
-
-    // --- Source list (active sources for display) ---
-    const sourceListHtml = this._renderSourceList(activeSources);
-    const pendingHtml = this._renderPendingSection(upcoming);
+    // --- Source cards (card grid layout, replaces flat table) ---
+    const sourceListHtml = this._renderSourceCards(activeSources);
     const formHtml = this._renderAddEditForm(null);
 
     container.innerHTML = `
@@ -155,7 +152,6 @@ export const incomeSources = {
           <button class="primary sm" data-action="show-add-form">+ Add Source</button>
         </div>
         <div id="income-source-form-wrapper" style="display:none">${formHtml}</div>
-        ${pendingHtml}
         ${sourceListHtml}
       </div>
     `;
@@ -411,6 +407,50 @@ export const incomeSources = {
   },
 
   /**
+   * Render income sources as a clickable card grid (replaces _renderSourceList).
+   * @param {Array} sources - active income sources
+   * @returns {string}
+   */
+  _renderSourceCards(sources) {
+    if (!sources.length) {
+      return `<div style="text-align:center;color:var(--text-muted);padding:32px 16px">
+        No income sources configured. Add one above.
+      </div>`;
+    }
+    const cards = sources.map(s => {
+      const labelFn = RULE_LABELS[s.payDateRule];
+      const ruleLabel = labelFn ? labelFn(s) : s.payDateRule;
+      return safeHTML`
+        <div class="card clickable-card"
+             data-source-id="${s.id}"
+             data-action="open-income-modal"
+             style="border:1px solid var(--border); padding:15px; display:flex;
+                    flex-direction:column; gap:8px; cursor:pointer; position:relative;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start">
+            <div>
+              <h3 style="margin:0; font-size:1.1rem">${s.name}</h3>
+              <span class="pill" style="font-size:0.7rem">${ruleLabel}</span>
+            </div>
+            <div style="display:flex; gap:4px">
+              <button class="sm ghost" data-action="edit-source" data-id="${s.id}"
+                      onclick="event.stopPropagation()">Edit</button>
+              <button class="sm ghost danger" data-action="delete-source" data-id="${s.id}"
+                      onclick="event.stopPropagation()">Delete</button>
+            </div>
+          </div>
+          <div style="font-size:1.4rem; font-weight:bold; margin:5px 0">
+            <span class="privacy-blur">${formatGBP(s.monthlyAmount)}</span>
+          </div>
+          <div style="margin-top:auto; padding-top:10px; border-top:1px solid var(--border);">
+            <span class="hint" style="font-size:0.7rem">Click to view income entries</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+    return `<div class="grid3">${cards}</div>`;
+  },
+
+  /**
    * Render a single pending income confirmation card.
    * @param {{ sourceName: string, nominalDate: string, adjustedDate: string, amount: number }} event
    *   amount is in PENCE
@@ -460,6 +500,15 @@ export const incomeSources = {
       const btn = e.target.closest('[data-action]');
       if (!btn) return;
       const action = btn.dataset.action;
+
+      // --- Open income modal (card click) ---
+      if (action === 'open-income-modal') {
+        const card = btn.closest('[data-source-id]');
+        if (!card) return;
+        const id = Number(card.dataset.sourceId);
+        await this.openIncomeModal(id);
+        return;
+      }
 
       // --- Add source form toggle ---
       if (action === 'show-add-form') {
@@ -628,5 +677,15 @@ export const incomeSources = {
       adjustedDate: card.dataset.eventDate || '',
       amount: Number(card.dataset.eventAmount) || 0,
     };
+  },
+
+  /**
+   * Open the income modal for the given source.
+   * Stub — fully implemented in Plan 03.
+   * @param {number} sourceId
+   */
+  async openIncomeModal(sourceId) {
+    // Implemented in Plan 03
+    void sourceId;
   },
 };
