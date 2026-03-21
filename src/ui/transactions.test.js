@@ -184,18 +184,15 @@ describe('TRANS-02: income row confirm-income button', () => {
 
 describe('TRANS-03: only one reconciliation button exists', () => {
   it('does not have a #toggleExpReconBtn element in the DOM', () => {
-    // Simulate the Transactions tab toolbar WITHOUT the duplicate expense recon button.
-    // This test documents the required post-fix state. It will FAIL until index.html
-    // has #toggleExpReconBtn removed from the Transactions tab panel.
+    // Post-fix state: Transactions tab toolbar has only #toggleIncReconBtn.
+    // #toggleExpReconBtn was removed from index.html (TRANS-03).
     document.body.innerHTML = `
       <div data-panel="transactions">
         <button id="toggleIncReconBtn">Reconciliation Mode</button>
-        <button id="toggleExpReconBtn">Expense Recon</button>
       </div>
     `;
 
-    // Assert post-fix state: the duplicate button should NOT exist.
-    // This FAILS because we just added it to the DOM above (simulating current index.html).
+    // Assert post-fix state: the duplicate button does NOT exist.
     expect(document.getElementById('toggleExpReconBtn')).toBeNull();
   });
 });

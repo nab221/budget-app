@@ -62,11 +62,9 @@ export const transactionUI = {
    * Set up event listeners for income management.
    */
   setupEventListeners() {
-    // Toggle Add Income Form
-    const addBtn = document.getElementById('addIncBtn');
-    if (addBtn) {
-      addBtn.onclick = () => this.openForm();
-    }
+    // Unified Add button — opens type selector modal
+    const addTransBtn = document.getElementById('addTransBtn');
+    if (addTransBtn) addTransBtn.onclick = () => this.openAddTypeModal();
 
     // Toggle Reconciliation Mode
     const reconBtn = document.getElementById('toggleIncReconBtn');
@@ -145,6 +143,25 @@ export const transactionUI = {
       }
     };
   },
+
+  /**
+   * Shows a modal letting the user choose whether to add Income or Expense.
+   */
+  openAddTypeModal() {
+    const content = safeHTML`
+      <p style="margin-bottom:16px">What would you like to add?</p>
+      <div style="display:flex;gap:12px;flex-direction:column">
+        <button class="primary" onclick="transactionUI._addIncome()">+ Income</button>
+        <button class="primary" onclick="transactionUI._addExpense()">+ Expense</button>
+      </div>
+    `;
+    modalUI.show('Add Transaction', content, [
+      { label: 'Cancel', className: 'ghost', onClick: () => modalUI.close() }
+    ]);
+  },
+
+  _addIncome() { modalUI.close(); this.openForm(); },
+  _addExpense() { modalUI.close(); window.expensesUI?.openForm(); },
 
   /**
    * Toggles reconciliation mode.
