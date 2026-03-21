@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: UX Fixes
 status: executing
-stopped_at: Completed 45-transactions-tab-fixes 45-01-PLAN.md
-last_updated: "2026-03-21T23:10:41.695Z"
+stopped_at: Completed 45-transactions-tab-fixes 45-02-PLAN.md
+last_updated: "2026-03-21T23:48:11.538Z"
 last_activity: 2026-03-21 — 44-02 complete; INCOME-01a and INCOME-01b GREEN; card grid replaces flat table
 progress:
   total_phases: 6
   completed_phases: 5
   total_plans: 21
-  completed_plans: 18
+  completed_plans: 19
   percent: 75
 ---
 
@@ -71,6 +71,8 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 - [Phase 44-income-tab-cards]: Human browser verification confirmed INCOME-01 through INCOME-05 all pass end-to-end — Phase 44 complete
 - [Phase 45-transactions-tab-fixes]: jsdom bare <tbody> stripped as invalid top-level HTML — wrap in <table> for test DOM fixtures
 - [Phase 45-transactions-tab-fixes]: Wave 0 TDD: TRANS-05 covered by two it-blocks for sortOrder default and ascending sort behavior
+- [Phase 45-transactions-tab-fixes]: Replaced reconciliationMode ternary for income row with always-visible confirm-received button; recon header still shown via renderReconHeader
+- [Phase 45-transactions-tab-fixes]: TRANS-03 test stub was self-contradicting (created element then asserted null) — fixed test fixture to reflect post-fix state before asserting
 
 ### Blockers/Concerns
 
@@ -84,6 +86,6 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 
 ## Session Continuity
 
-Last session: 2026-03-21T23:10:41.681Z
-Stopped at: Completed 45-transactions-tab-fixes 45-01-PLAN.md
+Last session: 2026-03-21T23:48:11.511Z
+Stopped at: Completed 45-transactions-tab-fixes 45-02-PLAN.md
 Resume file: None
