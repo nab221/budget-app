@@ -119,7 +119,12 @@ Plans:
   6. Expense amounts show with a − prefix; income amounts show with a + prefix
   7. Search bar placeholder reads "Search transactions"
   8. Category filter dropdown includes debt-linked transaction categories
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 45-01-PLAN.md — Test stubs (Wave 0: TRANS-01..08 failing tests, mock pattern from expenses.test.js)
+- [ ] 45-02-PLAN.md — Action buttons: mark-paid expense rows, confirm-received income rows, remove duplicate recon button, unified Add button (TRANS-01, TRANS-02, TRANS-03, TRANS-04)
+- [ ] 45-03-PLAN.md — Display/UX: sort order toggle, ± amount prefix, search placeholder fix, full category filter + filterTransactions wiring (TRANS-05, TRANS-06, TRANS-07, TRANS-08)
+- [ ] 45-04-PLAN.md — Human browser verification checkpoint (TRANS-01 through TRANS-08 confirmed)
 
 ## Progress
 
@@ -133,7 +138,7 @@ Plans:
 | 42. Tab Button Uniformity | 3/3 | Complete    | 2026-03-20 |
 | 43. Debt History Modal | 4/4 | Complete    | 2026-03-20 |
 | 44. Income Tab Cards | 4/4 | Complete    | 2026-03-21 |
-| 45. Transactions Tab Fixes | 0/? | Not started | - |
+| 45. Transactions Tab Fixes | 0/4 | Not started | - |
 
 ---
 *v3.1 roadmap created: 2026-03-18*
