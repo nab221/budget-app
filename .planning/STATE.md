@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: UX Fixes
 status: executing
-stopped_at: Completed 44-income-tab-cards 44-04-PLAN.md
-last_updated: "2026-03-21T21:54:39.664Z"
+stopped_at: Completed 45-transactions-tab-fixes 45-01-PLAN.md
+last_updated: "2026-03-21T23:10:41.695Z"
 last_activity: 2026-03-21 — 44-02 complete; INCOME-01a and INCOME-01b GREEN; card grid replaces flat table
 progress:
   total_phases: 6
   completed_phases: 5
-  total_plans: 17
-  completed_plans: 17
+  total_plans: 21
+  completed_plans: 18
   percent: 75
 ---
 
@@ -69,6 +69,8 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 - [Phase 44-income-tab-cards]: confirmIncomeEntry re-opens modal via incomeSources.openIncomeModal(sourceId) after save — refreshes status spans without full page render; 90-day look-forward window used in modal (wider than 45-day render window)
 - [Phase 44-income-tab-cards]: Phase 39.1 stale tests updated for Phase 44 card grid: pending cards moved to modal, tests 4 and 8 updated to verify .grid3 card layout and open-income-modal de-dup respectively
 - [Phase 44-income-tab-cards]: Human browser verification confirmed INCOME-01 through INCOME-05 all pass end-to-end — Phase 44 complete
+- [Phase 45-transactions-tab-fixes]: jsdom bare <tbody> stripped as invalid top-level HTML — wrap in <table> for test DOM fixtures
+- [Phase 45-transactions-tab-fixes]: Wave 0 TDD: TRANS-05 covered by two it-blocks for sortOrder default and ascending sort behavior
 
 ### Blockers/Concerns
 
@@ -82,6 +84,6 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 
 ## Session Continuity
 
-Last session: 2026-03-21T21:30:15.155Z
-Stopped at: Completed 44-income-tab-cards 44-04-PLAN.md
+Last session: 2026-03-21T23:10:41.681Z
+Stopped at: Completed 45-transactions-tab-fixes 45-01-PLAN.md
 Resume file: None

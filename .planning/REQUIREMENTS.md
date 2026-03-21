@@ -43,14 +43,14 @@
 
 ### Transactions Tab
 
-- [ ] **TRANS-01**: User can mark an expense transaction as paid from the Transactions tab and see the status update
-- [ ] **TRANS-02**: User can confirm an income transaction as received from the Transactions tab
-- [ ] **TRANS-03**: Transactions tab shows exactly one reconciliation mode button (duplicate removed)
-- [ ] **TRANS-04**: User can add a transaction via a single "Add" button that lets them select income or expense type inside the modal
-- [ ] **TRANS-05**: User can toggle the transaction list sort order between newest first and oldest first
-- [ ] **TRANS-06**: Expense transaction amounts display with a minus (−) prefix; income amounts display with a plus (+) prefix
-- [ ] **TRANS-07**: Transaction search bar placeholder reads "Search transactions" (not "Search income")
-- [ ] **TRANS-08**: Category filter in Transactions tab includes debt-linked transaction categories, not only income categories
+- [x] **TRANS-01**: User can mark an expense transaction as paid from the Transactions tab and see the status update
+- [x] **TRANS-02**: User can confirm an income transaction as received from the Transactions tab
+- [x] **TRANS-03**: Transactions tab shows exactly one reconciliation mode button (duplicate removed)
+- [x] **TRANS-04**: User can add a transaction via a single "Add" button that lets them select income or expense type inside the modal
+- [x] **TRANS-05**: User can toggle the transaction list sort order between newest first and oldest first
+- [x] **TRANS-06**: Expense transaction amounts display with a minus (−) prefix; income amounts display with a plus (+) prefix
+- [x] **TRANS-07**: Transaction search bar placeholder reads "Search transactions" (not "Search income")
+- [x] **TRANS-08**: Category filter in Transactions tab includes debt-linked transaction categories, not only income categories
 
 ## Future Requirements
 
@@ -91,14 +91,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INCOME-04 | Phase 44 | Complete |
 | INCOME-05 | Phase 44 | Complete |
 
-| TRANS-01 | Phase 45 | Pending |
-| TRANS-02 | Phase 45 | Pending |
-| TRANS-03 | Phase 45 | Pending |
-| TRANS-04 | Phase 45 | Pending |
-| TRANS-05 | Phase 45 | Pending |
-| TRANS-06 | Phase 45 | Pending |
-| TRANS-07 | Phase 45 | Pending |
-| TRANS-08 | Phase 45 | Pending |
+| TRANS-01 | Phase 45 | Complete |
+| TRANS-02 | Phase 45 | Complete |
+| TRANS-03 | Phase 45 | Complete |
+| TRANS-04 | Phase 45 | Complete |
+| TRANS-05 | Phase 45 | Complete |
+| TRANS-06 | Phase 45 | Complete |
+| TRANS-07 | Phase 45 | Complete |
+| TRANS-08 | Phase 45 | Complete |
 
 **Coverage:**
 - v3.1 requirements: 26 total
