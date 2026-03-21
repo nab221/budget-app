@@ -172,28 +172,23 @@ describe('CRUD delete', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Test 4 — Pending cards (upcoming income events)
-// render() calls getUpcomingIncomeEvents with active sources; returns at
-// least one pending card element when events exist.
+// Test 4 — Card grid layout (Phase 44 refactor)
+// render() now renders source cards in a .grid3 layout instead of a flat
+// pending cards section. The pending confirmations moved into the per-source
+// modal (openIncomeModal). This test verifies the new card grid render output.
 // ---------------------------------------------------------------------------
-describe('pending income cards', () => {
-  it('render() uses getUpcomingIncomeEvents and produces .income-pending-card elements', async () => {
+describe('card grid layout', () => {
+  it('render() produces .card.clickable-card elements inside .grid3 when sources exist', async () => {
     const { incomeSources } = await import('../src/ui/income-sources.js');
-    const { getUpcomingIncomeEvents } = await import('../src/utils/income.js');
+    const { incomeSourceRepository } = await import('../src/db/repository.js');
 
-    getUpcomingIncomeEvents.mockReturnValueOnce([UPCOMING_EVENT]);
+    incomeSourceRepository.getActive.mockResolvedValueOnce([SOURCE_1]);
 
     await incomeSources.render();
 
-    // The real render() calls getUpcomingIncomeEvents(activeSources, today, limit)
-    expect(getUpcomingIncomeEvents).toHaveBeenCalledWith(
-      expect.arrayContaining([expect.objectContaining({ id: 1 })]),
-      expect.any(String),
-      expect.any(Number)
-    );
-
-    // And it renders at least one card element for the upcoming event
-    const cards = document.querySelectorAll('.income-pending-card');
+    const container = document.getElementById('incomeSourcesContainer');
+    expect(container.querySelector('.grid3')).not.toBeNull();
+    const cards = container.querySelectorAll('.card.clickable-card');
     expect(cards.length).toBeGreaterThanOrEqual(1);
   });
 });
@@ -291,35 +286,37 @@ describe('listener de-duplication: save-source', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Test 8 — Listener de-duplication: confirm-income fires exactly once
-// After calling render() multiple times, clicking the confirm-income button
-// must only invoke confirmIncome once.
+// Test 8 — Listener de-duplication: open-income-modal fires exactly once
+// After calling render() multiple times, clicking a source card must only
+// invoke openIncomeModal once (not once per render). The confirm-income
+// action moved into the per-source modal in Phase 44.
 // ---------------------------------------------------------------------------
-describe('listener de-duplication: confirm-income', () => {
-  it('confirmIncome fires exactly once after three renders', async () => {
+describe('listener de-duplication: open-income-modal', () => {
+  it('openIncomeModal fires exactly once after three renders', async () => {
     const { incomeSources } = await import('../src/ui/income-sources.js');
-    const { getUpcomingIncomeEvents } = await import('../src/utils/income.js');
+    const { incomeSourceRepository } = await import('../src/db/repository.js');
 
-    // Always return one event so a pending card is rendered
-    getUpcomingIncomeEvents.mockReturnValue([UPCOMING_EVENT]);
+    // Always return one source so a clickable card is rendered
+    incomeSourceRepository.getActive.mockResolvedValue([SOURCE_1]);
 
-    // Render three times
+    // Render three times to accumulate listeners (the bug: without the fix,
+    // each render adds a new click listener on the container)
     await incomeSources.render();
     await incomeSources.render();
     await incomeSources.render();
 
-    // Spy on confirmIncome to count invocations
-    const spy = vi.spyOn(incomeSources, 'confirmIncome').mockResolvedValue(undefined);
+    // Spy on openIncomeModal to count invocations
+    const spy = vi.spyOn(incomeSources, 'openIncomeModal').mockResolvedValue(undefined);
 
-    // Click the confirm button on the pending card
+    // Click the source card
     const container = document.getElementById('incomeSourcesContainer');
-    const confirmBtn = container.querySelector('[data-action="confirm-income"]');
-    confirmBtn.click();
+    const card = container.querySelector('[data-action="open-income-modal"]');
+    card.click();
 
     // Allow microtasks to flush
     await new Promise(resolve => setTimeout(resolve, 50));
 
-    // Must have fired exactly once
+    // Must have fired exactly once — not three times
     expect(spy).toHaveBeenCalledTimes(1);
 
     spy.mockRestore();
