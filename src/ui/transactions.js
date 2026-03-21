@@ -469,16 +469,13 @@ export const transactionUI = {
             </td>
             <td class="r"><span class="privacy-blur">${formatGBP(item.amount)}</span></td>
             <td class="r col-actions">
-              ${this.reconciliationMode ? `
-                <div style="display:flex; align-items:center; justify-content:flex-end; gap:8px">
-                  <label style="font-size:0.75rem; color:var(--text-soft)">Cleared:</label>
-                  <input type="checkbox" ${isCleared ? 'checked' : ''} ${isReconciled ? 'disabled' : ''}
-                    onclick="toggleIncCleared(${item.id}, ${isCleared})"/>
-                </div>
-              ` : `
-                <button class="sm ghost btn-edit" ${isReconciled ? 'disabled title="Reconciled items cannot be edited"' : ''} onclick="transactionUI._handleEdit(${item.id})">Edit</button>
-                <button class="sm danger btn-delete" ${isReconciled ? 'disabled title="Reconciled items cannot be deleted"' : ''} onclick="transactionUI._handleDelete(${item.id})">&#x2715;</button>
-              `}
+              <button class="sm ${isCleared ? 'success' : 'ghost'} btn-confirm-income"
+                onclick="window.toggleIncCleared(${item.id}, ${isCleared})"
+                title="${isCleared ? 'Received' : 'Mark as Received'}">
+                ${isCleared ? '&#x2713; Received' : 'Confirm'}
+              </button>
+              <button class="sm ghost btn-edit" ${isReconciled ? 'disabled title="Reconciled items cannot be edited"' : ''} onclick="transactionUI._handleEdit(${item.id})">Edit</button>
+              <button class="sm danger btn-delete" ${isReconciled ? 'disabled title="Reconciled items cannot be deleted"' : ''} onclick="transactionUI._handleDelete(${item.id})">&#x2715;</button>
             </td>
           </tr>
         `;
@@ -502,6 +499,10 @@ export const transactionUI = {
             <td class="r"><span class="privacy-blur">${formatGBP(item.amount)}</span></td>
             <td class="r col-actions">
               ${isDebt ? '' : `
+                <button class="sm ${item.status === 'paid' ? 'success' : 'ghost'} btn-mark-paid"
+                  onclick="window.toggleExpenseStatus(${item.id}, '${item.type}', '${item.status || 'pending'}')">
+                  ${item.status === 'paid' ? '&#x2713; Paid' : 'Mark Paid'}
+                </button>
                 <button class="sm ghost btn-edit" onclick="window.expensesUI?.editExpense(${item.id}, '${item.type}')">Edit</button>
                 <button class="sm danger btn-delete" onclick="window.deleteExpense(${item.id}, '${item.type}')">&#x2715;</button>
               `}
