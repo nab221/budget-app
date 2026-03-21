@@ -24,6 +24,7 @@ export const transactionUI = {
   searchQuery: '',
   selectedCategories: [], // Filter categories
   reconciliationMode: false,
+  sortOrder: 'desc', // 'desc' = newest first, 'asc' = oldest first
   // Swipe gesture state — swipe is additive for touch users; keyboard/mouse users use inline buttons
   _swipeInstances: [],
   currentOpenRow: null,
@@ -70,6 +71,16 @@ export const transactionUI = {
     const reconBtn = document.getElementById('toggleIncReconBtn');
     if (reconBtn) {
       reconBtn.onclick = () => this.toggleReconciliationMode();
+    }
+
+    // Sort Order Toggle
+    const sortOrderBtn = document.getElementById('sortOrderBtn');
+    if (sortOrderBtn) {
+      sortOrderBtn.onclick = () => {
+        this.sortOrder = this.sortOrder === 'desc' ? 'asc' : 'desc';
+        sortOrderBtn.textContent = this.sortOrder === 'asc' ? '\u2191 Oldest First' : '\u2193 Newest First';
+        this.render();
+      };
     }
 
     // Search Input
@@ -356,7 +367,10 @@ export const transactionUI = {
       displayDate: i.date, displayLabel: i.note
     }));
     return [...incomeRows, ...recurrentRows, ...oneOffRows]
-      .sort((a, b) => (b.displayDate || '').localeCompare(a.displayDate || ''));
+      .sort((a, b) => {
+        const cmp = (b.displayDate || '').localeCompare(a.displayDate || '');
+        return this.sortOrder === 'asc' ? -cmp : cmp;
+      });
   },
 
   async renderMonthPicker() {
@@ -484,7 +498,7 @@ export const transactionUI = {
               ${item.categoryId ? `<span class="tag" style="margin-left:6px">${catMap[item.categoryId]}</span>` : ''}
               ${isReconciled ? `<span class="pill" style="background:var(--success); color:#fff; font-size:0.65rem; margin-left:6px">&#x2713; Reconciled</span>` : ''}
             </td>
-            <td class="r"><span class="privacy-blur">${formatGBP(item.amount)}</span></td>
+            <td class="r"><span class="privacy-blur">+${formatGBP(item.amount)}</span></td>
             <td class="r col-actions">
               <button class="sm ${isCleared ? 'success' : 'ghost'} btn-confirm-income"
                 onclick="window.toggleIncCleared(${item.id}, ${isCleared})"
@@ -513,7 +527,7 @@ export const transactionUI = {
               ${item.categoryId ? `<span class="tag" style="margin-left:6px">${catMap[item.categoryId]}</span>` : ''}
               ${isDebt ? `<span class="pill" style="background:var(--info,#2563eb);color:#fff;font-size:0.65rem;margin-left:6px">Debt</span>` : ''}
             </td>
-            <td class="r"><span class="privacy-blur">${formatGBP(item.amount)}</span></td>
+            <td class="r"><span class="privacy-blur">\u2212${formatGBP(item.amount)}</span></td>
             <td class="r col-actions">
               ${isDebt ? '' : `
                 <button class="sm ${item.status === 'paid' ? 'success' : 'ghost'} btn-mark-paid"
