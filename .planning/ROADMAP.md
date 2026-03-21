@@ -132,7 +132,7 @@ Plans:
 | 41. Bottom Nav Consistency & iOS Safe Area | 4/4 | Complete    | 2026-03-20 |
 | 42. Tab Button Uniformity | 3/3 | Complete    | 2026-03-20 |
 | 43. Debt History Modal | 4/4 | Complete    | 2026-03-20 |
-| 44. Income Tab Cards | 0/4 | Not started | - |
+| 44. Income Tab Cards | 1/4 | In Progress|  |
 | 45. Transactions Tab Fixes | 0/? | Not started | - |
 
 ---

@@ -35,11 +35,11 @@
 
 ### Income Tab
 
-- [ ] **INCOME-01**: Income tab displays each income source as a card (consistent with Debt tab card layout)
-- [ ] **INCOME-02**: User can click an income source card to open a modal showing income entries to confirm
-- [ ] **INCOME-03**: User can confirm an income entry as received in the income modal
-- [ ] **INCOME-04**: User can change the date of an upcoming income entry in the income modal
-- [ ] **INCOME-05**: User can adjust the amount of a specific income entry in the income modal
+- [x] **INCOME-01**: Income tab displays each income source as a card (consistent with Debt tab card layout)
+- [x] **INCOME-02**: User can click an income source card to open a modal showing income entries to confirm
+- [x] **INCOME-03**: User can confirm an income entry as received in the income modal
+- [x] **INCOME-04**: User can change the date of an upcoming income entry in the income modal
+- [x] **INCOME-05**: User can adjust the amount of a specific income entry in the income modal
 
 ### Transactions Tab
 
@@ -85,11 +85,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DEBT-05 | Phase 43 | Complete |
 | DEBT-06 | Phase 43 | Complete |
 | DEBT-07 | Phase 43 | Complete |
-| INCOME-01 | Phase 44 | Pending |
-| INCOME-02 | Phase 44 | Pending |
-| INCOME-03 | Phase 44 | Pending |
-| INCOME-04 | Phase 44 | Pending |
-| INCOME-05 | Phase 44 | Pending |
+| INCOME-01 | Phase 44 | Complete |
+| INCOME-02 | Phase 44 | Complete |
+| INCOME-03 | Phase 44 | Complete |
+| INCOME-04 | Phase 44 | Complete |
+| INCOME-05 | Phase 44 | Complete |
 
 | TRANS-01 | Phase 45 | Pending |
 | TRANS-02 | Phase 45 | Pending |

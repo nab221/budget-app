@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: UX Fixes
 status: executing
-stopped_at: Completed 43-04-PLAN.md — human verification of DEBT-05, DEBT-06, DEBT-07
-last_updated: "2026-03-20T22:36:02.839Z"
+stopped_at: Completed 44-01-PLAN.md
+last_updated: "2026-03-21T06:32:50.589Z"
 last_activity: 2026-03-20 — 43-02 complete; DEBT-05a and DEBT-05b GREEN; payment history list added to amortisation modal
 progress:
   total_phases: 6
   completed_phases: 4
-  total_plans: 13
-  completed_plans: 13
+  total_plans: 17
+  completed_plans: 14
   percent: 70
 ---
 
@@ -63,6 +63,7 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 - [Phase 43]: Used getAll+filter upsert pattern for confirmLoanPayment — consistent with existing recurrentExpense access; no dedicated query by linkedDebtId exists
 - [Phase 43]: span.innerHTML used directly in _renderLoanPaymentStatuses — post-render DOM updates consistent with showMarkPaidPrompt pattern; not safeHTML template literals
 - [Phase 43]: Human browser verification gates phase 43 completion — Vitest covers functional correctness; browser confirms UI rendering, heatmap wiring, and regression safety for DEBT-05/06/07
+- [Phase 44-income-tab-cards]: Wave 0 TDD: wrote failing test stubs before implementation — INCOME-01/02 RED, INCOME-03/04/05 GREEN (confirms existing confirmIncome/adjustIncome correctness)
 
 ### Blockers/Concerns
 
@@ -76,6 +77,6 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 
 ## Session Continuity
 
-Last session: 2026-03-20T22:21:53.821Z
-Stopped at: Completed 43-04-PLAN.md — human verification of DEBT-05, DEBT-06, DEBT-07
+Last session: 2026-03-21T06:32:44.695Z
+Stopped at: Completed 44-01-PLAN.md
 Resume file: None
