@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: UX Fixes
 status: executing
-stopped_at: Completed 44-03-PLAN.md
-last_updated: "2026-03-21T20:57:51.584Z"
+stopped_at: "Checkpoint: 44-04 human-verify"
+last_updated: "2026-03-21T21:27:09.196Z"
 last_activity: 2026-03-21 — 44-02 complete; INCOME-01a and INCOME-01b GREEN; card grid replaces flat table
 progress:
   total_phases: 6
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 17
-  completed_plans: 16
+  completed_plans: 17
   percent: 75
 ---
 
@@ -67,6 +67,7 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 - [Phase 44-income-tab-cards]: Keep old rendering methods in place (not deleted); openIncomeModal stub prevents runtime errors before Plan 03
 - [Phase 44-income-tab-cards]: Global window handlers registered in _registerGlobalHandlers() called from init() — consistent with debt history modal pattern from Phase 43
 - [Phase 44-income-tab-cards]: confirmIncomeEntry re-opens modal via incomeSources.openIncomeModal(sourceId) after save — refreshes status spans without full page render; 90-day look-forward window used in modal (wider than 45-day render window)
+- [Phase 44-income-tab-cards]: Phase 39.1 stale tests updated for Phase 44 card grid: pending cards moved to modal, tests 4 and 8 updated to verify .grid3 card layout and open-income-modal de-dup respectively
 
 ### Blockers/Concerns
 
@@ -80,6 +81,6 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 
 ## Session Continuity
 
-Last session: 2026-03-21T20:57:51.548Z
-Stopped at: Completed 44-03-PLAN.md
+Last session: 2026-03-21T21:27:09.167Z
+Stopped at: Checkpoint: 44-04 human-verify
 Resume file: None
