@@ -3,25 +3,25 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: UX Fixes
 status: executing
-stopped_at: Completed 44-01-PLAN.md
-last_updated: "2026-03-21T06:32:50.589Z"
+stopped_at: Completed 44-02-PLAN.md
+last_updated: "2026-03-21T20:19:15.379Z"
 last_activity: 2026-03-20 — 43-02 complete; DEBT-05a and DEBT-05b GREEN; payment history list added to amortisation modal
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 17
-  completed_plans: 14
-  percent: 70
+  completed_plans: 15
+  percent: 75
 ---
 
 ## Current Position
 
-Phase: 43 of 45 (Debt History Modal) — In Progress
-Plan: 2 of 4 complete in current phase (43-01 and 43-02 done)
-Status: In Progress — generateHistoricalSchedule implemented; payment history list rendering in modal
-Last activity: 2026-03-20 — 43-02 complete; DEBT-05a and DEBT-05b GREEN; payment history list added to amortisation modal
+Phase: 44 of 45 (Income Tab Cards) — In Progress
+Plan: 2 of 4 complete in current phase (44-01 and 44-02 done)
+Status: In Progress — card grid layout implemented; openIncomeModal stub in place; Plan 03 implements modal body
+Last activity: 2026-03-21 — 44-02 complete; INCOME-01a and INCOME-01b GREEN; card grid replaces flat table
 
-Progress: [███████░░░] 70%
+Progress: [████████░░] 75%
 
 ## Project Reference
 
@@ -64,6 +64,7 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 - [Phase 43]: span.innerHTML used directly in _renderLoanPaymentStatuses — post-render DOM updates consistent with showMarkPaidPrompt pattern; not safeHTML template literals
 - [Phase 43]: Human browser verification gates phase 43 completion — Vitest covers functional correctness; browser confirms UI rendering, heatmap wiring, and regression safety for DEBT-05/06/07
 - [Phase 44-income-tab-cards]: Wave 0 TDD: wrote failing test stubs before implementation — INCOME-01/02 RED, INCOME-03/04/05 GREEN (confirms existing confirmIncome/adjustIncome correctness)
+- [Phase 44-income-tab-cards]: Keep old rendering methods in place (not deleted); openIncomeModal stub prevents runtime errors before Plan 03
 
 ### Blockers/Concerns
 
@@ -77,6 +78,6 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 
 ## Session Continuity
 
-Last session: 2026-03-21T06:32:44.695Z
-Stopped at: Completed 44-01-PLAN.md
+Last session: 2026-03-21T20:19:15.362Z
+Stopped at: Completed 44-02-PLAN.md
 Resume file: None
