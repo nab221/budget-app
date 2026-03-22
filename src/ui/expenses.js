@@ -268,7 +268,7 @@ export const expensesUI = {
         }
         triggerHaptic('tap');
         await this.render();
-        window.dispatchEvent(new CustomEvent('app:refresh'));
+        await window.transactionUI?.render();
       } catch (err) {
         console.error('Failed to toggle status:', err);
       }
