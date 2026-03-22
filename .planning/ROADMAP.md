@@ -140,6 +140,9 @@ Plans:
 | 44. Income Tab Cards | 4/4 | Complete    | 2026-03-21 |
 | 45. Transactions Tab Fixes | 5/5 | Complete    | 2026-03-22 |
 | 46. Income Card Edit/Delete/Unconfirm | 3/3 | Complete    | 2026-03-22 |
+| 47. Desktop Nav Sticky + Dead Code Removal | 0/0 | Pending     | — |
+| 48. app:refresh Double-Render Fix | 0/0 | Pending     | — |
+| 49. Reconciliation Mode & Legacy Button Audit | 0/0 | Pending     | — |
 
 ### Phase 46: Income card edit delete and unconfirm functionality
 
@@ -152,6 +155,30 @@ Plans:
 - [ ] 46-01-PLAN.md — Wave 0 TDD: failing test stubs for INCOME-06..09 + extend incomeRepository mock with update/delete
 - [ ] 46-02-PLAN.md — Implementation: fix card Edit/Delete delegation, confirmed entry shows amount+date+Edit+Unconfirm, saveEditedIncomeEntry/unconfirmIncomeEntry global handlers
 - [ ] 46-03-PLAN.md — Human browser verification checkpoint (INCOME-06 through INCOME-09 confirmed)
+
+### Phase 47: Desktop Nav Sticky + Dead Code Removal
+
+**Goal:** Fix the desktop navigation bar so it stays visible when the user scrolls (currently scrolls off-screen), and remove the dead one-shot `getBoundingClientRect()` measurement in `dashboard.js` that was superseded by Phase 40's ResizeObserver.
+**Requirements**: DESK-01, CLEAN-01
+**Depends on:** Phase 46
+**Tech debt closes:** TODO-NAV-01 (Phase 41), dead code (Phase 40)
+**Plans:** TBD
+
+### Phase 48: app:refresh Double-Render Fix
+
+**Goal:** Consolidate `app:refresh` event handling so that `toggleExpenseStatus` triggers at most one render pass per UI module — eliminating the double-render of `transactionUI` and `expensesUI` that currently fires on every expense status toggle.
+**Requirements**: PERF-01
+**Depends on:** Phase 46
+**Tech debt closes:** double-render (Phase 45)
+**Plans:** TBD
+
+### Phase 49: Reconciliation Mode & Legacy Button Audit
+
+**Goal:** Audit all legacy buttons in the Transactions tab (reconciliation mode, Mark All As Paid, Trigger Recurrence) — determine what each currently does or fails to do in the current app, then either wire them up properly or remove them so no dead/broken buttons remain.
+**Requirements**: RECON-01, RECON-02
+**Depends on:** Phase 46
+**Tech debt closes:** reconciliation mode deferred (Phase 45)
+**Plans:** TBD
 
 ---
 *v3.1 roadmap created: 2026-03-18*

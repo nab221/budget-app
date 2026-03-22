@@ -52,6 +52,20 @@
 - [x] **TRANS-07**: Transaction search bar placeholder reads "Search transactions" (not "Search income")
 - [x] **TRANS-08**: Category filter in Transactions tab includes debt-linked transaction categories, not only income categories
 
+### Desktop Navigation (Tech Debt)
+
+- [ ] **DESK-01**: Desktop nav bar remains fixed/sticky when scrolling — does not scroll off-screen
+- [ ] **CLEAN-01**: Dead one-shot `getBoundingClientRect()` measurement removed from `dashboard.js:59–63`
+
+### Event System (Tech Debt)
+
+- [ ] **PERF-01**: Marking an expense as paid triggers at most one render pass per UI module — no double-render from `app:refresh`
+
+### Reconciliation / Legacy Buttons (Tech Debt)
+
+- [ ] **RECON-01**: All legacy Transactions tab buttons (reconciliation mode, Mark All As Paid, Trigger Recurrence) have been audited and either made functional or removed
+- [ ] **RECON-02**: No broken or dead-end buttons remain in the Transactions tab UI
+
 ## Future Requirements
 
 ### Navigation
@@ -99,10 +113,15 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TRANS-06 | Phase 45 | Complete |
 | TRANS-07 | Phase 45 | Complete |
 | TRANS-08 | Phase 45 | Complete |
+| DESK-01 | Phase 47 | Pending |
+| CLEAN-01 | Phase 47 | Pending |
+| PERF-01 | Phase 48 | Pending |
+| RECON-01 | Phase 49 | Pending |
+| RECON-02 | Phase 49 | Pending |
 
 **Coverage:**
-- v3.1 requirements: 26 total
-- Mapped to phases: 26
+- v3.1 requirements: 31 total
+- Mapped to phases: 31
 - Unmapped: 0 ✓
 
 ---
