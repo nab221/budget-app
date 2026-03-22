@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: UX Fixes
 status: executing
-stopped_at: Completed 46-01-PLAN.md
-last_updated: "2026-03-22T09:55:15.438Z"
+stopped_at: Completed 46-02-PLAN.md
+last_updated: "2026-03-22T10:52:09.938Z"
 last_activity: 2026-03-21 — 44-02 complete; INCOME-01a and INCOME-01b GREEN; card grid replaces flat table
 progress:
   total_phases: 7
   completed_phases: 6
   total_plans: 25
-  completed_plans: 23
+  completed_plans: 24
   percent: 75
 ---
 
@@ -79,6 +79,8 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 - [Phase 45]: renderCategoryFilter fetches transactions inline to compute month-scoped category list — avoids restructuring render() call chain
 - [Phase 45]: Debt rows use redirect button (data-tab=debts) matching income row pattern — restores pre-merge behaviour lost during Transactions tab consolidation
 - [Phase 46-income-card-edit-delete-and-unconfirm-functionality]: Extend incomeRepository mock at vi.mock level so update+delete are available when module is first imported; INCOME-09 stubs added alongside INCOME-08 as plan body requires both
+- [Phase 46]: Remove inline onclick=stopPropagation from card buttons; call e.stopPropagation() inside delegated handler branches so delegation fires correctly
+- [Phase 46]: Confirmed entry edit/unconfirm: use allIncome.find() to correlate record; cancelEditIncomeEntry re-opens modal rather than rebuilding HTML inline
 
 ### Roadmap Evolution
 - Phase 46 added: Income card edit delete and unconfirm functionality
@@ -95,6 +97,6 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 
 ## Session Continuity
 
-Last session: 2026-03-22T09:55:15.365Z
-Stopped at: Completed 46-01-PLAN.md
+Last session: 2026-03-22T10:52:09.905Z
+Stopped at: Completed 46-02-PLAN.md
 Resume file: None

@@ -139,14 +139,14 @@ Plans:
 | 43. Debt History Modal | 4/4 | Complete    | 2026-03-20 |
 | 44. Income Tab Cards | 4/4 | Complete    | 2026-03-21 |
 | 45. Transactions Tab Fixes | 5/5 | Complete    | 2026-03-22 |
-| 46. Income Card Edit/Delete/Unconfirm | 1/3 | In Progress|  |
+| 46. Income Card Edit/Delete/Unconfirm | 2/3 | In Progress|  |
 
 ### Phase 46: Income card edit delete and unconfirm functionality
 
 **Goal:** Fix income source card Edit/Delete buttons (currently broken) and add edit/unconfirm capability to confirmed income entries in the modal — so users can correct wrong amounts or dates and revert mistaken confirmations.
 **Requirements**: INCOME-06, INCOME-07, INCOME-08, INCOME-09
 **Depends on:** Phase 45
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
 - [ ] 46-01-PLAN.md — Wave 0 TDD: failing test stubs for INCOME-06..09 + extend incomeRepository mock with update/delete
