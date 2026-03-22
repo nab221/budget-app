@@ -59,7 +59,7 @@
 
 ### Event System (Tech Debt)
 
-- [ ] **PERF-01**: Marking an expense as paid triggers at most one render pass per UI module — no double-render from `app:refresh`
+- [x] **PERF-01**: Marking an expense as paid triggers at most one render pass per UI module — no double-render from `app:refresh`
 
 ### Reconciliation / Legacy Buttons (Tech Debt)
 
@@ -115,7 +115,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TRANS-08 | Phase 45 | Complete |
 | DESK-01 | Phase 47 | Complete |
 | CLEAN-01 | Phase 47 | Complete |
-| PERF-01 | Phase 48 | Pending |
+| PERF-01 | Phase 48 | Complete |
 | RECON-01 | Phase 49 | Pending |
 | RECON-02 | Phase 49 | Pending |
 

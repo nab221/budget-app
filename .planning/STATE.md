@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: UX Fixes
 status: verifying
-stopped_at: Completed 47-01-PLAN.md — DESK-01 desktop sticky nav, CLEAN-01 dead code removed, mobile regression fixed
-last_updated: "2026-03-22T20:43:30.142Z"
+stopped_at: Completed 48-01-PLAN.md — PERF-01 failing tests for toggleExpenseStatus render coordination
+last_updated: "2026-03-22T21:47:19.248Z"
 last_activity: 2026-03-22 — 46-03 complete; INCOME-06..09 human-verified; Phase 46 done
 progress:
   total_phases: 10
   completed_phases: 8
-  total_plans: 26
-  completed_plans: 26
+  total_plans: 28
+  completed_plans: 27
   percent: 88
 ---
 
@@ -84,6 +84,7 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 - [Phase 46]: Human browser verification gates Phase 46 completion — Vitest covers functional contracts; browser confirms UX correctness of form pre-population, dialog flow, modal refresh, and cross-tab sync
 - [Phase 47-desktop-nav-sticky-dead-code-removal]: Mobile .nav-container override must include top: auto to prevent desktop sticky top: var(--header-height) bleeding through position: fixed on mobile
 - [Phase 47-desktop-nav-sticky-dead-code-removal]: Phase 47 CLEAN-01: getBoundingClientRect block removed from dashboard.js; app.js ResizeObserver is confirmed sole writer of --header-height
+- [Phase 48-app-refresh-double-render-fix]: Register app:refresh listener in beforeEach to expose double-render without calling init() — clean teardown via named reference in afterEach
 
 ### Roadmap Evolution
 - Phase 46 added: Income card edit delete and unconfirm functionality
@@ -100,6 +101,6 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 
 ## Session Continuity
 
-Last session: 2026-03-22T19:51:30.978Z
-Stopped at: Completed 47-01-PLAN.md — DESK-01 desktop sticky nav, CLEAN-01 dead code removed, mobile regression fixed
+Last session: 2026-03-22T21:47:19.208Z
+Stopped at: Completed 48-01-PLAN.md — PERF-01 failing tests for toggleExpenseStatus render coordination
 Resume file: None
