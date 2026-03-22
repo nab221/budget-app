@@ -139,7 +139,7 @@ Plans:
 | 43. Debt History Modal | 4/4 | Complete    | 2026-03-20 |
 | 44. Income Tab Cards | 4/4 | Complete    | 2026-03-21 |
 | 45. Transactions Tab Fixes | 5/5 | Complete    | 2026-03-22 |
-| 46. Income Card Edit/Delete/Unconfirm | 3/3 | Complete   | 2026-03-22 |
+| 46. Income Card Edit/Delete/Unconfirm | 3/3 | Complete    | 2026-03-22 |
 
 ### Phase 46: Income card edit delete and unconfirm functionality
 
