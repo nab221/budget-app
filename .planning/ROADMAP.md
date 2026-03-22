@@ -142,7 +142,7 @@ Plans:
 | 46. Income Card Edit/Delete/Unconfirm | 3/3 | Complete    | 2026-03-22 |
 | 47. Desktop Nav Sticky + Dead Code Removal | 1/1 | Complete    | 2026-03-22 |
 | 48. app:refresh Double-Render Fix | 2/2 | Complete    | 2026-03-22 |
-| 49. Reconciliation Mode & Legacy Button Audit | 0/0 | Pending     | — |
+| 49. Reconciliation Mode & Legacy Button Audit | 0/2 | Pending     | — |
 
 ### Phase 46: Income card edit delete and unconfirm functionality
 
@@ -185,7 +185,11 @@ Plans:
 **Requirements**: RECON-01, RECON-02
 **Depends on:** Phase 46
 **Tech debt closes:** reconciliation mode deferred (Phase 45)
-**Plans:** TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 49-01-PLAN.md — TDD: Wave 0 stubs (RECON-01/02) + remove #markAllPaidRow and #triggerRecurrenceBtn from index.html (RECON-01, RECON-02)
+- [ ] 49-02-PLAN.md — Human browser verification checkpoint (RECON-01 and RECON-02 confirmed)
 
 ---
 *v3.1 roadmap created: 2026-03-18*
