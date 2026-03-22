@@ -141,7 +141,7 @@ Plans:
 | 45. Transactions Tab Fixes | 5/5 | Complete    | 2026-03-22 |
 | 46. Income Card Edit/Delete/Unconfirm | 3/3 | Complete    | 2026-03-22 |
 | 47. Desktop Nav Sticky + Dead Code Removal | 1/1 | Complete    | 2026-03-22 |
-| 48. app:refresh Double-Render Fix | 1/2 | In Progress|  |
+| 48. app:refresh Double-Render Fix | 2/2 | Complete   | 2026-03-22 |
 | 49. Reconciliation Mode & Legacy Button Audit | 0/0 | Pending     | — |
 
 ### Phase 46: Income card edit delete and unconfirm functionality
@@ -173,7 +173,7 @@ Plans:
 **Requirements**: PERF-01
 **Depends on:** Phase 46
 **Tech debt closes:** double-render (Phase 45)
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 48-01-PLAN.md — Wave 0 TDD: 3 failing PERF-01 tests in expenses.test.js (render count + no-dispatch assertions)
