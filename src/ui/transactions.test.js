@@ -295,19 +295,32 @@ describe('TRANS-07: search input placeholder', () => {
 // ─── TRANS-08: renderCategoryFilter includes expense categories ───────────────
 
 describe('TRANS-08: category filter includes non-income categories', () => {
-  it('renders expense-group categories in the category filter dropdown', async () => {
+  it('renders only non-system categories that have transactions in the current month', async () => {
     document.body.innerHTML = `<div id="incCategoryFilterContainer"></div>`;
+
+    // Ensure currentMonth is set so the filter queries use a consistent month
+    transactionUI.currentMonth = '2026-03';
 
     categoryRepository.getCategories.mockResolvedValueOnce([
       { id: 1, name: 'Salary', group: 'income' },
       { id: 2, name: 'Credit Cards', group: 'expenses' },
       { id: 3, name: 'System', group: 'system' },
     ]);
+    // Provide an expense transaction tagged with category id 2 (Credit Cards)
+    incomeRepository.getByMonth.mockResolvedValueOnce([]);
+    recurrentExpenseRepository.getByMonth.mockResolvedValueOnce([
+      { id: 10, label: 'Visa', amount: 5000, categoryId: 2, nextDate: '2026-03-15', date: '2026-03-15' },
+    ]);
+    oneOffExpenseRepository.getByMonth.mockResolvedValueOnce([]);
 
     await transactionUI.renderCategoryFilter();
 
     const container = document.getElementById('incCategoryFilterContainer');
-    // Fails until renderCategoryFilter uses c.group !== 'system' filter (TRANS-08)
+    // Credit Cards (group: expenses) has a transaction — must appear
     expect(container.innerHTML).toContain('Credit Cards');
+    // System group is always excluded
+    expect(container.innerHTML).not.toContain('System');
+    // Salary (group: income) has no transaction this month — must not appear
+    expect(container.innerHTML).not.toContain('Salary');
   });
 });

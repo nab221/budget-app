@@ -421,8 +421,29 @@ export const transactionUI = {
     const container = document.getElementById('incCategoryFilterContainer');
     if (!container) return;
 
-    const categories = await categoryRepository.getCategories();
-    const allCats = categories.filter(c => c.group !== 'system');
+    const [categories, incomeItems, recurrentItems, oneOffItems] = await Promise.all([
+      categoryRepository.getCategories(),
+      incomeRepository.getByMonth(this.currentMonth),
+      recurrentExpenseRepository.getByMonth(this.currentMonth),
+      oneOffExpenseRepository.getByMonth(this.currentMonth),
+    ]);
+
+    // Collect category IDs used by transactions in the current month
+    const usedCategoryIds = new Set();
+    for (const item of incomeItems) {
+      if (item.categoryId != null) usedCategoryIds.add(String(item.categoryId));
+    }
+    for (const item of recurrentItems) {
+      if ((item.nextDate || item.date || '').startsWith(this.currentMonth) && item.categoryId != null) {
+        usedCategoryIds.add(String(item.categoryId));
+      }
+    }
+    for (const item of oneOffItems) {
+      if (item.categoryId != null) usedCategoryIds.add(String(item.categoryId));
+    }
+
+    // Only show non-system categories that have at least one transaction this month
+    const activeCats = categories.filter(c => c.group !== 'system' && usedCategoryIds.has(String(c.id)));
 
     container.innerHTML = safeHTML`
       <div class="custom-select" style="position:relative">
@@ -431,10 +452,12 @@ export const transactionUI = {
         </button>
         <div id="incCategoryDropdown" class="card" style="display:none; position:absolute; top:100%; right:0; z-index:100; min-width:200px; padding:12px; margin-top:5px; box-shadow: var(--shadow); border: 1px solid var(--border); background: var(--bg-card)">
           <div style="max-height: 200px; overflow-y: auto; margin-bottom: 10px">
-            ${allCats.map(c => `
+            ${activeCats.length === 0
+              ? `<div style="font-size:.75rem; color:var(--text-muted); padding:4px 0">No categories this month</div>`
+              : activeCats.map(c => `
               <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px">
-                <input type="checkbox" id="inc-filter-cat-${c.id}" value="${c.id}" 
-                  ${this.selectedCategories.includes(c.id) ? 'checked' : ''}
+                <input type="checkbox" id="inc-filter-cat-${c.id}" value="${c.id}"
+                  ${this.selectedCategories.includes(String(c.id)) ? 'checked' : ''}
                   onchange="transactionUI.handleCategoryChange(this)"/>
                 <label for="inc-filter-cat-${c.id}" style="font-size:.75rem; margin:0; cursor:pointer; color:var(--text)">${c.name}</label>
               </div>
@@ -546,7 +569,11 @@ export const transactionUI = {
             </td>
             <td class="r"><span class="privacy-blur">\u2212${formatGBP(item.amount)}</span></td>
             <td class="r col-actions">
-              ${isDebt ? '' : `
+              ${isDebt ? `
+                <button class="sm ghost"
+                  onclick="document.querySelector('[data-tab=\\'debts\\']').click()"
+                  title="Go to Debts">&#x2197; Debt</button>
+              ` : `
                 <button class="sm ${item.status === 'paid' ? 'success' : 'ghost'} btn-mark-paid"
                   onclick="window.toggleExpenseStatus(${item.id}, '${item.type}', '${item.status || 'pending'}')">
                   ${item.status === 'paid' ? '&#x2713; Paid' : 'Mark Paid'}
