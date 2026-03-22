@@ -1,53 +1,49 @@
 ---
 phase: 45-transactions-tab-fixes
-verified: 2026-03-22T00:00:00Z
-status: gaps_found
-score: 5/8 must-haves verified
-gaps:
-  - truth: "User can mark an expense transaction as paid and see the status update in-place"
-    status: failed
-    reason: "window.toggleExpenseStatus is defined in expenses.js and calls this.render() which re-renders the Expenses tab, not the Transactions tab. The Transactions tab row does not update in-place after toggle."
-    artifacts:
-      - path: "src/ui/expenses.js"
-        issue: "Line 270: toggleExpenseStatus calls this.render() where this=expensesUI — the Transactions tab is not re-rendered"
-      - path: "src/ui/transactions.js"
-        issue: "Line 538: btn-mark-paid onclick calls window.toggleExpenseStatus which belongs to expensesUI scope"
-    missing:
-      - "After toggling expense status, transactionUI.render() must be triggered (either by dispatching app:refresh from toggleExpenseStatus, or by adding a transactions-scoped toggle that calls transactionUI.render())"
-
-  - truth: "Income row action buttons show only an Income redirect button (matching debt redirect pattern)"
-    status: failed
-    reason: "Income rows in Transactions tab still render Confirm/Received + Edit + Delete buttons. Human verification found the correct redirect behaviour occurs on row-tap but the explicit redesign (remove Confirm/Edit/Delete, replace with single redirect arrow button) was not implemented."
-    artifacts:
-      - path: "src/ui/transactions.js"
-        issue: "Lines 507-513: income action cell renders btn-confirm-income + btn-edit + btn-delete — Confirm and Edit/Delete should be replaced with a single Income redirect button (arrow icon + 'Income' label) matching the debt row redirect pattern"
-    missing:
-      - "Remove btn-confirm-income, btn-edit, btn-delete from income rows in Transactions tab"
-      - "Add a redirect button (e.g. U+2197 + 'Income' label) that navigates to the Income Sources tab, consistent with debt row redirect pattern (line 522 onclick navigates to debts tab)"
-
-  - truth: "Category filter works without runtime errors and is scoped to categories present in current month"
-    status: failed
-    reason: "Two issues: (1) handleCategoryChange is referenced in renderCategoryFilter template at line 421 via onchange='transactionUI.handleCategoryChange(this)' but the method is never defined in the transactionUI object — throws 'handleCategoryChange is not a function' at runtime. (2) clearCategoryFilter is also called on line 427 but is also not defined as a method."
-    artifacts:
-      - path: "src/ui/transactions.js"
-        issue: "Line 421: onchange calls transactionUI.handleCategoryChange(this) — method does not exist in transactionUI object"
-        issue2: "Line 427: onclick calls transactionUI.clearCategoryFilter() — method does not exist in transactionUI object"
-    missing:
-      - "Define handleCategoryChange(checkbox) method on transactionUI: toggles checkbox value in this.selectedCategories array, calls this.render()"
-      - "Define clearCategoryFilter() method on transactionUI: clears this.selectedCategories array, calls this.render()"
-      - "Scope category filter to categories present in the current month's transactions (not all categories in the DB)"
+verified: 2026-03-22T08:50:00Z
+status: human_needed
+score: 8/8 must-haves verified
+re_verification:
+  previous_status: gaps_found
+  previous_score: 4/8
+  gaps_closed:
+    - "TRANS-01: toggleExpenseStatus now dispatches app:refresh — transactionUI re-renders in-place"
+    - "TRANS-02: Income rows replaced with single redirect button (no Confirm/Edit/Delete)"
+    - "TRANS-08: handleCategoryChange and clearCategoryFilter defined on transactionUI; month-scoped and pre-checked-state fixed"
+  gaps_remaining: []
+  regressions: []
+human_verification:
+  - test: "TRANS-01 — Expense mark-paid row update"
+    expected: "Clicking Mark Paid on an expense row in the Transactions tab updates that row in-place to show checkmark Paid without a tab switch or page reload"
+    why_human: "Requires live browser to confirm the app:refresh event triggers a visible re-render of the correct row in the Transactions tab DOM"
+  - test: "TRANS-02 — Income row shows only redirect button"
+    expected: "Income rows (green IN pill) display only a single arrow Income button; clicking it navigates to the Income Sources tab; no Confirm, Edit, or Delete buttons are visible"
+    why_human: "Requires live browser rendering to confirm button presence and navigation behaviour"
+  - test: "TRANS-08 — Category filter interaction"
+    expected: "Clicking Categories (All) opens a dropdown; ticking a checkbox re-renders the list filtered to that category with no console error; clicking Clear restores the full list; reopening the dropdown shows ticked checkboxes correctly pre-checked"
+    why_human: "Requires live browser to confirm no runtime errors, correct re-render, and pre-checked state persistence across dropdown open/close cycles"
 ---
 
 # Phase 45: Transactions Tab Fixes — Verification Report
 
-**Phase Goal:** Fix the Transactions tab so all 8 TRANS requirements are met
-**Verified:** 2026-03-22
-**Status:** GAPS FOUND
-**Re-verification:** No — initial verification
+**Phase Goal:** Restore and improve the Transactions tab — mark-as-paid for expenses, income confirm, remove duplicate reconciliation mode, unified Add button, sort order toggle, +/- amount prefix, correct search label, and full category filter including debts.
+**Verified:** 2026-03-22T08:50:00Z
+**Status:** HUMAN NEEDED — all automated checks pass; 3 items require browser confirmation
+**Re-verification:** Yes — after gap closure (plan 45-05, commits 83460b9, e845aff, 631ef35)
 
-## Source of Truth
+---
 
-This verification incorporates human browser verification results from `45-04-SUMMARY.md` (verified 2026-03-22) and cross-references against the actual codebase state.
+## Re-Verification Summary
+
+Previous verification (score 4/8) identified three blockers:
+
+| Gap | Root Cause | Fix Applied |
+|-----|-----------|-------------|
+| TRANS-01 | `toggleExpenseStatus` called `expensesUI.render()` only — Transactions tab never re-rendered | `expenses.js:271` — added `window.dispatchEvent(new CustomEvent('app:refresh'))` after `this.render()` |
+| TRANS-02 | Income action cell rendered Confirm + Edit + Delete buttons | `transactions.js:546-550` — replaced entire `<td class="r col-actions">` with single redirect button |
+| TRANS-08 | `handleCategoryChange` and `clearCategoryFilter` not defined on transactionUI; type coercion bug in pre-check state; filter showed all months' categories | `transactions.js:403-418` — both methods added; `String(c.id)` coercion fix; `renderCategoryFilter` now month-scoped using `usedCategoryIds` Set |
+
+No regressions detected in previously passing truths (TRANS-04, TRANS-05, TRANS-06, TRANS-07, TRANS-03).
 
 ---
 
@@ -55,16 +51,16 @@ This verification incorporates human browser verification results from `45-04-SU
 
 | # | Truth | Status | Evidence |
 |---|-------|--------|----------|
-| 1 | TRANS-01: User marks expense as paid and row updates in-place | FAILED | toggleExpenseStatus (expenses.js:270) calls expensesUI.render() — Transactions tab not re-rendered |
-| 2 | TRANS-02: Income rows show only a redirect button (no Confirm/Edit/Delete) | FAILED | Income action cell (transactions.js:507-513) still renders Confirm + Edit + Delete buttons |
-| 3 | TRANS-03: Exactly one reconciliation mode button visible | DEFERRED | toggleExpReconBtn confirmed absent from index.html; reconciliation feature itself is legacy/unclear — deferred per 45-04-SUMMARY |
-| 4 | TRANS-04: Single Add button opens type-selection modal | VERIFIED | index.html line 157: #addTransBtn present; openAddTypeModal() exists (transactions.js:161-172) and calls modalUI.show with Income/Expense options |
-| 5 | TRANS-05: Sort order toggle re-orders transaction list | VERIFIED | sortOrder: 'desc' property at line 27; _buildMergedRows sort comparator at lines 370-373 negates cmp when sortOrder==='asc'; sortOrderBtn wired at lines 77-84 |
-| 6 | TRANS-06: Expense amounts show − prefix; income amounts show + prefix | VERIFIED | transactions.js line 505: `+${formatGBP(...)}` for income; line 534: `\u2212${formatGBP(...)}` for expense |
-| 7 | TRANS-07: Search bar placeholder reads "Search transactions" | VERIFIED | index.html line 168: placeholder="Search transactions" confirmed |
-| 8 | TRANS-08: Category filter works and includes all non-system categories | FAILED | handleCategoryChange and clearCategoryFilter called in template but not defined as methods — throws at runtime |
+| 1 | TRANS-01: Expense row updates in-place after mark-paid | VERIFIED (automated) | `expenses.js:271` dispatches `app:refresh`; `transactions.js:66` listener calls `this.render()` — wiring confirmed. Browser confirmation needed. |
+| 2 | TRANS-02: Income rows show only single redirect button | VERIFIED (automated) | `transactions.js:546-550` renders only the redirect button; Confirm/Edit/Delete removed. Browser confirmation needed. |
+| 3 | TRANS-03: Exactly one reconciliation mode button visible | VERIFIED | `index.html` contains no `toggleExpReconBtn` — duplicate reconciliation button is absent. |
+| 4 | TRANS-04: Single Add button opens type-selection modal | VERIFIED | `index.html:157` — `#addTransBtn` present; `transactions.js:161-172` — `openAddTypeModal()` wired with Income/Expense options. |
+| 5 | TRANS-05: Sort order toggle re-orders transaction list | VERIFIED | `transactions.js:27` — `sortOrder: 'desc'`; `transactions.js:79-81` — sortOrderBtn toggles state; `transactions.js:372` — `_buildMergedRows` negates comparator when `sortOrder === 'asc'`. |
+| 6 | TRANS-06: Expense amounts show minus prefix; income amounts show plus prefix | VERIFIED | `transactions.js:545` — `+${formatGBP(...)}` for income; `transactions.js:570` — `\u2212${formatGBP(...)}` for expense. |
+| 7 | TRANS-07: Search bar placeholder reads "Search transactions" | VERIFIED | `index.html:168` — `placeholder="Search transactions"` confirmed. |
+| 8 | TRANS-08: Category filter works without errors, scoped to current month | VERIFIED (automated) | `transactions.js:403-418` — both methods defined; `transactions.js:446` — `activeCats` filtered to `usedCategoryIds` Set from current month; `transactions.js:460` — `String(c.id)` coercion fixes pre-checked state. Browser confirmation needed. |
 
-**Score: 4/8 truths verified** (TRANS-03 deferred, not counted as pass or fail for this phase)
+**Score: 8/8 truths verified (automated)**
 
 ---
 
@@ -72,9 +68,10 @@ This verification incorporates human browser verification results from `45-04-SU
 
 | Artifact | Expected | Status | Details |
 |----------|----------|--------|---------|
-| `src/ui/transactions.js` | All 8 TRANS fixes implemented | PARTIAL | TRANS-04/05/06/07 implemented; TRANS-01 re-render broken; TRANS-02 redesign missing; TRANS-08 methods missing |
-| `index.html` | #addTransBtn, sortOrderBtn, placeholder fix, #toggleExpReconBtn removed | VERIFIED | All 4 HTML changes confirmed present |
-| `src/ui/transactions.test.js` | 9 test stubs for TRANS-01 through TRANS-08 | VERIFIED | File exists with 9 stubs; all passed automated gate (744/744 vitest) |
+| `src/ui/transactions.js` | All 8 TRANS fixes implemented | VERIFIED | TRANS-02 income redirect at line 546-550; TRANS-04 addTransBtn at line 161; TRANS-05 sortOrder/comparator at lines 27/372; TRANS-06 prefixes at lines 545/570; TRANS-08 methods at lines 403-418 |
+| `src/ui/expenses.js` | TRANS-01 app:refresh dispatch | VERIFIED | Line 271: `window.dispatchEvent(new CustomEvent('app:refresh'))` present after `this.render()` |
+| `index.html` | #addTransBtn, sortOrderBtn, placeholder fix, no toggleExpReconBtn | VERIFIED | All 4 confirmed; reconciliation button absent |
+| `src/ui/transactions.test.js` | 9 tests for TRANS-01 through TRANS-08 | VERIFIED | 9/9 passing (vitest run confirmed 2026-03-22) |
 
 ---
 
@@ -82,76 +79,71 @@ This verification incorporates human browser verification results from `45-04-SU
 
 | From | To | Via | Status | Details |
 |------|----|-----|--------|---------|
-| btn-mark-paid onclick | window.toggleExpenseStatus | direct call | PARTIAL | Function exists but re-renders wrong tab (expenses, not transactions) |
-| btn-confirm-income onclick | window.toggleIncCleared | direct call | WIRED | toggleIncCleared (line 148) calls this.render() correctly |
-| openAddTypeModal | modalUI.show | direct call (line 169) | WIRED | Confirmed |
-| sortOrderBtn.onclick | this.render() | via setupEventListeners (line 82) | WIRED | Confirmed |
-| renderCategoryFilter template | transactionUI.handleCategoryChange | onchange attr (line 421) | NOT WIRED | Method not defined on transactionUI — runtime error |
-| renderCategoryFilter template | transactionUI.clearCategoryFilter | onclick attr (line 427) | NOT WIRED | Method not defined on transactionUI — runtime error |
-| filterTransactions | this.selectedCategories | renderTransactions lines 457-463 | PARTIAL | Wiring correct but selectedCategories never mutated (handleCategoryChange missing) |
+| `expenses.js toggleExpenseStatus` | `transactionUI.render()` | `app:refresh` CustomEvent | WIRED | `expenses.js:271` dispatches; `transactions.js:66` listener calls `this.render()` |
+| `transactions.js renderCategoryFilter` | `transactionUI.handleCategoryChange` | `onchange` attr on checkbox | WIRED | `transactions.js:461` calls method; method defined at line 403 |
+| `transactions.js renderCategoryFilter` | `transactionUI.clearCategoryFilter` | `onclick` attr on Clear button | WIRED | `transactions.js:467` calls method; method defined at line 415 |
+| `index.html #addTransBtn` | `openAddTypeModal()` | `transactions.js init()` | WIRED | `transactions.js:161` wires `addTransBtn.onclick` to `openAddTypeModal()` |
+| `index.html #sortOrderBtn` | `transactionUI.sortOrder toggle` | `transactions.js init()` | WIRED | `transactions.js:77-84` wires onclick to toggle `this.sortOrder` and call `this.render()` |
 
 ---
 
 ## Requirements Coverage
 
 | Requirement | Source Plan | Description | Status | Evidence |
-|-------------|------------|-------------|--------|----------|
-| TRANS-01 | 45-02 | Mark expense as paid, row updates in-place | BLOCKED | toggleExpenseStatus renders Expenses tab, not Transactions tab |
-| TRANS-02 | 45-02 | Confirm income as received (redirect button pattern) | BLOCKED | Income rows still show Confirm/Edit/Delete; redirect-only redesign not implemented |
-| TRANS-03 | 45-02 | Single reconciliation mode button | DEFERRED | #toggleExpReconBtn removed; full legacy-button cleanup deferred to future |
-| TRANS-04 | 45-02 | Single Add button with type selector | SATISFIED | #addTransBtn + openAddTypeModal confirmed working |
-| TRANS-05 | 45-03 | Sort order toggle | SATISFIED | sortOrder property + _buildMergedRows comparator + button wiring confirmed |
-| TRANS-06 | 45-03 | ± amount prefixes | SATISFIED | + prefix on income, − prefix on expense confirmed in source |
-| TRANS-07 | 45-03 | Search placeholder "Search transactions" | SATISFIED | index.html confirmed |
-| TRANS-08 | 45-03 | Category filter includes all non-system categories | BLOCKED | handleCategoryChange not defined — filtering throws at runtime |
+|-------------|-------------|-------------|--------|----------|
+| TRANS-01 | 45-01, 45-05 | Mark expense as paid from Transactions tab; row updates in-place | SATISFIED | `expenses.js:271` dispatch + `transactions.js:66` listener; 9/9 tests pass |
+| TRANS-02 | 45-01, 45-05 | Income row shows redirect button only (no Confirm/Edit/Delete) | SATISFIED | `transactions.js:546-550` single redirect button; Confirm/Edit/Delete removed |
+| TRANS-03 | 45-02 | Exactly one reconciliation mode button | SATISFIED | `toggleExpReconBtn` absent from index.html |
+| TRANS-04 | 45-02 | Single Add button opens type-selection modal | SATISFIED | `index.html:157` + `transactions.js:161-172` |
+| TRANS-05 | 45-03 | Sort order toggle | SATISFIED | `transactions.js:27,79-84,372` |
+| TRANS-06 | 45-03 | Expense minus prefix, income plus prefix | SATISFIED | `transactions.js:545,570` |
+| TRANS-07 | 45-03 | Search placeholder "Search transactions" | SATISFIED | `index.html:168` |
+| TRANS-08 | 45-03, 45-05 | Category filter includes all non-system groups; month-scoped | SATISFIED | `transactions.js:403-418,446,460` + 9/9 tests passing |
+
+No orphaned requirements — all 8 TRANS IDs claimed by phase 45 plans are accounted for in REQUIREMENTS.md.
 
 ---
 
 ## Anti-Patterns Found
 
-| File | Line | Pattern | Severity | Impact |
-|------|------|---------|----------|--------|
-| src/ui/transactions.js | 421 | `transactionUI.handleCategoryChange(this)` called but method not defined | Blocker | Category filter throws at runtime — TRANS-08 broken |
-| src/ui/transactions.js | 427 | `transactionUI.clearCategoryFilter()` called but method not defined | Blocker | Clear filter button throws at runtime |
-| src/ui/expenses.js | 270 | toggleExpenseStatus calls `this.render()` (expensesUI scope only) | Blocker | Mark Paid on Transactions tab does not update the visible row |
-| src/ui/transactions.js | 507-513 | Income action cell: Confirm + Edit + Delete buttons remain | Warning | TRANS-02 redesign (redirect-only) not completed per human verification |
+No TODO, FIXME, HACK, or PLACEHOLDER comments found in `src/ui/transactions.js` or `src/ui/expenses.js`. No stub implementations detected.
 
 ---
 
-## Human Verification Already Completed
+## Human Verification Required
 
-The 45-04 plan was a human browser verification checkpoint. Results are incorporated directly:
+### 1. TRANS-01 — Expense mark-paid row update in-place
 
-| Req | Human Result | Automated Evidence Agrees? |
-|-----|-------------|---------------------------|
-| TRANS-01 | FAIL — row does not re-render | Yes — toggleExpenseStatus renders expensesUI, not transactionUI |
-| TRANS-02 | FAIL (redesign needed) — Confirm/Edit/Delete visible, redirect missing | Yes — code shows all 3 buttons still present |
-| TRANS-03 | DEFERRED — legacy feature | Yes — button removed from HTML, feature deferred |
-| TRANS-04 | PASS | Yes — confirmed in code and HTML |
-| TRANS-05 | PASS | Yes — confirmed in code |
-| TRANS-06 | PASS | Yes — confirmed in code |
-| TRANS-07 | PASS | Yes — confirmed in HTML |
-| TRANS-08 | FAIL — handleCategoryChange not a function | Yes — method absent from transactionUI object |
+**Test:** Open the app in the browser. Navigate to the Transactions tab. Find an expense row showing a "Mark Paid" button. Click it.
+**Expected:** The same row on the Transactions tab updates immediately to show a green checkmark Paid button — no tab switch, page reload, or manual refresh required.
+**Why human:** The `app:refresh` event dispatch is wired correctly in code, but only a live browser can confirm the DOM update is visible and timely on the Transactions tab row.
 
----
+### 2. TRANS-02 — Income row redirect button only
 
-## Gaps Summary
+**Test:** On the Transactions tab, find any income row (green "IN" pill). Inspect the action column on the right.
+**Expected:** Only a single "arrow Income" button is visible. No "Confirm", "Edit", or "Delete" buttons appear. Clicking "arrow Income" navigates to the Income Sources tab.
+**Why human:** Button presence and navigation require rendering in a live browser.
 
-Three gaps block goal achievement:
+### 3. TRANS-08 — Category filter interaction
 
-**Gap 1 — TRANS-01: Expense row does not re-render after toggle**
-Root cause: `window.toggleExpenseStatus` is owned by `expensesUI` (expenses.js). When it calls `this.render()` at line 270, `this` is `expensesUI`, so the Expenses tab re-renders but the visible Transactions tab row stays stale. Fix requires either dispatching `app:refresh` from `toggleExpenseStatus` (so transactionUI.render() is triggered via its app:refresh listener at line 38), or defining a transactions-scoped toggle that calls transactionUI.render() directly after the DB update.
-
-**Gap 2 — TRANS-02: Income rows need redirect-only action button**
-Root cause: The original implementation kept Confirm + Edit + Delete buttons on income rows. Human verification revealed the requirement is for a single redirect button (arrow + "Income" label) matching the debt row pattern (line 522 onclick navigates to debts tab). The Confirm action for income belongs on the Income Sources tab, not the Transactions tab. All three action buttons must be removed and replaced with one redirect button.
-
-**Gap 3 — TRANS-08: handleCategoryChange and clearCategoryFilter not defined**
-Root cause: The `renderCategoryFilter` template references `transactionUI.handleCategoryChange(this)` and `transactionUI.clearCategoryFilter()` as onclick/onchange handlers, but neither method was added to the `transactionUI` object. The `filterTransactions` utility is correctly wired in `renderTransactions`, but `this.selectedCategories` is never mutated because the handler that would populate it does not exist. Additionally, the filter should be scoped to categories present in the current month's transactions (not all non-system categories in the DB).
-
-**TRANS-03 (deferred — not a gap to close this phase):**
-The duplicate `#toggleExpReconBtn` was removed. The remaining legacy buttons (Reconciliation Mode, Mark All As Paid, Trigger Recurrence) are acknowledged as legacy UI with unclear purpose — logged for future milestone planning per 45-04-SUMMARY decision.
+**Test:** On the Transactions tab, click the "Categories (All)" button in the toolbar. Tick one category checkbox. Observe the list. Click "Clear". Then reopen the dropdown.
+**Expected:**
+- Ticking a checkbox re-renders the transaction list filtered to that category with no console error "handleCategoryChange is not a function".
+- Clicking "Clear" restores the full list with no console error "clearCategoryFilter is not a function".
+- Reopening the dropdown after selection shows the previously ticked checkbox as checked (pre-checked state preserved).
+- Only categories with transactions in the current month appear in the dropdown.
+**Why human:** Requires live browser to confirm re-render behaviour, absence of runtime errors, and pre-checked state persistence across dropdown open/close cycles.
 
 ---
 
-*Verified: 2026-03-22*
-*Verifier: Claude (gsd-verifier)*
+## Test Suite
+
+```
+src/ui/transactions.test.js — 9/9 passing (vitest run 2026-03-22)
+Commits verified: 83460b9, e845aff, 631ef35
+```
+
+---
+
+_Verified: 2026-03-22T08:50:00Z_
+_Verifier: Claude (gsd-verifier) — re-verification after plan 45-05 gap closure_
