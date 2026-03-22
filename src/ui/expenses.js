@@ -1056,8 +1056,7 @@ export const expensesUI = {
           await statementRepository.recordPayment(item.linkedStatementId, actualAmt, paymentDate);
           templateUI.closeModal();
           await this.render();
-          // Broadcast refresh for Debts tab
-          window.dispatchEvent(new CustomEvent('app:refresh'));
+          await window.debtUI?.render();
         } catch (err) {
           console.error('Failed to record debt payment:', err);
           notificationUI.error('Error: ' + err.message);
