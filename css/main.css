@@ -245,6 +245,7 @@ input[type="number"] { text-align: right; }
 
   .nav-container {
     position: fixed;
+    top: auto;        /* Reset desktop sticky top — mobile uses bottom: 0 only */
     bottom: 0;
     left: 0;
     right: 0;
