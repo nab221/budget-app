@@ -140,7 +140,7 @@ Plans:
 | 44. Income Tab Cards | 4/4 | Complete    | 2026-03-21 |
 | 45. Transactions Tab Fixes | 5/5 | Complete    | 2026-03-22 |
 | 46. Income Card Edit/Delete/Unconfirm | 3/3 | Complete    | 2026-03-22 |
-| 47. Desktop Nav Sticky + Dead Code Removal | 1/1 | Complete   | 2026-03-22 |
+| 47. Desktop Nav Sticky + Dead Code Removal | 1/1 | Complete    | 2026-03-22 |
 | 48. app:refresh Double-Render Fix | 0/0 | Pending     | — |
 | 49. Reconciliation Mode & Legacy Button Audit | 0/0 | Pending     | — |
 
