@@ -450,10 +450,8 @@ export const incomeSources = {
               <span class="pill" style="font-size:0.7rem">${ruleLabel}</span>
             </div>
             <div style="display:flex; gap:4px">
-              <button class="sm ghost" data-action="edit-source" data-id="${s.id}"
-                      onclick="event.stopPropagation()">Edit</button>
-              <button class="sm ghost danger" data-action="delete-source" data-id="${s.id}"
-                      onclick="event.stopPropagation()">Delete</button>
+              <button class="sm ghost" data-action="edit-source" data-id="${s.id}">Edit</button>
+              <button class="sm ghost danger" data-action="delete-source" data-id="${s.id}">Delete</button>
             </div>
           </div>
           <div style="font-size:1.4rem; font-weight:bold; margin:5px 0">
@@ -560,6 +558,7 @@ export const incomeSources = {
 
       // --- Edit source ---
       if (action === 'edit-source') {
+        e.stopPropagation();
         const id = Number(btn.dataset.id);
         const source = await incomeSourceRepository.get(id);
         if (!source) return;
@@ -574,6 +573,7 @@ export const incomeSources = {
 
       // --- Delete source ---
       if (action === 'delete-source') {
+        e.stopPropagation();
         const id = Number(btn.dataset.id);
         const deleted = await this._handleDeleteSource(id);
         if (deleted) await this.render();
