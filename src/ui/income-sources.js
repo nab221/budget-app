@@ -781,7 +781,23 @@ export const incomeSources = {
 
       const isConfirmed = confirmedDates.has(ev.adjustedDate);
       if (isConfirmed) {
-        span.innerHTML = '<span class="badge badge-success" style="white-space:nowrap">Received</span>';
+        // Find the matching income record to get id + actual amount
+        const record = allIncome.find(e => e.source === source.name && e.date === ev.adjustedDate);
+        const recordId = record ? record.id : null;
+        const confirmedAmount = record ? formatGBP(record.amount) : formatGBP(ev.amount);
+        const confirmedDate = record ? formatDate(record.date) : formatDate(ev.adjustedDate);
+        const confirmedAmountPounds = record ? (record.amount / 100).toFixed(2) : (ev.amount / 100).toFixed(2);
+
+        if (recordId != null) {
+          span.innerHTML = `<span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">`
+            + `<span class="badge badge-success" style="white-space:nowrap">Received ${confirmedAmount} on ${confirmedDate}</span>`
+            + `<button class="sm ghost" style="font-size:0.75rem;padding:2px 6px" onclick="showEditIncomePrompt(${sourceId}, '${ev.adjustedDate}', ${recordId}, ${confirmedAmountPounds})">Edit</button>`
+            + `<button class="sm ghost danger" style="font-size:0.75rem;padding:2px 6px" onclick="unconfirmIncomeEntry(${sourceId}, '${ev.adjustedDate}', ${recordId})">Unconfirm</button>`
+            + `</span>`;
+        } else {
+          // Fallback if no record found (should not happen in normal use)
+          span.innerHTML = '<span class="badge badge-success" style="white-space:nowrap">Received</span>';
+        }
       } else {
         span.innerHTML = `<button class="sm primary" onclick="showIncomeConfirmPrompt(${sourceId}, '${ev.adjustedDate}', ${ev.amount})">Confirm</button>`;
       }
@@ -842,6 +858,63 @@ export const incomeSources = {
       const span = document.getElementById(`income-entry-status-${sourceId}-${adjustedDate}`);
       if (!span) return;
       span.innerHTML = `<button class="sm primary" onclick="showIncomeConfirmPrompt(${sourceId}, '${adjustedDate}', ${amountPence})">Confirm</button>`;
+    };
+
+    window.showEditIncomePrompt = (sourceId, originalDate, recordId, amountPounds) => {
+      const span = document.getElementById(`income-entry-status-${sourceId}-${originalDate}`);
+      if (!span) return;
+      span.innerHTML = `<div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">`
+        + `<div style="display:flex;gap:8px;align-items:center">`
+        + `<label style="font-size:0.8rem;white-space:nowrap">Date:</label>`
+        + `<input type="date" id="income-edit-date-${sourceId}-${recordId}" value="${originalDate}" style="width:140px">`
+        + `</div>`
+        + `<div style="display:flex;gap:8px;align-items:center">`
+        + `<label style="font-size:0.8rem;white-space:nowrap">Amount (£):</label>`
+        + `<input type="number" step="0.01" min="0" id="income-edit-amount-${sourceId}-${recordId}" value="${amountPounds}" style="width:100px">`
+        + `</div>`
+        + `<div style="display:flex;gap:6px">`
+        + `<button class="sm primary" onclick="saveEditedIncomeEntry(${sourceId}, '${originalDate}', ${recordId})">Save</button>`
+        + `<button class="sm ghost" onclick="cancelEditIncomeEntry(${sourceId}, '${originalDate}', ${recordId}, ${amountPounds})">Cancel</button>`
+        + `</div>`
+        + `</div>`;
+    };
+
+    window.saveEditedIncomeEntry = async (sourceId, originalDate, recordId) => {
+      const source = await incomeSourceRepository.get(sourceId);
+      if (!source) return;
+      const dateInput = document.getElementById(`income-edit-date-${sourceId}-${recordId}`);
+      const amtInput = document.getElementById(`income-edit-amount-${sourceId}-${recordId}`);
+      const finalDate = dateInput?.value || originalDate;
+      const finalAmountPounds = parseFloat(amtInput?.value || '0') || 0;
+      try {
+        await incomeRepository.update(recordId, {
+          date: finalDate,
+          source: source.name,
+          amount: finalAmountPounds,   // pounds — repository's penceFields converts to pence on update
+        });
+        triggerHaptic('success');
+        await incomeSources.openIncomeModal(sourceId);
+        if (window.app) window.app.renderAll();
+      } catch (err) {
+        notificationUI.error(err.message);
+      }
+    };
+
+    window.cancelEditIncomeEntry = (sourceId, originalDate, recordId, amountPounds) => {
+      // Re-trigger a fresh modal render to restore the confirmed display
+      incomeSources.openIncomeModal(sourceId);
+    };
+
+    window.unconfirmIncomeEntry = async (sourceId, originalDate, recordId) => {
+      if (!window.confirm('Remove this confirmed income entry? This cannot be undone.')) return;
+      try {
+        await incomeRepository.delete(recordId);
+        triggerHaptic('delete');
+        await incomeSources.openIncomeModal(sourceId);
+        if (window.app) window.app.renderAll();
+      } catch (err) {
+        notificationUI.error(err.message);
+      }
     };
   },
 };
