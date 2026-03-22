@@ -128,7 +128,7 @@ Plans:
 
 ## Progress
 
-**Execution Order:** 40 → 41 → 42 → 43 → 44 → 45
+**Execution Order:** 40 → 41 → 42 → 43 → 44 → 45 → 46
 (Note: Phases 43, 44, and 45 both depend on Phase 40 and can run in parallel with each other after Phase 42 if needed, but sequential is recommended.)
 
 | Phase | Plans Complete | Status | Completed |
@@ -139,6 +139,19 @@ Plans:
 | 43. Debt History Modal | 4/4 | Complete    | 2026-03-20 |
 | 44. Income Tab Cards | 4/4 | Complete    | 2026-03-21 |
 | 45. Transactions Tab Fixes | 5/5 | Complete    | 2026-03-22 |
+| 46. Income Card Edit/Delete/Unconfirm | 0/3 | Planning    | — |
+
+### Phase 46: Income card edit delete and unconfirm functionality
+
+**Goal:** Fix income source card Edit/Delete buttons (currently broken) and add edit/unconfirm capability to confirmed income entries in the modal — so users can correct wrong amounts or dates and revert mistaken confirmations.
+**Requirements**: INCOME-06, INCOME-07, INCOME-08, INCOME-09
+**Depends on:** Phase 45
+**Plans:** 3 plans
+
+Plans:
+- [ ] 46-01-PLAN.md — Wave 0 TDD: failing test stubs for INCOME-06..09 + extend incomeRepository mock with update/delete
+- [ ] 46-02-PLAN.md — Implementation: fix card Edit/Delete delegation, confirmed entry shows amount+date+Edit+Unconfirm, saveEditedIncomeEntry/unconfirmIncomeEntry global handlers
+- [ ] 46-03-PLAN.md — Human browser verification checkpoint (INCOME-06 through INCOME-09 confirmed)
 
 ---
 *v3.1 roadmap created: 2026-03-18*
