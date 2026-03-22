@@ -154,10 +154,10 @@ describe('TRANS-01: expense row mark-paid button', () => {
   });
 });
 
-// ─── TRANS-02: Income row contains btn-confirm-income button ─────────────────
+// ─── TRANS-02: Income row shows only redirect button (no Confirm/Edit/Delete) ─
 
 describe('TRANS-02: income row confirm-income button', () => {
-  it('renders a .btn-confirm-income button in income rows', async () => {
+  it('renders a redirect button in income rows (not btn-confirm-income)', async () => {
     setupTransactionsDOM();
 
     incomeRepository.getByMonth.mockResolvedValueOnce([
@@ -175,8 +175,12 @@ describe('TRANS-02: income row confirm-income button', () => {
 
     await transactionUI.renderTransactions('2026-03');
 
-    // Fails until income rows render a .btn-confirm-income button (TRANS-02)
-    expect(document.querySelector('.btn-confirm-income')).not.toBeNull();
+    // Post-fix state: income rows show only a redirect button; no Confirm/Edit/Delete buttons
+    expect(document.querySelector('.btn-confirm-income')).toBeNull();
+    const actionCell = document.querySelector('td.col-actions');
+    expect(actionCell).not.toBeNull();
+    expect(actionCell.querySelectorAll('button').length).toBe(1);
+    expect(actionCell.querySelector('button').title).toBe('Go to Income Sources');
   });
 });
 

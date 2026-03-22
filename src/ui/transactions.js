@@ -400,6 +400,23 @@ export const transactionUI = {
     `;
   },
 
+  handleCategoryChange(checkbox) {
+    const catId = checkbox.value;
+    if (checkbox.checked) {
+      if (!this.selectedCategories.includes(catId)) {
+        this.selectedCategories = [...this.selectedCategories, catId];
+      }
+    } else {
+      this.selectedCategories = this.selectedCategories.filter(id => id !== catId);
+    }
+    this.render();
+  },
+
+  clearCategoryFilter() {
+    this.selectedCategories = [];
+    this.render();
+  },
+
   async renderCategoryFilter() {
     const container = document.getElementById('incCategoryFilterContainer');
     if (!container) return;
@@ -504,13 +521,9 @@ export const transactionUI = {
             </td>
             <td class="r"><span class="privacy-blur">+${formatGBP(item.amount)}</span></td>
             <td class="r col-actions">
-              <button class="sm ${isCleared ? 'success' : 'ghost'} btn-confirm-income"
-                onclick="window.toggleIncCleared(${item.id}, ${isCleared})"
-                title="${isCleared ? 'Received' : 'Mark as Received'}">
-                ${isCleared ? '&#x2713; Received' : 'Confirm'}
-              </button>
-              <button class="sm ghost btn-edit" ${isReconciled ? 'disabled title="Reconciled items cannot be edited"' : ''} onclick="transactionUI._handleEdit(${item.id})">Edit</button>
-              <button class="sm danger btn-delete" ${isReconciled ? 'disabled title="Reconciled items cannot be deleted"' : ''} onclick="transactionUI._handleDelete(${item.id})">&#x2715;</button>
+              <button class="sm ghost"
+                onclick="document.querySelector('[data-tab=\\'income-sources\\']').click()"
+                title="Go to Income Sources">&#x2197; Income</button>
             </td>
           </tr>
         `;
