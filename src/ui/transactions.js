@@ -405,7 +405,7 @@ export const transactionUI = {
     if (!container) return;
 
     const categories = await categoryRepository.getCategories();
-    const incomeCats = categories.filter(c => c.group === 'income');
+    const allCats = categories.filter(c => c.group !== 'system');
 
     container.innerHTML = safeHTML`
       <div class="custom-select" style="position:relative">
@@ -414,7 +414,7 @@ export const transactionUI = {
         </button>
         <div id="incCategoryDropdown" class="card" style="display:none; position:absolute; top:100%; right:0; z-index:100; min-width:200px; padding:12px; margin-top:5px; box-shadow: var(--shadow); border: 1px solid var(--border); background: var(--bg-card)">
           <div style="max-height: 200px; overflow-y: auto; margin-bottom: 10px">
-            ${incomeCats.map(c => `
+            ${allCats.map(c => `
               <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px">
                 <input type="checkbox" id="inc-filter-cat-${c.id}" value="${c.id}" 
                   ${this.selectedCategories.includes(c.id) ? 'checked' : ''}
@@ -453,10 +453,14 @@ export const transactionUI = {
     // Build merged rows
     const allMerged = this._buildMergedRows(allIncomeItems, recurrentItems, allOneOffItems);
 
-    // Apply search filter across displayLabel fields
-    const filtered = this.searchQuery
-      ? allMerged.filter(item => (item.displayLabel || '').toLowerCase().includes(this.searchQuery.toLowerCase()))
-      : allMerged;
+    // Apply search and category filter using filterTransactions utility
+    const filtered = filterTransactions(
+      allMerged,
+      this.searchQuery,
+      this.selectedCategories,
+      ['displayLabel'],
+      catMap
+    );
 
     // Calculate totals from filtered items
     const incomeTotal = filtered.filter(r => r._rowType === 'income').reduce((sum, i) => sum + i.amount, 0);

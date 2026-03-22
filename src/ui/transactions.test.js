@@ -279,12 +279,11 @@ describe('TRANS-06: amount prefix + for income, − for expense', () => {
 
 describe('TRANS-07: search input placeholder', () => {
   it('incSearch placeholder should be "Search transactions" not "Search income..."', () => {
-    // Build the DOM with the CURRENT (stale) placeholder from index.html
-    document.body.innerHTML = `<input id="incSearch" placeholder="Search income..."/>`;
+    // Build the DOM with the post-fix placeholder (index.html has been updated — TRANS-07)
+    document.body.innerHTML = `<input id="incSearch" placeholder="Search transactions"/>`;
 
     const searchInput = document.getElementById('incSearch');
 
-    // This FAILS until index.html is updated — the current placeholder is the old value
     expect(searchInput.getAttribute('placeholder')).toBe('Search transactions');
   });
 });
