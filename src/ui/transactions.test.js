@@ -324,3 +324,42 @@ describe('TRANS-08: category filter includes non-income categories', () => {
     expect(container.innerHTML).not.toContain('Salary');
   });
 });
+
+// ─── RECON-01: #markAllPaidBtn and #triggerRecurrenceBtn removed ─────────────
+
+describe('RECON-01: no dead buttons in Transactions tab', () => {
+  it('markAllPaidBtn does not exist in Transactions tab DOM', () => {
+    document.body.innerHTML = `
+      <div data-panel="transactions">
+        <button id="toggleIncReconBtn" class="ghost sm">Reconciliation Mode</button>
+      </div>
+    `;
+    expect(document.getElementById('markAllPaidBtn')).toBeNull();
+    expect(document.getElementById('triggerRecurrenceBtn')).toBeNull();
+    expect(document.getElementById('markAllPaidRow')).toBeNull();
+  });
+});
+
+// ─── RECON-02: reconciliation mode toggle works end-to-end ───────────────────
+
+describe('RECON-02: reconciliation mode toggles correctly', () => {
+  it('toggleReconciliationMode flips reconciliationMode and toggles incReconHeader hidden class', () => {
+    document.body.innerHTML = `
+      <div data-panel="transactions">
+        <button id="toggleIncReconBtn" class="ghost sm">Reconciliation Mode</button>
+        <div id="incReconHeader" class="hidden"></div>
+        <table><tbody id="incBody"></tbody></table>
+      </div>
+    `;
+
+    expect(transactionUI.reconciliationMode).toBe(false);
+
+    transactionUI.toggleReconciliationMode();
+    expect(transactionUI.reconciliationMode).toBe(true);
+    expect(document.getElementById('incReconHeader').classList.contains('hidden')).toBe(false);
+
+    transactionUI.toggleReconciliationMode();
+    expect(transactionUI.reconciliationMode).toBe(false);
+    expect(document.getElementById('incReconHeader').classList.contains('hidden')).toBe(true);
+  });
+});
