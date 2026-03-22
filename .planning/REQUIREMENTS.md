@@ -54,8 +54,8 @@
 
 ### Desktop Navigation (Tech Debt)
 
-- [ ] **DESK-01**: Desktop nav bar remains fixed/sticky when scrolling — does not scroll off-screen
-- [ ] **CLEAN-01**: Dead one-shot `getBoundingClientRect()` measurement removed from `dashboard.js:59–63`
+- [x] **DESK-01**: Desktop nav bar remains fixed/sticky when scrolling — does not scroll off-screen
+- [x] **CLEAN-01**: Dead one-shot `getBoundingClientRect()` measurement removed from `dashboard.js:59–63`
 
 ### Event System (Tech Debt)
 
@@ -113,8 +113,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TRANS-06 | Phase 45 | Complete |
 | TRANS-07 | Phase 45 | Complete |
 | TRANS-08 | Phase 45 | Complete |
-| DESK-01 | Phase 47 | Pending |
-| CLEAN-01 | Phase 47 | Pending |
+| DESK-01 | Phase 47 | Complete |
+| CLEAN-01 | Phase 47 | Complete |
 | PERF-01 | Phase 48 | Pending |
 | RECON-01 | Phase 49 | Pending |
 | RECON-02 | Phase 49 | Pending |

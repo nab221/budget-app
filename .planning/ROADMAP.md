@@ -140,7 +140,7 @@ Plans:
 | 44. Income Tab Cards | 4/4 | Complete    | 2026-03-21 |
 | 45. Transactions Tab Fixes | 5/5 | Complete    | 2026-03-22 |
 | 46. Income Card Edit/Delete/Unconfirm | 3/3 | Complete    | 2026-03-22 |
-| 47. Desktop Nav Sticky + Dead Code Removal | 1/1 | Pending     | — |
+| 47. Desktop Nav Sticky + Dead Code Removal | 1/1 | Complete   | 2026-03-22 |
 | 48. app:refresh Double-Render Fix | 0/0 | Pending     | — |
 | 49. Reconciliation Mode & Legacy Button Audit | 0/0 | Pending     | — |
 
@@ -162,7 +162,7 @@ Plans:
 **Requirements**: DESK-01, CLEAN-01
 **Depends on:** Phase 46
 **Tech debt closes:** TODO-NAV-01 (Phase 41), dead code (Phase 40)
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
 - [ ] 47-01-PLAN.md — CSS sticky fix + dead code removal + human browser verification (DESK-01, CLEAN-01)
