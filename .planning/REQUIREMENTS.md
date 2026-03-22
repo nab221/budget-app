@@ -63,8 +63,8 @@
 
 ### Reconciliation / Legacy Buttons (Tech Debt)
 
-- [ ] **RECON-01**: All legacy Transactions tab buttons (reconciliation mode, Mark All As Paid, Trigger Recurrence) have been audited and either made functional or removed
-- [ ] **RECON-02**: No broken or dead-end buttons remain in the Transactions tab UI
+- [x] **RECON-01**: All legacy Transactions tab buttons (reconciliation mode, Mark All As Paid, Trigger Recurrence) have been audited and either made functional or removed
+- [x] **RECON-02**: No broken or dead-end buttons remain in the Transactions tab UI
 
 ## Future Requirements
 
@@ -116,8 +116,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DESK-01 | Phase 47 | Complete |
 | CLEAN-01 | Phase 47 | Complete |
 | PERF-01 | Phase 48 | Complete |
-| RECON-01 | Phase 49 | Pending |
-| RECON-02 | Phase 49 | Pending |
+| RECON-01 | Phase 49 | Complete |
+| RECON-02 | Phase 49 | Complete |
 
 **Coverage:**
 - v3.1 requirements: 31 total

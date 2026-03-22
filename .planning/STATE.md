@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: UX Fixes
 status: verifying
-stopped_at: Completed 48-02 — PERF-01 human-verified in browser; Phase 48 complete
-last_updated: "2026-03-22T22:35:30.691Z"
+stopped_at: Completed 49-01 — RECON-01 and RECON-02 complete; legacy buttons removed from Transactions tab
+last_updated: "2026-03-22T23:08:04.054Z"
 last_activity: 2026-03-22 — 46-03 complete; INCOME-06..09 human-verified; Phase 46 done
 progress:
   total_phases: 10
   completed_phases: 9
-  total_plans: 28
-  completed_plans: 28
+  total_plans: 30
+  completed_plans: 29
   percent: 88
 ---
 
@@ -87,6 +87,8 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 - [Phase 48-app-refresh-double-render-fix]: Register app:refresh listener in beforeEach to expose double-render without calling init() — clean teardown via named reference in afterEach
 - [Phase 48-app-refresh-double-render-fix]: Use window.transactionUI?.render() and window.debtUI?.render() (optional chaining, window globals not imports) to replace app:refresh dispatches and avoid circular import risk
 - [Phase 48-app-refresh-double-render-fix]: Use window.transactionUI?.render() and window.debtUI?.render() (optional chaining, window globals not imports) to replace app:refresh dispatches and avoid circular import risk
+- [Phase 49]: No JS changes required for legacy button removal — expenses.js null guards already handled missing elements safely
+- [Phase 49]: RECON-01 and RECON-02 tests used jsdom fixtures asserting post-fix state — same pattern as TRANS-03; toggleReconciliationMode() was already functional so RECON-02 passed GREEN immediately
 
 ### Roadmap Evolution
 - Phase 46 added: Income card edit delete and unconfirm functionality
@@ -103,6 +105,6 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 
 ## Session Continuity
 
-Last session: 2026-03-22T22:19:29.570Z
-Stopped at: Completed 48-02 — PERF-01 human-verified in browser; Phase 48 complete
+Last session: 2026-03-22T23:08:04.027Z
+Stopped at: Completed 49-01 — RECON-01 and RECON-02 complete; legacy buttons removed from Transactions tab
 Resume file: None
