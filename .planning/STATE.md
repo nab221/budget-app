@@ -5,7 +5,7 @@ milestone_name: UX Fixes
 status: verifying
 stopped_at: Completed Quick 01 — removed Reconciliation Mode button and expSearch from Transactions tab
 last_updated: "2026-03-23T06:13:25.051Z"
-last_activity: 2026-03-22 — 46-03 complete; INCOME-06..09 human-verified; Phase 46 done
+last_activity: 2026-03-23 - Completed quick task 1: Remove Reconciliation mode, remove legacy expSearch input, add Subscriptions todo
 progress:
   total_phases: 10
   completed_phases: 10
@@ -109,6 +109,12 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 - [Reconciliation Mode] Reconciliation Mode button removed from UI (Quick 01). The JS logic in transactions.js (toggleReconciliationMode, reconciliationMode state) and expenses.js is intentionally preserved. Needs proper re-implementation in a future milestone with correct UX design.
 
 - [Subscriptions Debt Type] Future milestone idea: a "Subscriptions" debt type where each subscription is a card showing stats such as monthly cost, annual cost, renewal date, etc. Currently users work around this by adding subscriptions as recurrent transactions.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 1 | Remove Reconciliation mode, remove legacy expSearch input, add Subscriptions todo | 2026-03-23 | 9dc7ee0 | [1-remove-reconciliation-mode-remove-legacy](./quick/1-remove-reconciliation-mode-remove-legacy/) |
 
 ## Session Continuity
 
