@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 // Mock render.js
 vi.mock('./render.js', () => ({
@@ -253,5 +253,72 @@ describe('expenses Phase-18 guards', () => {
 
       modalUI.confirm = origConfirm;
     });
+  });
+});
+
+describe('toggleExpenseStatus — PERF-01 render coordination', () => {
+  let renderSpy;
+  let dispatchSpy;
+  // Stored so it can be removed cleanly in afterEach
+  let appRefreshListener;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    // Register the app:refresh listener (normally done in init()) so that the
+    // dispatch at expenses.js:271 triggers a second expensesUI.render() call
+    // — this is what makes Test 1 RED before the fix.
+    appRefreshListener = () => expensesUI.render();
+    window.addEventListener('app:refresh', appRefreshListener);
+
+    // Ensure window.toggleExpenseStatus is registered
+    expensesUI.setupEventListeners();
+
+    // Spy on expensesUI.render — prevent actual DOM work, just count calls
+    renderSpy = vi.spyOn(expensesUI, 'render').mockResolvedValue(undefined);
+
+    // Provide a transactionUI mock on window
+    window.transactionUI = { render: vi.fn().mockResolvedValue(undefined) };
+
+    // Spy on window.dispatchEvent to detect app:refresh broadcasts
+    dispatchSpy = vi.spyOn(window, 'dispatchEvent');
+
+    // Provide a non-debt-payment recurrent expense for the toggle to act on
+    recurrentExpenseRepository.get.mockResolvedValue({
+      id: 1,
+      label: 'Test Expense',
+      isDebtPayment: false,
+      linkedStatementId: null,
+      cycleTotal: 0,
+      cycleCurrent: 0,
+    });
+    recurrentExpenseRepository.update.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    delete window.transactionUI;
+    window.removeEventListener('app:refresh', appRefreshListener);
+    vi.restoreAllMocks();
+  });
+
+  it('calls expensesUI.render exactly once per toggleExpenseStatus call', async () => {
+    await window.toggleExpenseStatus(1, 'recurrent', 'pending');
+
+    expect(renderSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls window.transactionUI.render exactly once per toggleExpenseStatus call', async () => {
+    await window.toggleExpenseStatus(1, 'recurrent', 'pending');
+
+    expect(window.transactionUI.render).toHaveBeenCalledTimes(1);
+  });
+
+  it('does NOT dispatch app:refresh during toggleExpenseStatus', async () => {
+    await window.toggleExpenseStatus(1, 'recurrent', 'pending');
+
+    const appRefreshCalls = dispatchSpy.mock.calls.filter(
+      ([event]) => event instanceof CustomEvent && event.type === 'app:refresh'
+    );
+    expect(appRefreshCalls).toHaveLength(0);
   });
 });

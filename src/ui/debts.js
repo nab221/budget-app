@@ -214,6 +214,28 @@ export const debtUI = {
       await debtUI.render();
       if (window.app) window.app.renderAll();
     };
+
+    window.confirmLoanPayment = async (debtId, paymentDate, amountPounds) => {
+      await debtUI.confirmLoanPayment(debtId, paymentDate, Number(amountPounds));
+    };
+
+    window.showLoanPaymentPrompt = (debtId, paymentDate, scheduledAmountPounds) => {
+      const span = document.getElementById(`loan-pmt-status-${debtId}-${paymentDate}`);
+      if (!span) return;
+      span.dataset.originalContent = span.innerHTML;
+      span.innerHTML =
+        `<input id="loan-pmt-amount-${debtId}-${paymentDate}" type="number" step="0.01" min="0.01" ` +
+        `value="${scheduledAmountPounds.toFixed(2)}" style="width:90px" />` +
+        ` <button class="sm primary" onclick="confirmLoanPayment(${debtId}, '${paymentDate}', ` +
+        `parseFloat(document.getElementById('loan-pmt-amount-${debtId}-${paymentDate}').value))">✓ Confirm</button>` +
+        ` <button class="sm ghost" onclick="cancelLoanPaymentPrompt(${debtId}, '${paymentDate}')">Cancel</button>`;
+    };
+
+    window.cancelLoanPaymentPrompt = (debtId, paymentDate) => {
+      const span = document.getElementById(`loan-pmt-status-${debtId}-${paymentDate}`);
+      if (!span) return;
+      span.innerHTML = span.dataset.originalContent || '';
+    };
   },
 
   async openDebtModal(id = null) {
@@ -965,6 +987,12 @@ export const debtUI = {
     // Initial render of statements into the modal table
     await this.renderStatements(debtId);
 
+    // Populate payment status for loan/mortgage history list
+    const debtForType = await debtRepository.get(debtId);
+    if (debtForType && (debtForType.debtType === 'loan' || debtForType.debtType === 'mortgage')) {
+      await this._renderLoanPaymentStatuses(debtId);
+    }
+
     // Wire X button to _closeHistoryModal for cleanup
     if (modalUI.elements.close) {
       modalUI.elements.close.onclick = () => this._closeHistoryModal();
@@ -1006,6 +1034,105 @@ export const debtUI = {
     }
   },
 
+  generateHistoricalSchedule(debt) {
+    if (!debt.paymentStartDate) return null;
+    if (!debt.fixedMonthlyPayment) return null;
+
+    // Use originalPrincipal if it is set and greater than currentBalance (indicates user entered original loan amount)
+    // Otherwise fall back to currentBalance. Both are stored in pence in the DB.
+    const balancePence = (debt.originalPrincipal && debt.originalPrincipal > debt.currentBalance)
+      ? debt.originalPrincipal
+      : (debt.currentBalance || 0);
+
+    let scheduleData;
+    try {
+      scheduleData = calculateAmortisationSchedule({
+        outstandingBalance: balancePence,
+        annualInterestRate: (debt.interestRate || 0) / 100,
+        monthlyPayment: debt.fixedMonthlyPayment,
+        paymentDayOfMonth: debt.paymentDayOfMonth || 1,
+        paymentAdjustment: debt.paymentAdjustment || 'none',
+        startDate: debt.paymentStartDate,
+      });
+    } catch (e) {
+      return null;
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+    return scheduleData.schedule.filter(entry => entry.paymentDate <= today);
+  },
+
+  async getConfirmedPaymentMap(debtId) {
+    const all = await recurrentExpenseRepository.getAll();
+    const confirmed = all.filter(e =>
+      Number(e.linkedDebtId) === Number(debtId) && e.isDebtPayment
+    );
+    return new Map(confirmed.map(e => [e.date || e.nextDate, e]));
+  },
+
+  async confirmLoanPayment(debtId, paymentDate, amountPounds) {
+    const confirmedMap = await this.getConfirmedPaymentMap(debtId);
+    const debt = await debtRepository.get(debtId);
+    const debtCategory = await db.categories.where('name').equals('Credit Cards & Loans').first();
+    const existing = confirmedMap.get(paymentDate);
+
+    if (existing) {
+      await recurrentExpenseRepository.update(existing.id, {
+        status: 'paid',
+        amount: amountPounds,   // repository converts to pence; pass pounds here
+        date: paymentDate,
+      });
+    } else {
+      await recurrentExpenseRepository.add({
+        date: paymentDate,
+        nextDate: paymentDate,
+        label: `${debt ? debt.name : 'Debt'} - payment`,
+        amount: amountPounds,   // repository converts to pence; pass pounds here
+        status: 'paid',
+        isDebtPayment: true,
+        linkedDebtId: Number(debtId),
+        isRecurring: true,
+        frequency: 'monthly',
+        isEssential: true,
+        isCleared: false,
+        isReconciled: false,
+        paymentAdjustment: 'none',
+        categoryId: debtCategory ? debtCategory.id : null,
+      });
+    }
+
+    triggerHaptic('success');
+    await debtUI.openHistoryModal(Number(debtId));
+    if (window.app) window.app.renderAll();
+  },
+
+  async _renderLoanPaymentStatuses(debtId) {
+    const debt = await debtRepository.get(debtId);
+    if (!debt) return;
+    const historicalEntries = this.generateHistoricalSchedule(debt);
+    if (!historicalEntries) return;
+
+    const confirmedMap = await this.getConfirmedPaymentMap(debtId);
+
+    for (const entry of historicalEntries) {
+      const span = document.getElementById(`loan-pmt-status-${debtId}-${entry.paymentDate}`);
+      if (!span) continue;
+
+      const isPaid = confirmedMap.has(entry.paymentDate) &&
+        confirmedMap.get(entry.paymentDate).status === 'paid';
+
+      // Scheduled amount in pounds — principalPence + interestPence are in pence
+      const scheduledPounds = ((entry.principalPence || 0) + (entry.interestPence || 0)) / 100;
+
+      if (isPaid) {
+        span.innerHTML = '<span class="badge badge-success">Paid</span>';
+      } else {
+        // Show confirm button; onclick calls showLoanPaymentPrompt
+        span.innerHTML = `<button class="sm primary" onclick="showLoanPaymentPrompt(${debtId}, '${entry.paymentDate}', ${scheduledPounds})">Confirm Paid</button>`;
+      }
+    }
+  },
+
   _buildAmortisationModalHTML(debt) {
     let scheduleData = null;
     let calcError = null;
@@ -1022,6 +1149,27 @@ export const debtUI = {
       calcError = e.message;
     }
 
+    // Build payment history section HTML (synchronous — status spans populated in Plan 03)
+    const historyEntries = this.generateHistoricalSchedule(debt);
+    let historyHTML;
+    if (historyEntries === null) {
+      historyHTML = `<p style="color:var(--muted);margin-bottom:8px">No payment start date set.</p>`
+        + `<button class="ghost" style="margin-bottom:16px" onclick="event.stopPropagation(); debtUI.editDebt(${debt.id})">Set start date</button>`;
+    } else if (historyEntries.length === 0) {
+      historyHTML = `<p style="color:var(--muted);margin-bottom:16px">No historical payments found.</p>`;
+    } else {
+      const liItems = historyEntries.map(entry => {
+        const dateStr = new Date(entry.paymentDate + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        const amount = formatGBP(entry.principalPence + entry.interestPence);
+        return `<li class="loan-history-item" style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">`
+          + `<span>${dateStr}</span>`
+          + `<span>${amount}</span>`
+          + `<span class="loan-payment-status" id="loan-pmt-status-${debt.id}-${entry.paymentDate}"></span>`
+          + `</li>`;
+      }).join('');
+      historyHTML = `<ul id="loan-history-list-${debt.id}" class="loan-history-list" style="list-style:none;padding:0;margin:0 0 16px 0">${liItems}</ul>`;
+    }
+
     if (calcError) {
       return safeHTML`
         <p style="color:var(--danger);margin-bottom:16px">Unable to calculate amortisation: ${calcError}</p>
@@ -1036,6 +1184,8 @@ export const debtUI = {
             </div>
           </div>
         </div>
+        <h3 style="margin:24px 0 8px">Payment History</h3>
+        ${historyHTML}
       `;
     }
 
@@ -1063,6 +1213,8 @@ export const debtUI = {
           </div>
         </div>
       </div>
+      <h3 style="margin:24px 0 8px">Payment History</h3>
+      ${historyHTML}
     `;
   },
 

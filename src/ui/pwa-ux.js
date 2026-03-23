@@ -114,7 +114,7 @@ export function checkExportReminder() {
 // ─── Private helpers ───────────────────────────────────────────────────────
 
 function _registerUpdateListener() {
-  registerSW({
+  const updateSW = registerSW({
     onOfflineReady() {
       console.log('[PWA] App ready for offline use.');
       _showOfflineReadyStatus();
@@ -124,13 +124,38 @@ function _registerUpdateListener() {
       // Check for updates every hour when the page is visible.
       if (registration) {
         setInterval(() => {
-          if (!document.hidden) {
-            registration.update().catch(() => {});
-          }
+          if (!document.hidden) registration.update().catch(() => {});
         }, 60 * 60 * 1000);
       }
     },
+    onNeedRefresh() {
+      _showUpdateBar(() => updateSW(true));
+    },
   });
+}
+
+function _showUpdateBar(onUpdate) {
+  let bar = document.getElementById('pwa-update-bar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'pwa-update-bar';
+    bar.className = 'update-bar';
+    bar.innerHTML =
+      '<span>A new version is available.</span>' +
+      '<button id="pwa-update-btn">Update now</button>' +
+      '<button id="pwa-update-dismiss">Later</button>';
+    document.body.appendChild(bar);
+  }
+  bar.style.removeProperty('display');
+  document.getElementById('pwa-update-btn')
+    ?.addEventListener('click', () => { onUpdate(); _hideUpdateBar(); });
+  document.getElementById('pwa-update-dismiss')
+    ?.addEventListener('click', _hideUpdateBar);
+}
+
+function _hideUpdateBar() {
+  const bar = document.getElementById('pwa-update-bar');
+  if (bar) bar.style.display = 'none';
 }
 
 function _registerInstallListener() {

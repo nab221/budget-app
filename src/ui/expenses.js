@@ -157,15 +157,6 @@ export const expensesUI = {
       reconBtn.onclick = () => this.toggleReconciliationMode();
     }
 
-    // Search Input
-    const searchInput = document.getElementById('expSearch');
-    if (searchInput) {
-      searchInput.oninput = (e) => {
-        this.searchQuery = e.target.value;
-        this.render();
-      };
-    }
-
     // Mark all as paid
     const markAllBtn = document.getElementById('markAllPaidBtn');
     if (markAllBtn) {
@@ -268,6 +259,7 @@ export const expensesUI = {
         }
         triggerHaptic('tap');
         await this.render();
+        await window.transactionUI?.render();
       } catch (err) {
         console.error('Failed to toggle status:', err);
       }
@@ -1055,8 +1047,7 @@ export const expensesUI = {
           await statementRepository.recordPayment(item.linkedStatementId, actualAmt, paymentDate);
           templateUI.closeModal();
           await this.render();
-          // Broadcast refresh for Debts tab
-          window.dispatchEvent(new CustomEvent('app:refresh'));
+          await window.debtUI?.render();
         } catch (err) {
           console.error('Failed to record debt payment:', err);
           notificationUI.error('Error: ' + err.message);

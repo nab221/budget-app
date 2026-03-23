@@ -20,6 +20,8 @@
   --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   --radius: 10px;
   --tr: 0.15s ease-out;
+  --header-height: 56px;
+  --bottom-bar-height: 72px;
 }
 
 [data-theme='dark'] {
@@ -56,6 +58,22 @@ body {
 
 /* ── HEADER ── */
 header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; position: sticky; top: 0; z-index: 100; background: var(--bg); }
+header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(-50vw + 50%);
+  right: calc(-50vw + 50%);
+  background: var(--bg);
+  z-index: -1;
+}
+header.scrolled {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+[data-theme='dark'] header.scrolled {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+}
 header h1 { font-size: 1.5rem; display: flex; align-items: center; gap: 8px; }
 .pill { font-size: .65rem; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent-border); }
 .toolbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
@@ -153,7 +171,10 @@ input[type="number"] { text-align: right; }
 
 /* ── NAVIGATION ── */
 .nav-container {
-  position: relative;
+  position: sticky;
+  top: var(--header-height, 56px);
+  z-index: 99;
+  background: var(--bg);
   margin-bottom: 14px;
 }
 .mobile-menu-btn {
@@ -219,19 +240,16 @@ input[type="number"] { text-align: right; }
 .tab[data-tab="settings"]::before       { content: "⚙️"; }
 
 @media (max-width: 768px) {
-  :root {
-    --bottom-bar-height: 72px;
-    --header-height: 56px;
-  }
-
   .mobile-menu-btn { display: none; } /* Replaced by bottom nav */
-  .shell { padding-bottom: calc(var(--bottom-bar-height) + 8px); } /* Space for bottom nav */
+  .shell { padding-bottom: calc(var(--bottom-bar-height) + env(safe-area-inset-bottom, 0px) + 8px); } /* Space for bottom nav + iOS safe area */
 
   .nav-container {
     position: fixed;
+    top: auto;        /* Reset desktop sticky top — mobile uses bottom: 0 only */
     bottom: 0;
     left: 0;
     right: 0;
+    width: 100vw;     /* Viewport-relative width — immune to fixed-pos containment trap from transformed ancestors */
     background: var(--card);
     border-top: 1px solid var(--border);
     margin-bottom: 0;
@@ -239,6 +257,7 @@ input[type="number"] { text-align: right; }
     box-shadow: 0 -4px 12px rgba(0,0,0,0.05);
     backdrop-filter: blur(10px);
     padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
+    will-change: transform; /* GPU compositing layer — prevents iOS fixed-pos jank */
   }
 
   .tabs {
@@ -247,10 +266,13 @@ input[type="number"] { text-align: right; }
     padding: 8px 0;
     gap: 0;
     overflow: hidden;
+    width: 100vw;     /* Viewport-relative width — bypasses containment trap; fixed to viewport not to trapped ancestor */
+    max-width: 100vw; /* Redundant but explicit: never exceed viewport width */
   }
 
   .tab {
-    flex: 1;
+    flex: 1 1 0;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -263,13 +285,24 @@ input[type="number"] { text-align: right; }
     color: var(--text-dim);
     box-shadow: none !important;
     min-height: 44px;
+    transition: color var(--tr);  /* Override desktop "transition: all" — prevent shape animation on tap */
   }
 
   .tab:hover { background: none; }
 
+  .tab:active {
+    transform: none;    /* Suppress any UA or inherited transform on tap */
+    background: none;   /* Prevent UA active-state background flash */
+  }
+
   .tab.active {
     background: none;
     color: var(--accent);
+    border-radius: 0;       /* Match mobile .tab — reset desktop 999px */
+    box-shadow: none;       /* Reset desktop 0 4px 12px var(--accent-soft) */
+    padding: 6px 0;         /* Explicitly match mobile .tab — prevent cascade pulling desktop 8px 16px */
+    border: none;           /* Match mobile .tab */
+    font-weight: 500;       /* Match mobile .tab — prevent font-weight: 600 micro-reflow from desktop rule */
   }
 
   .tab::before {
@@ -282,6 +315,10 @@ input[type="number"] { text-align: right; }
     top: var(--header-height);
     z-index: 99;
     background: var(--bg-alt);
+  }
+
+  .update-bar {
+    bottom: calc(var(--bottom-bar-height) + env(safe-area-inset-bottom, 0px));
   }
 }
 
@@ -910,6 +947,13 @@ button.sync-action-busy::after {
 
 .sync-status-indicator {
   flex-shrink: 0;
+}
+/* Local file sync UI is desktop-only (auto-save needs File System Access API, desktop only).
+   Cloud sync UI (#syncStatusDot, #headerSyncMenuBtn, #headerCloudConfigureBtn) stays visible on mobile. */
+@media (max-width: 768px) {
+  #headerLocalMenuBtn,
+  #localFileSyncDot,
+  #localFileSyncText { display: none; }
 }
 .sync-status-indicator.pulse {
   animation: pulse 1.5s ease-in-out infinite;

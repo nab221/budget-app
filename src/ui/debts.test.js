@@ -65,7 +65,19 @@ vi.mock('../db/repository.js', () => ({
     update: vi.fn(),
   },
   recurrentExpenseRepository: {
-    update: vi.fn(),
+    getAll: vi.fn().mockResolvedValue([
+      {
+        id: 99,
+        linkedDebtId: 1,
+        isDebtPayment: true,
+        status: 'paid',
+        date: '2024-01-15',
+        nextDate: '2024-01-15',
+        amount: 500,
+      },
+    ]),
+    add: vi.fn().mockResolvedValue(100),
+    update: vi.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -1340,5 +1352,142 @@ describe('CB-VALID: submitConfirmBalance inline validation', () => {
     expect(debtRepository.confirmBalance).not.toHaveBeenCalled(); // user cancelled
 
     confirmSpy.mockRestore();
+  });
+});
+
+describe('DEBT-05: generateHistoricalSchedule', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('DEBT-05a: returns schedule entries filtered to paymentDate <= today', () => {
+    // Arrange: mock calculateAmortisationSchedule to return 3 entries — 2 past, 1 future
+    calculateAmortisationSchedule.mockReturnValueOnce({
+      schedule: [
+        { paymentDate: '2024-01-15', principalPence: 45000, interestPence: 5000 },
+        { paymentDate: '2024-02-15', principalPence: 45100, interestPence: 4900 },
+        { paymentDate: '2099-01-15', principalPence: 45200, interestPence: 4800 },
+      ],
+      projectedPayoffDate: '2030-01-01',
+      remainingTermMonths: 48,
+      totalInterestRemaining: 1000,
+    });
+
+    // Act
+    const result = debtUI.generateHistoricalSchedule({
+      id: 1,
+      paymentStartDate: '2024-01-01',
+      originalPrincipal: 100000,
+      fixedMonthlyPayment: 500,
+      interestRate: 5,
+      paymentDayOfMonth: 15,
+      paymentAdjustment: 'none',
+    });
+
+    // Assert: only the 2 entries with 2024 paymentDates (in the past) are returned
+    expect(Array.isArray(result)).toBe(true);
+    expect(result).toHaveLength(2);
+    expect(result[0].paymentDate).toBe('2024-01-15');
+    expect(result[1].paymentDate).toBe('2024-02-15');
+  });
+
+  it('DEBT-05b: returns null when paymentStartDate is missing', () => {
+    // Act: call with no paymentStartDate
+    const result = debtUI.generateHistoricalSchedule({ id: 1 });
+
+    // Assert
+    expect(result).toBeNull();
+  });
+});
+
+describe('DEBT-06: getConfirmedPaymentMap', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Reset to default fixture (linkedDebtId:1, date:'2024-01-15')
+    recurrentExpenseRepository.getAll.mockResolvedValue([
+      {
+        id: 99,
+        linkedDebtId: 1,
+        isDebtPayment: true,
+        status: 'paid',
+        date: '2024-01-15',
+        nextDate: '2024-01-15',
+        amount: 500,
+      },
+    ]);
+  });
+
+  it('DEBT-06a: returns Map of paymentDate -> expense record for the given debtId', async () => {
+    // recurrentExpenseRepository.getAll returns fixture with linkedDebtId:1, date:'2024-01-15'
+    const result = await debtUI.getConfirmedPaymentMap(1);
+
+    expect(result).toBeInstanceOf(Map);
+    expect(result.has('2024-01-15')).toBe(true);
+    expect(result.get('2024-01-15').id).toBe(99);
+  });
+});
+
+describe('DEBT-06 / DEBT-07: confirmLoanPayment', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Default: debtRepository.get returns a valid loan for id 2
+    debtRepository.get.mockResolvedValue({
+      id: 2,
+      name: 'Test Loan',
+      currentBalance: 10000,
+      debtType: 'loan',
+    });
+    recurrentExpenseRepository.getAll.mockResolvedValue([]);
+    recurrentExpenseRepository.add.mockResolvedValue(100);
+    recurrentExpenseRepository.update.mockResolvedValue(undefined);
+  });
+
+  it('DEBT-06b: creates new recurrentExpense when no existing record for date', async () => {
+    // Arrange: getAll returns empty (no existing record for debtId 2)
+    recurrentExpenseRepository.getAll.mockResolvedValueOnce([]);
+
+    // Act
+    await debtUI.confirmLoanPayment(2, '2024-03-15', 200.00);
+
+    // Assert: add called with correct shape
+    expect(recurrentExpenseRepository.add).toHaveBeenCalledWith(
+      expect.objectContaining({
+        date: '2024-03-15',
+        status: 'paid',
+        isDebtPayment: true,
+        linkedDebtId: 2,
+        amount: 200.00,
+      })
+    );
+  });
+
+  it('DEBT-06c: updates existing record when one already exists for that debt+date', async () => {
+    // Arrange: getAll returns an existing unpaid record for debtId 2 on the same date
+    recurrentExpenseRepository.getAll.mockResolvedValueOnce([
+      { id: 99, linkedDebtId: 2, isDebtPayment: true, date: '2024-03-15', nextDate: '2024-03-15', status: 'unpaid' },
+    ]);
+
+    // Act
+    await debtUI.confirmLoanPayment(2, '2024-03-15', 250.00);
+
+    // Assert: update called with id and correct partial shape, add not called
+    expect(recurrentExpenseRepository.update).toHaveBeenCalledWith(
+      99,
+      expect.objectContaining({ status: 'paid', amount: 250.00, date: '2024-03-15' })
+    );
+    expect(recurrentExpenseRepository.add).not.toHaveBeenCalled();
+  });
+
+  it('DEBT-07a: uses user-supplied amountPounds not the scheduled amount', async () => {
+    // Arrange: no existing record
+    recurrentExpenseRepository.getAll.mockResolvedValueOnce([]);
+
+    // Act: supply a custom amount that differs from any default
+    await debtUI.confirmLoanPayment(2, '2024-03-15', 175.50);
+
+    // Assert: add called with the exact user-supplied amount
+    expect(recurrentExpenseRepository.add).toHaveBeenCalledWith(
+      expect.objectContaining({ amount: 175.50 })
+    );
   });
 });

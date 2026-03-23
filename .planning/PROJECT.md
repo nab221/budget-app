@@ -6,10 +6,10 @@ A personal UK household budget planner — not a transaction ledger, but a **for
 
 ## Current State
 
-- **Latest Version**: v3.0 (Budget Planning Core Redesign) — Shipped 2026-03-18
-- **Status**: v3.0 complete. Planning next milestone.
+- **Latest Version**: v3.1 (UX Fixes) — Shipped 2026-03-23
+- **Status**: v3.1 complete. Planning next milestone.
 - **Tech Stack**: Vanilla JS (ES Modules) · Dexie.js v7 (IndexedDB schema v23) · Chart.js v4 · date-fns · Vite build · Supabase optional cloud sync · PWA (service worker + Workbox)
-- **Codebase**: ~29,600 LOC (JS + CSS) | 715 Vitest tests passing
+- **Codebase**: ~32,000 LOC (JS + CSS) | Vitest tests passing
 - **Deployment**: GitHub Pages via GitHub Actions CI/CD (Node.js 24)
 
 ## Core Value Proposition
@@ -83,10 +83,41 @@ Current: **v23** (as of v3.0)
 - ✓ TECH-06: Cloud Sync Store Registration — v3.0 (generic `db.tables.map` path covers all stores)
 - ✓ INTEGRITY-01: Referential Integrity Validator — v3.0 (`data-integrity.js`, runs on startup/pull/import)
 - ✓ INTEGRITY-02: Legacy Data Import — v3.0 (`legacy-import.js`, field mapping, conflict-safe)
+- ✓ HEADER-01: Sticky top header on all 8 tabs — v3.1
+- ✓ HEADER-02: Scroll shadow on header when scrolled — v3.1
+- ✓ HEADER-03: Dynamic header height for month-nav anchoring — v3.1 (ResizeObserver pattern)
+- ✓ MONNAV-01: Sticky month navigator below header on Transactions tab — v3.1
+- ✓ BOTNAV-01: Fixed mobile bottom nav on all 8 tabs — v3.1
+- ✓ BOTNAV-02: Tab content does not scroll behind bottom nav — v3.1
+- ✓ BOTNAV-03: iOS safe-area padding for home indicator — v3.1 (viewport-fit=cover)
+- ✓ BOTNAV-04: PWA update bar appears above bottom nav — v3.1
+- ✓ TABUI-01: All 8 tab buttons identical height and shape — v3.1
+- ✓ TABUI-02: Payoff tab button does not change shape on tap — v3.1
+- ✓ DEBT-05: Payment history modal for loan/mortgage with expected dates — v3.1
+- ✓ DEBT-06: Confirm historical loan payment as paid in history modal — v3.1
+- ✓ DEBT-07: Adjust payment amount before confirming in history modal — v3.1
+- ✓ INCOME-01: Income tab displays income sources as cards — v3.1
+- ✓ INCOME-02: Income source card opens modal with income entries — v3.1
+- ✓ INCOME-03: Confirm income entry as received in modal — v3.1
+- ✓ INCOME-04: Change date of upcoming income entry in modal — v3.1
+- ✓ INCOME-05: Adjust amount of specific income entry in modal — v3.1
+- ✓ TRANS-01: Mark expense as paid from Transactions tab — v3.1
+- ✓ TRANS-02: Confirm income as received from Transactions tab — v3.1
+- ✓ TRANS-03: Single reconciliation mode button (duplicate removed) — v3.1
+- ✓ TRANS-04: Unified Add button with income/expense type selector — v3.1
+- ✓ TRANS-05: Sort order toggle (newest/oldest first) — v3.1
+- ✓ TRANS-06: ±amount prefix on transactions (− expense, + income) — v3.1
+- ✓ TRANS-07: Search bar placeholder reads "Search transactions" — v3.1
+- ✓ TRANS-08: Category filter includes debt-linked categories — v3.1
+- ✓ DESK-01: Desktop nav bar sticky when scrolling — v3.1
+- ✓ CLEAN-01: Dead one-shot getBoundingClientRect() removed from dashboard.js — v3.1
+- ✓ PERF-01: app:refresh fires at most one render pass per module on expense toggle — v3.1
+- ✓ RECON-01: Legacy Transactions tab buttons audited and resolved — v3.1
+- ✓ RECON-02: No broken/dead-end buttons in Transactions tab — v3.1
 
 ### Active
 
-_(None — all v3.0 requirements shipped. Add v3.1 requirements here.)_
+_(None — all v3.1 requirements shipped. Add v3.2 requirements here.)_
 
 ### Out of Scope
 
@@ -106,13 +137,22 @@ _(None — all v3.0 requirements shipped. Add v3.1 requirements here.)_
 | `_boundClickHandler` remove-then-add in `income-sources.js` | 40-05 | ✓ Good | Prevents listener accumulation without module-level flags |
 | Decimal phase numbering (39.1, 40) for inserted phases | v3.0 | ✓ Good | Clear insertion semantics; no phase renumbering required |
 | Yolo mode throughout v3.0 | v3.0 | ✓ Good | 5-day delivery from baseline; no blocking confirmation gates |
+| ResizeObserver for --header-height (runtime measurement) | 40 | ✓ Good | Accommodates cloud-sync button injection without breaking month-nav alignment |
+| behavior:instant for tab scroll reset | 40 | ✓ Good | Prevents jarring animation during content change |
+| .nav-container moved to direct body child | 41 | ✓ Good | Eliminates CSS fixed-position containment trap; JS ID lookups unaffected |
+| width:100vw on .nav-container/.tabs to bypass containment | 42 | ✓ Good | Simpler fix than restructuring; resolves Payoff tab button width expansion |
+| generateHistoricalSchedule pure JS amortisation | 43 | ✓ Good | No DOM dependency; easily testable; reuses finance.js integer-pence math |
+| _boundClickHandler remove-then-add pattern (income-sources) | 44 | ✓ Good | Prevents listener accumulation without module-level flags |
+| Explicit transactionUI.render() replacing app:refresh dispatch | 48 | ✓ Good | Eliminates double-render; clearer data flow; more predictable than event bus |
+| Remove Mark All As Paid + Trigger Recurrence buttons | 49 | ✓ Good | Audit confirmed both were non-functional; removal reduces UI debt |
 
 ## Context
 
-Shipped v3.0 with ~29,600 LOC (JS + CSS), 715 tests, in 5 days.
-All P0 requirements delivered. P1 requirements mostly delivered; TECH-04 coverage partially deferred.
-Tab structure: Dashboard → Transactions (merged IN/OUT + dual heatmaps) → Income → Debts → Payoff → Assets → Childcare → Settings.
-The "Income Sources" tab (data-tab="income-sources", labelled "Pay Sources" in nav) feeds directly into the affordability engine.
+Shipped v3.1 with ~32,000 LOC (JS + CSS), 236 files changed, in 5 days (Phases 40–49).
+31/31 requirements delivered. Known tech debt: Chart.js compositing jank on mobile nav (accepted), minor Nyquist compliance gaps, INCOME-06/09 doc gap.
+Tab structure: Dashboard → Transactions (merged IN/OUT + dual heatmaps + sort/filter) → Income (cards + modal) → Debts (history modal) → Payoff → Assets → Childcare → Settings.
+Income source cards now editable from modal; confirmed income entries can be unconfirmed.
+Desktop nav is sticky. Legacy broken buttons removed. app:refresh render coordination improved.
 
 ---
-*Last updated: 2026-03-18 after v3.0 milestone*
+*Last updated: 2026-03-23 after v3.1 milestone*

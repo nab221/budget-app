@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Budget Console</title>
     <link rel="icon" type="image/png" href="/icons/icon-192.png">
     <link rel="stylesheet" href="/css/main.css">
@@ -97,7 +97,7 @@
             </div>
 
             <!-- Income Heatmap Section -->
-            <div class="card" id="incomeHeatmapSection" style="margin-bottom: 20px; overflow-x: auto; -webkit-overflow-scrolling: touch;">
+            <div class="card" id="incomeHeatmapSection" style="margin-bottom: 20px; overflow-x: auto;">
               <div class="card-hd">
                 <h3 class="chart-title">Income Heatmap</h3>
               </div>
@@ -110,7 +110,7 @@
             </div>
 
             <!-- Spending Heatmap Section -->
-            <div class="card" id="spendingHeatmapSection" style="margin-bottom: 20px; overflow-x: auto; -webkit-overflow-scrolling: touch;">
+            <div class="card" id="spendingHeatmapSection" style="margin-bottom: 20px; overflow-x: auto;">
               <div class="card-hd">
                 <h3 class="chart-title">Spending Heatmap</h3>
               </div>
@@ -129,7 +129,7 @@
             <div id="incMonthPicker" class="month-nav" style="margin-bottom:20px"></div>
 
             <!-- Income Heatmap -->
-            <div class="card" id="transactionsIncomeHeatmapSection" style="margin-bottom: 20px; overflow-x: auto; -webkit-overflow-scrolling: touch;">
+            <div class="card" id="transactionsIncomeHeatmapSection" style="margin-bottom: 20px; overflow-x: auto;">
               <div class="card-hd"><h3 class="chart-title">Income Heatmap</h3></div>
               <div class="chart-container" style="padding: 15px; min-width: 800px; border-bottom: none">
                 <div id="transactionsIncomeHeatmapContainer" class="privacy-blur"></div>
@@ -137,7 +137,7 @@
               <div class="hint" style="padding: 0 15px 15px; font-size: 0.7rem; color: var(--text-soft)">Grey means no income. Greener and darker cells indicate higher daily income.</div>
             </div>
             <!-- Spending Heatmap -->
-            <div class="card" id="transactionsSpendingHeatmapSection" style="margin-bottom: 20px; overflow-x: auto; -webkit-overflow-scrolling: touch;">
+            <div class="card" id="transactionsSpendingHeatmapSection" style="margin-bottom: 20px; overflow-x: auto;">
               <div class="card-hd"><h3 class="chart-title">Spending Heatmap</h3></div>
               <div class="chart-container" style="padding: 15px; min-width: 800px; border-bottom: none">
                 <div id="transactionsSpendingHeatmapContainer" class="privacy-blur"></div>
@@ -154,19 +154,13 @@
 
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:10px">
               <div style="display:flex; gap:8px; flex-wrap:wrap">
-                <button id="addIncBtn" class="primary">+ Add Income</button>
-                <button id="addExpenseBtn" class="primary">+ Add Expense</button>
-                <button id="toggleIncReconBtn" class="ghost sm">🔍 Reconciliation Mode</button>
-                <button id="toggleExpReconBtn" class="ghost sm">🔍 Expense Recon</button>
-                <div id="markAllPaidRow">
-                  <button id="markAllPaidBtn" class="ghost sm">✓ Mark all as paid</button>
-                </div>
-                <button id="triggerRecurrenceBtn" class="ghost sm">🔁 Trigger Recurrence</button>
+                <button id="addTransBtn" class="primary">+ Add</button>
+                <button id="sortOrderBtn" class="ghost sm">&#x2193; Newest First</button>
               </div>
 
               <!-- Search Bar & Category Filter -->
               <div style="display:flex; gap:8px; align-items:center">
-                <input type="text" id="incSearch" placeholder="Search income..." style="font-size:.8rem; width:180px"/>
+                <input type="text" id="incSearch" placeholder="Search transactions" style="font-size:.8rem; width:180px"/>
                 <div id="incCategoryFilterContainer">
                   <!-- Filter injected by transactions.js -->
                 </div>
@@ -174,7 +168,6 @@
             </div>
             <!-- Expense Filters -->
             <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:6px">
-              <input type="text" id="expSearch" placeholder="Search expenses..." style="font-size:.8rem; width:180px"/>
               <div id="expCategoryFilterContainer"></div>
               <div id="expReconHeader" class="card hidden" style="margin-top:8px; background:var(--bg-alt); border: 2px solid var(--danger);">
                 <!-- Injected by expenses.js -->

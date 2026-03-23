@@ -52,17 +52,6 @@ function normalizeMonth(value) {
  * Initialize Dashboard UI listeners and first render.
  */
 export async function initDashboard() {
-  // Phase 36: Measure the real rendered header height and set --header-height CSS variable.
-  // This drives both the desktop sticky top and the mobile fixed top for the navigator shell,
-  // ensuring it sits exactly below the header regardless of font size or toolbar wrapping.
-  const headerEl = document.querySelector('header');
-  if (headerEl) {
-    const headerH = Math.ceil(headerEl.getBoundingClientRect().height);
-    if (headerH > 0) {
-      document.documentElement.style.setProperty('--header-height', `${headerH}px`);
-    }
-  }
-
   // Phase 36: Replace legacy viewSelect with accessible segmented control.
   // Fallback: also support legacy viewSelect if present (e.g. during tests or cached HTML).
   const segMount = document.getElementById('dashboardViewSegmentedControl');

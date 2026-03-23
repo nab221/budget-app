@@ -199,14 +199,11 @@ describe('dashboard view-toggle: fallback seam safety', () => {
     expect(src).toContain('if (segMount)');
   });
 
-  it('dashboard.js measures header height and sets --header-height CSS variable at init time', () => {
+  it('dashboard.js does NOT contain the dead getBoundingClientRect header-height block (removed in Phase 47)', () => {
     const dashPath = path.resolve(process.cwd(), 'src/ui/dashboard.js');
     const src = fs.readFileSync(dashPath, 'utf8');
-    // Must read header element and call getBoundingClientRect
-    expect(src).toContain('querySelector(\'header\')');
-    expect(src).toContain('getBoundingClientRect');
-    // Must set --header-height on documentElement
-    expect(src).toContain('--header-height');
-    expect(src).toContain('setProperty');
+    // Phase 47 CLEAN-01: the one-shot getBoundingClientRect block was removed.
+    // The ResizeObserver in app.js is now the sole writer of --header-height.
+    expect(src).not.toContain('getBoundingClientRect');
   });
 });

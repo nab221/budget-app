@@ -24,6 +24,7 @@ export const transactionUI = {
   searchQuery: '',
   selectedCategories: [], // Filter categories
   reconciliationMode: false,
+  sortOrder: 'desc', // 'desc' = newest first, 'asc' = oldest first
   // Swipe gesture state — swipe is additive for touch users; keyboard/mouse users use inline buttons
   _swipeInstances: [],
   currentOpenRow: null,
@@ -62,16 +63,24 @@ export const transactionUI = {
    * Set up event listeners for income management.
    */
   setupEventListeners() {
-    // Toggle Add Income Form
-    const addBtn = document.getElementById('addIncBtn');
-    if (addBtn) {
-      addBtn.onclick = () => this.openForm();
-    }
+    // Unified Add button — opens type selector modal
+    const addTransBtn = document.getElementById('addTransBtn');
+    if (addTransBtn) addTransBtn.onclick = () => this.openAddTypeModal();
 
     // Toggle Reconciliation Mode
     const reconBtn = document.getElementById('toggleIncReconBtn');
     if (reconBtn) {
       reconBtn.onclick = () => this.toggleReconciliationMode();
+    }
+
+    // Sort Order Toggle
+    const sortOrderBtn = document.getElementById('sortOrderBtn');
+    if (sortOrderBtn) {
+      sortOrderBtn.onclick = () => {
+        this.sortOrder = this.sortOrder === 'desc' ? 'asc' : 'desc';
+        sortOrderBtn.textContent = this.sortOrder === 'asc' ? '\u2191 Oldest First' : '\u2193 Newest First';
+        this.render();
+      };
     }
 
     // Search Input
@@ -145,6 +154,25 @@ export const transactionUI = {
       }
     };
   },
+
+  /**
+   * Shows a modal letting the user choose whether to add Income or Expense.
+   */
+  openAddTypeModal() {
+    const content = safeHTML`
+      <p style="margin-bottom:16px">What would you like to add?</p>
+      <div style="display:flex;gap:12px;flex-direction:column">
+        <button class="primary" onclick="transactionUI._addIncome()">+ Income</button>
+        <button class="primary" onclick="transactionUI._addExpense()">+ Expense</button>
+      </div>
+    `;
+    modalUI.show('Add Transaction', content, [
+      { label: 'Cancel', className: 'ghost', onClick: () => modalUI.close() }
+    ]);
+  },
+
+  _addIncome() { modalUI.close(); this.openForm(); },
+  _addExpense() { modalUI.close(); window.expensesUI?.openForm(); },
 
   /**
    * Toggles reconciliation mode.
@@ -339,7 +367,10 @@ export const transactionUI = {
       displayDate: i.date, displayLabel: i.note
     }));
     return [...incomeRows, ...recurrentRows, ...oneOffRows]
-      .sort((a, b) => (b.displayDate || '').localeCompare(a.displayDate || ''));
+      .sort((a, b) => {
+        const cmp = (b.displayDate || '').localeCompare(a.displayDate || '');
+        return this.sortOrder === 'asc' ? -cmp : cmp;
+      });
   },
 
   async renderMonthPicker() {
@@ -369,12 +400,50 @@ export const transactionUI = {
     `;
   },
 
+  handleCategoryChange(checkbox) {
+    const catId = checkbox.value;
+    if (checkbox.checked) {
+      if (!this.selectedCategories.includes(catId)) {
+        this.selectedCategories = [...this.selectedCategories, catId];
+      }
+    } else {
+      this.selectedCategories = this.selectedCategories.filter(id => id !== catId);
+    }
+    this.render();
+  },
+
+  clearCategoryFilter() {
+    this.selectedCategories = [];
+    this.render();
+  },
+
   async renderCategoryFilter() {
     const container = document.getElementById('incCategoryFilterContainer');
     if (!container) return;
 
-    const categories = await categoryRepository.getCategories();
-    const incomeCats = categories.filter(c => c.group === 'income');
+    const [categories, incomeItems, recurrentItems, oneOffItems] = await Promise.all([
+      categoryRepository.getCategories(),
+      incomeRepository.getByMonth(this.currentMonth),
+      recurrentExpenseRepository.getByMonth(this.currentMonth),
+      oneOffExpenseRepository.getByMonth(this.currentMonth),
+    ]);
+
+    // Collect category IDs used by transactions in the current month
+    const usedCategoryIds = new Set();
+    for (const item of incomeItems) {
+      if (item.categoryId != null) usedCategoryIds.add(String(item.categoryId));
+    }
+    for (const item of recurrentItems) {
+      if ((item.nextDate || item.date || '').startsWith(this.currentMonth) && item.categoryId != null) {
+        usedCategoryIds.add(String(item.categoryId));
+      }
+    }
+    for (const item of oneOffItems) {
+      if (item.categoryId != null) usedCategoryIds.add(String(item.categoryId));
+    }
+
+    // Only show non-system categories that have at least one transaction this month
+    const activeCats = categories.filter(c => c.group !== 'system' && usedCategoryIds.has(String(c.id)));
 
     container.innerHTML = safeHTML`
       <div class="custom-select" style="position:relative">
@@ -383,10 +452,12 @@ export const transactionUI = {
         </button>
         <div id="incCategoryDropdown" class="card" style="display:none; position:absolute; top:100%; right:0; z-index:100; min-width:200px; padding:12px; margin-top:5px; box-shadow: var(--shadow); border: 1px solid var(--border); background: var(--bg-card)">
           <div style="max-height: 200px; overflow-y: auto; margin-bottom: 10px">
-            ${incomeCats.map(c => `
+            ${activeCats.length === 0
+              ? `<div style="font-size:.75rem; color:var(--text-muted); padding:4px 0">No categories this month</div>`
+              : activeCats.map(c => `
               <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px">
-                <input type="checkbox" id="inc-filter-cat-${c.id}" value="${c.id}" 
-                  ${this.selectedCategories.includes(c.id) ? 'checked' : ''}
+                <input type="checkbox" id="inc-filter-cat-${c.id}" value="${c.id}"
+                  ${this.selectedCategories.includes(String(c.id)) ? 'checked' : ''}
                   onchange="transactionUI.handleCategoryChange(this)"/>
                 <label for="inc-filter-cat-${c.id}" style="font-size:.75rem; margin:0; cursor:pointer; color:var(--text)">${c.name}</label>
               </div>
@@ -422,10 +493,14 @@ export const transactionUI = {
     // Build merged rows
     const allMerged = this._buildMergedRows(allIncomeItems, recurrentItems, allOneOffItems);
 
-    // Apply search filter across displayLabel fields
-    const filtered = this.searchQuery
-      ? allMerged.filter(item => (item.displayLabel || '').toLowerCase().includes(this.searchQuery.toLowerCase()))
-      : allMerged;
+    // Apply search and category filter using filterTransactions utility
+    const filtered = filterTransactions(
+      allMerged,
+      this.searchQuery,
+      this.selectedCategories,
+      ['displayLabel'],
+      catMap
+    );
 
     // Calculate totals from filtered items
     const incomeTotal = filtered.filter(r => r._rowType === 'income').reduce((sum, i) => sum + i.amount, 0);
@@ -467,18 +542,11 @@ export const transactionUI = {
               ${item.categoryId ? `<span class="tag" style="margin-left:6px">${catMap[item.categoryId]}</span>` : ''}
               ${isReconciled ? `<span class="pill" style="background:var(--success); color:#fff; font-size:0.65rem; margin-left:6px">&#x2713; Reconciled</span>` : ''}
             </td>
-            <td class="r"><span class="privacy-blur">${formatGBP(item.amount)}</span></td>
+            <td class="r"><span class="privacy-blur">+${formatGBP(item.amount)}</span></td>
             <td class="r col-actions">
-              ${this.reconciliationMode ? `
-                <div style="display:flex; align-items:center; justify-content:flex-end; gap:8px">
-                  <label style="font-size:0.75rem; color:var(--text-soft)">Cleared:</label>
-                  <input type="checkbox" ${isCleared ? 'checked' : ''} ${isReconciled ? 'disabled' : ''}
-                    onclick="toggleIncCleared(${item.id}, ${isCleared})"/>
-                </div>
-              ` : `
-                <button class="sm ghost btn-edit" ${isReconciled ? 'disabled title="Reconciled items cannot be edited"' : ''} onclick="transactionUI._handleEdit(${item.id})">Edit</button>
-                <button class="sm danger btn-delete" ${isReconciled ? 'disabled title="Reconciled items cannot be deleted"' : ''} onclick="transactionUI._handleDelete(${item.id})">&#x2715;</button>
-              `}
+              <button class="sm ghost"
+                onclick="document.querySelector('[data-tab=\\'income-sources\\']').click()"
+                title="Go to Income Sources">&#x2197; Income</button>
             </td>
           </tr>
         `;
@@ -499,9 +567,17 @@ export const transactionUI = {
               ${item.categoryId ? `<span class="tag" style="margin-left:6px">${catMap[item.categoryId]}</span>` : ''}
               ${isDebt ? `<span class="pill" style="background:var(--info,#2563eb);color:#fff;font-size:0.65rem;margin-left:6px">Debt</span>` : ''}
             </td>
-            <td class="r"><span class="privacy-blur">${formatGBP(item.amount)}</span></td>
+            <td class="r"><span class="privacy-blur">\u2212${formatGBP(item.amount)}</span></td>
             <td class="r col-actions">
-              ${isDebt ? '' : `
+              ${isDebt ? `
+                <button class="sm ghost"
+                  onclick="document.querySelector('[data-tab=\\'debts\\']').click()"
+                  title="Go to Debts">&#x2197; Debt</button>
+              ` : `
+                <button class="sm ${item.status === 'paid' ? 'success' : 'ghost'} btn-mark-paid"
+                  onclick="window.toggleExpenseStatus(${item.id}, '${item.type}', '${item.status || 'pending'}')">
+                  ${item.status === 'paid' ? '&#x2713; Paid' : 'Mark Paid'}
+                </button>
                 <button class="sm ghost btn-edit" onclick="window.expensesUI?.editExpense(${item.id}, '${item.type}')">Edit</button>
                 <button class="sm danger btn-delete" onclick="window.deleteExpense(${item.id}, '${item.type}')">&#x2715;</button>
               `}

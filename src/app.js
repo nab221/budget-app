@@ -120,6 +120,21 @@ async function init() {
     refreshPersistenceWarning()
   ]);
 
+  // Dynamic header height — keeps --header-height accurate when cloud-sync injects buttons
+  const _headerEl = document.querySelector('header');
+  if (_headerEl) {
+    new ResizeObserver(entries => {
+      const h = Math.round(entries[0].contentRect.height);
+      document.documentElement.style.setProperty('--header-height', `${h}px`);
+    }).observe(_headerEl);
+  }
+
+  // Scroll shadow — adds/removes .scrolled class on header as user scrolls
+  window.addEventListener('scroll', () => {
+    document.querySelector('header')
+      ?.classList.toggle('scrolled', window.scrollY > 0);
+  }, { passive: true });
+
   // 1. Define Global App Object
   window.app = { 
     renderAll: async () => {
@@ -209,6 +224,8 @@ async function init() {
         }
       }
 
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      document.querySelector('header')?.classList.remove('scrolled');
       await window.app.renderAll();
     });
   }

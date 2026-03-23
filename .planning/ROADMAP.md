@@ -2,53 +2,54 @@
 
 ## Milestones
 
-- ✅ **v1.0** — Foundation (Phases 1–4, shipped)
-- ✅ **v2.0** — Debt Tracking & Payoff (shipped)
-- ✅ **v2.3** — Advanced Analytics & Mobile Polish (shipped 2026-03-07)
-- ✅ **v2.4** — UX Polish & Spending Insights (shipped 2026-03-07)
-- ✅ **v2.5** — Debt Tab UX Overhaul (shipped 2026-03-08)
-- ✅ **v2.6** — Dashboard Invariants & Technical Polish (shipped 2026-03-11)
-- ✅ **v2.7** — Cloud-First Sync & UX Refinement (shipped 2026-03-12)
-- ✅ **v3.0** — Budget Planning Core Redesign (Phases 27–40, shipped 2026-03-18)
-- 📋 **v3.1** — (planned — start with `/gsd:new-milestone`)
+- ✅ **v3.0 Budget Planning Core Redesign** — Phases 27–39 (shipped 2026-03-18)
+- ✅ **v3.1 UX Fixes** — Phases 40–49 (shipped 2026-03-23)
+- 📋 **v3.2** — TBD (planned)
 
-## Phases
+---
 
 <details>
-<summary>✅ v3.0 Budget Planning Core Redesign (Phases 27–40) — SHIPPED 2026-03-18</summary>
+<summary>✅ v3.0 Budget Planning Core Redesign (Phases 27–39) — SHIPPED 2026-03-18</summary>
 
-- [x] Phase 27: Critical Bug Fixes, Cloud-Sync Hardening & Data Integrity (5/5 plans) — completed 2026-03-14
-- [x] Phase 28: Mobile Navigation Overhaul (3/3 plans) — completed 2026-03-14
-- [x] Phase 29: Mobile Table & Interaction Fixes (2/2 plans) — completed 2026-03-15
-- [x] Phase 30: Magic Link PWA / Auth Fix (1/1 plan) — completed 2026-03-15
-- [x] Phase 31: Banking Calendar Utility & Recurrence Upgrade (2/2 plans) — completed 2026-03-15
-- [x] Phase 32: Debt Model Refactor — Loans & Mortgage (2/2 plans) — completed 2026-03-15
-- [x] Phase 33: Income & Spending Configuration (1/1 plan) — completed 2026-03-16
-- [x] Phase 34: Pay-Period Affordability Engine (1/1 plan) — completed 2026-03-16
-- [x] Phase 35: Childcare Top-Up Planner (1/1 plan) — completed 2026-03-16
-- [x] Phase 36: Navigator & View Toggle Redesign (1/1 plan) — completed 2026-03-16
-- [x] Phase 37: Cloud Snapshot Delta Preview (1/1 plan) — completed 2026-03-16
-- [x] Phase 38: GitHub Actions Node.js 24 & Technical Hygiene (1/1 plan) — completed 2026-03-16
-- [x] Phase 39: v3.0 Milestone Verification & Polish (automated checks passed; manual verification deferred)
-- [x] Phase 39.1: Income Sources Tab (3/3 plans) — completed 2026-03-17
-- [x] Phase 40: Redesign Income and Transactions Tab Structure (6/6 plans) — completed 2026-03-18
-
-Full archive: `.planning/milestones/v3.0-ROADMAP.md`
+Phases 27–39 archived to `.planning/milestones/v3.0-phases/`
 
 </details>
 
-### 📋 v3.1 (Planned)
+<details>
+<summary>✅ v3.1 UX Fixes (Phases 40–49) — SHIPPED 2026-03-23</summary>
 
-_Start planning: `/gsd:new-milestone`_
+- [x] Phase 40: Sticky Header & Month Navigator (2/2 plans) — completed 2026-03-19
+- [x] Phase 41: Bottom Nav Consistency & iOS Safe Area (4/4 plans) — completed 2026-03-20
+- [x] Phase 42: Tab Button Uniformity (3/3 plans) — completed 2026-03-20
+- [x] Phase 43: Debt History Modal (4/4 plans) — completed 2026-03-20
+- [x] Phase 44: Income Tab Cards (4/4 plans) — completed 2026-03-21
+- [x] Phase 45: Transactions Tab Fixes (5/5 plans) — completed 2026-03-22
+- [x] Phase 46: Income Card Edit/Delete/Unconfirm (3/3 plans) — completed 2026-03-22
+- [x] Phase 47: Desktop Nav Sticky + Dead Code Removal (1/1 plan) — completed 2026-03-22
+- [x] Phase 48: app:refresh Double-Render Fix (2/2 plans) — completed 2026-03-22
+- [x] Phase 49: Reconciliation Mode & Legacy Button Audit (2/2 plans) — completed 2026-03-22
+
+Full archive: `.planning/milestones/v3.1-ROADMAP.md`
+
+</details>
+
+---
+
+## 📋 v3.2 (Planned)
+
+_Next milestone to be defined. Run `/gsd:new-milestone` to start._
 
 ## Progress
 
-| Milestone | Phases | Status | Shipped |
-|-----------|--------|--------|---------|
-| v1.0 | 1–4 | ✅ Complete | — |
-| v2.0–v2.7 | 5–26 | ✅ Complete | 2026-03-12 |
-| v3.0 | 27–40 | ✅ Complete | 2026-03-18 |
-| v3.1 | TBD | 📋 Planned | — |
-
----
-*Last updated: 2026-03-18 — v3.0 shipped*
+| Phase | Milestone | Plans Complete | Status   | Completed  |
+|-------|-----------|----------------|----------|------------|
+| 40. Sticky Header & Month Navigator | v3.1 | 2/2 | Complete | 2026-03-19 |
+| 41. Bottom Nav Consistency & iOS Safe Area | v3.1 | 4/4 | Complete | 2026-03-20 |
+| 42. Tab Button Uniformity | v3.1 | 3/3 | Complete | 2026-03-20 |
+| 43. Debt History Modal | v3.1 | 4/4 | Complete | 2026-03-20 |
+| 44. Income Tab Cards | v3.1 | 4/4 | Complete | 2026-03-21 |
+| 45. Transactions Tab Fixes | v3.1 | 5/5 | Complete | 2026-03-22 |
+| 46. Income Card Edit/Delete/Unconfirm | v3.1 | 3/3 | Complete | 2026-03-22 |
+| 47. Desktop Nav Sticky + Dead Code Removal | v3.1 | 1/1 | Complete | 2026-03-22 |
+| 48. app:refresh Double-Render Fix | v3.1 | 2/2 | Complete | 2026-03-22 |
+| 49. Reconciliation Mode & Legacy Button Audit | v3.1 | 2/2 | Complete | 2026-03-22 |
