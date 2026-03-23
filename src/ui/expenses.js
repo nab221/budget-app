@@ -157,15 +157,6 @@ export const expensesUI = {
       reconBtn.onclick = () => this.toggleReconciliationMode();
     }
 
-    // Search Input
-    const searchInput = document.getElementById('expSearch');
-    if (searchInput) {
-      searchInput.oninput = (e) => {
-        this.searchQuery = e.target.value;
-        this.render();
-      };
-    }
-
     // Mark all as paid
     const markAllBtn = document.getElementById('markAllPaidBtn');
     if (markAllBtn) {
