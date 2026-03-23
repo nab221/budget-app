@@ -1,4 +1,29 @@
 # Milestones
+## v3.1 UX Fixes (Shipped: 2026-03-23)
+
+**Phases completed:** 10 phases (40–49), 30 plans
+**Timeline:** 2026-03-19 → 2026-03-23 (5 days)
+**Codebase:** ~32,000 LOC JS | 236 files changed | 19,926 lines added
+**Requirements:** 31/31 satisfied
+
+**Key accomplishments:**
+- Sticky header on all 8 tabs via ResizeObserver + CSS custom property; scroll shadow; month-nav anchored correctly below header
+- Fixed mobile bottom nav with iOS safe-area (`viewport-fit=cover`; `env(safe-area-inset-bottom)`); PWA update bar correctly stacked above nav
+- Uniform tab button dimensions — CSS containment trap bypassed with `width:100vw` on `.nav-container`
+- Loan/mortgage payment history modal with expected date list, paid confirmation, and per-entry amount adjustment
+- Income source cards with confirm/reschedule/adjust modal; Edit/Delete and unconfirm for confirmed entries; broken card buttons fixed
+- Full Transactions tab overhaul: mark-as-paid, confirm-income, unified Add button, sort toggle, ±prefix, search placeholder fix, full category filter
+- `app:refresh` double-render eliminated on expense status toggle; legacy reconciliation/mark-all-paid/trigger-recurrence buttons audited and removed
+
+### Known Tech Debt
+- Mobile nav minor jank on Transactions/Payoff tabs (Chart.js canvas + swipe compositing — accepted)
+- `app:refresh` listener redundancy for non-hot dispatch paths (structural but idempotent)
+- Dead `getElementById` guards in `expenses.js:169–190` (zero runtime impact, cleanup candidate)
+- INCOME-06/09 implemented and verified but not in REQUIREMENTS.md traceability table (doc gap only)
+- Nyquist compliance incomplete on phases 41–49
+
+---
+
 ## v3.0 Budget Planning Core Redesign (Shipped: 2026-03-18)
 
 **Phases completed:** Phases 27–40 (with 39.1 and 40), 30 plans complete

@@ -2,33 +2,32 @@
 gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: UX Fixes
-status: verifying
-stopped_at: Completed Quick 01 — removed Reconciliation Mode button and expSearch from Transactions tab
-last_updated: "2026-03-23T06:13:25.051Z"
-last_activity: 2026-03-23 - Completed quick task 1: Remove Reconciliation mode, remove legacy expSearch input, add Subscriptions todo
+status: complete
+stopped_at: v3.1 milestone archived — planning next milestone
+last_updated: "2026-03-23T00:00:00.000Z"
+last_activity: 2026-03-23 — v3.1 milestone complete; archived to milestones/v3.1-*
 progress:
   total_phases: 10
   completed_phases: 10
   total_plans: 30
   completed_plans: 30
-  percent: 88
+  percent: 100
 ---
 
 ## Current Position
 
-Phase: 46 of 46 (Income Card Edit/Delete/Unconfirm) — Complete
-Plan: 3 of 3 complete in current phase (46-01, 46-02, 46-03 done)
-Status: Phase 46 complete — INCOME-06, INCOME-07, INCOME-08, INCOME-09 all verified in live browser
-Last activity: 2026-03-22 — 46-03 complete; INCOME-06..09 human-verified; Phase 46 done
+Milestone v3.1 UX Fixes — COMPLETE (shipped 2026-03-23)
+All 10 phases (40–49), 30 plans, 31 requirements delivered.
+Next: `/gsd:new-milestone` to plan v3.2
 
-Progress: [█████████░] 88%
+Progress: [██████████] 100%
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-18)
+See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core value:** Based on my current account balance and all upcoming committed outgoings, tell me what I can afford to pay extra toward my debts between now and my next payday.
-**Current focus:** Phase 41 — Bottom Nav Consistency & iOS Safe Area
+**Current focus:** Planning next milestone (v3.2)
 
 ## Accumulated Context
 
