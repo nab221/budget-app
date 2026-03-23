@@ -104,6 +104,12 @@ See: .planning/PROJECT.md (updated 2026-03-18)
   3. Header collapses differently on Dashboard vs Transactions — inconsistent sticky-header behaviour
   4. Auto-save UI (cloud-sync button, traffic-light) visible on mobile — must be hidden on mobile to preserve header space; local storage does not function on mobile
 
+## Todos / Future Backlog
+
+- [Reconciliation Mode] Reconciliation Mode button removed from UI (Quick 01). The JS logic in transactions.js (toggleReconciliationMode, reconciliationMode state) and expenses.js is intentionally preserved. Needs proper re-implementation in a future milestone with correct UX design.
+
+- [Subscriptions Debt Type] Future milestone idea: a "Subscriptions" debt type where each subscription is a card showing stats such as monthly cost, annual cost, renewal date, etc. Currently users work around this by adding subscriptions as recurrent transactions.
+
 ## Session Continuity
 
 Last session: 2026-03-22T23:10:33.434Z
