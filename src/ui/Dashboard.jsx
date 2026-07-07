@@ -3,6 +3,7 @@ import { useLiveData } from '../db/useLiveData.js';
 import { gatherPlanData } from '../db/planData.js';
 import { buildPlan } from '../engine/plan.js';
 import { settings } from '../db/settings.js';
+import { recurringBillsRepo, transactionsRepo } from '../db/repositories.js';
 import BalanceStrip from './dashboard/BalanceStrip.jsx';
 import PayPeriodPanel from './dashboard/PayPeriodPanel.jsx';
 import ThisMonthPanel from './dashboard/ThisMonthPanel.jsx';
@@ -20,9 +21,21 @@ export default function Dashboard() {
     const now = new Date();
     const planData = await gatherPlanData(now);
     const balanceAsOf = await settings.getBalanceAsOf();
+    const plan = buildPlan(planData, offset);
+    // Bill-confirmation support (Phase 4): the repo bills (pounds edge) power
+    // the "Mark paid" affordance, and the already-confirmed bill-source
+    // transactions inside the period show as paid rows.
+    const [bills, paidBillTxns] = await Promise.all([
+      recurringBillsRepo.getAll(),
+      plan.hasPeriod
+        ? transactionsRepo.billPaymentsBetween(plan.periodStart, plan.periodEnd)
+        : Promise.resolve([]),
+    ]);
     return {
       now,
-      plan: buildPlan(planData, offset),
+      plan,
+      bills,
+      paidBillTxns,
       currentBalancePence: planData.settings.currentBalancePence,
       balanceAsOf,
     };
@@ -51,7 +64,13 @@ export default function Dashboard() {
         now={data.now}
       />
 
-      <PayPeriodPanel plan={data.plan} offset={offset} onOffsetChange={setOffset} />
+      <PayPeriodPanel
+        plan={data.plan}
+        offset={offset}
+        onOffsetChange={setOffset}
+        bills={data.bills}
+        paidBillTxns={data.paidBillTxns}
+      />
 
       <ThisMonthPanel />
     </div>

@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useLiveData } from '../../db/useLiveData.js';
 import { recurringBillsRepo, categoriesRepo } from '../../db/repositories.js';
+import { confirmBillPayment } from '../../db/billConfirmation.js';
 import Money from '../components/Money.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import ConfirmDialog from '../components/ConfirmDialog.jsx';
 import RecurringBillForm from './RecurringBillForm.jsx';
+import MarkPaidControl from './MarkPaidControl.jsx';
 
 const FREQ_LABEL = { monthly: 'Monthly', quarterly: 'Quarterly', annual: 'Annual' };
 
@@ -20,6 +22,8 @@ export default function RecurringBills() {
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [payingId, setPayingId] = useState(null);
+  const [notice, setNotice] = useState(null);
 
   const bills = data?.bills ?? [];
   const categories = data?.categories ?? [];
@@ -40,6 +44,16 @@ export default function RecurringBills() {
   };
   const toggleActive = (b) => recurringBillsRepo.update(b.id, { active: !b.active });
 
+  const markPaid = async (bill, amountPounds) => {
+    const result = await confirmBillPayment(bill, bill.nextDueDate, { amountPounds });
+    setPayingId(null);
+    setNotice(
+      result.created
+        ? `Marked "${bill.label}" paid for ${bill.nextDueDate}. Next due ${result.nextDueDate}.`
+        : `"${bill.label}" was already marked paid for ${bill.nextDueDate}.`
+    );
+  };
+
   return (
     <section className="subsection">
       <div className="subsection__head">
@@ -50,6 +64,20 @@ export default function RecurringBills() {
           </button>
         )}
       </div>
+
+      {notice && (
+        <div className="banner banner--info" role="status">
+          {notice}
+          <button
+            type="button"
+            className="btn btn--sm"
+            onClick={() => setNotice(null)}
+            aria-label="Dismiss"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {adding && (
         <RecurringBillForm
@@ -105,6 +133,28 @@ export default function RecurringBills() {
                     <td>{FREQ_LABEL[b.frequency] ?? b.frequency}</td>
                     <td>{b.nextDueDate}</td>
                     <td className="row-actions">
+                      {b.active && (
+                        payingId === b.id ? (
+                          <MarkPaidControl
+                            label={b.label}
+                            occurrenceDate={b.nextDueDate}
+                            defaultAmountPounds={b.amountPence}
+                            onConfirm={(amountPounds) => markPaid(b, amountPounds)}
+                            onCancel={() => setPayingId(null)}
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn btn--sm btn--primary"
+                            onClick={() => {
+                              setNotice(null);
+                              setPayingId(b.id);
+                            }}
+                          >
+                            Mark paid
+                          </button>
+                        )
+                      )}
                       <button type="button" className="btn btn--sm" onClick={() => toggleActive(b)}>
                         {b.active ? 'Active' : 'Inactive'}
                       </button>

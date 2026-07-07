@@ -887,3 +887,111 @@ body {
 .bt-reco--warn {
   color: var(--danger);
 }
+
+/* ── Phase 4: transactions ledger + bill confirmation ─────────────────────── */
+.banner--info {
+  border-color: var(--accent);
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.txn-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.txn-filters {
+  display: flex;
+  gap: 0.6rem;
+  margin: 0.75rem 0;
+  flex-wrap: wrap;
+}
+.txn-filters .input {
+  max-width: 18rem;
+}
+.field--grow {
+  flex: 1 1 14rem;
+}
+.input--inline {
+  padding: 0.2rem 0.3rem;
+  font-size: 0.85rem;
+}
+
+.amount--income {
+  color: var(--ok);
+  font-variant-numeric: tabular-nums;
+}
+.amount--income .money {
+  color: inherit;
+}
+
+.badge--income {
+  color: var(--ok);
+  border-color: var(--ok);
+}
+.badge--spend {
+  color: var(--muted);
+}
+.badge--source {
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.txn-totals td {
+  font-weight: 600;
+  border-top: 2px solid var(--border);
+}
+
+/* Mark-paid inline control (shared by bills list + pay-period timeline) */
+.markpaid {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+.markpaid .currency-input {
+  max-width: 7rem;
+}
+.markpaid__date {
+  font-size: 0.8rem;
+}
+.payperiod__markpaid {
+  margin-left: 0.5rem;
+}
+
+/* Paid-this-period informational list (does not affect projected balance) */
+.payperiod__paid {
+  margin-top: 0.85rem;
+}
+.payperiod__paid-title {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 0.4rem;
+}
+.payperiod__paid-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.payperiod__paid-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.9rem;
+}
+.payperiod__paid-tick {
+  color: var(--ok);
+  font-weight: 700;
+}
+.payperiod__paid-label {
+  flex: 1 1 auto;
+}

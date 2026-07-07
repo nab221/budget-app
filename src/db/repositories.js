@@ -188,6 +188,38 @@ export const transactionsRepo = {
     const rows = await db.transactions.where('date').startsWith(yyyyMM).toArray();
     return rows.map(this._fromStorage);
   },
+
+  /**
+   * Find an existing bill-confirmation transaction for a given bill + occurrence
+   * date. Used by the confirm flow's idempotent guard. Returns pounds-at-edge or
+   * `null`.
+   * @param {number} billId
+   * @param {string} occurrenceDate - ISO yyyy-MM-dd
+   */
+  async findBillPayment(billId, occurrenceDate) {
+    const rows = await db.transactions
+      .where('date')
+      .equals(occurrenceDate)
+      .filter((t) => t.source === 'bill' && t.billId === billId)
+      .toArray();
+    return rows.length ? this._fromStorage(rows[0]) : null;
+  },
+
+  /**
+   * All bill-confirmation transactions whose date falls in [startInclusive,
+   * endExclusive). Lets the pay-period panel mark paid occurrences without the
+   * plan engine (which never sees transactions) having to know about them.
+   * @param {string} startInclusive - ISO yyyy-MM-dd
+   * @param {string} endExclusive - ISO yyyy-MM-dd
+   */
+  async billPaymentsBetween(startInclusive, endExclusive) {
+    const rows = await db.transactions
+      .where('date')
+      .between(startInclusive, endExclusive, true, false)
+      .filter((t) => t.source === 'bill')
+      .toArray();
+    return rows.map(this._fromStorage);
+  },
 };
 
 export const debtsRepo = {

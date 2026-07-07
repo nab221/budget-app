@@ -54,7 +54,37 @@ import { calcMinPayment, orderDebtsByStrategy } from './finance.js';
 // Date helpers (all comparisons on 'yyyy-MM-dd' strings — lexical order works)
 // ---------------------------------------------------------------------------
 
-const FREQUENCY_MONTHS = { monthly: 1, quarterly: 3, annual: 12 };
+export const FREQUENCY_MONTHS = { monthly: 1, quarterly: 3, annual: 12 };
+
+/**
+ * Number of calendar months in one step of a bill frequency.
+ * `monthly → 1`, `quarterly → 3`, `annual → 12`. Unknown frequencies fall back
+ * to monthly. This is the SINGLE source of truth for frequency stepping — both
+ * the read-time occurrence computation here and `src/db/billConfirmation.js`
+ * (which bumps `nextDueDate` on confirm/unconfirm) go through it, so they can
+ * never drift. Note: do NOT use `recurrence.advanceNextDate` for this — it keys
+ * off `annually` and treats the spec's `annual` as monthly.
+ *
+ * @param {string} frequency
+ * @returns {number}
+ */
+export function frequencyStepMonths(frequency) {
+  return FREQUENCY_MONTHS[frequency] ?? 1;
+}
+
+/**
+ * Advance a 'yyyy-MM-dd' date by `steps` frequency steps (may be negative to
+ * roll backwards). Returns a 'yyyy-MM-dd' string. Shared by plan occurrence
+ * computation and bill confirmation so the two stay consistent.
+ *
+ * @param {string} dateStr - ISO 'yyyy-MM-dd'
+ * @param {string} frequency - 'monthly' | 'quarterly' | 'annual'
+ * @param {number} [steps=1]
+ * @returns {string}
+ */
+export function advanceByFrequency(dateStr, frequency, steps = 1) {
+  return format(addMonths(parseISO(dateStr), frequencyStepMonths(frequency) * steps), 'yyyy-MM-dd');
+}
 
 function fmt(date) {
   return format(date, 'yyyy-MM-dd');
@@ -146,7 +176,7 @@ function billOutgoings(recurringBills, startStr, endStr) {
   for (const bill of recurringBills || []) {
     if (bill.active === false) continue;
     if (!bill.nextDueDate) continue;
-    const stepMonths = FREQUENCY_MONTHS[bill.frequency] ?? 1;
+    const stepMonths = frequencyStepMonths(bill.frequency);
 
     // Advance the nominal cursor to the first occurrence on/after the window
     // start, then step back once so a pre-start nominal that shifts into the
