@@ -10,6 +10,75 @@
  */
 
 /**
+ * TFC government top-up quarterly caps (in pence). The government adds at most
+ * £500 of top-up per 3-month entitlement period per child (£1,000 for a child
+ * who qualifies for the disabled rate).
+ */
+export const TFC_QUARTERLY_CAP_PENCE = 50000; // £500
+export const TFC_QUARTERLY_CAP_DISABLED_PENCE = 100000; // £1,000
+
+/**
+ * Compute the required monthly parent deposit so that
+ *   deposit + 25%-government-top-up  covers the provider cost, after first
+ * spending down the current Tax-Free Childcare account balance.
+ *
+ * This is the pure math behind the Childcare tab's per-child card (spec §4.5).
+ * Everything is integer **pence**; nothing is persisted (computed at read time).
+ *
+ * ── Semantics ──────────────────────────────────────────────────────────────
+ * gap        = max(0, providerCost − balance)          (what still needs funding)
+ * Uncapped, every £4 the parent deposits attracts £1 of government top-up, so
+ * the parent only needs to fund 80% of the gap: deposit = gap × 0.8, top-up =
+ * gap × 0.2, and deposit + top-up === gap.
+ *
+ * The top-up is capped at the remaining quarterly capacity
+ * (`cap − quarterlyTopUpUsed`). When that cap binds, the government contributes
+ * only `remainingCap`; the parent must fund the rest of the gap pound-for-pound,
+ * so `deposit = gap − topUp` still holds. The most the top-up can ever add is
+ * `remainingCap` (reached when the parent deposits `remainingCap × 4`), together
+ * covering `remainingCap × 5` of the gap — anything beyond that is the
+ * `uncoveredByTopUp` remainder surfaced plainly to the user.
+ *
+ * @param {object} args
+ * @param {number} args.providerCostPence      - monthly provider cost (pence).
+ * @param {number} args.balancePence           - current TFC account balance (pence).
+ * @param {boolean} [args.isDisabled=false]    - child qualifies for the disabled cap.
+ * @param {number} [args.quarterlyTopUpUsedPence=0] - top-up already claimed this quarter.
+ * @returns {{ gapPence:number, depositPence:number, topUpPence:number,
+ *   capBound:boolean, uncoveredByTopUpPence:number, remainingCapPence:number }}
+ */
+export function computeRequiredDeposit({
+  providerCostPence,
+  balancePence,
+  isDisabled = false,
+  quarterlyTopUpUsedPence = 0,
+} = {}) {
+  const capForChild = isDisabled ? TFC_QUARTERLY_CAP_DISABLED_PENCE : TFC_QUARTERLY_CAP_PENCE;
+  const remainingCap = Math.max(0, capForChild - Math.max(0, quarterlyTopUpUsedPence || 0));
+
+  const { gap, suggestedDeposit } = calculateFundingGap(
+    Math.max(0, providerCostPence || 0),
+    Math.max(0, balancePence || 0)
+  );
+  // Ideal top-up to cover the whole gap: gap − 80%-deposit == 20% of the gap.
+  const uncappedTopUp = gap - suggestedDeposit;
+
+  const topUpPence = Math.min(uncappedTopUp, remainingCap);
+  const depositPence = gap - topUpPence;
+
+  const uncoveredByTopUpPence = Math.max(0, gap - remainingCap * 5);
+
+  return {
+    gapPence: gap,
+    depositPence,
+    topUpPence,
+    capBound: uncoveredByTopUpPence > 0,
+    uncoveredByTopUpPence,
+    remainingCapPence: remainingCap,
+  };
+}
+
+/**
  * Calculate the government top-up for a given deposit amount.
  *
  * The gov pays 25% of the parent's deposit (i.e., "£2 for every £8", since

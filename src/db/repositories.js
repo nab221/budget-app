@@ -24,6 +24,7 @@
 import { db } from './schema.js';
 import { toPence, fromPence } from '../engine/currency.js';
 import { dispatchMutation } from './events.js';
+import { importHash } from '../engine/import-parse.js';
 
 // ---------------------------------------------------------------------------
 // Base repository
@@ -220,6 +221,25 @@ export const transactionsRepo = {
       .toArray();
     return rows.map(this._fromStorage);
   },
+
+  /**
+   * Build the Set of import-dedup hashes present in the ledger (PDF import,
+   * spec §4.6). Includes each row's stored `importHash` AND a freshly-computed
+   * hash from the raw (date, signed-pence, description) so a manually-entered
+   * row also blocks a re-import of the same transaction. Operates on raw pence
+   * rows — no pounds conversion.
+   * @returns {Promise<Set<string>>}
+   */
+  async importDedupHashes() {
+    const rows = await db.transactions.toArray();
+    const set = new Set();
+    for (const t of rows) {
+      if (t.importHash) set.add(t.importHash);
+      const signed = (t.kind === 'spend' ? -1 : 1) * (t.amountPence || 0);
+      set.add(importHash({ date: t.date, amountPence: signed, description: t.description }));
+    }
+    return set;
+  },
 };
 
 export const debtsRepo = {
@@ -255,7 +275,29 @@ export const debtsRepo = {
 export const childrenRepo = createBaseRepository(
   db.children,
   ['providerMonthlyCostPence', 'tfcBalancePence'],
-  { isDisabled: false }
+  { isDisabled: false, paymentDayOfMonth: 1 }
 );
 
-export const categoryMappingsRepo = createBaseRepository(db.categoryMappings, [], {});
+export const categoryMappingsRepo = {
+  ...createBaseRepository(db.categoryMappings, [], {}),
+
+  /**
+   * Upsert a learned description→category mapping (spec §4.6): if a mapping for
+   * `descriptionKey` already exists, update its `categoryId`; otherwise insert a
+   * new one. `descriptionKey` must already be normalised by the caller.
+   * @param {string} descriptionKey
+   * @param {number} categoryId
+   */
+  async upsert(descriptionKey, categoryId) {
+    const existing = await db.categoryMappings
+      .where('descriptionKey')
+      .equals(descriptionKey)
+      .first();
+    if (existing) {
+      await db.categoryMappings.update(existing.id, { categoryId });
+    } else {
+      await db.categoryMappings.add({ descriptionKey, categoryId });
+    }
+    dispatchMutation();
+  },
+};

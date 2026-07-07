@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateTopUp, getEntitlementPeriod, calculateFundingGap, monthlyEquivalentFromProvider, calculateRequiredTopUp } from './childcare';
+import { calculateTopUp, getEntitlementPeriod, calculateFundingGap, monthlyEquivalentFromProvider, calculateRequiredTopUp, computeRequiredDeposit, TFC_QUARTERLY_CAP_PENCE, TFC_QUARTERLY_CAP_DISABLED_PENCE } from './childcare';
 
 describe('TFC Calculation Utilities', () => {
 
@@ -204,5 +204,81 @@ describe('calculateRequiredTopUp', () => {
   it('floors result at zero (never negative)', () => {
     // balance alone is far more than total
     expect(calculateRequiredTopUp(10000, 100000, 0)).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 5: computeRequiredDeposit (the Childcare-tab per-child math)
+// ---------------------------------------------------------------------------
+describe('computeRequiredDeposit', () => {
+  it('covers a shortfall with an 80/20 split (deposit + top-up === gap)', () => {
+    // cost £500, balance £100 → gap £400. Parent deposits £320, gov adds £80.
+    const r = computeRequiredDeposit({ providerCostPence: 50000, balancePence: 10000 });
+    expect(r.gapPence).toBe(40000);
+    expect(r.depositPence).toBe(32000);
+    expect(r.topUpPence).toBe(8000);
+    expect(r.depositPence + r.topUpPence).toBe(r.gapPence);
+    expect(r.capBound).toBe(false);
+    expect(r.uncoveredByTopUpPence).toBe(0);
+  });
+
+  it('returns a zero deposit when the balance already covers the cost', () => {
+    const r = computeRequiredDeposit({ providerCostPence: 50000, balancePence: 60000 });
+    expect(r.gapPence).toBe(0);
+    expect(r.depositPence).toBe(0);
+    expect(r.topUpPence).toBe(0);
+    expect(r.capBound).toBe(false);
+  });
+
+  it('funds the whole gap from a zero balance (80% deposit, 20% top-up)', () => {
+    const r = computeRequiredDeposit({ providerCostPence: 100000, balancePence: 0 });
+    expect(r.gapPence).toBe(100000);
+    expect(r.depositPence).toBe(80000);
+    expect(r.topUpPence).toBe(20000);
+    expect(r.depositPence + r.topUpPence).toBe(100000);
+  });
+
+  it('binds the £500 standard quarterly cap and surfaces the uncovered remainder', () => {
+    // Huge gap (£3,000) so the ideal 20% top-up (£600) exceeds the £500 cap.
+    const r = computeRequiredDeposit({ providerCostPence: 300000, balancePence: 0 });
+    expect(r.gapPence).toBe(300000);
+    expect(r.topUpPence).toBe(TFC_QUARTERLY_CAP_PENCE); // capped at £500
+    expect(r.depositPence).toBe(300000 - TFC_QUARTERLY_CAP_PENCE); // parent funds the rest
+    expect(r.capBound).toBe(true);
+    // Top-up can cover at most remainingCap*5 = £2,500 of the gap; £500 is left over.
+    expect(r.uncoveredByTopUpPence).toBe(300000 - TFC_QUARTERLY_CAP_PENCE * 5);
+    expect(r.depositPence + r.topUpPence).toBe(r.gapPence);
+  });
+
+  it('uses the higher £1,000 cap for a disabled child', () => {
+    // Gap £3,000: ideal top-up £600 is within the disabled £1,000 cap → not bound.
+    const r = computeRequiredDeposit({
+      providerCostPence: 300000,
+      balancePence: 0,
+      isDisabled: true,
+    });
+    expect(r.remainingCapPence).toBe(TFC_QUARTERLY_CAP_DISABLED_PENCE);
+    expect(r.topUpPence).toBe(60000);
+    expect(r.depositPence).toBe(240000);
+    expect(r.capBound).toBe(false);
+  });
+
+  it('reduces remaining capacity by top-up already used this quarter', () => {
+    // Standard cap £500, already used £480 → only £20 of top-up left.
+    const r = computeRequiredDeposit({
+      providerCostPence: 100000,
+      balancePence: 0,
+      quarterlyTopUpUsedPence: 48000,
+    });
+    expect(r.remainingCapPence).toBe(2000);
+    expect(r.topUpPence).toBe(2000);
+    expect(r.depositPence).toBe(98000);
+    expect(r.capBound).toBe(true); // gap £1,000 > remainingCap*5 = £100
+  });
+
+  it('treats missing/blank inputs as zero (no deposit)', () => {
+    const r = computeRequiredDeposit({});
+    expect(r.gapPence).toBe(0);
+    expect(r.depositPence).toBe(0);
   });
 });

@@ -11,9 +11,41 @@ import {
   incomeSourcesRepo,
   recurringBillsRepo,
   debtsRepo,
+  childrenRepo,
 } from './repositories.js';
 import { settings } from './settings.js';
 import { toPence } from '../engine/currency.js';
+import { computeRequiredDeposit } from '../engine/childcare.js';
+
+/**
+ * Build the pence-domain `childcareDeposits` entries the plan engine expects
+ * (one committed monthly deposit per child whose required deposit > 0). The
+ * required deposit is COMPUTED at read time from the persisted child record
+ * (provider cost + TFC balance + disabled flag) — never stored. Placed monthly
+ * on the child's `paymentDayOfMonth` (default 1), working-day adjusted.
+ *
+ * @param {Array} childrenRaw - children as returned by the repo (pounds at edge).
+ * @returns {Array<{label:string, amountPence:number, paymentDayOfMonth:number, adjustToWorkingDay:boolean}>}
+ */
+export function childcareDepositsFromChildren(childrenRaw) {
+  const deposits = [];
+  for (const c of childrenRaw || []) {
+    const { depositPence } = computeRequiredDeposit({
+      providerCostPence: toPence(c.providerMonthlyCostPence), // pounds → pence
+      balancePence: toPence(c.tfcBalancePence), // pounds → pence
+      isDisabled: !!c.isDisabled,
+    });
+    if (depositPence <= 0) continue;
+    const day = Math.min(Math.max(Number(c.paymentDayOfMonth) || 1, 1), 28);
+    deposits.push({
+      label: `Childcare — ${c.name}`,
+      amountPence: depositPence,
+      paymentDayOfMonth: day,
+      adjustToWorkingDay: true,
+    });
+  }
+  return deposits;
+}
 
 /**
  * Read everything the plan engine needs and return a pence-domain snapshot.
@@ -26,6 +58,7 @@ export async function gatherPlanData(now = new Date()) {
     incomeSourcesRaw,
     billsRaw,
     debtsRaw,
+    childrenRaw,
     currentBalancePence,
     safetyBufferPence,
     everydaySpendPence,
@@ -34,6 +67,7 @@ export async function gatherPlanData(now = new Date()) {
     incomeSourcesRepo.getAll(), // pounds at the edge
     recurringBillsRepo.getAll(), // pounds at the edge
     debtsRepo.getAll(), // pounds at the edge
+    childrenRepo.getAll(), // pounds at the edge
     // settings values are stored raw in pence (nullable balance) — no conversion.
     settings.getCurrentBalancePence(),
     settings.getSafetyBufferPence(),
@@ -92,7 +126,9 @@ export async function gatherPlanData(now = new Date()) {
       everydaySpendPence, // already pence
       payoffStrategy,
     },
-    childcareDeposits: [], // Phase 5 wires real deposits; empty stub for now.
+    // One committed deposit per child with a required deposit > 0 (computed at
+    // read time from the child record — never persisted).
+    childcareDeposits: childcareDepositsFromChildren(childrenRaw),
   };
 }
 
