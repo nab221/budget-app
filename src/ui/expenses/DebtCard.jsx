@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Money from '../components/Money.jsx';
 import CurrencyInput from '../components/CurrencyInput.jsx';
+import { formatDay } from '../components/dates.js';
 import { resolveMinPayment } from './minPayment.js';
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -8,8 +9,9 @@ const today = () => new Date().toISOString().slice(0, 10);
 /**
  * Display card for a single debt (credit card or loan). Handles the primary
  * "Update balance" quick-edit inline; full edit/delete are delegated up.
+ * `nextPayment` is the computed next occurrence ({ date, isAdjusted }) or null.
  */
-export default function DebtCard({ debt, onUpdateBalance, onEdit, onDelete }) {
+export default function DebtCard({ debt, nextPayment, onUpdateBalance, onEdit, onDelete }) {
   const [balancing, setBalancing] = useState(false);
   const [newBalance, setNewBalance] = useState(debt.balancePence);
   const [asOf, setAsOf] = useState(today());
@@ -80,8 +82,8 @@ export default function DebtCard({ debt, onUpdateBalance, onEdit, onDelete }) {
               </dd>
             </div>
             <div>
-              <dt>Payment day</dt>
-              <dd>{debt.paymentDayOfMonth ?? '—'}</dd>
+              <dt>Next payment</dt>
+              <dd>{nextPayment ? formatDay(nextPayment.date) : '—'}</dd>
             </div>
           </>
         ) : (
@@ -97,8 +99,8 @@ export default function DebtCard({ debt, onUpdateBalance, onEdit, onDelete }) {
               </dd>
             </div>
             <div>
-              <dt>Payment day</dt>
-              <dd>{debt.paymentDayOfMonth ?? '—'}</dd>
+              <dt>Next payment</dt>
+              <dd>{nextPayment ? formatDay(nextPayment.date) : '—'}</dd>
             </div>
           </>
         )}

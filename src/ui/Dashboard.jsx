@@ -1,45 +1,34 @@
-import { useState } from 'react';
 import { useLiveData } from '../db/useLiveData.js';
-import { gatherPlanData } from '../db/planData.js';
-import { buildPlan } from '../engine/plan.js';
-import { settings } from '../db/settings.js';
-import { recurringBillsRepo, transactionsRepo } from '../db/repositories.js';
-import BalanceStrip from './dashboard/BalanceStrip.jsx';
-import PayPeriodPanel from './dashboard/PayPeriodPanel.jsx';
-import ThisMonthPanel from './dashboard/ThisMonthPanel.jsx';
+import { recurringBillsRepo, debtsRepo } from '../db/repositories.js';
+import { mapBillsToPence, mapDebtsToPence } from '../db/planData.js';
+import {
+  periodWindow,
+  actualTotalPence,
+  normalisedTotalPence,
+  upcomingPayments,
+} from '../engine/spending.js';
+import Money from './components/Money.jsx';
+import EmptyState from './components/EmptyState.jsx';
+import { formatDay } from './components/dates.js';
+
+const todayStr = () => new Date().toISOString().slice(0, 10);
+
+const TILES = [
+  { period: 'week', label: 'This week' },
+  { period: 'month', label: 'This month' },
+  { period: 'year', label: 'This year' },
+];
 
 /**
- * Dashboard (spec §4.1) — the home screen. Composes the balance strip, the
- * pay-period panel (with its recommendation centrepiece) and the this-month
- * spending review. All money crosses the pounds↔pence boundary inside
- * `gatherPlanData` / the `Money` component; this screen only orchestrates.
+ * Dashboard — deliberately minimal while the full redesign waits its turn:
+ * how much goes out this week / month / year, and the next payments due.
+ * Everything is computed live from the Expenses schedule; nothing to confirm.
  */
 export default function Dashboard() {
-  const [offset, setOffset] = useState(0);
-
   const { data, loading } = useLiveData(async () => {
-    const now = new Date();
-    const planData = await gatherPlanData(now);
-    const balanceAsOf = await settings.getBalanceAsOf();
-    const plan = buildPlan(planData, offset);
-    // Bill-confirmation support (Phase 4): the repo bills (pounds edge) power
-    // the "Mark paid" affordance, and the already-confirmed bill-source
-    // transactions inside the period show as paid rows.
-    const [bills, paidBillTxns] = await Promise.all([
-      recurringBillsRepo.getAll(),
-      plan.hasPeriod
-        ? transactionsRepo.billPaymentsBetween(plan.periodStart, plan.periodEnd)
-        : Promise.resolve([]),
-    ]);
-    return {
-      now,
-      plan,
-      bills,
-      paidBillTxns,
-      currentBalancePence: planData.settings.currentBalancePence,
-      balanceAsOf,
-    };
-  }, [offset]);
+    const [bills, debts] = await Promise.all([recurringBillsRepo.getAll(), debtsRepo.getAll()]);
+    return { recurringBills: mapBillsToPence(bills), debts: mapDebtsToPence(debts) };
+  }, []);
 
   if (loading || !data) {
     return (
@@ -52,27 +41,66 @@ export default function Dashboard() {
     );
   }
 
+  const now = new Date();
+  const from = todayStr();
+  const upcoming = upcomingPayments(data, from, 8);
+  const hasAnything = (data.recurringBills?.length || 0) + (data.debts?.length || 0) > 0;
+
   return (
     <div className="screen">
       <header className="screen__head">
         <h2>Dashboard</h2>
       </header>
 
-      <BalanceStrip
-        currentBalancePence={data.currentBalancePence}
-        balanceAsOf={data.balanceAsOf}
-        now={data.now}
-      />
+      {!hasAnything ? (
+        <EmptyState
+          title="Nothing set up yet"
+          hint="Add your credit cards, loans, and recurring expenses on the Expenses tab — totals and upcoming payments appear here."
+        />
+      ) : (
+        <>
+          <section className="panel">
+            <h3 className="panel__title">Going out</h3>
+            <div className="tile-row">
+              {TILES.map(({ period, label }) => {
+                const { startStr, endStr } = periodWindow(period, now);
+                return (
+                  <div className="stat" key={period}>
+                    <span className="stat__label">{label}</span>
+                    <Money
+                      pence={actualTotalPence(data, startStr, endStr)}
+                      className="stat__value"
+                    />
+                    <span className="muted stat__sub">
+                      avg <Money pence={normalisedTotalPence(data, period, from)} />
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
 
-      <PayPeriodPanel
-        plan={data.plan}
-        offset={offset}
-        onOffsetChange={setOffset}
-        bills={data.bills}
-        paidBillTxns={data.paidBillTxns}
-      />
-
-      <ThisMonthPanel />
+          <section className="panel">
+            <h3 className="panel__title">Next payments</h3>
+            {upcoming.length === 0 ? (
+              <EmptyState hint="Nothing due — add expenses on the Expenses tab." />
+            ) : (
+              <ul className="upcoming-list">
+                {upcoming.map((r, i) => (
+                  <li className="upcoming-list__row" key={`${r.date}-${r.label}-${i}`}>
+                    <span className="upcoming-list__date">{formatDay(r.date)}</span>
+                    <span className="upcoming-list__label">
+                      {r.label}
+                      {r.isAdjusted && <span className="tag">shifted</span>}
+                    </span>
+                    <Money pence={r.amountPence} className="upcoming-list__amount" />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </>
+      )}
     </div>
   );
 }

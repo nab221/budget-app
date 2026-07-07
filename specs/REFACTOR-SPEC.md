@@ -6,6 +6,37 @@ historical reference only — none of their requirements carry over unless resta
 
 ---
 
+## ⚠ Amendment 2026-07-07 — "Expenses-first" redirection (post-PR #25)
+
+After testing PR #25 the owner redirected the product. Where this amendment conflicts
+with the sections below, **the amendment wins**. The goal is no longer a ledger of what
+happened; it is a live picture of **how much is going out per week / month / year**.
+
+- **The app is not a record of transactions.** The transactions ledger UI, "Mark paid"
+  bill/debt confirmations, and the whole *Money In & Out* tab are **removed**. The
+  `transactions` table stays in the schema (dormant, still in backups) but nothing reads
+  or writes it from the UI.
+- **The Debts tab is now the *Expenses* tab** and is the heart of the app. It holds
+  *every* committed outgoing as a card/panel: credit cards, loans, **and all other
+  recurring expenses** (subscriptions, utilities, groceries…), grouped by category.
+  What distinguishes credit cards and loans from other expenses is **interest and the
+  payoff strategy** (Payoff tab unchanged). A recurring expense card simply shows
+  **"£xx.xx at [next payment date]"**, computed at read time from its frequency —
+  no confirmations, no advancing of stored dates.
+- **Period totals** — the main figure: total committed spending for the selected
+  calendar **week / month / year**, counting actual occurrences in that window (credit
+  card = computed minimum payment, loan = fixed payment), with a normalised long-run
+  average alongside (weekly ≈ ×52⁄12 per month). Engine: `src/engine/spending.js`.
+- **Dashboard is minimal** pending a later graphics redesign: the three period totals
+  plus the next upcoming payments. The pay-period plan/recommendation dashboard is gone
+  (the plan engine itself remains and still powers Payoff).
+- **Income is a future phase** (dividend drawing + salaries tracker). Income-source UI
+  is hidden for now; the `incomeSources` table and data stay untouched.
+- **Unchanged:** Payoff planner, Childcare calculator, credit-card statement PDF import
+  (§4.6), Settings, backup/restore, and all Hard Rules in `CLAUDE.md`.
+
+---
+
 ## 1. Purpose
 
 A personal budgeting tool for a single user on **one Mac**, used in a **web browser as a

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import Dashboard from './ui/Dashboard.jsx';
-import MoneyInOut from './ui/MoneyInOut.jsx';
-import Debts from './ui/Debts.jsx';
+import Expenses from './ui/Expenses.jsx';
 import Payoff from './ui/Payoff.jsx';
 import Childcare from './ui/Childcare.jsx';
 import Settings from './ui/Settings.jsx';
@@ -12,8 +11,7 @@ import ErrorBoundary from './ui/components/ErrorBoundary.jsx';
 
 const TABS = [
   { id: 'dashboard', label: 'Dashboard', Component: Dashboard },
-  { id: 'money', label: 'Money In & Out', Component: MoneyInOut },
-  { id: 'debts', label: 'Debts', Component: Debts },
+  { id: 'expenses', label: 'Expenses', Component: Expenses },
   { id: 'payoff', label: 'Payoff', Component: Payoff },
   { id: 'childcare', label: 'Childcare', Component: Childcare },
 ];

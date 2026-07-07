@@ -1097,3 +1097,87 @@ body {
 .import-row--dup {
   opacity: 0.62;
 }
+
+/* Period selector (Week / Month / Year) */
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.segmented__btn {
+  border: 0;
+  background: transparent;
+  color: var(--fg);
+  padding: 0.4rem 0.9rem;
+  font: inherit;
+  cursor: pointer;
+}
+.segmented__btn + .segmented__btn {
+  border-left: 1px solid var(--border);
+}
+.segmented__btn.is-active {
+  background: var(--accent);
+  color: var(--accent-contrast, #fff);
+  font-weight: 600;
+}
+
+/* Expenses period summary */
+.spending-summary__row {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+.spending-summary__hint {
+  margin: 0.6rem 0 0;
+  font-size: 0.82rem;
+}
+.stat__value--muted {
+  color: var(--muted);
+}
+.stat__sub {
+  font-size: 0.82rem;
+}
+
+/* Expense card */
+.expense-card__next {
+  margin: 0;
+}
+.card-list .is-inactive {
+  opacity: 0.55;
+}
+
+/* Dashboard tiles + upcoming payments */
+.tile-row {
+  display: flex;
+  gap: 2.5rem;
+  flex-wrap: wrap;
+}
+.upcoming-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.upcoming-list__row {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.upcoming-list__row:last-child {
+  border-bottom: 0;
+}
+.upcoming-list__date {
+  flex: 0 0 7.5rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.upcoming-list__label {
+  flex: 1;
+}
+.upcoming-list__amount {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}

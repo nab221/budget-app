@@ -80,9 +80,9 @@ export function isWeekBased(frequency) {
  * `monthly → 1`, `quarterly → 3`, `6-monthly → 6`, `annual → 12`. Week-based and
  * unknown frequencies fall back to monthly (they don't use this — they step by
  * days via `FREQUENCY_DAYS`). This plus `FREQUENCY_DAYS` is the SINGLE source of
- * truth for frequency stepping — both the read-time occurrence computation here
- * and `src/db/billConfirmation.js` (which bumps `nextDueDate` on
- * confirm/unconfirm) go through `advanceByFrequency`, so they can never drift.
+ * truth for frequency stepping — all occurrence computation (plan timeline and
+ * `engine/spending.js`) goes through `advanceByFrequency`, so views can never
+ * drift.
  * Note: do NOT use `recurrence.advanceNextDate` for this — it keys off
  * `annually` and treats the spec's `annual` as monthly.
  *
@@ -239,7 +239,7 @@ function computeIncomeTimeline(incomeSources, now, offset) {
 // ---------------------------------------------------------------------------
 
 /** Recurring-bill instances (computed, never persisted) within [start, end). */
-function billOutgoings(recurringBills, startStr, endStr) {
+export function billOutgoings(recurringBills, startStr, endStr) {
   const rows = [];
   for (const bill of recurringBills || []) {
     if (bill.active === false) continue;
@@ -322,7 +322,7 @@ function creditCardMinPence(debt, referenceDate) {
  * how a confirmed bill's advanced `nextDueDate` removes it. Debt balances are
  * never touched; the ledger transaction is the sole record (spec §4.3).
  */
-function debtOutgoings(debts, startStr, endStr, isPaid = () => false) {
+export function debtOutgoings(debts, startStr, endStr, isPaid = () => false) {
   const rows = [];
   for (const debt of debts || []) {
     const day = debt.paymentDayOfMonth || 1;
