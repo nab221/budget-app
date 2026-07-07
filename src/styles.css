@@ -652,3 +652,238 @@ body {
   overflow: hidden;
   white-space: nowrap;
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Phase 3 engine screens (Dashboard pay-period + Payoff)
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Balance strip */
+.balance-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  background: var(--surface);
+}
+.balance-strip--prompt {
+  border-style: dashed;
+  border-color: var(--accent);
+}
+.balance-strip__prompt-title {
+  margin: 0 0 0.15rem;
+  font-weight: 700;
+}
+.balance-strip__main {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.balance-strip__label {
+  color: var(--muted);
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+}
+.balance-strip__amount {
+  font-size: 1.6rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.balance-strip__side {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.balance-strip__stale {
+  margin: 0;
+  color: var(--danger);
+  font-size: 0.85rem;
+  max-width: 22rem;
+}
+.balance-form {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  width: 100%;
+}
+.balance-form__actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Pay-period + this-month panels */
+.payperiod__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+.payperiod__label {
+  margin: 0;
+  font-weight: 600;
+  font-size: 1.05rem;
+}
+.payperiod__nav {
+  display: flex;
+  gap: 0.35rem;
+}
+.payperiod__income {
+  margin: 0 0 0.75rem;
+  color: var(--muted);
+}
+.payperiod__income .money {
+  color: var(--text);
+  font-weight: 600;
+}
+.payperiod__table tfoot td {
+  font-weight: 700;
+  border-top: 2px solid var(--border);
+  border-bottom: none;
+}
+.payperiod__opening td {
+  color: var(--muted);
+}
+.payperiod__end {
+  font-size: 1.05rem;
+}
+.row--below td {
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+}
+.row--negative td {
+  background: color-mix(in srgb, var(--danger) 18%, transparent);
+  color: var(--danger);
+}
+
+/* Warning banner */
+.banner {
+  border-radius: 8px;
+  padding: 0.6rem 0.85rem;
+  margin-bottom: 0.85rem;
+  font-size: 0.92rem;
+  border: 1px solid var(--border);
+}
+.banner--warn {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+}
+.banner--danger {
+  border-color: var(--danger);
+  color: var(--accent-contrast);
+  background: var(--danger);
+}
+
+/* Recommendation card (centrepiece) */
+.reco-card {
+  margin-top: 1rem;
+  border-radius: 10px;
+  padding: 1.1rem 1.25rem;
+  border: 1px solid var(--border);
+}
+.reco-card__title {
+  margin: 0 0 0.25rem;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.reco-card__detail {
+  margin: 0;
+  color: var(--muted);
+}
+.reco-card--spare {
+  border-color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 12%, transparent);
+}
+.reco-card--spare .reco-card__title {
+  color: var(--ok);
+}
+.reco-card--debt-free {
+  border-color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 8%, transparent);
+}
+.reco-card--no-spare {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+}
+.reco-card--no-spare .reco-card__title {
+  color: var(--danger);
+}
+.reco-card--needs-balance {
+  border-style: dashed;
+  border-color: var(--accent);
+}
+
+/* This-month stats */
+.thismonth__totals {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.stat__label {
+  color: var(--muted);
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+}
+.stat__value {
+  font-size: 1.3rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.stat__value--neg {
+  color: var(--danger);
+}
+
+/* Payoff */
+.strategy-row--selected td {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.schedule {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  align-items: flex-start;
+}
+.schedule__scroll {
+  max-height: 22rem;
+  overflow-y: auto;
+  width: 100%;
+}
+.bt-results {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0 0.5rem;
+}
+.bt-results dt {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+.bt-results dd {
+  margin: 0.15rem 0 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.bt-reco {
+  margin: 0.25rem 0 0;
+}
+.bt-reco--warn {
+  color: var(--danger);
+}

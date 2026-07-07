@@ -54,8 +54,48 @@ export function calcUtilization(balancePence, limitPence) {
 }
 
 /**
+ * Order debts by a payoff strategy at a single reference date.
+ *
+ * This is the ordering half of `simulatePayoff` extracted for reuse (the
+ * dashboard recommendation needs "which debt gets the extra money" without
+ * running a full simulation). It mirrors `simulatePayoff`'s per-month sort:
+ *   - avalanche: highest effective APR first, tie-break smallest balance
+ *   - snowball:  smallest balance first, tie-break highest effective APR
+ * A debt inside its 0% promo window has an effective APR of 0; after the promo
+ * the `postPromoApr` (falling back to `apr`) applies.
+ *
+ * All monetary values are integer **pence**. Accepts either `currentBalance`
+ * (the finance-module convention) or `balance` on each debt.
+ *
+ * @param {Array<{ id, name, currentBalance?, balance?, apr, promoEndDate?, postPromoApr? }>} debts
+ * @param {'avalanche'|'snowball'} strategy
+ * @param {string|Date} [referenceDate=new Date()]
+ * @returns {Array} debts sorted by priority (highest priority first), each
+ *   annotated with a computed `effectiveApr`.
+ */
+export function orderDebtsByStrategy(debts, strategy, referenceDate = new Date()) {
+  const ref = typeof referenceDate === 'string' ? parseISO(referenceDate) : referenceDate;
+  const annotated = (debts || []).map((d) => {
+    const balance = d.balance ?? d.currentBalance ?? 0;
+    const isPromoActive = d.promoEndDate && isBefore(ref, parseISO(d.promoEndDate));
+    const effectiveApr = isPromoActive
+      ? 0
+      : (d.postPromoApr !== undefined && d.postPromoApr !== null ? d.postPromoApr : d.apr);
+    return { ...d, balance, effectiveApr };
+  });
+
+  if (strategy === 'snowball') {
+    annotated.sort((a, b) => a.balance - b.balance || b.effectiveApr - a.effectiveApr);
+  } else {
+    // avalanche (default)
+    annotated.sort((a, b) => b.effectiveApr - a.effectiveApr || a.balance - b.balance);
+  }
+  return annotated;
+}
+
+/**
  * Simulates a debt payoff strategy over time.
- * 
+ *
  * @param {Array} debts - Array of debt objects { id, name, currentBalance, apr, promoEndDate, postPromoApr }
  * @param {string} strategy - 'avalanche', 'snowball', or 'min'
  * @param {number} extraPaymentPence - Monthly extra payment available above minimums
