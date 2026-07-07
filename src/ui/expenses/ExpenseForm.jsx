@@ -25,10 +25,10 @@ const blank = {
 };
 
 /**
- * Add/edit form for a recurring bill (spec §4.2).
+ * Add/edit form for a recurring expense (subscriptions, utilities, …).
  * @param {object[]} spendingCategories - categories with kind 'spending'.
  */
-export default function RecurringBillForm({ initial, spendingCategories, onSubmit, onCancel }) {
+export default function ExpenseForm({ initial, spendingCategories, onSubmit, onCancel }) {
   const [form, setForm] = useState(() => ({ ...blank, ...initial }));
   const [error, setError] = useState(null);
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
@@ -166,7 +166,7 @@ export default function RecurringBillForm({ initial, spendingCategories, onSubmi
           Cancel
         </button>
         <button type="submit" className="btn btn--primary">
-          {initial ? 'Save' : 'Add bill'}
+          {initial ? 'Save' : 'Add expense'}
         </button>
       </div>
     </form>

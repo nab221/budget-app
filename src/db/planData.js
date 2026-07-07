@@ -49,6 +49,53 @@ export function childcareDepositsFromChildren(childrenRaw) {
 }
 
 /**
+ * Recurring bills: repository POUNDS edge → engine PENCE domain. Shared by the
+ * plan gatherer and the Expenses/Dashboard screens so the conversion (and the
+ * field whitelist the engine walkers rely on) exists exactly once.
+ * @param {Array} billsRaw - rows from `recurringBillsRepo` (pounds at edge).
+ */
+export function mapBillsToPence(billsRaw) {
+  return (billsRaw || []).map((b) => ({
+    id: b.id,
+    label: b.label,
+    amountPence: toPence(b.amountPence), // pounds → pence
+    categoryId: b.categoryId,
+    frequency: b.frequency,
+    nextDueDate: b.nextDueDate,
+    // Original intended day-of-month so month-end bills don't drift (M4).
+    dueDayAnchor: b.dueDayAnchor,
+    adjustToWorkingDay: b.adjustToWorkingDay,
+    endDate: b.endDate,
+    active: b.active,
+  }));
+}
+
+/**
+ * Debts: repository POUNDS edge → engine PENCE domain. Shared like
+ * `mapBillsToPence`.
+ * @param {Array} debtsRaw - rows from `debtsRepo` (pounds at edge).
+ */
+export function mapDebtsToPence(debtsRaw) {
+  return (debtsRaw || []).map((d) => ({
+    id: d.id,
+    name: d.name,
+    debtType: d.debtType,
+    balancePence: toPence(d.balancePence), // pounds → pence
+    balanceAsOf: d.balanceAsOf,
+    apr: d.apr,
+    creditLimitPence: d.creditLimitPence == null ? null : toPence(d.creditLimitPence), // pounds → pence
+    promoEndDate: d.promoEndDate,
+    postPromoApr: d.postPromoApr,
+    minPaymentOverridePence:
+      d.minPaymentOverridePence == null ? null : toPence(d.minPaymentOverridePence), // pounds → pence
+    interestRate: d.interestRate,
+    fixedMonthlyPaymentPence:
+      d.fixedMonthlyPaymentPence == null ? 0 : toPence(d.fixedMonthlyPaymentPence), // pounds → pence
+    paymentDayOfMonth: d.paymentDayOfMonth,
+  }));
+}
+
+/**
  * Read everything the plan engine needs and return a pence-domain snapshot.
  *
  * @param {Date} [now=new Date()]
@@ -90,37 +137,8 @@ export async function gatherPlanData(now = new Date()) {
     active: s.active,
   }));
 
-  const recurringBills = billsRaw.map((b) => ({
-    id: b.id,
-    label: b.label,
-    amountPence: toPence(b.amountPence), // pounds → pence
-    categoryId: b.categoryId,
-    frequency: b.frequency,
-    nextDueDate: b.nextDueDate,
-    // Original intended day-of-month so month-end bills don't drift (M4).
-    dueDayAnchor: b.dueDayAnchor,
-    adjustToWorkingDay: b.adjustToWorkingDay,
-    endDate: b.endDate,
-    active: b.active,
-  }));
-
-  const debts = debtsRaw.map((d) => ({
-    id: d.id,
-    name: d.name,
-    debtType: d.debtType,
-    balancePence: toPence(d.balancePence), // pounds → pence
-    balanceAsOf: d.balanceAsOf,
-    apr: d.apr,
-    creditLimitPence: d.creditLimitPence == null ? null : toPence(d.creditLimitPence), // pounds → pence
-    promoEndDate: d.promoEndDate,
-    postPromoApr: d.postPromoApr,
-    minPaymentOverridePence:
-      d.minPaymentOverridePence == null ? null : toPence(d.minPaymentOverridePence), // pounds → pence
-    interestRate: d.interestRate,
-    fixedMonthlyPaymentPence:
-      d.fixedMonthlyPaymentPence == null ? 0 : toPence(d.fixedMonthlyPaymentPence), // pounds → pence
-    paymentDayOfMonth: d.paymentDayOfMonth,
-  }));
+  const recurringBills = mapBillsToPence(billsRaw);
+  const debts = mapDebtsToPence(debtsRaw);
 
   return {
     now,
