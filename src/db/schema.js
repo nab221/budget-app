@@ -22,9 +22,13 @@ import Dexie from 'dexie';
  *      No stores added/removed and no data reshaped, so Dexie upgrades live v1
  *      databases in place — existing rows (which simply have no `debtId`) are
  *      preserved untouched.
+ * v3 — additive only (Income phase, spec amendment 2026-07-07 (b)): two new
+ *      stores, `people` and `incomeEvents`, for the two-person tax-year
+ *      tracker. Existing stores untouched, so live v1/v2 databases upgrade in
+ *      place with no upgrade function.
  */
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export const db = new Dexie('BudgetAppV4');
 
@@ -48,6 +52,13 @@ db.version(2).stores({
   transactions: '++id, date, kind, categoryId, source, importHash, debtId',
 });
 
+// v3 — additive: the Income phase's `people` + `incomeEvents` stores
+// (spec amendment 2026-07-07 (b)). New stores only — no upgrade function.
+db.version(3).stores({
+  people: '++id',
+  incomeEvents: '++id, personId, date, kind',
+});
+
 // The ordered list of table names — the single source of truth for backup /
 // wipe operations so a new table never gets silently missed.
 export const TABLE_NAMES = [
@@ -59,6 +70,8 @@ export const TABLE_NAMES = [
   'debts',
   'children',
   'categoryMappings',
+  'people',
+  'incomeEvents',
 ];
 
 // Another tab upgraded the schema: close this connection and reload so the
