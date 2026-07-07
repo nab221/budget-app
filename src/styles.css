@@ -1,0 +1,115 @@
+:root {
+  --bg: #ffffff;
+  --surface: #f4f5f7;
+  --text: #1a1d21;
+  --muted: #5c6470;
+  --border: #d8dce2;
+  --accent: #2563eb;
+  --accent-contrast: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1419;
+    --surface: #191f27;
+    --text: #e6e9ee;
+    --muted: #9aa4b2;
+    --border: #2a323d;
+    --accent: #4b8bff;
+    --accent-contrast: #0f1419;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica,
+    Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app {
+  min-height: 100vh;
+}
+
+/* Top navigation bar */
+.topnav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 1.25rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  flex-wrap: wrap;
+}
+
+.topnav__brand {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.topnav__tabs {
+  display: flex;
+  gap: 0.25rem;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+}
+
+.topnav__tab,
+.topnav__settings {
+  font: inherit;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 0.4rem 0.75rem;
+  cursor: pointer;
+}
+
+.topnav__tab:hover,
+.topnav__settings:hover {
+  color: var(--text);
+  background: var(--bg);
+}
+
+.topnav__tab.is-active,
+.topnav__settings.is-active {
+  color: var(--accent-contrast);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.topnav__settings {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+/* Main content container */
+.container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem;
+}
+
+/* Placeholder screens */
+.placeholder h2 {
+  margin: 0 0 0.25rem;
+}
+
+.placeholder__note {
+  color: var(--muted);
+  margin: 0;
+}
