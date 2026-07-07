@@ -515,6 +515,36 @@ body {
   margin: 0.75rem 0;
 }
 
+/* Form modal: wider panel with a scrollable body for tall forms. */
+.dialog--form {
+  max-width: 42rem;
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+}
+.dialog__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.dialog__close {
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.25rem;
+}
+.dialog__close:hover {
+  color: var(--text);
+}
+.dialog__scroll {
+  overflow-y: auto;
+  margin-top: 0.75rem;
+}
+
 /* Credit-card statement import preview (spec §4.6) */
 .statement-summary {
   display: grid;

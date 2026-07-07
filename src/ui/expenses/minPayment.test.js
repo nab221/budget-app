@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveMinPayment } from './minPayment.js';
+import { resolveMinPayment, debtMonthlyPence } from './minPayment.js';
 import { toPence } from '../../engine/currency.js';
 
 describe('resolveMinPayment', () => {
@@ -24,5 +24,32 @@ describe('resolveMinPayment', () => {
   it('returns 0 pence for a cleared balance', () => {
     const { pence } = resolveMinPayment({ balancePence: 0, apr: 20 });
     expect(pence).toBe(0);
+  });
+});
+
+describe('debtMonthlyPence', () => {
+  it('uses the computed minimum payment for a credit card', () => {
+    const debt = { debtType: 'credit-card', balancePence: 1000, apr: 20 };
+    expect(debtMonthlyPence(debt)).toBe(resolveMinPayment(debt).pence);
+    expect(debtMonthlyPence(debt)).toBe(2667);
+  });
+
+  it('honours a credit-card min-payment override', () => {
+    const debt = {
+      debtType: 'credit-card',
+      balancePence: 1000,
+      apr: 20,
+      minPaymentOverridePence: 25, // pounds off the repo
+    };
+    expect(debtMonthlyPence(debt)).toBe(toPence(25)); // 2500
+  });
+
+  it('uses the fixed monthly payment (pounds → pence) for a loan', () => {
+    const debt = { debtType: 'loan', fixedMonthlyPaymentPence: 150 }; // £150 off the repo
+    expect(debtMonthlyPence(debt)).toBe(toPence(150)); // 15000
+  });
+
+  it('returns 0 pence for a loan with no fixed payment set', () => {
+    expect(debtMonthlyPence({ debtType: 'loan' })).toBe(0);
   });
 });

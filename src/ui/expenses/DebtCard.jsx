@@ -2,7 +2,7 @@ import { useState } from 'react';
 import Money from '../components/Money.jsx';
 import CurrencyInput from '../components/CurrencyInput.jsx';
 import { formatDay } from '../components/dates.js';
-import { resolveMinPayment } from './minPayment.js';
+import { resolveMinPayment, debtMonthlyPence } from './minPayment.js';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -28,6 +28,9 @@ export default function DebtCard({ debt, nextPayment, onUpdateBalance, onEdit, o
   // Credit-card min payment: computed by the engine (in pence) or an override.
   const minPayment = isCard ? resolveMinPayment(debt, today()) : null;
 
+  // Approximate monthly outgoing (min payment for cards, fixed payment for loans).
+  const monthlyPence = debtMonthlyPence(debt, today());
+
   const utilisation =
     isCard && debt.creditLimitPence
       ? Math.min(100, Math.max(0, (debt.balancePence / debt.creditLimitPence) * 100))
@@ -47,6 +50,10 @@ export default function DebtCard({ debt, nextPayment, onUpdateBalance, onEdit, o
       <div className="debt-card__balance">
         <Money pounds={debt.balancePence} className="debt-card__amount" />
         {debt.balanceAsOf && <span className="muted"> as of {debt.balanceAsOf}</span>}
+      </div>
+
+      <div className="debt-card__monthly muted">
+        ≈ <Money pence={monthlyPence} /> / month
       </div>
 
       {utilisation != null && (

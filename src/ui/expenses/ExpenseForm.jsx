@@ -70,7 +70,7 @@ export default function ExpenseForm({ initial, spendingCategories, onSubmit, onC
   };
 
   return (
-    <form className="form card" onSubmit={submit}>
+    <form className="form" onSubmit={submit}>
       <div className="form-row">
         <div className="field">
           <label>Label</label>
