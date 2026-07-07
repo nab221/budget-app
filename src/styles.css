@@ -515,6 +515,28 @@ body {
   margin: 0.75rem 0;
 }
 
+/* Credit-card statement import preview (spec §4.6) */
+.statement-summary {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0.75rem 0;
+  padding: 0.9rem 1rem;
+}
+.statement-summary__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+}
+.field--check {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+.field--check input {
+  width: auto;
+}
+
 /* Debts */
 .debt-group {
   margin-bottom: 1.5rem;

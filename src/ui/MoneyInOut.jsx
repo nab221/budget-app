@@ -1,17 +1,14 @@
-import { useState } from 'react';
 import IncomeSources from './money/IncomeSources.jsx';
 import RecurringBills from './money/RecurringBills.jsx';
 import Transactions from './money/Transactions.jsx';
-import ImportPanel from './import/ImportPanel.jsx';
 
 /**
  * Money In & Out — the **Planned** side (income sources + recurring bills) plus
- * the **Actual** transactions ledger (manual entry, bill confirmation, and PDF
- * statement import all land in the same flat `transactions` table).
+ * the **Actual** transactions ledger. Rows arrive by manual entry and by
+ * bill/debt-payment confirmation only; PDF reading now serves credit-card
+ * statements on the Debts tab (spec §4.6), not transaction capture here.
  */
 export default function MoneyInOut() {
-  const [importing, setImporting] = useState(false);
-
   return (
     <div className="screen">
       <header className="screen__head">
@@ -26,20 +23,9 @@ export default function MoneyInOut() {
       </section>
 
       <section className="panel">
-        <div className="panel__head">
-          <h3 className="panel__title">Actual</h3>
-          <button
-            type="button"
-            className="btn btn--primary"
-            onClick={() => setImporting(true)}
-          >
-            Import statement (PDF)
-          </button>
-        </div>
+        <h3 className="panel__title">Actual</h3>
         <Transactions />
       </section>
-
-      {importing && <ImportPanel onClose={() => setImporting(false)} />}
     </div>
   );
 }

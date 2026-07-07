@@ -6,6 +6,7 @@ import EmptyState from './components/EmptyState.jsx';
 import ConfirmDialog from './components/ConfirmDialog.jsx';
 import DebtCard from './debts/DebtCard.jsx';
 import DebtForm from './debts/DebtForm.jsx';
+import StatementImport from './debts/StatementImport.jsx';
 
 export default function Debts() {
   const { data: debts, loading } = useLiveData(() => debtsRepo.getAll(), []);
@@ -14,6 +15,7 @@ export default function Debts() {
   const [pickingType, setPickingType] = useState(false);
   const [editing, setEditing] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [importing, setImporting] = useState(false);
 
   const cards = (debts ?? []).filter((d) => d.debtType === 'credit-card');
   const loans = (debts ?? []).filter((d) => d.debtType === 'loan');
@@ -74,12 +76,19 @@ export default function Debts() {
             Total debt <Money pounds={total} className="totals__value" />
           </span>
           {!addType && !editing && (
-            <button type="button" className="btn btn--primary" onClick={() => setPickingType(true)}>
-              Add debt
-            </button>
+            <>
+              <button type="button" className="btn" onClick={() => setImporting(true)}>
+                Import statement (PDF)
+              </button>
+              <button type="button" className="btn btn--primary" onClick={() => setPickingType(true)}>
+                Add debt
+              </button>
+            </>
           )}
         </div>
       </header>
+
+      {importing && <StatementImport onClose={() => setImporting(false)} />}
 
       {editing && (
         <DebtForm

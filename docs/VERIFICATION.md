@@ -23,7 +23,15 @@
 |---|---|
 | PASS | 10 of 12 automated scenarios + all static/quality gates |
 | FAIL | 1 (bill-confirmation double-count — see BUG-1) |
-| MANUAL (owner must still do) | real bank-PDF round-trip, Safari on macOS, real-world payday sanity check |
+| MANUAL (owner must still do) | card-statement PDF round-trip (Lloyds/MBNA/Amex), Safari on macOS, real-world payday sanity check |
+
+> **Rescope note (2026-07-07):** PDF reading was rescoped from bank-transaction
+> capture to **credit-card statement reading that updates debts** (spec §4.6). The
+> old bank current-account import (UI, engine parsers, and dedup tests) was
+> removed; the Debts tab now has an "Import statement (PDF)" button that reads a
+> Lloyds/TSB, MBNA, or Amex statement summary and updates a debt's balance +
+> minimum-payment override. The PDF-related verification items below are updated
+> accordingly.
 
 `npm test` → **391 passed (38 files)**. `npm run build` → **green**. No uncaught page
 errors on any tab. One benign 404 (`favicon.ico`) and one benign pdf.js warning during the
@@ -122,8 +130,8 @@ timezone gate.
 | 9 | This-month panel reflects the transactions (income/spend/category table) | **PASS** | With the manual Tesco £52.50 spend (Netflix left unmarked after #8), This-month shows Spending £52.50, Income £0.00, and a by-category table row "Groceries £52.50 100%". |
 | 10 | Backup: export JSON, wipe via danger zone, import, verify everything returns | **PASS** | Exported `budget-backup-2026-07-07.json` (debts=3, bills=4, txns=1). Typed-DELETE wipe cleared all debts (0). Import (replace-all, confirmed) restored: debts=3 (Barclaycard present), bills=4, Tesco transaction, allowance £400, balance £5,000. |
 | 11 | Theme toggle light/dark; privacy mode blurs money values | **PASS** | Theme select stamps `data-theme="dark"` / `"light"` on `<html>`. Privacy toggle adds `body.privacy`; a sampled `.money` element computes `filter: blur(6px)`; toggling off removes both. |
-| — | PDF import panel opens and shows a graceful error on a junk file | **PASS** | Import dialog opens; a junk `.pdf` yields an in-panel error "Could not read this PDF. Make sure it's a bank current-account statement, or add the transactions manually." No crash, no rows inserted. |
-| — | Real bank-PDF import round-trip (parse → categorise → re-import inserts 0 duplicates) | **MANUAL** | No real bank statement available in this environment. Owner must run with a genuine current-account PDF. |
+| — | Card-statement import panel opens (Debts tab) and shows a graceful error on a junk file | **PASS** | The Debts-tab "Import statement (PDF)" dialog opens; a junk `.pdf` yields an in-panel error "Couldn't read this statement — you can update the balance manually." plus the supported-providers hint. No crash, no debt written. |
+| — | Card-statement PDF round-trip (Lloyds/MBNA/Amex) — owner manual check | **MANUAL** | No real card statement available in this environment. Owner must run with a genuine Lloyds/TSB, MBNA, or Amex statement PDF: parse → preview → pick debt → Update debt sets balance + as-of date (and min-payment override if opted in). |
 
 ---
 
@@ -132,7 +140,7 @@ timezone gate.
 | Item | Result | Observed |
 |---|---|---|
 | All kept engine tests pass (path/import updates allowed) | **PASS** | `npm test` → 391 passed / 38 files. |
-| New tests: repositories, pay-period assembly, recommendation calc, backup round-trip, PDF dedup | **PASS** | Present and green: `db/repositories.test.js`, `db/planData.test.js`, `engine/plan.test.js`, `ui/dashboard/recommendationCopy.test.js`, `db/backup.test.js`, `db/importRepos.test.js`, `engine/import-parse.test.js`. (Coverage gap: no test exercises the confirm→re-read path — see BUG-1.) |
+| New tests: repositories, pay-period assembly, recommendation calc, backup round-trip, card-statement parsing | **PASS** | Present and green: `db/repositories.test.js`, `db/planData.test.js`, `engine/plan.test.js`, `ui/dashboard/recommendationCopy.test.js`, `db/backup.test.js`, `engine/pdf-parser.test.js` (per-provider summary + auto-detect), `ui/debts/statementImport.test.jsx` (parse → update-debt round-trip). (Bank-import dedup tests removed with the rescope, 2026-07-07.) |
 | No `innerHTML`, no `window.*` handler globals, no inline event attributes | **PASS** | `grep` over `src/`: no `innerHTML`; no `onclick=/onchange=/onsubmit=` string attributes; the only `window.` reference is `window.dispatchEvent(...)` in `db/events.js` (a legitimate DOM CustomEvent dispatch, not a global handler). No `dompurify`. |
 | `npm run build` and `npm test` green; app verified in Safari and Chrome on macOS | **PARTIAL / MANUAL** | Build + test green; app verified end-to-end in **Chromium** (Chrome-family). **Safari on macOS = MANUAL** (not runnable here). |
 
@@ -143,7 +151,7 @@ timezone gate.
 | Fresh browser profile: first run seeds categories, all tabs render empty states | **PASS** | Scenario #1. |
 | 2 income, bills, 2 cards (one 0% promo), 1 loan, 1 child → dashboard shows committed items on working-day-adjusted dates + a sane recommendation | **PASS** | Scenarios #3–#6 (4 bills used rather than 5; mechanisms fully exercised). |
 | Recommendation flips to the correct next debt when strategy is switched | **PASS** | Scenario #7 (Barclaycard ⇄ MBNA Platinum). |
-| Import a real bank PDF; categories suggested; re-import inserts zero duplicates | **MANUAL** | No real PDF available; junk-file graceful-error path PASS. |
+| Import a real card-statement PDF (Lloyds/MBNA/Amex); summary parsed; debt balance updated | **MANUAL** | No real PDF available; junk-file graceful-error path PASS. |
 | Backup export → wipe all → import restores everything | **PASS** | Scenario #10. |
 | Works in both Safari and Chrome on macOS | **PARTIAL / MANUAL** | Chromium PASS; Safari MANUAL. |
 | `npm test` and `npm run build` green; no console errors on any tab | **PASS (with note)** | Build/test green; no app/page errors. Cosmetic `favicon.ico` 404 + a pdf.js warning during the junk-import test only — see below. |
@@ -160,11 +168,13 @@ timezone gate.
 
 ## Manual verification still required (owner)
 
-1. **Real bank-PDF import round-trip** — parse a genuine current-account statement, confirm
-   category suggestions, and re-import the same file to confirm zero duplicates
-   (`importHash` dedup).
+1. **Card-statement PDF round-trip (Lloyds/MBNA/Amex)** — parse a genuine credit-card
+   statement on the Debts tab, confirm the provider auto-detects and the closing balance /
+   minimum payment / statement date read correctly, then Update debt and verify the balance
+   + as-of date (and, if opted in, the min-payment override) are written and the
+   provider→debt association is remembered on the next import.
 2. **Safari on macOS** — repeat the core flows (IndexedDB persistence, backup file
-   download/upload, PDF import) in Safari, the owner's stated second browser.
+   download/upload, card-statement PDF import) in Safari, the owner's stated second browser.
 3. **Real-world payday sanity check** — after a genuine payday, confirm the pay-period
    boundaries, committed outgoings, and the "safe to pay extra" figure match the owner's
    actual bank position.
