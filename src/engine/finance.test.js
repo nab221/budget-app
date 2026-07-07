@@ -78,6 +78,18 @@ describe('Finance Utilities', () => {
       expect(result.totalCostBT).toBe(3000);
       expect(result.totalCostCurrent).toBeGreaterThan(0);
     });
+
+    it('honours an active promo in the stay-cost baseline (L1)', () => {
+      // Same card, but with a long 0% promo: the "cost if you stay" (min-payment
+      // interest) must be lower because interest is suppressed during the promo.
+      const noPromo = modelBalanceTransfer({ ...debt, apr: 30 }, 12, 3);
+      const withPromo = modelBalanceTransfer(
+        { ...debt, apr: 30, promoEndDate: '2035-01-01', postPromoApr: 30 },
+        12,
+        3,
+      );
+      expect(withPromo.totalCostCurrent).toBeLessThan(noPromo.totalCostCurrent);
+    });
   });
 
   describe('calcMinPayment with Promos', () => {

@@ -7,6 +7,8 @@ import {
   transactionsRepo,
   debtsRepo,
   childrenRepo,
+  categoriesRepo,
+  categoryMappingsRepo,
 } from './repositories.js';
 
 beforeEach(resetDb);
@@ -122,5 +124,50 @@ describe('mutation events', () => {
     await childrenRepo.add({ name: 'Kid', providerMonthlyCostPence: 500, tfcBalancePence: 100 });
     window.removeEventListener('db:mutated', handler);
     expect(fired).toBe(1);
+  });
+});
+
+describe('recurringBills dueDayAnchor default (M4)', () => {
+  it('defaults dueDayAnchor from the nextDueDate day when absent', async () => {
+    const id = await recurringBillsRepo.add({
+      label: 'Rent',
+      amountPence: 800,
+      categoryId: 1,
+      frequency: 'monthly',
+      nextDueDate: '2026-01-31',
+    });
+    const raw = await db.recurringBills.get(id);
+    expect(raw.dueDayAnchor).toBe(31);
+  });
+
+  it('keeps an explicitly supplied anchor', async () => {
+    const id = await recurringBillsRepo.add({
+      label: 'Rent',
+      amountPence: 800,
+      categoryId: 1,
+      frequency: 'monthly',
+      nextDueDate: '2026-02-28',
+      dueDayAnchor: 31,
+    });
+    const raw = await db.recurringBills.get(id);
+    expect(raw.dueDayAnchor).toBe(31);
+  });
+});
+
+describe('category delete cascades its learned mappings (L4)', () => {
+  it('removes categoryMappings pointing at the deleted category', async () => {
+    const catId = await categoriesRepo.add({ name: 'Streaming', kind: 'spending' });
+    const otherId = await categoriesRepo.add({ name: 'Groceries', kind: 'spending' });
+    await categoryMappingsRepo.upsert('netflix', catId);
+    await categoryMappingsRepo.upsert('spotify', catId);
+    await categoryMappingsRepo.upsert('tesco', otherId);
+
+    await categoriesRepo.delete(catId);
+
+    const remaining = await db.categoryMappings.toArray();
+    // Both mappings for the deleted category are gone; the unrelated one stays.
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].descriptionKey).toBe('tesco');
+    expect(await db.categories.get(catId)).toBeUndefined();
   });
 });

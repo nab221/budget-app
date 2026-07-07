@@ -87,7 +87,9 @@ export function toFinanceDebts(debts) {
         currentBalance: d.balancePence,
         apr: d.apr ?? 0,
         promoEndDate: d.promoEndDate ?? null,
-        postPromoApr: d.postPromoApr ?? null,
+        // Omit postPromoApr entirely when blank so the finance engine falls back
+        // to `apr` rather than seeing a null and simulating the card at 0% (H1).
+        ...(d.postPromoApr != null ? { postPromoApr: d.postPromoApr } : {}),
       });
     }
   }

@@ -48,4 +48,26 @@ describe('useLiveData', () => {
     });
     await waitFor(() => expect(result.current.data).toBe(2));
   });
+
+  it('a slow earlier run cannot overwrite a newer one (M2 stale race)', async () => {
+    // First run resolves slowly (value 1); the mutation-triggered second run
+    // resolves fast (value 2). The final state must reflect the LATER run.
+    let call = 0;
+    const query = () => {
+      call += 1;
+      const n = call;
+      return new Promise((res) => setTimeout(() => res(n), n === 1 ? 60 : 5));
+    };
+    const { result } = renderHook(() => useLiveData(query, []));
+
+    // Kick off the fast second run while the first is still in flight.
+    act(() => {
+      dispatchMutation();
+    });
+
+    await waitFor(() => expect(result.current.data).toBe(2));
+    // Let the slow first run resolve — it must NOT clobber the newer value.
+    await new Promise((r) => setTimeout(r, 80));
+    expect(result.current.data).toBe(2);
+  });
 });

@@ -149,7 +149,12 @@ export function simulatePayoff(debts, strategy, extraPaymentPence = 0, startDate
     // Tie-breaker: Smallest Balance
     currentDebts.forEach(debt => {
       const isPromoActive = debt.promoEndDate && isBefore(currentMonthDate, parseISO(debt.promoEndDate));
-      debt.effectiveApr = isPromoActive ? 0 : (debt.postPromoApr !== undefined ? debt.postPromoApr : debt.apr);
+      // Treat null the same as undefined: a blank post-promo APR falls back to
+      // the card's standard APR. (`?? debt.apr` on a null postPromoApr would
+      // otherwise leave effectiveApr null → null/100 → 0% interest — the bug.)
+      debt.effectiveApr = isPromoActive
+        ? 0
+        : (debt.postPromoApr != null ? debt.postPromoApr : debt.apr);
       
       // Detect rate jump (if promo was active last month, but not this month)
       debt.isRateJump = !isPromoActive && debt.hadPromoLastMonth;

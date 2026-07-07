@@ -73,29 +73,67 @@ export function frequencyStepMonths(frequency) {
 }
 
 /**
+ * Days in a given calendar month, computed purely from year+month integers so
+ * there is NO Date/timezone involvement (H2). `month` is 1-12.
+ * @param {number} year
+ * @param {number} month - 1-12
+ * @returns {number}
+ */
+export function daysInMonthYM(year, month) {
+  const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  return [31, isLeap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1];
+}
+
+/**
+ * Nominal 'yyyy-MM-dd' for a given `yyyy-MM` month + day-of-month, clamped to
+ * the real length of that month. PURE STRING MATH — no Date object, so it is
+ * completely timezone-independent (H2: the old version mixed a local
+ * `getDaysInMonth` with `setUTCDate`, which under BST landed dates in the wrong
+ * month/day).
+ *
+ * @param {string} yyyyMM - e.g. '2026-07'
+ * @param {number} dayOfMonth
+ * @returns {string} 'yyyy-MM-dd'
+ */
+export function dateForMonthDayStr(yyyyMM, dayOfMonth) {
+  const [year, month] = yyyyMM.split('-').map(Number);
+  const dim = daysInMonthYM(year, month);
+  const clamped = Math.min(Math.max(dayOfMonth || 1, 1), dim);
+  return `${yyyyMM}-${String(clamped).padStart(2, '0')}`;
+}
+
+/**
  * Advance a 'yyyy-MM-dd' date by `steps` frequency steps (may be negative to
  * roll backwards). Returns a 'yyyy-MM-dd' string. Shared by plan occurrence
  * computation and bill confirmation so the two stay consistent.
  *
+ * When `anchorDay` is supplied the target date is re-clamped to
+ * `min(anchorDay, daysInMonth(target))` (M4). This prevents month-end drift:
+ * a bill due the 31st that gets clamped to the 28th in February must return to
+ * the 31st in March rather than being stuck on the 28th forever. Without an
+ * anchor the behaviour is unchanged (date-fns `addMonths` clamps as before).
+ *
  * @param {string} dateStr - ISO 'yyyy-MM-dd'
  * @param {string} frequency - 'monthly' | 'quarterly' | 'annual'
  * @param {number} [steps=1]
+ * @param {number|null} [anchorDay=null] - original intended day-of-month.
  * @returns {string}
  */
-export function advanceByFrequency(dateStr, frequency, steps = 1) {
-  return format(addMonths(parseISO(dateStr), frequencyStepMonths(frequency) * steps), 'yyyy-MM-dd');
+export function advanceByFrequency(dateStr, frequency, steps = 1, anchorDay = null) {
+  const stepped = addMonths(parseISO(dateStr), frequencyStepMonths(frequency) * steps);
+  const yyyyMM = fmt(stepped).slice(0, 7);
+  if (anchorDay != null) return dateForMonthDayStr(yyyyMM, anchorDay);
+  return fmt(stepped);
 }
 
 function fmt(date) {
   return format(date, 'yyyy-MM-dd');
 }
 
-/** Nominal payment date for a given month + day, clamped to the month length. */
-function dateForMonthDay(monthDate, dayOfMonth) {
-  const clamped = Math.min(Math.max(dayOfMonth || 1, 1), getDaysInMonth(monthDate));
-  const d = new Date(monthDate.getTime());
-  d.setUTCDate(clamped);
-  return d;
+/** Day-of-month (1-31) parsed from a 'yyyy-MM-dd' string — pure, TZ-free. */
+function dayOfMonthFromISO(iso) {
+  const n = Number(String(iso).slice(8, 10));
+  return Number.isInteger(n) && n >= 1 && n <= 31 ? n : null;
 }
 
 /** Working-day adjust a 'yyyy-MM-dd' string, returning { date, isAdjusted }. */
@@ -113,13 +151,14 @@ function adjust(nominalStr, adjustToWorkingDay) {
 function monthlyOccurrencesInWindow(dayOfMonth, adjustToWorkingDay, startStr, endStr) {
   const out = [];
   // Begin one month before the window start so a late-month nominal date whose
-  // working-day shift crosses into the window is still caught.
-  let cursor = parseISO(`${startStr.slice(0, 7)}-01`);
-  cursor = subMonths(cursor, 1);
+  // working-day shift crosses into the window is still caught. The Date cursor
+  // is used ONLY to enumerate months (via local parse+format, which round-trips
+  // the calendar month safely); the actual nominal date is built with pure
+  // string math so nothing depends on the process timezone (H2).
+  let cursor = subMonths(parseISO(`${startStr.slice(0, 7)}-01`), 1);
   const guardEnd = parseISO(`${endStr.slice(0, 7)}-01`);
-  // Iterate through each month from a month before start to the end month.
   for (let i = 0; i < 200 && cursor <= addMonths(guardEnd, 1); i += 1) {
-    const nominal = fmt(dateForMonthDay(cursor, dayOfMonth));
+    const nominal = dateForMonthDayStr(fmt(cursor).slice(0, 7), dayOfMonth);
     const { date, isAdjusted } = adjust(nominal, adjustToWorkingDay);
     if (date >= startStr && date < endStr) out.push({ date, isAdjusted });
     cursor = addMonths(cursor, 1);
@@ -176,21 +215,34 @@ function billOutgoings(recurringBills, startStr, endStr) {
   for (const bill of recurringBills || []) {
     if (bill.active === false) continue;
     if (!bill.nextDueDate) continue;
-    const stepMonths = frequencyStepMonths(bill.frequency);
 
-    // Advance the nominal cursor to the first occurrence on/after the window
-    // start, then step back once so a pre-start nominal that shifts into the
-    // window (working-day) is still considered.
-    let cursor = parseISO(bill.nextDueDate);
+    // `nextDueDate` is by definition the next UNPAID occurrence — once a bill is
+    // confirmed paid, `nextDueDate` is advanced one step past the paid date. We
+    // therefore NEVER walk earlier than `nextDueDate` (the old unconditional
+    // one-step back-off re-introduced a just-paid occurrence — BUG-1 / M1).
+    //
+    // The anchor day keeps month-end bills from drifting (M4): the walk is done
+    // in pure string space via `advanceByFrequency(..., anchorDay)`.
+    const anchorDay = bill.dueDayAnchor ?? dayOfMonthFromISO(bill.nextDueDate);
+
+    // Fast-forward towards the window, but stop while the NEXT occurrence would
+    // still be before the window start — leaving the cursor on the last
+    // occurrence whose nominal is < start (so a working-day shift can pull it
+    // in) OR on `nextDueDate` itself when that already sits on/after the start.
+    let curStr = bill.nextDueDate;
     let guard = 0;
-    while (fmt(cursor) < startStr && guard < 600) {
-      cursor = addMonths(cursor, stepMonths);
-      guard += 1;
+    while (guard < 600) {
+      const nextStr = advanceByFrequency(curStr, bill.frequency, 1, anchorDay);
+      if (nextStr < startStr) {
+        curStr = nextStr;
+        guard += 1;
+      } else {
+        break;
+      }
     }
-    cursor = addMonths(cursor, -stepMonths);
 
     for (let i = 0; i < 600; i += 1) {
-      const nominalStr = fmt(cursor);
+      const nominalStr = curStr;
       if (nominalStr >= endStr) break;
       // Inclusion is decided on the working-day-adjusted date, not the nominal.
       const withinEnd = !bill.endDate || nominalStr <= bill.endDate;
@@ -207,7 +259,7 @@ function billOutgoings(recurringBills, startStr, endStr) {
           });
         }
       }
-      cursor = addMonths(cursor, stepMonths);
+      curStr = advanceByFrequency(curStr, bill.frequency, 1, anchorDay);
     }
   }
   return rows;
@@ -361,6 +413,7 @@ export function buildPlan(data, offset = 0) {
   const safetyBufferPence = settings.safetyBufferPence ?? 20000;
   const everydaySpendPence = settings.everydaySpendPence ?? 0;
   const strategy = settings.payoffStrategy ?? 'avalanche';
+  const balanceAsOf = settings.balanceAsOf ?? null;
   const needsBalance = currentBalancePence == null;
 
   const { boundaries, byDate } = computeIncomeTimeline(incomeSources, now, offset);
@@ -491,15 +544,33 @@ export function buildPlan(data, offset = 0) {
   let belowBufferDate = null;
   let negativeDate = null;
 
+  // Mid-period balance refresh (M3): the manual anchor already reflects any
+  // outgoing dated strictly BEFORE `balanceAsOf`, so counting those again would
+  // double-count them. For the CURRENT period only (offset 0) we exclude such
+  // rows from the running projection and flag them `beforeBalance` so the UI can
+  // dim them without affecting the projected end / safe-extra. Navigated
+  // (past/future) periods keep the plain behaviour.
+  const excludeBefore = offset === 0 && balanceAsOf ? balanceAsOf : null;
+
   if (!needsBalance) {
     let running = currentBalancePence;
     timeline = ordered.map((row) => {
-      running += row.direction === 'in' ? row.amountPence : -row.amountPence;
-      if (negativeDate === null && running < 0) negativeDate = row.date;
-      if (belowBufferDate === null && running < safetyBufferPence) belowBufferDate = row.date;
-      return { ...row, runningBalancePence: running };
+      const beforeBalance =
+        excludeBefore != null && row.direction === 'out' && row.date < excludeBefore;
+      if (!beforeBalance) {
+        running += row.direction === 'in' ? row.amountPence : -row.amountPence;
+        if (negativeDate === null && running < 0) negativeDate = row.date;
+        if (belowBufferDate === null && running < safetyBufferPence) belowBufferDate = row.date;
+      }
+      return { ...row, runningBalancePence: running, beforeBalance };
     });
     projectedEndBalancePence = running;
+  } else if (excludeBefore != null) {
+    // No balance anchor yet, but still expose the flag for consistent rendering.
+    timeline = ordered.map((row) => ({
+      ...row,
+      beforeBalance: row.direction === 'out' && row.date < excludeBefore,
+    }));
   }
 
   const safeExtraPence = needsBalance

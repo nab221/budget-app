@@ -27,7 +27,18 @@ export default function BalanceTransferModeler({ cards }) {
 
   const result =
     card && months > 0
-      ? modelBalanceTransfer({ currentBalance: card.currentBalance, apr: card.apr }, months, fee)
+      ? modelBalanceTransfer(
+          {
+            currentBalance: card.currentBalance,
+            apr: card.apr,
+            // Pass promo details so the stay-cost baseline honours an active 0%
+            // window and its post-promo rate jump instead of the headline APR (L1).
+            promoEndDate: card.promoEndDate ?? null,
+            postPromoApr: card.postPromoApr ?? null,
+          },
+          months,
+          fee,
+        )
       : null;
 
   // newLimit is entered in pounds → pence for comparison with the pence balance.

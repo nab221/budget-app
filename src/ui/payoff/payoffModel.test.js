@@ -49,6 +49,32 @@ describe('toFinanceDebts', () => {
   });
 });
 
+describe('null postPromoApr accrues interest at the card APR (H1)', () => {
+  it('a plain card with postPromoApr null is simulated at its real APR, not 0%', () => {
+    // Repro: £3,000 @ 24.9%, no promo, postPromoApr stored as null by the form.
+    const { cards } = toFinanceDebts([
+      {
+        id: 1,
+        name: 'Barclaycard',
+        debtType: 'credit-card',
+        balancePence: 300000,
+        apr: 24.9,
+        promoEndDate: null,
+        postPromoApr: null,
+      },
+    ]);
+    // The null must not survive into the finance shape (it would read as 0% APR).
+    expect(cards[0].postPromoApr).toBeUndefined();
+
+    const cmp = buildStrategyComparison(cards, 0, '2026-01-01');
+    const min = cmp.rows.find((r) => r.key === 'min');
+    // At 0% the £3k would clear in ~159 months with £0 interest — the bug. At
+    // 24.9% it accrues thousands of pounds of interest over a far longer payoff.
+    expect(cmp.baselineInterestPence).toBeGreaterThan(400000); // > £4,000 interest
+    expect(min.monthsToClear).toBeGreaterThan(159);
+  });
+});
+
 describe('payoff settings persistence', () => {
   beforeEach(resetDb);
 

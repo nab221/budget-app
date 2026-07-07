@@ -28,9 +28,15 @@ export const DEFAULT_CATEGORIES = [
  * @returns {Promise<boolean>} true if seeding ran, false if it was skipped.
  */
 export async function seedDefaultCategories() {
-  const count = await db.categories.count();
-  if (count > 0) return false;
-  await db.categories.bulkAdd(DEFAULT_CATEGORIES.map((c) => ({ ...c })));
-  dispatchMutation();
-  return true;
+  // Count + bulkAdd in one rw transaction (L3) so two first-run callers racing
+  // (e.g. two tabs, or React StrictMode's double-invoke) can't both pass the
+  // empty check and double-seed — the second transaction sees the rows.
+  const seeded = await db.transaction('rw', db.categories, async () => {
+    const count = await db.categories.count();
+    if (count > 0) return false;
+    await db.categories.bulkAdd(DEFAULT_CATEGORIES.map((c) => ({ ...c })));
+    return true;
+  });
+  if (seeded) dispatchMutation();
+  return seeded;
 }

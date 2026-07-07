@@ -31,13 +31,23 @@ export const TFC_QUARTERLY_CAP_DISABLED_PENCE = 100000; // £1,000
  * the parent only needs to fund 80% of the gap: deposit = gap × 0.8, top-up =
  * gap × 0.2, and deposit + top-up === gap.
  *
- * The top-up is capped at the remaining quarterly capacity
- * (`cap − quarterlyTopUpUsed`). When that cap binds, the government contributes
- * only `remainingCap`; the parent must fund the rest of the gap pound-for-pound,
- * so `deposit = gap − topUp` still holds. The most the top-up can ever add is
- * `remainingCap` (reached when the parent deposits `remainingCap × 4`), together
- * covering `remainingCap × 5` of the gap — anything beyond that is the
- * `uncoveredByTopUp` remainder surfaced plainly to the user.
+ * ── Cap semantics (steady-state MONTHLY figure) ────────────────────────────
+ * The government cap is a QUARTERLY limit (£500, or £1,000 disabled) but this
+ * function returns a single steady-state MONTHLY deposit. Spreading the quarter
+ * evenly, the most top-up a single month can attract is `floor(cap / 3)` —
+ * £166.66 standard, £333.33 disabled. Applying the full quarterly cap per month
+ * would triple-count the allowance and understate the deposit (the original
+ * bug). The optional `quarterlyTopUpUsedPence` still narrows the remaining
+ * quarterly capacity (kept for future per-quarter accounting); the binding cap
+ * for the month is the smaller of that remaining quarterly capacity and the
+ * even monthly share.
+ *
+ * When that cap binds, the government contributes only `remainingCap`; the
+ * parent funds the rest of the gap pound-for-pound, so `deposit = gap − topUp`
+ * still holds. The most the top-up can add is `remainingCap` (reached when the
+ * parent deposits `remainingCap × 4`), together covering `remainingCap × 5` of
+ * the gap — anything beyond that is the `uncoveredByTopUp` remainder surfaced
+ * plainly to the user.
  *
  * @param {object} args
  * @param {number} args.providerCostPence      - monthly provider cost (pence).
@@ -45,7 +55,8 @@ export const TFC_QUARTERLY_CAP_DISABLED_PENCE = 100000; // £1,000
  * @param {boolean} [args.isDisabled=false]    - child qualifies for the disabled cap.
  * @param {number} [args.quarterlyTopUpUsedPence=0] - top-up already claimed this quarter.
  * @returns {{ gapPence:number, depositPence:number, topUpPence:number,
- *   capBound:boolean, uncoveredByTopUpPence:number, remainingCapPence:number }}
+ *   capBound:boolean, uncoveredByTopUpPence:number, remainingCapPence:number,
+ *   monthlyCapPence:number }}
  */
 export function computeRequiredDeposit({
   providerCostPence,
@@ -54,7 +65,12 @@ export function computeRequiredDeposit({
   quarterlyTopUpUsedPence = 0,
 } = {}) {
   const capForChild = isDisabled ? TFC_QUARTERLY_CAP_DISABLED_PENCE : TFC_QUARTERLY_CAP_PENCE;
-  const remainingCap = Math.max(0, capForChild - Math.max(0, quarterlyTopUpUsedPence || 0));
+  // Even monthly share of the quarterly cap — the true per-month top-up ceiling.
+  const monthlyCapPence = Math.floor(capForChild / 3);
+  const remainingQuarterlyCap = Math.max(0, capForChild - Math.max(0, quarterlyTopUpUsedPence || 0));
+  // The month can never attract more than its even share, nor more than what is
+  // left in the quarter.
+  const remainingCap = Math.min(monthlyCapPence, remainingQuarterlyCap);
 
   const { gap, suggestedDeposit } = calculateFundingGap(
     Math.max(0, providerCostPence || 0),
@@ -75,6 +91,7 @@ export function computeRequiredDeposit({
     capBound: uncoveredByTopUpPence > 0,
     uncoveredByTopUpPence,
     remainingCapPence: remainingCap,
+    monthlyCapPence,
   };
 }
 

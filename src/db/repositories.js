@@ -153,7 +153,25 @@ function validateDebt(data) {
 // Repositories
 // ---------------------------------------------------------------------------
 
-export const categoriesRepo = createBaseRepository(db.categories, [], {});
+export const categoriesRepo = {
+  ...createBaseRepository(db.categories, [], {}),
+
+  /**
+   * Delete a category AND cascade-delete its learned import mappings (L4). The
+   * UI still blocks deletion while transactions/bills reference the category
+   * (see `categoryUsage.js`); the dangling `categoryMappings` — which have no
+   * such guard — are cleaned up here in one transaction so no orphan learned
+   * mapping points at a category that no longer exists.
+   * @param {number} id
+   */
+  async delete(id) {
+    await db.transaction('rw', db.categories, db.categoryMappings, async () => {
+      await db.categoryMappings.filter((m) => m.categoryId === id).delete();
+      await db.categories.delete(id);
+    });
+    dispatchMutation();
+  },
+};
 
 export const incomeSourcesRepo = {
   ...createBaseRepository(
@@ -164,14 +182,42 @@ export const incomeSourcesRepo = {
   ),
 };
 
-export const recurringBillsRepo = {
-  ...createBaseRepository(
+/**
+ * Default a bill's `dueDayAnchor` (the original intended day-of-month) from its
+ * `nextDueDate` when the caller didn't supply one (M4). Storing the anchor lets
+ * the plan walk and the confirm-flow re-clamp month-end bills correctly (31 Jan
+ * → 28 Feb → 31 Mar) instead of getting stuck on the 28th forever. Passed
+ * through untouched (not a money field).
+ */
+function withDueDayAnchor(data) {
+  if (data.dueDayAnchor == null && data.nextDueDate) {
+    const day = Number(String(data.nextDueDate).slice(8, 10));
+    if (Number.isInteger(day) && day >= 1 && day <= 31) {
+      return { ...data, dueDayAnchor: day };
+    }
+  }
+  return data;
+}
+
+export const recurringBillsRepo = (() => {
+  const base = createBaseRepository(
     db.recurringBills,
     ['amountPence'],
     { active: true, adjustToWorkingDay: true },
     validateRecurringBill
-  ),
-};
+  );
+  return {
+    ...base,
+    // Default the anchor from nextDueDate on creation. `update` is intentionally
+    // NOT wrapped: the confirm flow patches only `nextDueDate` (to the advanced,
+    // already-clamped date) and must NOT re-derive the anchor from it, or a
+    // 31st-of-month bill clamped to the 28th would lose its 31 anchor. The
+    // edit form supplies `dueDayAnchor` explicitly when the due date changes.
+    async add(data) {
+      return base.add(withDueDayAnchor(data));
+    },
+  };
+})();
 
 export const transactionsRepo = {
   ...createBaseRepository(

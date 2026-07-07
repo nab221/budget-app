@@ -22,8 +22,16 @@
  * is `occurrenceDate`, which makes the confirm ⇄ unconfirm round-trip exact.
  */
 
+import { db } from './schema.js';
 import { transactionsRepo, recurringBillsRepo } from './repositories.js';
 import { advanceByFrequency } from '../engine/plan.js';
+
+/** Anchor day for advancing a bill: its stored anchor, else the occurrence day. */
+function anchorDayFor(bill, occurrenceDate) {
+  if (bill && bill.dueDayAnchor != null) return bill.dueDayAnchor;
+  const day = Number(String(occurrenceDate).slice(8, 10));
+  return Number.isInteger(day) && day >= 1 && day <= 31 ? day : null;
+}
 
 /**
  * Mark a recurring-bill occurrence as paid.
@@ -43,30 +51,41 @@ export async function confirmBillPayment(bill, occurrenceDate = bill?.nextDueDat
   if (!bill || bill.id == null) throw new Error('confirmBillPayment: a bill with an id is required');
   if (!occurrenceDate) throw new Error('confirmBillPayment: occurrenceDate (or bill.nextDueDate) is required');
 
-  // Idempotent guard — refuse a duplicate confirm for the same occurrence.
-  const existing = await transactionsRepo.findBillPayment(bill.id, occurrenceDate);
-  if (existing) {
-    return { created: false, alreadyConfirmed: true, transactionId: existing.id };
-  }
-
   const amountPounds = opts.amountPounds != null ? opts.amountPounds : bill.amountPence;
+  // Advance one frequency step past the confirmed occurrence, re-clamped to the
+  // bill's intended day-of-month so a month-end bill doesn't drift (M4).
+  const nextDueDate = advanceByFrequency(
+    occurrenceDate,
+    bill.frequency,
+    1,
+    anchorDayFor(bill, occurrenceDate),
+  );
 
-  const transactionId = await transactionsRepo.add({
-    date: occurrenceDate,
-    kind: 'spend',
-    amountPence: amountPounds, // pounds at the repository edge
-    categoryId: bill.categoryId,
-    description: bill.label || 'Bill',
-    source: 'bill',
-    billId: bill.id,
+  // The idempotent read-check, the transaction insert and the nextDueDate bump
+  // run in ONE Dexie rw transaction (L2): a double-click / concurrent confirm
+  // can't slip between the check and the write to create two rows, and a
+  // failure rolls back both the ledger row and the date bump atomically.
+  return db.transaction('rw', db.transactions, db.recurringBills, async () => {
+    const existing = await transactionsRepo.findBillPayment(bill.id, occurrenceDate);
+    if (existing) {
+      return { created: false, alreadyConfirmed: true, transactionId: existing.id };
+    }
+
+    const transactionId = await transactionsRepo.add({
+      date: occurrenceDate,
+      kind: 'spend',
+      amountPence: amountPounds, // pounds at the repository edge
+      categoryId: bill.categoryId,
+      description: bill.label || 'Bill',
+      source: 'bill',
+      billId: bill.id,
+    });
+
+    // Advance the bill's next due date so the plan stops surfacing it as upcoming.
+    await recurringBillsRepo.update(bill.id, { nextDueDate });
+
+    return { created: true, transactionId, nextDueDate };
   });
-
-  // Advance the bill's next due date by exactly one frequency step past the
-  // confirmed occurrence, so the plan stops surfacing it as upcoming.
-  const nextDueDate = advanceByFrequency(occurrenceDate, bill.frequency, 1);
-  await recurringBillsRepo.update(bill.id, { nextDueDate });
-
-  return { created: true, transactionId, nextDueDate };
 }
 
 /**
@@ -102,7 +121,12 @@ export async function unconfirmBillPayment(transaction) {
     };
   }
 
-  const expected = advanceByFrequency(transaction.date, bill.frequency, 1);
+  const expected = advanceByFrequency(
+    transaction.date,
+    bill.frequency,
+    1,
+    anchorDayFor(bill, transaction.date),
+  );
   if (bill.nextDueDate === expected) {
     await recurringBillsRepo.update(bill.id, { nextDueDate: transaction.date });
     return { deleted: true, rolledBack: true, nextDueDate: transaction.date };

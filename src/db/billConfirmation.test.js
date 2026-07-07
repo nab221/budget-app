@@ -86,6 +86,35 @@ describe('confirmBillPayment', () => {
     const tx = await transactionsRepo.get(result.transactionId);
     expect(tx.date).toBe('2026-03-01');
   });
+
+  it('does not let a 31st-of-month bill drift after February (M4 anchor)', async () => {
+    // dueDayAnchor defaults from nextDueDate day → 31.
+    const bill = await makeBill({ frequency: 'monthly', nextDueDate: '2026-01-31' });
+    expect(bill.dueDayAnchor).toBe(31);
+
+    const first = await confirmBillPayment(bill, bill.nextDueDate);
+    expect(first.nextDueDate).toBe('2026-02-28'); // clamped for February
+
+    // Re-read and confirm the (clamped) February occurrence — the anchor pulls
+    // the next due date back to the 31st instead of sticking on the 28th.
+    const feb = await recurringBillsRepo.get(bill.id);
+    const second = await confirmBillPayment(feb, feb.nextDueDate);
+    expect(second.nextDueDate).toBe('2026-03-31');
+  });
+
+  it('is atomic and double-click safe — concurrent confirms create exactly one row (L2)', async () => {
+    const bill = await makeBill({ frequency: 'monthly', nextDueDate: '2026-01-15' });
+    const [a, b] = await Promise.all([
+      confirmBillPayment(bill, bill.nextDueDate),
+      confirmBillPayment(bill, bill.nextDueDate),
+    ]);
+    // Exactly one confirm creates the ledger row; the other is a no-op.
+    expect([a.created, b.created].filter(Boolean)).toHaveLength(1);
+    const rows = await db.transactions
+      .toArray()
+      .then((all) => all.filter((t) => t.source === 'bill' && t.billId === bill.id));
+    expect(rows).toHaveLength(1);
+  });
 });
 
 describe('unconfirmBillPayment', () => {

@@ -230,37 +230,43 @@ describe('computeRequiredDeposit', () => {
     expect(r.capBound).toBe(false);
   });
 
-  it('funds the whole gap from a zero balance (80% deposit, 20% top-up)', () => {
-    const r = computeRequiredDeposit({ providerCostPence: 100000, balancePence: 0 });
-    expect(r.gapPence).toBe(100000);
-    expect(r.depositPence).toBe(80000);
-    expect(r.topUpPence).toBe(20000);
-    expect(r.depositPence + r.topUpPence).toBe(100000);
+  it('funds a below-cap gap from a zero balance (80% deposit, 20% top-up)', () => {
+    // £600/mo gap → ideal top-up £120 (< the £166.66 monthly share) so uncapped.
+    const r = computeRequiredDeposit({ providerCostPence: 60000, balancePence: 0 });
+    expect(r.gapPence).toBe(60000);
+    expect(r.depositPence).toBe(48000);
+    expect(r.topUpPence).toBe(12000);
+    expect(r.depositPence + r.topUpPence).toBe(60000);
+    expect(r.capBound).toBe(false);
   });
 
-  it('binds the £500 standard quarterly cap and surfaces the uncovered remainder', () => {
-    // Huge gap (£3,000) so the ideal 20% top-up (£600) exceeds the £500 cap.
-    const r = computeRequiredDeposit({ providerCostPence: 300000, balancePence: 0 });
-    expect(r.gapPence).toBe(300000);
-    expect(r.topUpPence).toBe(TFC_QUARTERLY_CAP_PENCE); // capped at £500
-    expect(r.depositPence).toBe(300000 - TFC_QUARTERLY_CAP_PENCE); // parent funds the rest
+  it('caps the monthly top-up at the even 1/3 share of the £500 quarterly cap', () => {
+    // Nursery £1,200/mo, £0 balance → gap £1,200. Ideal 20% top-up would be £240,
+    // but the true monthly ceiling is floor(50000/3) = 16666p (£166.66).
+    const monthlyCap = Math.floor(TFC_QUARTERLY_CAP_PENCE / 3); // 16666
+    const r = computeRequiredDeposit({ providerCostPence: 120000, balancePence: 0 });
+    expect(r.gapPence).toBe(120000);
+    expect(r.monthlyCapPence).toBe(monthlyCap);
+    expect(r.topUpPence).toBe(monthlyCap); // capped at the monthly share, NOT £500
+    expect(r.depositPence).toBe(120000 - monthlyCap); // parent funds the rest
     expect(r.capBound).toBe(true);
-    // Top-up can cover at most remainingCap*5 = £2,500 of the gap; £500 is left over.
-    expect(r.uncoveredByTopUpPence).toBe(300000 - TFC_QUARTERLY_CAP_PENCE * 5);
+    expect(r.uncoveredByTopUpPence).toBe(120000 - monthlyCap * 5);
     expect(r.depositPence + r.topUpPence).toBe(r.gapPence);
   });
 
-  it('uses the higher £1,000 cap for a disabled child', () => {
-    // Gap £3,000: ideal top-up £600 is within the disabled £1,000 cap → not bound.
+  it('uses the higher £1,000/3 monthly share for a disabled child', () => {
+    // Disabled monthly ceiling = floor(100000/3) = 33333p (£333.33).
+    const monthlyCap = Math.floor(TFC_QUARTERLY_CAP_DISABLED_PENCE / 3); // 33333
     const r = computeRequiredDeposit({
       providerCostPence: 300000,
       balancePence: 0,
       isDisabled: true,
     });
-    expect(r.remainingCapPence).toBe(TFC_QUARTERLY_CAP_DISABLED_PENCE);
-    expect(r.topUpPence).toBe(60000);
-    expect(r.depositPence).toBe(240000);
-    expect(r.capBound).toBe(false);
+    expect(r.monthlyCapPence).toBe(monthlyCap);
+    expect(r.remainingCapPence).toBe(monthlyCap);
+    expect(r.topUpPence).toBe(monthlyCap); // ideal £600 exceeds the £333.33 monthly share
+    expect(r.depositPence).toBe(300000 - monthlyCap);
+    expect(r.capBound).toBe(true);
   });
 
   it('reduces remaining capacity by top-up already used this quarter', () => {

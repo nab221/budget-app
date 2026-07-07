@@ -24,9 +24,12 @@ export function useLiveData(queryFn, deps = []) {
 
   useEffect(() => {
     let cancelled = false;
-    const runId = ++runIdRef.current;
 
+    // A fresh monotonic id per run() call — including mutation-triggered re-runs,
+    // which reuse this same closure. Only the latest-issued run may commit state,
+    // so an earlier-but-slower query can never overwrite a newer one (M2).
     const run = async () => {
+      const runId = ++runIdRef.current;
       setState((prev) => ({ ...prev, loading: true }));
       try {
         const data = await stableQuery();

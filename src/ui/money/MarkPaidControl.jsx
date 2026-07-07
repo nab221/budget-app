@@ -21,6 +21,18 @@ export default function MarkPaidControl({
   onCancel,
 }) {
   const [amount, setAmount] = useState(defaultAmountPounds);
+  // Guard against double-click / double-submit while the confirm is in flight (L2).
+  const [busy, setBusy] = useState(false);
+
+  const handleConfirm = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await onConfirm(amount == null || amount === '' ? defaultAmountPounds : amount);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <span className="markpaid" role="group" aria-label={`Mark ${label || 'bill'} paid`}>
@@ -29,11 +41,12 @@ export default function MarkPaidControl({
       <button
         type="button"
         className="btn btn--sm btn--primary"
-        onClick={() => onConfirm(amount == null || amount === '' ? defaultAmountPounds : amount)}
+        onClick={handleConfirm}
+        disabled={busy}
       >
-        Confirm
+        {busy ? 'Confirming…' : 'Confirm'}
       </button>
-      <button type="button" className="btn btn--sm" onClick={onCancel}>
+      <button type="button" className="btn btn--sm" onClick={onCancel} disabled={busy}>
         Cancel
       </button>
     </span>

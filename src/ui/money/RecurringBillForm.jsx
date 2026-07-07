@@ -42,12 +42,16 @@ export default function RecurringBillForm({ initial, spendingCategories, onSubmi
       setError('Next due date is required.');
       return;
     }
+    // Anchor the intended day-of-month from the chosen due date so month-end
+    // bills don't drift after a February clamp (M4).
+    const anchorDay = Number(String(form.nextDueDate).slice(8, 10)) || 1;
     const payload = {
       label: form.label.trim(),
       amountPence: form.amountPence === '' || form.amountPence == null ? 0 : Number(form.amountPence),
       categoryId: Number(form.categoryId),
       frequency: form.frequency,
       nextDueDate: form.nextDueDate,
+      dueDayAnchor: anchorDay,
       adjustToWorkingDay: !!form.adjustToWorkingDay,
       endDate: form.endDate || null,
       active: !!form.active,

@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { buildPlan } from './plan.js';
+import { buildPlan, advanceByFrequency, dateForMonthDayStr, daysInMonthYM } from './plan.js';
 import { orderDebtsByStrategy } from './finance.js';
 
 // ---------------------------------------------------------------------------
@@ -488,5 +488,182 @@ describe('orderDebtsByStrategy', () => {
     ];
     const ordered = orderDebtsByStrategy(withPromo, 'avalanche', '2026-03-10');
     expect(ordered[0].id).toBe(1); // A's 20% beats B's promo 0%
+  });
+});
+
+// ---------------------------------------------------------------------------
+// H2 — timezone-independent date math (pure string helpers, no Date/UTC mixing)
+// ---------------------------------------------------------------------------
+
+describe('date helpers are timezone-independent (H2)', () => {
+  it('daysInMonthYM counts days including leap Februaries', () => {
+    expect(daysInMonthYM(2026, 1)).toBe(31);
+    expect(daysInMonthYM(2026, 2)).toBe(28); // 2026 not leap
+    expect(daysInMonthYM(2024, 2)).toBe(29); // leap
+    expect(daysInMonthYM(2000, 2)).toBe(29); // divisible by 400
+    expect(daysInMonthYM(1900, 2)).toBe(28); // divisible by 100 not 400
+    expect(daysInMonthYM(2026, 6)).toBe(30);
+  });
+
+  it('dateForMonthDayStr builds the nominal date purely from strings', () => {
+    // The exact case that broke under BST: July, day 15 must stay 2026-07-15,
+    // day 1 must stay 2026-07-01 — the old setUTCDate path produced June dates.
+    expect(dateForMonthDayStr('2026-07', 15)).toBe('2026-07-15');
+    expect(dateForMonthDayStr('2026-07', 1)).toBe('2026-07-01');
+    // Clamped to the real month length.
+    expect(dateForMonthDayStr('2026-02', 31)).toBe('2026-02-28');
+    expect(dateForMonthDayStr('2024-02', 31)).toBe('2024-02-29');
+    expect(dateForMonthDayStr('2026-06', 31)).toBe('2026-06-30');
+  });
+
+  it('a childcare/debt occurrence lands on the requested day regardless of TZ', () => {
+    // Salary 28th → period around July; a childcare deposit on day 15 must be
+    // 15 Jul, not pulled a day/month back by a UTC/local mismatch (the H2 bug).
+    const plan = buildPlan(
+      {
+        now: new Date('2026-07-10T12:00:00Z'),
+        incomeSources: [source({ payDateDay: 28 })],
+        recurringBills: [],
+        debts: [],
+        settings: baseSettings(),
+        childcareDeposits: [
+          { label: 'Nursery', amountPence: 30000, paymentDayOfMonth: 15, adjustToWorkingDay: false },
+        ],
+      },
+      0,
+    );
+    const cc = plan.outgoings.find((o) => o.kind === 'childcare');
+    expect(cc).toBeDefined();
+    expect(cc.date).toBe('2026-07-15');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// M1 — a confirmed (paid) bill must not re-enter the committed timeline
+// ---------------------------------------------------------------------------
+
+describe('paid bill does not re-enter the timeline (M1 / BUG-1)', () => {
+  it('a bill whose nextDueDate advanced a full step past the period start drops out', () => {
+    // Period 25 Feb → 25 Mar. Pre-confirm nextDueDate 5 Mar shows once (control).
+    const before = build({
+      recurringBills: [bill({ nextDueDate: '2026-03-05', adjustToWorkingDay: false })],
+    });
+    expect(before.outgoings.filter((o) => o.kind === 'bill')).toHaveLength(1);
+
+    // confirmBillPayment advances nextDueDate to 5 Apr (one step past the 5 Mar
+    // occurrence). The old unconditional step-back re-emitted the 5 Mar row.
+    const after = build({
+      recurringBills: [bill({ nextDueDate: '2026-04-05', adjustToWorkingDay: false })],
+      settings: baseSettings({ currentBalancePence: 500000 }),
+    });
+    expect(after.outgoings.filter((o) => o.kind === 'bill')).toHaveLength(0);
+    // Projected end equals the opening anchor (no phantom deduction).
+    expect(after.projectedEndBalancePence).toBe(500000);
+  });
+
+  it('still shows an overdue UNPAID bill (nextDueDate before the window)', () => {
+    const plan = build({
+      recurringBills: [bill({ nextDueDate: '2026-01-05', adjustToWorkingDay: false })],
+    });
+    const rows = plan.outgoings.filter((o) => o.kind === 'bill');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].date).toBe('2026-03-05');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// M3 — mid-period balance refresh excludes already-reflected outgoings
+// ---------------------------------------------------------------------------
+
+describe('balanceAsOf mid-period exclusion (M3)', () => {
+  function planWithAsOf(asOf, offset = 0, extraBills = []) {
+    return build(
+      {
+        settings: baseSettings({ currentBalancePence: 400000, balanceAsOf: asOf }),
+        recurringBills: [
+          bill({ id: 1, label: 'Before', amountPence: 100000, nextDueDate: '2026-03-05', adjustToWorkingDay: false }),
+          bill({ id: 2, label: 'OnDate', amountPence: 20000, nextDueDate: '2026-03-10', adjustToWorkingDay: false }),
+          bill({ id: 3, label: 'After', amountPence: 50000, nextDueDate: '2026-03-15', adjustToWorkingDay: false }),
+          ...extraBills,
+        ],
+      },
+      offset,
+    );
+  }
+
+  it('excludes outgoings dated strictly before balanceAsOf from the projection', () => {
+    const plan = planWithAsOf('2026-03-10');
+    const before = plan.timeline.find((r) => r.label === 'Before');
+    const onDate = plan.timeline.find((r) => r.label === 'OnDate');
+    const after = plan.timeline.find((r) => r.label === 'After');
+
+    expect(before.beforeBalance).toBe(true); // 5 Mar < 10 Mar → excluded/dimmed
+    expect(onDate.beforeBalance).toBe(false); // exactly on the date → included
+    expect(after.beforeBalance).toBe(false);
+
+    // Only OnDate (20000) + After (50000) reduce the projection; Before is skipped.
+    expect(plan.projectedEndBalancePence).toBe(400000 - 20000 - 50000);
+    expect(plan.safeExtraPence).toBe(400000 - 20000 - 50000 - 20000);
+  });
+
+  it('leaves navigated (offset ≠ 0) periods counting everything', () => {
+    // offset 1 → period 25 Mar → 27 Apr. A bill before balanceAsOf in THAT period
+    // is still counted (the exclusion is only for the current period).
+    const plan = build(
+      {
+        settings: baseSettings({ currentBalancePence: 400000, balanceAsOf: '2026-04-10' }),
+        recurringBills: [
+          bill({ id: 9, label: 'AprBill', amountPence: 30000, nextDueDate: '2026-04-05', adjustToWorkingDay: false }),
+        ],
+      },
+      1,
+    );
+    const row = plan.timeline.find((r) => r.label === 'AprBill');
+    expect(row.beforeBalance).toBe(false);
+    expect(plan.projectedEndBalancePence).toBe(400000 - 30000);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// M4 — month-end anchor prevents due-date drift
+// ---------------------------------------------------------------------------
+
+describe('advanceByFrequency month-end anchor (M4)', () => {
+  it('restores the intended day after a February clamp (31st bill)', () => {
+    expect(advanceByFrequency('2026-01-31', 'monthly', 1, 31)).toBe('2026-02-28');
+    expect(advanceByFrequency('2026-02-28', 'monthly', 1, 31)).toBe('2026-03-31');
+  });
+
+  it('keeps a 30th quarterly bill on the 30th', () => {
+    expect(advanceByFrequency('2026-01-30', 'quarterly', 1, 30)).toBe('2026-04-30');
+  });
+
+  it('handles a 29 Feb annual bill across leap years', () => {
+    // 29 Feb 2024 (leap) +1yr → 28 Feb 2025 (clamped), anchor 29.
+    expect(advanceByFrequency('2024-02-29', 'annual', 1, 29)).toBe('2025-02-28');
+    // ...and back to 29 Feb when the target year is a leap year again.
+    expect(advanceByFrequency('2027-02-28', 'annual', 1, 29)).toBe('2028-02-29');
+  });
+
+  it('without an anchor preserves the legacy addMonths clamp behaviour', () => {
+    expect(advanceByFrequency('2026-01-31', 'monthly', 1)).toBe('2026-02-28');
+    expect(advanceByFrequency('2026-02-28', 'monthly', 1)).toBe('2026-03-28'); // drift, as before
+  });
+
+  it('walks plan occurrences on the anchored day, not the drifted one', () => {
+    // Bill anchored on the 31st, current nextDueDate already clamped to 28 Feb.
+    // The March occurrence must land on 31 Mar. now = 20 Mar (salary 25th) →
+    // period 25 Feb → 25 Mar; use offset 1 (25 Mar → 27 Apr) to see 31 Mar.
+    const plan = build(
+      {
+        recurringBills: [
+          bill({ nextDueDate: '2026-02-28', dueDayAnchor: 31, adjustToWorkingDay: false }),
+        ],
+      },
+      1,
+    );
+    const rows = plan.outgoings.filter((o) => o.kind === 'bill');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].date).toBe('2026-03-31');
   });
 });

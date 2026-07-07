@@ -63,6 +63,7 @@ export async function gatherPlanData(now = new Date()) {
     safetyBufferPence,
     everydaySpendPence,
     payoffStrategy,
+    balanceAsOf,
   ] = await Promise.all([
     incomeSourcesRepo.getAll(), // pounds at the edge
     recurringBillsRepo.getAll(), // pounds at the edge
@@ -73,6 +74,7 @@ export async function gatherPlanData(now = new Date()) {
     settings.getSafetyBufferPence(),
     settings.getEverydaySpendPence(),
     settings.getPayoffStrategy(),
+    settings.getBalanceAsOf(), // ISO date string (or null)
   ]);
 
   // pounds → pence at this single boundary for each money field.
@@ -92,6 +94,8 @@ export async function gatherPlanData(now = new Date()) {
     categoryId: b.categoryId,
     frequency: b.frequency,
     nextDueDate: b.nextDueDate,
+    // Original intended day-of-month so month-end bills don't drift (M4).
+    dueDayAnchor: b.dueDayAnchor,
     adjustToWorkingDay: b.adjustToWorkingDay,
     endDate: b.endDate,
     active: b.active,
@@ -125,6 +129,7 @@ export async function gatherPlanData(now = new Date()) {
       safetyBufferPence, // already pence
       everydaySpendPence, // already pence
       payoffStrategy,
+      balanceAsOf, // ISO date string (or null) — mid-period exclusion (M3)
     },
     // One committed deposit per child with a required deposit > 0 (computed at
     // read time from the child record — never persisted).

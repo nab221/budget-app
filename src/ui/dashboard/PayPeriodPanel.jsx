@@ -182,14 +182,21 @@ export default function PayPeriodPanel({ plan, offset, onOffsetChange, bills = [
                     const negative = !plan.needsBalance && row.runningBalancePence < 0;
                     const bill = row.kind === 'bill' ? billById.get(row.sourceId) : null;
                     const markable = canMark && bill && markableIndexByBill.has(i);
+                    // Dated before the balance "as of" date → already reflected in
+                    // the bank anchor, so it doesn't move the projection (M3).
+                    const rowClass = row.beforeBalance
+                      ? 'row--before-balance is-inactive'
+                      : negative
+                        ? 'row--negative'
+                        : below
+                          ? 'row--below'
+                          : '';
                     return (
-                      <tr
-                        key={i}
-                        className={negative ? 'row--negative' : below ? 'row--below' : ''}
-                      >
+                      <tr key={i} className={rowClass}>
                         <td>
                           {fmtDate(row.date)}
                           {row.isAdjusted && <span className="tag">shifted</span>}
+                          {row.beforeBalance && <span className="tag">before balance date</span>}
                         </td>
                         <td>
                           {row.label}
