@@ -1,10 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Dashboard from './ui/Dashboard.jsx';
 import MoneyInOut from './ui/MoneyInOut.jsx';
 import Debts from './ui/Debts.jsx';
 import Payoff from './ui/Payoff.jsx';
 import Childcare from './ui/Childcare.jsx';
 import Settings from './ui/Settings.jsx';
+import { useLiveData } from './db/useLiveData.js';
+import { settings } from './db/settings.js';
+import { applyTheme, applyPrivacy } from './ui/theme.js';
 
 const TABS = [
   { id: 'dashboard', label: 'Dashboard', Component: Dashboard },
@@ -16,6 +19,20 @@ const TABS = [
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
+
+  // Apply theme + privacy globally, reacting live to Settings changes.
+  const { data: prefs } = useLiveData(
+    async () => ({
+      theme: await settings.getTheme(),
+      privacyMode: await settings.getPrivacyMode(),
+    }),
+    []
+  );
+  useEffect(() => {
+    if (!prefs) return;
+    applyTheme(prefs.theme);
+    applyPrivacy(prefs.privacyMode);
+  }, [prefs]);
 
   const active = activeTab === 'settings'
     ? { id: 'settings', label: 'Settings', Component: Settings }
