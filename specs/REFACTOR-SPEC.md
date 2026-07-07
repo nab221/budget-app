@@ -28,7 +28,7 @@ of scope (see §8).
 | Devices | **One main computer (MacBook).** No multi-device sync, no wife-access requirement. Must work in Safari as well as Chrome. |
 | App form | **Bookmarked web page.** No PWA, no service worker, no install prompts, no offline machinery. |
 | Data | **Start fresh.** New empty database, new schema v1. No migration from the old app, no legacy import pipelines. The owner re-enters debts and bills by hand. |
-| Spending workflow | **Bills planned + actuals imported.** Recurring bills/subscriptions are set up once and auto-generate expected payments. Day-to-day spending is captured by importing **bank current-account PDF statements** (not credit-card statements) and tidying categories. Manual one-off entry remains possible but is not the primary flow. |
+| Spending workflow | **Bills planned; actuals from confirmations + manual entry.** Recurring bills/subscriptions are set up once and auto-generate expected payments; ticking them paid writes the ledger. *(Amended 2026-07-07: the originally planned bank-statement transaction import was dropped after testing — PDF reading is for credit-card statements updating debts instead, §4.6.)* |
 | Time model | **Both** views: payday-to-payday (for the affordability/payoff question) and calendar month (for the spending review). |
 | Debts | **Simple balances.** Per debt: name, type, current balance, APR, promo details, minimum payment. Balance updated by hand from the banking app. **No statement logging/filing.** |
 | Income | **Multiple income sources**, each with its own amount and pay-date rule. |
@@ -102,15 +102,27 @@ Two sections on one tab (or two sub-tabs — implementer's choice):
 - **Income sources:** name, amount (pence), pay-date rule (`nth-of-month` day 1–28,
   `last-day`, `last-working-day`), active flag. These generate the expected income events
   the pay-period engine uses.
-- **Recurring bills:** label, amount, category, frequency (monthly / quarterly / annual),
-  next due date, working-day adjustment on/off, optional end date, active flag.
-  Subscriptions are just recurring bills — no separate concept.
+- **Recurring bills:** label, amount, category, frequency (weekly / 2-weekly / 4-weekly /
+  5-weekly / 6-weekly / monthly / quarterly / 6-monthly / annual — week-based frequencies
+  step by days, month-based ones keep a day-of-month anchor), next due date, working-day
+  adjustment on/off, optional end date, active flag. Subscriptions are just recurring
+  bills — no separate concept. *(Frequency list extended per owner testing feedback,
+  2026-07-07.)*
+- **Debt payments appear in this list too** (owner decision 2026-07-07): each debt's
+  minimum/fixed payment renders as a derived, read-only recurring-bill row (computed from
+  the debt record, never persisted). It supports "mark paid" like any bill: ticking it
+  logs a spend transaction and removes it from the current period's committed list; the
+  debt's balance is **not** changed (balances stay honest — updated manually or from a
+  card-statement PDF).
+- **Bulk mark-paid**: multiple bill rows (including derived debt-payment rows) can be
+  selected and confirmed as paid in one action.
 
 **Actual** — the ledger of what really happened:
 - A flat `transactions` list (income and spending in one table), month-filtered, with
   category editing, add/edit/delete, and search.
-- Rows arrive three ways: **PDF import** (primary), **manual entry**, and **bill
-  confirmation** (marking a planned bill instance as paid creates/links the actual row).
+- Rows arrive two ways: **manual entry** and **bill/debt-payment confirmation** (marking
+  a planned instance as paid creates/links the actual row). *(PDF transaction import
+  removed per owner decision 2026-07-07 — PDF reading now serves debts, §4.6.)*
 - No reconciliation mode, no cleared/uncleared flags — the current-balance anchor makes
   bank-style reconciliation unnecessary.
 
@@ -123,11 +135,13 @@ Two sections on one tab (or two sub-tabs — implementer's choice):
 - Minimum payment computed by the existing UK formula in `finance.js`
   (`max(1% + interest + fees, 2.25% + fees, £5)`), overridable per card.
 - **Update balance** is the primary interaction: a quick inline edit storing the new
-  balance + "as of" date. No statement history, no amortisation confirmation flows.
+  balance + "as of" date (or one click from a card-statement PDF, §4.6). No statement
+  history, no amortisation confirmation flows.
 - Debt minimum payments (and loan fixed payments) automatically appear as committed
-  outgoings in the pay-period panel — derived at read time from the debt records, **not**
-  materialised as generated expense rows (the old app's generate-and-regenerate approach
-  was a persistent bug source).
+  outgoings in the pay-period panel **and as derived rows in the Recurring Bills list
+  (§4.2)** — derived at read time from the debt records, **not** materialised as
+  generated expense rows (the old app's generate-and-regenerate approach was a persistent
+  bug source). Marking one paid logs the transaction only; it never mutates the balance.
 
 ### 4.4 Payoff planner
 
@@ -153,15 +167,19 @@ deposit feeds the pay-period committed outgoings. Reuse the math from
 `src/utils/childcare.js`; drop accounts-ledger, providers-with-frequencies, and
 entitlement-period UI.
 
-### 4.6 PDF statement import
+### 4.6 PDF statement import — credit-card statements
 
-Reuse `src/utils/pdf-parser.js` + `pdfjs-dist`, scoped to **bank current-account
-statements only** (delete credit-card statement parsing and the statement-summary
-prefill).
-Flow: upload PDF → parsed rows preview → per-row category suggestion (keep the
-`categoryMappings` learning table + `string-similarity` matching) → duplicate detection
-against existing transactions (date + amount + normalised description hash) → confirm →
-rows inserted as `transactions` with `source: 'import'`.
+*(Rescoped per owner decision 2026-07-07: the owner's real use of PDF reading is card
+statements, not bank-transaction capture. Bank current-account import is removed.)*
+
+Reads a **credit-card statement PDF** (parsers: **Lloyds/TSB credit card, MBNA, Amex** —
+restore from the pre-Phase-5 `pdf-parser.js` in git history) and extracts the statement
+summary: closing balance, minimum payment, statement/due date.
+Flow (lives on the **Debts** tab): upload PDF → auto-detect parser → summary preview
+matched to an existing debt (pick from a list; remember the association) → one-click
+**"Update debt"**: sets the debt's `balancePence` + `balanceAsOf` (and min-payment
+override if the user opts in). Nothing is written to the transactions ledger. Graceful
+error with a manual-entry hint for unparseable PDFs.
 
 ### 4.7 Settings
 
