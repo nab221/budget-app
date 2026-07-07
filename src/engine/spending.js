@@ -20,12 +20,13 @@
 import {
   billOutgoings,
   debtOutgoings,
+  childcareOutgoings,
+  creditCardMinPence,
   isWeekBased,
   FREQUENCY_DAYS,
   frequencyStepMonths,
   nextMonthlyOccurrenceOnOrAfter,
 } from './plan.js';
-import { calcMinPayment } from './finance.js';
 
 export const PERIODS = ['week', 'month', 'year'];
 
@@ -34,8 +35,13 @@ const DAYS_PER_YEAR = 365.25;
 /** Pad a number to two digits. */
 const p2 = (n) => String(n).padStart(2, '0');
 
-/** Format a Date's LOCAL calendar day as 'yyyy-MM-dd'. */
-function fmtLocal(d) {
+/**
+ * Format a Date's LOCAL calendar day as 'yyyy-MM-dd'. The UI's "today" must
+ * come from here, NOT `toISOString()` — that formats the UTC day, which in the
+ * UK (BST) is still *yesterday* between midnight and 1am, and would disagree
+ * with `periodWindow` (also local).
+ */
+export function localDayStr(d = new Date()) {
   return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
 }
 
@@ -55,7 +61,7 @@ export function periodWindow(period, now = new Date()) {
     const back = (now.getDay() + 6) % 7;
     const start = new Date(y, m, now.getDate() - back);
     const end = new Date(y, m, now.getDate() - back + 7);
-    return { startStr: fmtLocal(start), endStr: fmtLocal(end) };
+    return { startStr: localDayStr(start), endStr: localDayStr(end) };
   }
   if (period === 'year') {
     return { startStr: `${y}-01-01`, endStr: `${y + 1}-01-01` };
@@ -68,17 +74,19 @@ export function periodWindow(period, now = new Date()) {
 
 /**
  * Every committed outgoing occurrence in [startStr, endStr): recurring
- * expenses expanded by frequency plus one monthly payment per active debt
- * (card minimum / loan fixed payment). Sorted by date.
+ * expenses expanded by frequency, one monthly payment per active debt
+ * (card minimum / loan fixed payment), and one monthly deposit per computed
+ * childcare commitment. Sorted by date.
  *
- * @param {{recurringBills?: Array, debts?: Array}} data - PENCE domain
- *   (i.e. the shape `gatherPlanData` returns).
+ * @param {{recurringBills?: Array, debts?: Array, childcareDeposits?: Array}}
+ *   data - PENCE domain (i.e. the shape `gatherPlanData` returns).
  * @returns {Array<{date, label, amountPence, kind, isAdjusted, sourceId?, debtId?}>}
  */
 export function spendingOccurrences(data, startStr, endStr) {
   const rows = [
     ...billOutgoings(data.recurringBills, startStr, endStr),
     ...debtOutgoings(data.debts, startStr, endStr),
+    ...childcareOutgoings(data.childcareDeposits, startStr, endStr),
   ];
   rows.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
   return rows;
@@ -106,22 +114,10 @@ export function annualisedBillPence(bill) {
   return amount * (12 / frequencyStepMonths(bill.frequency));
 }
 
-/** Minimum payment (pence) for a credit card, honouring override + promo. */
-function cardMinPence(debt, referenceDate) {
-  const override = debt.minPaymentOverridePence;
-  if (override != null && override !== '') return override; // already pence
-  return calcMinPayment(
-    debt.balancePence || 0,
-    debt.apr ?? 0,
-    0,
-    referenceDate,
-    debt.promoEndDate ?? null,
-  );
-}
-
 /**
  * Long-run cost of one debt per YEAR (pence): 12 × the monthly payment —
- * card minimum (computed at `refDateStr`, promo-aware) or loan fixed payment.
+ * card minimum (computed at `refDateStr`, promo-aware, via the same
+ * `creditCardMinPence` the plan timeline uses) or loan fixed payment.
  * Debts with nothing to pay contribute 0.
  */
 export function annualisedDebtPence(debt, refDateStr) {
@@ -129,7 +125,7 @@ export function annualisedDebtPence(debt, refDateStr) {
     return (debt.fixedMonthlyPaymentPence || 0) * 12;
   }
   if ((debt.balancePence || 0) <= 0) return 0;
-  return cardMinPence(debt, refDateStr) * 12;
+  return creditCardMinPence(debt, refDateStr) * 12;
 }
 
 /** Scale an annual figure down to one period (pence, rounded). */
@@ -140,13 +136,16 @@ export function annualToPeriodPence(annualPence, period) {
 }
 
 /**
- * Normalised (long-run average) total per period across all expenses + debts.
- * @param {{recurringBills?: Array, debts?: Array}} data - PENCE domain.
+ * Normalised (long-run average) total per period across all expenses, debts,
+ * and monthly childcare deposits.
+ * @param {{recurringBills?: Array, debts?: Array, childcareDeposits?: Array}}
+ *   data - PENCE domain.
  */
 export function normalisedTotalPence(data, period, refDateStr) {
   const annual =
     (data.recurringBills || []).reduce((t, b) => t + annualisedBillPence(b), 0) +
-    (data.debts || []).reduce((t, d) => t + annualisedDebtPence(d, refDateStr), 0);
+    (data.debts || []).reduce((t, d) => t + annualisedDebtPence(d, refDateStr), 0) +
+    (data.childcareDeposits || []).reduce((t, dep) => t + (dep.amountPence || 0) * 12, 0);
   return annualToPeriodPence(annual, period);
 }
 
@@ -182,9 +181,27 @@ export function nextDebtPayment(debt, fromStr) {
     fromStr,
   );
   if (!occ) return null;
-  const amountPence = isLoan ? debt.fixedMonthlyPaymentPence || 0 : cardMinPence(debt, occ.date);
+  const amountPence = isLoan
+    ? debt.fixedMonthlyPaymentPence || 0
+    : creditCardMinPence(debt, occ.date);
   if (amountPence <= 0) return null;
   return { date: occ.date, isAdjusted: occ.isAdjusted, amountPence };
+}
+
+/**
+ * The next monthly childcare deposit on or after `fromStr` for one computed
+ * deposit entry ({ label, amountPence, paymentDayOfMonth, adjustToWorkingDay }).
+ * @returns {{date: string, isAdjusted: boolean, amountPence: number}|null}
+ */
+export function nextChildcareDeposit(dep, fromStr) {
+  if ((dep.amountPence || 0) <= 0) return null;
+  const occ = nextMonthlyOccurrenceOnOrAfter(
+    Number(dep.paymentDayOfMonth) || 1,
+    dep.adjustToWorkingDay !== false,
+    fromStr,
+  );
+  if (!occ) return null;
+  return { date: occ.date, isAdjusted: occ.isAdjusted, amountPence: dep.amountPence };
 }
 
 /**

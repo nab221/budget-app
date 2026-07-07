@@ -9,7 +9,9 @@ import {
   normalisedTotalPence,
   nextBillOccurrence,
   nextDebtPayment,
+  nextChildcareDeposit,
   upcomingPayments,
+  localDayStr,
 } from './spending.js';
 
 // ── Fixtures (PENCE domain, like gatherPlanData output) ─────────────────────
@@ -64,6 +66,24 @@ const loan = {
   balancePence: 500000,
   paymentDayOfMonth: 28,
 };
+
+const childcareDeposit = {
+  label: 'Childcare — Ada',
+  amountPence: 40000,
+  paymentDayOfMonth: 1,
+  adjustToWorkingDay: true,
+};
+
+// ── localDayStr ──────────────────────────────────────────────────────────────
+
+describe('localDayStr', () => {
+  it('formats the LOCAL calendar day (not the UTC day)', () => {
+    // 00:30 local on 8 Jul — the UTC day may still be 7 Jul in BST, but the
+    // user's "today" is the 8th.
+    expect(localDayStr(new Date(2026, 6, 8, 0, 30))).toBe('2026-07-08');
+    expect(localDayStr(new Date(2026, 11, 31, 23, 59))).toBe('2026-12-31');
+  });
+});
 
 // ── periodWindow ─────────────────────────────────────────────────────────────
 
@@ -142,6 +162,15 @@ describe('spendingOccurrences / actualTotalPence', () => {
     expect(rows.map((r) => r.label)).toEqual(['Broadband', 'Visa (min payment)']);
   });
 
+  it('includes monthly childcare deposits', () => {
+    const data = { recurringBills: [], debts: [], childcareDeposits: [childcareDeposit] };
+    // 1 Aug 2026 is a Saturday → working-day shift to Monday 3 Aug.
+    const rows = spendingOccurrences(data, '2026-08-01', '2026-09-01');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ date: '2026-08-03', amountPence: 40000, isAdjusted: true });
+    expect(actualTotalPence(data, '2026-08-01', '2026-09-01')).toBe(40000);
+  });
+
   it('skips inactive bills and cleared cards', () => {
     const data = {
       recurringBills: [{ ...monthlyBill, active: false }],
@@ -179,6 +208,12 @@ describe('normalised totals', () => {
     // (30_00 + 250_00) per month.
     expect(normalisedTotalPence(data, 'month', '2026-07-01')).toBe(28000);
     expect(normalisedTotalPence(data, 'year', '2026-07-01')).toBe(336000);
+  });
+
+  it('counts childcare deposits as monthly commitments', () => {
+    const data = { recurringBills: [], debts: [], childcareDeposits: [childcareDeposit] };
+    expect(normalisedTotalPence(data, 'month', '2026-07-01')).toBe(40000);
+    expect(normalisedTotalPence(data, 'year', '2026-07-01')).toBe(480000);
   });
 });
 
@@ -232,6 +267,21 @@ describe('nextDebtPayment', () => {
   it('nothing to pay → null', () => {
     expect(nextDebtPayment({ ...card, balancePence: 0 }, '2026-07-07')).toBeNull();
     expect(nextDebtPayment({ ...loan, fixedMonthlyPaymentPence: 0 }, '2026-07-07')).toBeNull();
+  });
+});
+
+describe('nextChildcareDeposit', () => {
+  it('lands on the working-day-adjusted monthly date', () => {
+    // 1 Aug 2026 is a Saturday → Monday 3 Aug.
+    expect(nextChildcareDeposit(childcareDeposit, '2026-07-15')).toMatchObject({
+      date: '2026-08-03',
+      isAdjusted: true,
+      amountPence: 40000,
+    });
+  });
+
+  it('nothing to deposit → null', () => {
+    expect(nextChildcareDeposit({ ...childcareDeposit, amountPence: 0 }, '2026-07-15')).toBeNull();
   });
 });
 

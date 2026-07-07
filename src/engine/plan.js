@@ -301,7 +301,7 @@ export function billOutgoings(recurringBills, startStr, endStr) {
 }
 
 /** Minimum payment (pence) for a credit-card debt, honouring override + promo. */
-function creditCardMinPence(debt, referenceDate) {
+export function creditCardMinPence(debt, referenceDate) {
   const override = debt.minPaymentOverridePence;
   if (override != null && override !== '') return override; // already pence
   return calcMinPayment(
@@ -393,8 +393,8 @@ export function nextMonthlyOccurrenceOnOrAfter(
   return occurrences.length ? occurrences[occurrences.length - 1] : null;
 }
 
-/** Childcare deposits (stub input) placed like debt payments. */
-function childcareOutgoings(childcareDeposits, startStr, endStr) {
+/** Childcare deposits (computed input) placed like debt payments. */
+export function childcareOutgoings(childcareDeposits, startStr, endStr) {
   const rows = [];
   for (const dep of childcareDeposits || []) {
     const amountPence = dep.amountPence || 0;

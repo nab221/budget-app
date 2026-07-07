@@ -1,17 +1,20 @@
 import { useLiveData } from '../db/useLiveData.js';
-import { recurringBillsRepo, debtsRepo } from '../db/repositories.js';
-import { mapBillsToPence, mapDebtsToPence } from '../db/planData.js';
+import { recurringBillsRepo, debtsRepo, childrenRepo } from '../db/repositories.js';
+import {
+  mapBillsToPence,
+  mapDebtsToPence,
+  childcareDepositsFromChildren,
+} from '../db/planData.js';
 import {
   periodWindow,
   actualTotalPence,
   normalisedTotalPence,
   upcomingPayments,
+  localDayStr,
 } from '../engine/spending.js';
 import Money from './components/Money.jsx';
 import EmptyState from './components/EmptyState.jsx';
 import { formatDay } from './components/dates.js';
-
-const todayStr = () => new Date().toISOString().slice(0, 10);
 
 const TILES = [
   { period: 'week', label: 'This week' },
@@ -22,12 +25,21 @@ const TILES = [
 /**
  * Dashboard — deliberately minimal while the full redesign waits its turn:
  * how much goes out this week / month / year, and the next payments due.
- * Everything is computed live from the Expenses schedule; nothing to confirm.
+ * Everything is computed live from the Expenses schedule (plus the childcare
+ * deposits the Childcare tab computes); nothing to confirm.
  */
 export default function Dashboard() {
   const { data, loading } = useLiveData(async () => {
-    const [bills, debts] = await Promise.all([recurringBillsRepo.getAll(), debtsRepo.getAll()]);
-    return { recurringBills: mapBillsToPence(bills), debts: mapDebtsToPence(debts) };
+    const [bills, debts, children] = await Promise.all([
+      recurringBillsRepo.getAll(),
+      debtsRepo.getAll(),
+      childrenRepo.getAll(),
+    ]);
+    return {
+      recurringBills: mapBillsToPence(bills),
+      debts: mapDebtsToPence(debts),
+      childcareDeposits: childcareDepositsFromChildren(children),
+    };
   }, []);
 
   if (loading || !data) {
@@ -42,9 +54,13 @@ export default function Dashboard() {
   }
 
   const now = new Date();
-  const from = todayStr();
+  const from = localDayStr(now);
   const upcoming = upcomingPayments(data, from, 8);
-  const hasAnything = (data.recurringBills?.length || 0) + (data.debts?.length || 0) > 0;
+  const hasAnything =
+    (data.recurringBills?.length || 0) +
+      (data.debts?.length || 0) +
+      (data.childcareDeposits?.length || 0) >
+    0;
 
   return (
     <div className="screen">

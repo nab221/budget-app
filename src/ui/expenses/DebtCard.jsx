@@ -83,7 +83,10 @@ export default function DebtCard({ debt, nextPayment, onUpdateBalance, onEdit, o
             </div>
             <div>
               <dt>Next payment</dt>
-              <dd>{nextPayment ? formatDay(nextPayment.date) : '—'}</dd>
+              <dd>
+                {nextPayment ? formatDay(nextPayment.date) : '—'}
+                {nextPayment?.isAdjusted && <span className="tag">shifted</span>}
+              </dd>
             </div>
           </>
         ) : (
@@ -100,7 +103,10 @@ export default function DebtCard({ debt, nextPayment, onUpdateBalance, onEdit, o
             </div>
             <div>
               <dt>Next payment</dt>
-              <dd>{nextPayment ? formatDay(nextPayment.date) : '—'}</dd>
+              <dd>
+                {nextPayment ? formatDay(nextPayment.date) : '—'}
+                {nextPayment?.isAdjusted && <span className="tag">shifted</span>}
+              </dd>
             </div>
           </>
         )}

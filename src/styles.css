@@ -1181,3 +1181,7 @@ body {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
+.segmented__btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}

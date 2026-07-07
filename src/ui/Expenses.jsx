@@ -1,7 +1,16 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLiveData } from '../db/useLiveData.js';
-import { debtsRepo, recurringBillsRepo, categoriesRepo } from '../db/repositories.js';
-import { mapBillsToPence, mapDebtsToPence } from '../db/planData.js';
+import {
+  debtsRepo,
+  recurringBillsRepo,
+  categoriesRepo,
+  childrenRepo,
+} from '../db/repositories.js';
+import {
+  mapBillsToPence,
+  mapDebtsToPence,
+  childcareDepositsFromChildren,
+} from '../db/planData.js';
 import {
   periodWindow,
   actualTotalPence,
@@ -10,6 +19,8 @@ import {
   annualToPeriodPence,
   nextBillOccurrence,
   nextDebtPayment,
+  nextChildcareDeposit,
+  localDayStr,
 } from '../engine/spending.js';
 import Money from './components/Money.jsx';
 import PeriodSelector from './components/PeriodSelector.jsx';
@@ -22,8 +33,6 @@ import ExpenseCard from './expenses/ExpenseCard.jsx';
 import ExpenseForm from './expenses/ExpenseForm.jsx';
 import StatementImport from './expenses/StatementImport.jsx';
 
-const todayStr = () => new Date().toISOString().slice(0, 10);
-
 const PERIOD_NOUN = { week: 'week', month: 'month', year: 'year' };
 
 /**
@@ -34,12 +43,13 @@ const PERIOD_NOUN = { week: 'week', month: 'month', year: 'year' };
  */
 export default function Expenses() {
   const { data, loading } = useLiveData(async () => {
-    const [debts, bills, categories] = await Promise.all([
+    const [debts, bills, categories, children] = await Promise.all([
       debtsRepo.getAll(),
       recurringBillsRepo.getAll(),
       categoriesRepo.getAll(),
+      childrenRepo.getAll(),
     ]);
-    return { debts, bills, categories };
+    return { debts, bills, categories, children };
   }, []);
 
   const [period, setPeriod] = useState('month');
@@ -54,15 +64,22 @@ export default function Expenses() {
   const debts = data?.debts ?? [];
   const bills = data?.bills ?? [];
   const categories = data?.categories ?? [];
+  const children = data?.children ?? [];
   const spendingCategories = categories.filter((c) => c.kind === 'spending');
 
   const now = new Date();
-  const from = todayStr();
+  const from = localDayStr(now);
 
   // Engine (pence) views of the same rows, for totals and next-payment dates.
+  // Childcare deposits are the same computed commitments the Childcare tab
+  // shows — included here read-only so the period totals are the whole truth.
   const penceData = useMemo(
-    () => ({ recurringBills: mapBillsToPence(bills), debts: mapDebtsToPence(debts) }),
-    [bills, debts]
+    () => ({
+      recurringBills: mapBillsToPence(bills),
+      debts: mapDebtsToPence(debts),
+      childcareDeposits: childcareDepositsFromChildren(children),
+    }),
+    [bills, debts, children]
   );
 
   const { startStr, endStr } = periodWindow(period, now);
@@ -144,6 +161,17 @@ export default function Expenses() {
     setAdding(type);
   };
 
+  // The Add chooser is modal: Escape closes it (initial focus lands on its
+  // first option via autoFocus below).
+  useEffect(() => {
+    if (!picking) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') setPicking(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [picking]);
+
   const periodLabel =
     period === 'week'
       ? `Week of ${formatDay(startStr)}`
@@ -209,8 +237,9 @@ export default function Expenses() {
           </div>
         </div>
         <p className="muted spending-summary__hint">
-          Credit cards count their minimum payment, loans their fixed payment; everything else by
-          its schedule. The average smooths every expense out (weekly ≈ ×4.35 a month).
+          Credit cards count their minimum payment, loans their fixed payment, childcare its
+          computed deposit; everything else by its schedule. The average smooths every expense
+          out (weekly ≈ ×4.35 a month).
         </p>
       </section>
 
@@ -285,6 +314,53 @@ export default function Expenses() {
               </section>
             ))
           )}
+
+          {/* Read-only: computed on the Childcare tab, counted here so the
+              period totals are complete. */}
+          {penceData.childcareDeposits.length > 0 && (
+            <section className="debt-group">
+              <div className="debt-group__head">
+                <h3>Childcare</h3>
+                <span className="debt-group__subtotal muted">
+                  ≈{' '}
+                  <Money
+                    pence={penceData.childcareDeposits.reduce(
+                      (t, d) => t + (d.amountPence || 0),
+                      0
+                    )}
+                  />{' '}
+                  / month
+                </span>
+              </div>
+              <ul className="card-list debt-list">
+                {penceData.childcareDeposits.map((dep) => {
+                  const next = nextChildcareDeposit(dep, from);
+                  return (
+                    <li className="card debt-card expense-card" key={dep.label}>
+                      <div className="debt-card__head">
+                        <span className="debt-card__name">{dep.label}</span>
+                      </div>
+                      <div className="debt-card__balance">
+                        <Money pence={dep.amountPence} className="debt-card__amount" />
+                        <span className="muted"> / month</span>
+                      </div>
+                      <p className="expense-card__next muted">
+                        {next ? (
+                          <>
+                            Next: {formatDay(next.date)}
+                            {next.isAdjusted && <span className="tag">shifted</span>}
+                          </>
+                        ) : (
+                          '—'
+                        )}
+                      </p>
+                      <p className="expense-card__next muted">Edit on the Childcare tab</p>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
         </>
       )}
 
@@ -293,7 +369,8 @@ export default function Expenses() {
           <div className="dialog">
             <h3 className="dialog__title">What are you adding?</h3>
             <div className="type-picker__buttons">
-              <button type="button" className="btn btn--primary" onClick={() => startAdd('expense')}>
+              {/* eslint-disable-next-line jsx-a11y/no-autofocus -- modal: focus must leave the background trigger */}
+              <button type="button" className="btn btn--primary" autoFocus onClick={() => startAdd('expense')}>
                 Recurring expense
               </button>
               <button type="button" className="btn btn--primary" onClick={() => startAdd('credit-card')}>
