@@ -21,26 +21,67 @@ export function parseCurrencyInput(raw) {
 }
 
 /**
- * Tiny controlled currency text input. Keeps the raw text locally (so the user
- * can type "1,234.") and reports the parsed pounds number (or null) via
- * `onChange`.
+ * Tiny currency text input. Holds the RAW string the user is typing in local
+ * state while the field is focused, so intermediate values like "12.", ".", or
+ * "1,2" are preserved and never wiped — the parse/commit happens on blur (and
+ * the value is reformatted to its canonical string once the field is no longer
+ * focused). It still reports the parsed pounds number (or null) via `onChange`
+ * on every keystroke so live consumers (running totals, etc.) stay current.
+ *
+ * ── Why the raw string matters (BUG-2) ─────────────────────────────────────
+ * The previous version reformatted on every keystroke: it re-derived the text
+ * from the parent's `value` on each render. Typing "12." parses to `null`
+ * (a trailing dot isn't a complete number), the parent's `value` became `null`,
+ * and the re-sync effect wiped the field mid-type. Keeping the raw string local
+ * while focused fixes that; we only sync FROM `value` when NOT focused (so an
+ * external reset — e.g. a form clearing after save — still shows).
  *
  * @param {object} props
- * @param {number|string|null} props.value - initial pounds value.
+ * @param {number|string|null} props.value - initial / controlled pounds value.
  * @param {(pounds: number|null) => void} props.onChange
  */
-export default function CurrencyInput({ value, onChange, placeholder = '0.00', id, ...rest }) {
+export default function CurrencyInput({
+  value,
+  onChange,
+  placeholder = '0.00',
+  id,
+  onFocus,
+  onBlur,
+  ...rest
+}) {
   const [text, setText] = useState(value == null || value === '' ? '' : String(value));
+  const [focused, setFocused] = useState(false);
 
-  // Re-sync when the parent resets the field (e.g. after a save).
+  // Sync FROM the parent only when NOT focused (external resets / reformatting),
+  // and only when the numeric value genuinely differs from what the current text
+  // parses to — so an in-progress intermediate string is never clobbered.
   useEffect(() => {
-    setText(value == null || value === '' ? '' : String(value));
-  }, [value]);
+    if (focused) return;
+    const asNum = value == null || value === '' ? null : Number(value);
+    const cur = parseCurrencyInput(text);
+    if (asNum === cur) return;
+    setText(asNum == null ? '' : String(asNum));
+  }, [value, focused, text]);
 
-  const handle = (e) => {
+  const handleChange = (e) => {
     const next = e.target.value;
     setText(next);
     onChange?.(parseCurrencyInput(next));
+  };
+
+  const handleFocus = (e) => {
+    setFocused(true);
+    onFocus?.(e);
+  };
+
+  const handleBlur = (e) => {
+    setFocused(false);
+    // Commit: tolerate a lone trailing decimal point ("12." → 12) and normalise
+    // the visible text to the parsed value's canonical string.
+    const parsed = parseCurrencyInput(String(text).replace(/\.$/, ''));
+    onChange?.(parsed);
+    setText(parsed == null ? '' : String(parsed));
+    onBlur?.(e);
   };
 
   return (
@@ -53,7 +94,9 @@ export default function CurrencyInput({ value, onChange, placeholder = '0.00', i
         className="input"
         value={text}
         placeholder={placeholder}
-        onChange={handle}
+        onChange={handleChange}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
         {...rest}
       />
     </span>

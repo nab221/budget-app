@@ -8,6 +8,7 @@ import Settings from './ui/Settings.jsx';
 import { useLiveData } from './db/useLiveData.js';
 import { settings } from './db/settings.js';
 import { applyTheme, applyPrivacy } from './ui/theme.js';
+import ErrorBoundary from './ui/components/ErrorBoundary.jsx';
 
 const TABS = [
   { id: 'dashboard', label: 'Dashboard', Component: Dashboard },
@@ -69,7 +70,9 @@ export default function App() {
       </header>
 
       <main className="container">
-        <ActiveComponent />
+        <ErrorBoundary resetKey={active.id}>
+          <ActiveComponent />
+        </ErrorBoundary>
       </main>
     </div>
   );

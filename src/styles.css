@@ -422,6 +422,42 @@ body {
   border-radius: 4px;
   padding: 0 0.3rem;
 }
+.tag--from-debts {
+  color: var(--accent, #4f46e5);
+  border-color: currentColor;
+}
+
+/* Derived debt-payment rows in the recurring bills list (read-only). */
+.row--derived {
+  background: color-mix(in srgb, var(--surface) 60%, transparent);
+}
+.select-cell {
+  width: 1.5rem;
+  text-align: center;
+}
+
+/* Bulk mark-paid action bar */
+.bulk-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+
+/* Tab-content error boundary fallback (BUG-1 graceful degradation). */
+.error-boundary {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25rem 1.5rem;
+  background: var(--surface);
+}
+.error-boundary h3 {
+  margin: 0 0 0.5rem;
+}
+.error-boundary p {
+  margin: 0 0 0.75rem;
+  word-break: break-word;
+}
 
 /* Empty state */
 .empty-state {

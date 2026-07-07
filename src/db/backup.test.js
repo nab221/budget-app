@@ -22,7 +22,7 @@ describe('export', () => {
     const env = await exportBackup();
     expect(env.app).toBe(APP_NAME);
     expect(env.format).toBe(1);
-    expect(env.schemaVersion).toBe(1);
+    expect(env.schemaVersion).toBe(2);
     expect(typeof env.exportedAt).toBe('string');
     expect(env.data.categories).toHaveLength(10);
     // raw pence, not pounds

@@ -39,6 +39,7 @@
  */
 
 import {
+  addDays,
   addMonths,
   differenceInCalendarDays,
   format,
@@ -54,16 +55,36 @@ import { calcMinPayment, orderDebtsByStrategy } from './finance.js';
 // Date helpers (all comparisons on 'yyyy-MM-dd' strings — lexical order works)
 // ---------------------------------------------------------------------------
 
-export const FREQUENCY_MONTHS = { monthly: 1, quarterly: 3, annual: 12 };
+// Month-based frequencies keep a day-of-month anchor and step by whole months.
+export const FREQUENCY_MONTHS = { monthly: 1, quarterly: 3, '6-monthly': 6, annual: 12 };
+
+// Week-based frequencies (owner testing feedback, 2026-07-07) step by an EXACT
+// number of days with NO day-of-month anchor and NO re-clamp — a 5-weekly bill
+// is always 35 days apart, never snapped back to a nominal day. These can occur
+// multiple times inside one calendar month and one pay period.
+export const FREQUENCY_DAYS = {
+  weekly: 7,
+  '2-weekly': 14,
+  '4-weekly': 28,
+  '5-weekly': 35,
+  '6-weekly': 42,
+};
+
+/** True when a frequency steps by exact days rather than whole months. */
+export function isWeekBased(frequency) {
+  return Object.prototype.hasOwnProperty.call(FREQUENCY_DAYS, frequency);
+}
 
 /**
- * Number of calendar months in one step of a bill frequency.
- * `monthly → 1`, `quarterly → 3`, `annual → 12`. Unknown frequencies fall back
- * to monthly. This is the SINGLE source of truth for frequency stepping — both
- * the read-time occurrence computation here and `src/db/billConfirmation.js`
- * (which bumps `nextDueDate` on confirm/unconfirm) go through it, so they can
- * never drift. Note: do NOT use `recurrence.advanceNextDate` for this — it keys
- * off `annually` and treats the spec's `annual` as monthly.
+ * Number of calendar months in one step of a MONTH-based bill frequency.
+ * `monthly → 1`, `quarterly → 3`, `6-monthly → 6`, `annual → 12`. Week-based and
+ * unknown frequencies fall back to monthly (they don't use this — they step by
+ * days via `FREQUENCY_DAYS`). This plus `FREQUENCY_DAYS` is the SINGLE source of
+ * truth for frequency stepping — both the read-time occurrence computation here
+ * and `src/db/billConfirmation.js` (which bumps `nextDueDate` on
+ * confirm/unconfirm) go through `advanceByFrequency`, so they can never drift.
+ * Note: do NOT use `recurrence.advanceNextDate` for this — it keys off
+ * `annually` and treats the spec's `annual` as monthly.
  *
  * @param {string} frequency
  * @returns {number}
@@ -113,13 +134,21 @@ export function dateForMonthDayStr(yyyyMM, dayOfMonth) {
  * the 31st in March rather than being stuck on the 28th forever. Without an
  * anchor the behaviour is unchanged (date-fns `addMonths` clamps as before).
  *
+ * Week-based frequencies (`weekly`, `2-weekly`, `4-weekly`, `5-weekly`,
+ * `6-weekly`) step by an exact number of days and IGNORE `anchorDay` entirely —
+ * there is no day-of-month anchor and no re-clamp for them.
+ *
  * @param {string} dateStr - ISO 'yyyy-MM-dd'
- * @param {string} frequency - 'monthly' | 'quarterly' | 'annual'
+ * @param {string} frequency - one of the nine supported frequencies.
  * @param {number} [steps=1]
- * @param {number|null} [anchorDay=null] - original intended day-of-month.
+ * @param {number|null} [anchorDay=null] - original intended day-of-month
+ *   (month-based only; ignored for week-based frequencies).
  * @returns {string}
  */
 export function advanceByFrequency(dateStr, frequency, steps = 1, anchorDay = null) {
+  if (isWeekBased(frequency)) {
+    return fmt(addDays(parseISO(dateStr), FREQUENCY_DAYS[frequency] * steps));
+  }
   const stepped = addMonths(parseISO(dateStr), frequencyStepMonths(frequency) * steps);
   const yyyyMM = fmt(stepped).slice(0, 7);
   if (anchorDay != null) return dateForMonthDayStr(yyyyMM, anchorDay);
@@ -222,8 +251,14 @@ function billOutgoings(recurringBills, startStr, endStr) {
     // one-step back-off re-introduced a just-paid occurrence — BUG-1 / M1).
     //
     // The anchor day keeps month-end bills from drifting (M4): the walk is done
-    // in pure string space via `advanceByFrequency(..., anchorDay)`.
-    const anchorDay = bill.dueDayAnchor ?? dayOfMonthFromISO(bill.nextDueDate);
+    // in pure string space via `advanceByFrequency(..., anchorDay)`. Week-based
+    // bills have NO anchor — they step by exact days, so a 4-/5-weekly bill can
+    // land on several different days-of-month and occur multiple times in one
+    // pay period. `advanceByFrequency` ignores the anchor for them regardless,
+    // but we pass null to be explicit.
+    const anchorDay = isWeekBased(bill.frequency)
+      ? null
+      : (bill.dueDayAnchor ?? dayOfMonthFromISO(bill.nextDueDate));
 
     // Fast-forward towards the window, but stop while the NEXT occurrence would
     // still be before the window start — leaving the cursor on the last
@@ -278,8 +313,16 @@ function creditCardMinPence(debt, referenceDate) {
   );
 }
 
-/** Debt payments (card minimums + loan fixed payments) within [start, end). */
-function debtOutgoings(debts, startStr, endStr) {
+/**
+ * Debt payments (card minimums + loan fixed payments) within [start, end).
+ *
+ * `isPaid(debtId, date)` returns true when an occurrence has already been marked
+ * paid (a `transactions` row with that `debtId` on that date exists). Paid
+ * occurrences are SKIPPED so they drop out of the committed timeline — mirroring
+ * how a confirmed bill's advanced `nextDueDate` removes it. Debt balances are
+ * never touched; the ledger transaction is the sole record (spec §4.3).
+ */
+function debtOutgoings(debts, startStr, endStr, isPaid = () => false) {
   const rows = [];
   for (const debt of debts || []) {
     const day = debt.paymentDayOfMonth || 1;
@@ -290,6 +333,7 @@ function debtOutgoings(debts, startStr, endStr) {
       const amountPence = debt.fixedMonthlyPaymentPence || 0;
       if (amountPence <= 0) continue;
       for (const occ of occurrences) {
+        if (isPaid(debt.id, occ.date)) continue;
         rows.push({
           date: occ.date,
           label: `${debt.name} (loan)`,
@@ -303,6 +347,7 @@ function debtOutgoings(debts, startStr, endStr) {
       // credit card — min payment computed on the payment date (promo-aware)
       if ((debt.balancePence || 0) <= 0) continue;
       for (const occ of occurrences) {
+        if (isPaid(debt.id, occ.date)) continue;
         const amountPence = creditCardMinPence(debt, occ.date);
         if (amountPence <= 0) continue;
         rows.push({
@@ -317,6 +362,35 @@ function debtOutgoings(debts, startStr, endStr) {
     }
   }
   return rows;
+}
+
+/**
+ * The next monthly `dayOfMonth` occurrence (working-day adjusted) on or after
+ * `fromStr` for which `isPaid(date)` is false — used by the Recurring Bills list
+ * to derive a debt's "next due" payment row. Reuses `monthlyOccurrencesInWindow`
+ * (the same walker `debtOutgoings` uses) so the derived row and the pay-period
+ * timeline can never place a debt payment on different dates.
+ *
+ * @param {number} dayOfMonth
+ * @param {boolean} adjustToWorkingDay
+ * @param {string} fromStr - ISO 'yyyy-MM-dd' lower bound (inclusive).
+ * @param {(date:string)=>boolean} [isPaid]
+ * @param {number} [lookaheadMonths=6]
+ * @returns {{date:string, isAdjusted:boolean}|null}
+ */
+export function nextMonthlyOccurrenceOnOrAfter(
+  dayOfMonth,
+  adjustToWorkingDay,
+  fromStr,
+  isPaid = () => false,
+  lookaheadMonths = 6,
+) {
+  const endStr = fmt(addMonths(parseISO(`${fromStr.slice(0, 7)}-01`), lookaheadMonths + 1));
+  const occurrences = monthlyOccurrencesInWindow(dayOfMonth, adjustToWorkingDay, fromStr, endStr);
+  for (const occ of occurrences) {
+    if (!isPaid(occ.date)) return occ;
+  }
+  return occurrences.length ? occurrences[occurrences.length - 1] : null;
 }
 
 /** Childcare deposits (stub input) placed like debt payments. */
@@ -395,6 +469,8 @@ function buildRecommendation(debts, strategy, safeExtraPence, needsBalance, nowS
  * @param {Array} data.debts - pence-domain debts.
  * @param {object} data.settings - { currentBalancePence (nullable), safetyBufferPence, everydaySpendPence, payoffStrategy }.
  * @param {Array} [data.childcareDeposits] - stub, see contract above.
+ * @param {Array} [data.debtPayments] - `{ debtId, date }` for debt occurrences
+ *   already marked paid; matching occurrences are skipped in the timeline.
  * @param {number} [offset=0] - period offset (0 = current).
  * @returns {object} plan (see module doc).
  */
@@ -406,7 +482,19 @@ export function buildPlan(data, offset = 0) {
     debts = [],
     settings = {},
     childcareDeposits = [],
+    debtPayments = [],
   } = data || {};
+
+  // Set of `${debtId}|${date}` for debt occurrences already marked paid, so the
+  // committed timeline skips them (spec §4.3 — the ledger row is the record; the
+  // balance is untouched). A superset (payments outside the period) is harmless
+  // because membership is keyed on the exact occurrence date.
+  const paidDebtSet = new Set(
+    (debtPayments || [])
+      .filter((p) => p && p.debtId != null && p.date)
+      .map((p) => `${p.debtId}|${p.date}`),
+  );
+  const isDebtPaid = (debtId, date) => paidDebtSet.has(`${debtId}|${date}`);
 
   const nowStr = fmt(now);
   const currentBalancePence = settings.currentBalancePence ?? null;
@@ -506,7 +594,7 @@ export function buildPlan(data, offset = 0) {
   // Outgoings within [periodStart, periodEnd).
   const outgoings = [
     ...billOutgoings(recurringBills, periodStart, periodEnd),
-    ...debtOutgoings(debts, periodStart, periodEnd),
+    ...debtOutgoings(debts, periodStart, periodEnd, isDebtPaid),
     ...childcareOutgoings(childcareDeposits, periodStart, periodEnd),
   ].map((o) => ({ ...o, direction: 'out' }));
 

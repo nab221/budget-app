@@ -15,7 +15,7 @@ describe('frequencyStepMonths', () => {
   });
 
   it('exposes the same mapping as the FREQUENCY_MONTHS table', () => {
-    expect(FREQUENCY_MONTHS).toEqual({ monthly: 1, quarterly: 3, annual: 12 });
+    expect(FREQUENCY_MONTHS).toEqual({ monthly: 1, quarterly: 3, '6-monthly': 6, annual: 12 });
   });
 });
 

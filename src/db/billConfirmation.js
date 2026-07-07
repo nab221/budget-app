@@ -108,6 +108,13 @@ export async function unconfirmBillPayment(transaction) {
     throw new Error('unconfirmBillPayment: a transaction with an id is required');
   }
 
+  // A debt-payment confirmation (debtId set, no billId) has no due date to roll
+  // back — just delete the ledger row and the occurrence re-appears at read time.
+  if (transaction.billId == null && transaction.debtId != null) {
+    await transactionsRepo.delete(transaction.id);
+    return { deleted: true, rolledBack: false, reason: 'debt-payment' };
+  }
+
   const bill = transaction.billId != null ? await recurringBillsRepo.get(transaction.billId) : null;
 
   await transactionsRepo.delete(transaction.id);

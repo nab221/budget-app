@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import { useState } from 'react';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import CurrencyInput, { parseCurrencyInput } from './CurrencyInput.jsx';
 
@@ -43,5 +44,54 @@ describe('<CurrencyInput>', () => {
     render(<CurrencyInput value="" onChange={onChange} />);
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'xyz' } });
     expect(onChange).toHaveBeenLastCalledWith(null);
+  });
+
+  it('does not wipe the field while typing a decimal point', () => {
+    // Reproduces BUG-2: a controlled parent that mirrors `value` back in.
+    function Host() {
+      const [v, setV] = useState('');
+      return <CurrencyInput value={v} onChange={setV} />;
+    }
+    render(<Host />);
+    const input = screen.getByRole('textbox');
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: '12' } });
+    fireEvent.change(input, { target: { value: '12.' } });
+    // The intermediate "12." must survive — not be cleared.
+    expect(input.value).toBe('12.');
+  });
+
+  it('commits the parsed value on blur after an intermediate decimal', () => {
+    function Host() {
+      const [v, setV] = useState('');
+      return (
+        <>
+          <CurrencyInput value={v} onChange={setV} />
+          <span data-testid="v">{String(v)}</span>
+        </>
+      );
+    }
+    render(<Host />);
+    const input = screen.getByRole('textbox');
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: '12.' } });
+    fireEvent.change(input, { target: { value: '12.5' } });
+    fireEvent.blur(input);
+    expect(input.value).toBe('12.5');
+    expect(screen.getByTestId('v').textContent).toBe('12.5');
+  });
+
+  it('a lone "." never clears and commits to empty on blur', () => {
+    function Host() {
+      const [v, setV] = useState('');
+      return <CurrencyInput value={v} onChange={setV} />;
+    }
+    render(<Host />);
+    const input = screen.getByRole('textbox');
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: '.' } });
+    expect(input.value).toBe('.'); // preserved while typing
+    fireEvent.blur(input);
+    expect(input.value).toBe(''); // no valid number → empty
   });
 });

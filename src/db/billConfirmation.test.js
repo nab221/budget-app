@@ -206,3 +206,26 @@ describe('transactionsRepo bill-confirmation query helpers', () => {
     expect(excludeEnd).toHaveLength(0);
   });
 });
+
+describe('week-based frequency confirm/unconfirm round-trip', () => {
+  it('advances a weekly bill by exactly 7 days and rolls back one step on unconfirm', async () => {
+    const bill = await makeBill({ frequency: 'weekly', nextDueDate: '2026-01-15', adjustToWorkingDay: false });
+    const result = await confirmBillPayment(bill, bill.nextDueDate);
+    expect(result.nextDueDate).toBe('2026-01-22'); // +7 days, no anchor clamp
+
+    const after = await recurringBillsRepo.get(bill.id);
+    expect(after.nextDueDate).toBe('2026-01-22');
+
+    const tx = await transactionsRepo.get(result.transactionId);
+    const undo = await unconfirmBillPayment(tx);
+    expect(undo.rolledBack).toBe(true);
+    const restored = await recurringBillsRepo.get(bill.id);
+    expect(restored.nextDueDate).toBe('2026-01-15'); // exactly one step back
+  });
+
+  it('advances a 5-weekly bill by exactly 35 days', async () => {
+    const bill = await makeBill({ frequency: '5-weekly', nextDueDate: '2026-01-01', adjustToWorkingDay: false });
+    const result = await confirmBillPayment(bill, bill.nextDueDate);
+    expect(result.nextDueDate).toBe('2026-02-05'); // +35 days
+  });
+});

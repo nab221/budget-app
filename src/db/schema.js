@@ -4,8 +4,7 @@ import Dexie from 'dexie';
  * BudgetAppV4 — Dexie (IndexedDB) database, schema version 1.
  *
  * Designed fresh per REFACTOR-SPEC §5. The old `BudgetConsoleDB` (23 migrations)
- * is left untouched; this is a clean, single-version schema with no migration
- * path and no derived/computed rows persisted.
+ * is left untouched.
  *
  * All money fields are integer **pence** at rest. All dates are ISO
  * `yyyy-MM-dd` strings. Pounds only ever exist at the API boundary (see
@@ -14,14 +13,24 @@ import Dexie from 'dexie';
  * Store index strings follow spec §5 (`*` marks an indexed field). The primary
  * key of every table except `settings` is an auto-incrementing `id`; `settings`
  * is a `key`-keyed value store.
+ *
+ * ── Version history ────────────────────────────────────────────────────────
+ * v1 — the fresh spec §5 schema.
+ * v2 — additive only (owner testing feedback, 2026-07-07): a nullable `debtId`
+ *      field on `transactions`, indexed so debt-payment confirmations can be
+ *      looked up per pay period (derived debt-payment rows in Recurring Bills).
+ *      No stores added/removed and no data reshaped, so Dexie upgrades live v1
+ *      databases in place — existing rows (which simply have no `debtId`) are
+ *      preserved untouched.
  */
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export const db = new Dexie('BudgetAppV4');
 
-db.version(SCHEMA_VERSION).stores({
-  // key/value settings store — `key` is the (unique) primary key.
+// v1 — original spec §5 schema. Declared so existing v1 databases have a defined
+// prior version to upgrade FROM (Dexie requires the full version chain).
+db.version(1).stores({
   settings: '&key',
   categories: '++id, name, kind',
   incomeSources: '++id, payDateRule',
@@ -30,6 +39,13 @@ db.version(SCHEMA_VERSION).stores({
   debts: '++id, debtType',
   children: '++id',
   categoryMappings: '++id, descriptionKey',
+});
+
+// v2 — additive: index `debtId` on transactions. Only the changed store needs
+// restating; Dexie carries the rest forward. Purely additive index changes need
+// no upgrade function — Dexie re-indexes existing rows automatically.
+db.version(2).stores({
+  transactions: '++id, date, kind, categoryId, source, importHash, debtId',
 });
 
 // The ordered list of table names — the single source of truth for backup /

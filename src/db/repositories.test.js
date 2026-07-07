@@ -93,10 +93,20 @@ describe('validation', () => {
 
   it('recurringBills.frequency enum', async () => {
     await expect(
-      recurringBillsRepo.add({ label: 'B', amountPence: 1, categoryId: 1, frequency: 'weekly', nextDueDate: '2026-07-01' })
+      recurringBillsRepo.add({ label: 'B', amountPence: 1, categoryId: 1, frequency: 'fortnightly', nextDueDate: '2026-07-01' })
     ).rejects.toThrow(/frequency must be one of/);
     await expect(
       recurringBillsRepo.add({ label: 'B', amountPence: 1, categoryId: 1, frequency: 'quarterly', nextDueDate: '2026-07-01' })
+    ).resolves.toBeDefined();
+    // Week-based frequencies added per the 2026-07-07 amendment are accepted.
+    await expect(
+      recurringBillsRepo.add({ label: 'B', amountPence: 1, categoryId: 1, frequency: 'weekly', nextDueDate: '2026-07-01' })
+    ).resolves.toBeDefined();
+    await expect(
+      recurringBillsRepo.add({ label: 'B', amountPence: 1, categoryId: 1, frequency: '5-weekly', nextDueDate: '2026-07-01' })
+    ).resolves.toBeDefined();
+    await expect(
+      recurringBillsRepo.add({ label: 'B', amountPence: 1, categoryId: 1, frequency: '6-monthly', nextDueDate: '2026-07-01' })
     ).resolves.toBeDefined();
   });
 

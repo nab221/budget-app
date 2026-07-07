@@ -2,9 +2,15 @@ import { useState } from 'react';
 import CurrencyInput from '../components/CurrencyInput.jsx';
 
 const FREQUENCIES = [
+  { value: 'weekly', label: 'Weekly' },
+  { value: '2-weekly', label: 'Every 2 weeks' },
+  { value: '4-weekly', label: 'Every 4 weeks' },
+  { value: '5-weekly', label: 'Every 5 weeks' },
+  { value: '6-weekly', label: 'Every 6 weeks' },
   { value: 'monthly', label: 'Monthly' },
   { value: 'quarterly', label: 'Quarterly' },
-  { value: 'annual', label: 'Annual' },
+  { value: '6-monthly', label: 'Every 6 months' },
+  { value: 'annual', label: 'Annually' },
 ];
 
 const blank = {

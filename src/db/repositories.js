@@ -97,7 +97,20 @@ export function createBaseRepository(table, penceFields = [], defaults = {}, val
 // ---------------------------------------------------------------------------
 
 const PAY_DATE_RULES = ['nth-of-month', 'last-day', 'last-working-day'];
-const BILL_FREQUENCIES = ['monthly', 'quarterly', 'annual'];
+// Week-based frequencies step by exact days; month-based keep a day anchor
+// (owner testing feedback, 2026-07-07). Kept in step with `src/engine/plan.js`
+// (FREQUENCY_DAYS + FREQUENCY_MONTHS).
+const BILL_FREQUENCIES = [
+  'weekly',
+  '2-weekly',
+  '4-weekly',
+  '5-weekly',
+  '6-weekly',
+  'monthly',
+  'quarterly',
+  '6-monthly',
+  'annual',
+];
 const TRANSACTION_KINDS = ['income', 'spend'];
 const TRANSACTION_SOURCES = ['manual', 'import', 'bill'];
 const DEBT_TYPES = ['credit-card', 'loan'];
@@ -250,6 +263,34 @@ export const transactionsRepo = {
       .filter((t) => t.source === 'bill' && t.billId === billId)
       .toArray();
     return rows.length ? this._fromStorage(rows[0]) : null;
+  },
+
+  /**
+   * Find an existing debt-payment transaction for a given debt + occurrence date
+   * (the idempotent guard for `confirmDebtPayment`). Returns pounds-at-edge or
+   * `null`.
+   * @param {number} debtId
+   * @param {string} occurrenceDate - ISO yyyy-MM-dd
+   */
+  async findDebtPayment(debtId, occurrenceDate) {
+    const rows = await db.transactions
+      .where('date')
+      .equals(occurrenceDate)
+      .filter((t) => t.debtId === debtId)
+      .toArray();
+    return rows.length ? this._fromStorage(rows[0]) : null;
+  },
+
+  /**
+   * `{ debtId, date }` for every debt-payment transaction (rows with a `debtId`).
+   * Fed to the plan engine so paid debt occurrences drop from the committed
+   * timeline, and to the Recurring Bills list so a debt's derived "next due" row
+   * advances past occurrences already paid. Raw (no pounds conversion needed —
+   * only the debtId + date matter). Uses the `debtId` index (v2).
+   */
+  async debtPaymentOccurrences() {
+    const rows = await db.transactions.where('debtId').above(0).toArray();
+    return rows.map((t) => ({ debtId: t.debtId, date: t.date }));
   },
 
   /**

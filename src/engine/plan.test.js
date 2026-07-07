@@ -667,3 +667,72 @@ describe('advanceByFrequency month-end anchor (M4)', () => {
     expect(rows[0].date).toBe('2026-03-31');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Week-based frequencies (owner testing feedback, 2026-07-07)
+// ---------------------------------------------------------------------------
+
+describe('week-based frequencies', () => {
+  it('advanceByFrequency steps by exact days and ignores the anchor', () => {
+    expect(advanceByFrequency('2026-03-05', 'weekly')).toBe('2026-03-12');
+    expect(advanceByFrequency('2026-03-05', '2-weekly')).toBe('2026-03-19');
+    expect(advanceByFrequency('2026-03-05', '4-weekly')).toBe('2026-04-02');
+    expect(advanceByFrequency('2026-03-05', '5-weekly')).toBe('2026-04-09');
+    expect(advanceByFrequency('2026-03-05', '6-weekly')).toBe('2026-04-16');
+    // Anchor day is ignored for week-based stepping (no re-clamp).
+    expect(advanceByFrequency('2026-03-30', 'weekly', 1, 30)).toBe('2026-04-06');
+  });
+
+  it('6-monthly steps by six months (month-based, anchored)', () => {
+    expect(advanceByFrequency('2026-01-15', '6-monthly')).toBe('2026-07-15');
+  });
+
+  it('a weekly bill emits multiple individually-confirmable occurrences in one period', () => {
+    // Period 25 Feb → 25 Mar. Weekly bill from 26 Feb → 26 Feb, 5, 12, 19 Mar.
+    const wk = bill({ frequency: 'weekly', nextDueDate: '2026-02-26', adjustToWorkingDay: false });
+    const plan = build({ recurringBills: [wk] });
+    const rows = plan.outgoings.filter((o) => o.kind === 'bill').map((r) => r.date).sort();
+    expect(rows).toEqual(['2026-02-26', '2026-03-05', '2026-03-12', '2026-03-19']);
+  });
+
+  it('4-weekly and 5-weekly step by whole weeks across a month boundary', () => {
+    const fourWk = bill({ id: 1, frequency: '4-weekly', nextDueDate: '2026-02-26', adjustToWorkingDay: false });
+    const p4 = build({ recurringBills: [fourWk] });
+    const r4 = p4.outgoings.filter((o) => o.kind === 'bill').map((r) => r.date).sort();
+    // 26 Feb, then +28d = 26 Mar (outside 25 Mar end) → only 26 Feb in period.
+    expect(r4).toEqual(['2026-02-26']);
+
+    const fiveWk = bill({ id: 1, frequency: '5-weekly', nextDueDate: '2026-02-01', adjustToWorkingDay: false });
+    const p5 = build({ recurringBills: [fiveWk] });
+    const r5 = p5.outgoings.filter((o) => o.kind === 'bill').map((r) => r.date).sort();
+    // From 1 Feb: 1 Feb, 8 Mar (+35d), 12 Apr… → only 8 Mar falls in 25 Feb→25 Mar.
+    expect(r5).toEqual(['2026-03-08']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Debt payments dropping when marked paid (FEATURE A)
+// ---------------------------------------------------------------------------
+
+describe('debt payment skip', () => {
+  it('skips a debt occurrence that has a matching debtPayments entry', () => {
+    // Card min payment on the 15th → 15 Mar is in period 25 Feb → 25 Mar.
+    const withCard = { debts: [card({ paymentDayOfMonth: 15 })] };
+    const before = build(withCard);
+    const cardRow = before.outgoings.find((o) => o.kind === 'debt-min');
+    expect(cardRow).toBeTruthy();
+    expect(cardRow.date).toBe('2026-03-16'); // 15 Mar 2026 is a Sunday → 16 Mar
+
+    // Mark that occurrence paid → it drops from the committed timeline.
+    const after = build({ ...withCard, debtPayments: [{ debtId: 10, date: '2026-03-16' }] });
+    expect(after.outgoings.some((o) => o.kind === 'debt-min')).toBe(false);
+  });
+
+  it('a non-matching debtPayments entry does not drop the occurrence', () => {
+    const after = build({
+      debts: [card({ paymentDayOfMonth: 15 })],
+      debtPayments: [{ debtId: 10, date: '2026-02-16' }], // wrong month
+    });
+    expect(after.outgoings.some((o) => o.kind === 'debt-min')).toBe(true);
+  });
+});

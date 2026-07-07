@@ -12,6 +12,7 @@ import {
   recurringBillsRepo,
   debtsRepo,
   childrenRepo,
+  transactionsRepo,
 } from './repositories.js';
 import { settings } from './settings.js';
 import { toPence } from '../engine/currency.js';
@@ -59,6 +60,7 @@ export async function gatherPlanData(now = new Date()) {
     billsRaw,
     debtsRaw,
     childrenRaw,
+    debtPayments,
     currentBalancePence,
     safetyBufferPence,
     everydaySpendPence,
@@ -69,6 +71,7 @@ export async function gatherPlanData(now = new Date()) {
     recurringBillsRepo.getAll(), // pounds at the edge
     debtsRepo.getAll(), // pounds at the edge
     childrenRepo.getAll(), // pounds at the edge
+    transactionsRepo.debtPaymentOccurrences(), // { debtId, date } — raw, no money
     // settings values are stored raw in pence (nullable balance) — no conversion.
     settings.getCurrentBalancePence(),
     settings.getSafetyBufferPence(),
@@ -134,6 +137,9 @@ export async function gatherPlanData(now = new Date()) {
     // One committed deposit per child with a required deposit > 0 (computed at
     // read time from the child record — never persisted).
     childcareDeposits: childcareDepositsFromChildren(childrenRaw),
+    // Debt occurrences already marked paid — the plan skips these so they drop
+    // from the committed timeline (balance untouched; §4.3).
+    debtPayments,
   };
 }
 
