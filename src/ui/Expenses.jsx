@@ -26,8 +26,10 @@ import Money from './components/Money.jsx';
 import PeriodSelector from './components/PeriodSelector.jsx';
 import EmptyState from './components/EmptyState.jsx';
 import ConfirmDialog from './components/ConfirmDialog.jsx';
+import Modal from './components/Modal.jsx';
 import { formatDay, formatMonth } from './components/dates.js';
 import DebtCard from './expenses/DebtCard.jsx';
+import { debtMonthlyPence } from './expenses/minPayment.js';
 import DebtForm from './expenses/DebtForm.jsx';
 import ExpenseCard from './expenses/ExpenseCard.jsx';
 import ExpenseForm from './expenses/ExpenseForm.jsx';
@@ -130,7 +132,6 @@ export default function Expenses() {
     setEditingDebt(null);
     setEditingBill(null);
   };
-  const formOpen = adding || editingDebt || editingBill;
 
   const addDebt = async (payload) => {
     await debtsRepo.add(payload);
@@ -185,6 +186,13 @@ export default function Expenses() {
         <h3>{title}</h3>
         <span className="debt-group__subtotal muted">
           Balance <Money pounds={list.reduce((t, d) => t + (d.balancePence || 0), 0)} />
+          {list.length > 0 && (
+            <>
+              {' · ≈ '}
+              <Money pence={list.reduce((t, d) => t + debtMonthlyPence(d, from), 0)} />
+              {' / month'}
+            </>
+          )}
         </span>
       </div>
       {list.length === 0 ? (
@@ -211,16 +219,12 @@ export default function Expenses() {
       <header className="screen__head">
         <h2>Expenses</h2>
         <div className="screen__head-actions">
-          {!formOpen && (
-            <>
-              <button type="button" className="btn" onClick={() => setImporting(true)}>
-                Import statement (PDF)
-              </button>
-              <button type="button" className="btn btn--primary" onClick={() => setPicking(true)}>
-                Add
-              </button>
-            </>
-          )}
+          <button type="button" className="btn" onClick={() => setImporting(true)}>
+            Import statement (PDF)
+          </button>
+          <button type="button" className="btn btn--primary" onClick={() => setPicking(true)}>
+            Add
+          </button>
         </div>
       </header>
 
@@ -246,30 +250,44 @@ export default function Expenses() {
       {importing && <StatementImport onClose={() => setImporting(false)} />}
 
       {editingDebt && (
-        <DebtForm
-          debtType={editingDebt.debtType}
-          initial={editingDebt}
-          onSubmit={saveDebt}
-          onCancel={closeForms}
-        />
+        <Modal
+          title={`Edit ${editingDebt.debtType === 'loan' ? 'loan' : 'credit card'}`}
+          onClose={closeForms}
+        >
+          <DebtForm
+            debtType={editingDebt.debtType}
+            initial={editingDebt}
+            onSubmit={saveDebt}
+            onCancel={closeForms}
+          />
+        </Modal>
       )}
       {(adding === 'credit-card' || adding === 'loan') && (
-        <DebtForm debtType={adding} onSubmit={addDebt} onCancel={closeForms} />
+        <Modal
+          title={`Add ${adding === 'loan' ? 'loan' : 'credit card'}`}
+          onClose={closeForms}
+        >
+          <DebtForm debtType={adding} onSubmit={addDebt} onCancel={closeForms} />
+        </Modal>
       )}
       {editingBill && (
-        <ExpenseForm
-          initial={editingBill}
-          spendingCategories={spendingCategories}
-          onSubmit={saveBill}
-          onCancel={closeForms}
-        />
+        <Modal title="Edit expense" onClose={closeForms}>
+          <ExpenseForm
+            initial={editingBill}
+            spendingCategories={spendingCategories}
+            onSubmit={saveBill}
+            onCancel={closeForms}
+          />
+        </Modal>
       )}
       {adding === 'expense' && (
-        <ExpenseForm
-          spendingCategories={spendingCategories}
-          onSubmit={addBill}
-          onCancel={closeForms}
-        />
+        <Modal title="Add recurring expense" onClose={closeForms}>
+          <ExpenseForm
+            spendingCategories={spendingCategories}
+            onSubmit={addBill}
+            onCancel={closeForms}
+          />
+        </Modal>
       )}
 
       {loading ? (

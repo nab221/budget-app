@@ -70,6 +70,31 @@ describe('Expenses screen', () => {
     expect(screen.getByRole('heading', { name: 'Utilities' })).toBeTruthy();
     expect(screen.getByText('Broadband')).toBeTruthy();
     expect(screen.getByText(/15 Jul 2026/)).toBeTruthy();
+
+    // Monthly approximation appears both per card and in the group subtotal:
+    // Visa min £50 (card + Credit cards header), Car loan £250 (card + Loans header).
+    expect(screen.getAllByText('£50.00').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText('£250.00').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText(/\/ month/).length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('opens the edit form in a modal dialog', async () => {
+    await seed();
+    render(<Expenses />);
+    await screen.findByText('Visa');
+
+    // No dialog until an Edit button is clicked.
+    expect(screen.queryByRole('dialog')).toBeNull();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Edit' })[0]);
+
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toBeTruthy();
+    // The debt form is inside, pre-filled with the debt's name.
+    expect(screen.getByDisplayValue('Visa')).toBeTruthy();
+
+    // Escape closes it.
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('totals the month (card min + loan payment + bills) and switches periods', async () => {

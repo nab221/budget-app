@@ -33,7 +33,13 @@ const numOrNull = (v) => (v === '' || v == null ? null : Number(v));
  */
 export default function DebtForm({ debtType, initial, onSubmit, onCancel }) {
   const base = debtType === 'loan' ? blankLoan : blankCard;
-  const [form, setForm] = useState(() => ({ ...base, ...initial, debtType }));
+  // Optional debt fields persist as null; coerce to '' so the inputs stay
+  // controlled (React warns on a null `value`). numOrNull maps '' back to null.
+  const [form, setForm] = useState(() => {
+    const merged = { ...base, ...initial, debtType };
+    for (const k of Object.keys(merged)) if (merged[k] == null) merged[k] = '';
+    return merged;
+  });
   const [error, setError] = useState(null);
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
 
@@ -77,7 +83,7 @@ export default function DebtForm({ debtType, initial, onSubmit, onCancel }) {
   };
 
   return (
-    <form className="form card" onSubmit={submit}>
+    <form className="form" onSubmit={submit}>
       <div className="form-row">
         <div className="field">
           <label>Name</label>

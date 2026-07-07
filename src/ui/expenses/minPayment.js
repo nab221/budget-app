@@ -34,3 +34,20 @@ export function resolveMinPayment(debt, referenceDate = null) {
   );
   return { pence, isOverride: false };
 }
+
+/**
+ * Approximate monthly outgoing for a debt, in **pence** — the figure shown as
+ * "≈ £X / month" beside the balance. Credit cards use their current minimum
+ * payment (or override); loans use their fixed monthly payment. Both money
+ * fields arrive from the repo in POUNDS, so the loan branch converts.
+ *
+ * @param {object} debt - a debt row from `debtsRepo` (money fields in pounds).
+ * @param {string|Date|null} [referenceDate] - passed through for promo checks.
+ * @returns {number} pence
+ */
+export function debtMonthlyPence(debt, referenceDate = null) {
+  if (debt.debtType === 'loan') {
+    return toPence(debt.fixedMonthlyPaymentPence ?? 0); // pounds → pence
+  }
+  return resolveMinPayment(debt, referenceDate).pence;
+}
