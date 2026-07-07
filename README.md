@@ -1,41 +1,31 @@
-# Budget Console
+# Budget App
 
-A local-first, privacy-focused personal finance tracker with automatic file-based sync.
+A personal budgeting tool for a single user on one computer. It answers two questions:
 
-## Quick Start (Development)
+1. **How much am I spending every month?** — income vs spending by category.
+2. **If I have spare money, how do I pay my borrowings back?** — given the current bank
+   balance and everything committed before the next payday, how much is safe to pay
+   extra, and onto which credit card or loan.
 
-1. **Install dependencies**: `npm install`
-2. **Start development server**: `npm run dev`
-3. **Open browser**: Visit `http://localhost:5173`
+> **Status: v4 refactor in progress.** The app is being rebuilt per
+> `specs/REFACTOR-SPEC.md` (product contract) and `specs/IMPLEMENTATION-PLAN.md`
+> (build order). Contributor/agent guidance lives in `CLAUDE.md`.
 
-## Quick Start (Production / Static)
+## Quick start
 
-If you just want to use the app without a development environment:
-1. Open `index.html` in a modern browser (Chrome/Edge recommended).
-2. Bookmark the page.
+```bash
+npm install
+npm run dev      # http://localhost:5173
+npm test         # Vitest
+npm run build    # production build
+```
 
-## Key Features
+## Design in one paragraph
 
-- **Local Storage**: Data is stored in your browser's **IndexedDB**.
-- **Automatic Sync**: Mirrors your data to a local `.json` file via **File System Access API**.
-- **Cloud Ready**: Save your budget file in **OneDrive**, **Dropbox**, or **Google Drive** for cross-device sync.
-- **Privacy First**: No cloud accounts, no servers, no trackers. Your data never leaves your machine.
-
-## Technical Details
-
-| Component | Technology |
-|-----------|------------|
-| **Database** | Dexie.js (IndexedDB wrapper) |
-| **Sync** | File System Access API (Desktop Chrome/Edge/Opera) |
-| **UI** | Modular JavaScript (ES Modules), Vanilla CSS |
-| **Build Tool** | Vite |
-| **PWA** | Vite PWA Plugin (Offline support, Installable) |
-
-## Data Storage & Backup
-
-- **Primary**: IndexedDB (Browser internal).
-- **Secondary (Auto)**: On supported browsers, data mirrors to a selected JSON file automatically.
-- **Manual**: Export/Import JSON files via the toolbar.
-
----
-Built for local-first, privacy-first personal finance tracking.
+Local-first and private: data lives in the browser's IndexedDB (Dexie, database
+`BudgetAppV4`), with manual JSON export/import as backup — no accounts, no servers, no
+sync. The UI is React on Vite; the financial engine (`src/engine/`) is pure, well-tested
+JavaScript: UK credit-card minimum payments, avalanche/snowball payoff simulation,
+0% promo and balance-transfer modelling, payday-to-payday affordability, UK
+working-day payment adjustment, and bank-statement PDF parsing. All money is stored as
+integer pence, GBP only.

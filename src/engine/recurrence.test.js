@@ -1,0 +1,235 @@
+import { describe, it, expect } from 'vitest';
+import { generateInstances, advanceNextDate } from './recurrence.js';
+
+describe('generateInstances', () => {
+  const baseTransaction = {
+    id: 123,
+    amount: 100,
+    category: 'Food',
+    date: '2023-01-31',
+    isRecurring: true,
+    recurrenceId: 'abc-123'
+  };
+
+  it('should return exactly count items', () => {
+    const result = generateInstances(baseTransaction, 'monthly', 3);
+    expect(result).toHaveLength(3);
+  });
+
+  it('should remove id from base object and preserve other fields', () => {
+    const result = generateInstances(baseTransaction, 'monthly', 1);
+    expect(result[0].id).toBeUndefined();
+    expect(result[0].amount).toBe(100);
+    expect(result[0].category).toBe('Food');
+    expect(result[0].isRecurring).toBe(true);
+    expect(result[0].recurrenceId).toBe('abc-123');
+  });
+
+  it('should generate a recurrenceId if one is missing', () => {
+    const baseWithoutId = { amount: 50, date: '2023-01-01' };
+    const result = generateInstances(baseWithoutId, 'weekly', 1);
+    expect(result[0].recurrenceId).toBeDefined();
+    expect(typeof result[0].recurrenceId).toBe('string');
+  });
+
+  it('should correctly project weekly dates', () => {
+    const result = generateInstances(baseTransaction, 'weekly', 2);
+    expect(result[0].date).toBe('2023-02-07');
+    expect(result[1].date).toBe('2023-02-14');
+  });
+
+  it('should correctly project biweekly dates', () => {
+    const result = generateInstances(baseTransaction, 'biweekly', 2);
+    expect(result[0].date).toBe('2023-02-14');
+    expect(result[1].date).toBe('2023-02-28');
+  });
+
+  it('should correctly project monthly dates and handle month-end drift', () => {
+    // Jan 31 -> Feb 28 -> Mar 31
+    const result = generateInstances(baseTransaction, 'monthly', 2);
+    expect(result[0].date).toBe('2023-02-28');
+    expect(result[1].date).toBe('2023-03-31');
+  });
+
+  it('should correctly project quarterly dates', () => {
+    // Jan 31 -> Apr 30 -> Jul 31
+    const result = generateInstances(baseTransaction, 'quarterly', 2);
+    expect(result[0].date).toBe('2023-04-30');
+    expect(result[1].date).toBe('2023-07-31');
+  });
+
+  it('should correctly project annual dates', () => {
+    const result = generateInstances(baseTransaction, 'annually', 2);
+    expect(result[0].date).toBe('2024-01-31');
+    expect(result[1].date).toBe('2025-01-31');
+  });
+
+  it('should update nextDate and predictedPaymentDate if present', () => {
+    const baseWithExtraDates = {
+      ...baseTransaction,
+      nextDate: '2023-01-31',
+      predictedPaymentDate: '2023-01-31'
+    };
+    const result = generateInstances(baseWithExtraDates, 'monthly', 1);
+    expect(result[0].date).toBe('2023-02-28');
+    expect(result[0].nextDate).toBe('2023-02-28');
+    expect(result[0].predictedPaymentDate).toBe('2023-02-28');
+  });
+});
+
+describe('generateInstances — paymentAdjustment', () => {
+  const baseMonthly = {
+    id: 1,
+    amount: 500,
+    category: 'Utilities',
+    date: '2026-01-31',
+    parentDate: '2026-01-31',
+    isRecurring: true,
+    recurrenceId: 'adj-test-1'
+  };
+
+  it('paymentAdjustment "next-working-day": nominal date on Saturday advances predictedPaymentDate to Monday', () => {
+    // parentDate '2026-01-31' (Saturday), monthly step 1 → nominal '2026-02-28' (Saturday)
+    // nextWorkingDay('2026-02-28') → '2026-03-02' (Monday, not a bank holiday)
+    const base = { ...baseMonthly, paymentAdjustment: 'next-working-day' };
+    const result = generateInstances(base, 'monthly', 1);
+    expect(result[0].date).toBe('2026-02-28');                   // nominal unchanged
+    expect(result[0].predictedPaymentDate).toBe('2026-03-02');   // adjusted to Monday
+    expect(result[0].paymentAdjustment).toBe('next-working-day');
+  });
+
+  it('paymentAdjustment "next-working-day": nominal date on working day stays unchanged', () => {
+    // parentDate '2026-01-31', monthly step 2 → nominal '2026-03-31' (Tuesday, working day)
+    const base = { ...baseMonthly, paymentAdjustment: 'next-working-day' };
+    const result = generateInstances(base, 'monthly', 2);
+    const march = result[1]; // step=2 → March 31
+    expect(march.date).toBe('2026-03-31');
+    expect(march.predictedPaymentDate).toBe('2026-03-31'); // working day, no shift
+  });
+
+  it('paymentAdjustment "none": predictedPaymentDate equals nominal date', () => {
+    // Same parentDate, no adjustment
+    const base = { ...baseMonthly, paymentAdjustment: 'none' };
+    const result = generateInstances(base, 'monthly', 1);
+    expect(result[0].date).toBe('2026-02-28');
+    expect(result[0].predictedPaymentDate).toBe('2026-02-28'); // no adjustment
+  });
+
+  it('paymentAdjustment undefined: predictedPaymentDate equals nominal date (backward compat)', () => {
+    const base = { ...baseMonthly }; // no paymentAdjustment field
+    const result = generateInstances(base, 'monthly', 1);
+    expect(result[0].date).toBe('2026-02-28');
+    expect(result[0].predictedPaymentDate).toBe('2026-02-28');
+  });
+});
+
+describe('advanceNextDate — paymentAdjustment', () => {
+  it('paymentAdjustment "next-working-day": nextDate stays nominal, predictedPaymentDate advances past Sunday', () => {
+    // nextDate '2026-02-15' (Sunday), monthly → advanced '2026-03-15' (Sunday)
+    // predictedPaymentDate should be '2026-03-16' (Monday)
+    const item = { nextDate: '2026-02-15', frequency: 'monthly', paymentAdjustment: 'next-working-day' };
+    const result = advanceNextDate(item);
+    expect(result.nextDate).toBe('2026-03-15');          // nominal scheduling anchor
+    expect(result.predictedPaymentDate).toBe('2026-03-16'); // adjusted to Monday
+  });
+
+  it('paymentAdjustment "next-working-day": working day nextDate gives same predictedPaymentDate', () => {
+    const item = { nextDate: '2026-01-01', frequency: 'monthly', paymentAdjustment: 'next-working-day' };
+    // 2026-01-01 is a Thursday (monthly → 2026-02-01 is a Sunday... wait)
+    // 2026-02-01 is a Sunday → nextWorkingDay → 2026-02-02 (Monday)
+    const result = advanceNextDate(item);
+    expect(result.nextDate).toBe('2026-02-01');
+    expect(result.predictedPaymentDate).toBe('2026-02-02'); // Monday
+  });
+
+  it('paymentAdjustment "none": predictedPaymentDate equals nextDate (backward compat)', () => {
+    const item = { nextDate: '2026-01-01', frequency: 'monthly', paymentAdjustment: 'none' };
+    const result = advanceNextDate(item);
+    expect(result.nextDate).toBe('2026-02-01');
+    expect(result.predictedPaymentDate).toBe('2026-02-01');
+  });
+
+  it('paymentAdjustment undefined: predictedPaymentDate equals nextDate (backward compat)', () => {
+    const item = { nextDate: '2026-01-01', frequency: 'monthly' };
+    const result = advanceNextDate(item);
+    expect(result.nextDate).toBe('2026-02-01');
+    expect(result.predictedPaymentDate).toBe('2026-02-01');
+  });
+});
+
+describe('advanceNextDate', () => {
+  it('weekly item → nextDate advances by 7 days', () => {
+    const item = { nextDate: '2026-01-01', frequency: 'weekly' };
+    const result = advanceNextDate(item);
+    expect(result.nextDate).toBe('2026-01-08');
+  });
+
+  it('biweekly item → nextDate advances by 14 days', () => {
+    const item = { nextDate: '2026-01-01', frequency: 'biweekly' };
+    const result = advanceNextDate(item);
+    expect(result.nextDate).toBe('2026-01-15');
+  });
+
+  it('monthly item → nextDate advances by 1 month (same day)', () => {
+    const item = { nextDate: '2026-01-01', frequency: 'monthly' };
+    const result = advanceNextDate(item);
+    expect(result.nextDate).toBe('2026-02-01');
+  });
+
+  it('quarterly item → nextDate advances by 3 months', () => {
+    const item = { nextDate: '2026-01-01', frequency: 'quarterly' };
+    const result = advanceNextDate(item);
+    expect(result.nextDate).toBe('2026-04-01');
+  });
+
+  it('annually item → nextDate advances by 1 year', () => {
+    const item = { nextDate: '2026-01-01', frequency: 'annually' };
+    const result = advanceNextDate(item);
+    expect(result.nextDate).toBe('2027-01-01');
+  });
+
+  it('unknown/default frequency → advances by 1 month (mirrors generateInstances default)', () => {
+    const item = { nextDate: '2026-01-01', frequency: 'unknown' };
+    const result = advanceNextDate(item);
+    expect(result.nextDate).toBe('2026-02-01');
+  });
+
+  it('isDebtPayment=true, cycleTotal=6, cycleCurrent=2 → returned date is correct AND cycleCurrent returned as 3 (incremented)', () => {
+    const item = { 
+      nextDate: '2026-01-01', 
+      frequency: 'monthly', 
+      isDebtPayment: true, 
+      cycleTotal: 6, 
+      cycleCurrent: 2 
+    };
+    const result = advanceNextDate(item);
+    expect(result.nextDate).toBe('2026-02-01');
+    expect(result.cycleCurrent).toBe(3);
+  });
+
+  it('isDebtPayment=false (regular subscription), cycleTotal=6, cycleCurrent=2 → cycleCurrent unchanged (still 2), only date advances', () => {
+    const item = { 
+      nextDate: '2026-01-01', 
+      frequency: 'monthly', 
+      isDebtPayment: false, 
+      cycleTotal: 6, 
+      cycleCurrent: 2 
+    };
+    const result = advanceNextDate(item);
+    expect(result.nextDate).toBe('2026-02-01');
+    expect(result.cycleCurrent).toBe(2);
+  });
+
+  it('isDebtPayment=true but cycleTotal=0 → cycleCurrent unchanged (no defined cycle endpoint)', () => {
+    const item = { 
+      nextDate: '2026-01-01', 
+      frequency: 'monthly', 
+      isDebtPayment: true, 
+      cycleTotal: 0, 
+      cycleCurrent: 2 
+    };
+    const result = advanceNextDate(item);
+    expect(result.nextDate).toBe('2026-02-01');
+    expect(result.cycleCurrent).toBe(2);
+  });
+});

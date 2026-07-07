@@ -1,42 +1,28 @@
-import { THEME_KEY } from '../utils/storage.js';
-
 /**
- * Initializes the theme based on saved preference or system settings.
+ * Theme + privacy application helpers (Phase 2, spec §4.7).
+ *
+ * Theme is applied by stamping a `data-theme` attribute on
+ * `document.documentElement`; `styles.css` has `:root[data-theme="light"]` /
+ * `:root[data-theme="dark"]` blocks that override the `prefers-color-scheme`
+ * defaults. `'system'` clears the attribute so the media query wins again.
+ *
+ * Privacy mode toggles a `privacy` class on `document.body`; `body.privacy
+ * .money` blurs every money value.
  */
-export function initTheme() {
-  const savedTheme = localStorage.getItem(THEME_KEY);
-  if (savedTheme) {
-    applyTheme(savedTheme);
-  } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-    applyTheme('dark');
+
+/** @param {'system'|'light'|'dark'} theme */
+export function applyTheme(theme) {
+  if (typeof document === 'undefined') return;
+  const root = document.documentElement;
+  if (theme === 'light' || theme === 'dark') {
+    root.setAttribute('data-theme', theme);
   } else {
-    applyTheme('light');
+    root.removeAttribute('data-theme');
   }
 }
 
-/**
- * Toggles the theme between light and dark.
- */
-export function toggleTheme() {
-  const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
-  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-  applyTheme(newTheme);
-  localStorage.setItem(THEME_KEY, newTheme);
-  return newTheme;
-}
-
-/**
- * Applies the theme to the document element.
- * @param {string} theme - 'light' or 'dark'
- */
-function applyTheme(theme) {
-  document.documentElement.setAttribute('data-theme', theme);
-}
-
-/**
- * Gets the current theme.
- * @returns {string}
- */
-export function getCurrentTheme() {
-  return document.documentElement.getAttribute('data-theme') || 'light';
+/** @param {boolean} on */
+export function applyPrivacy(on) {
+  if (typeof document === 'undefined' || !document.body) return;
+  document.body.classList.toggle('privacy', !!on);
 }

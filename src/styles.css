@@ -1,0 +1,1099 @@
+:root {
+  --bg: #ffffff;
+  --surface: #f4f5f7;
+  --text: #1a1d21;
+  --muted: #5c6470;
+  --border: #d8dce2;
+  --accent: #2563eb;
+  --accent-contrast: #ffffff;
+}
+
+/* Dark palette shared by the media-query default and the explicit override. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1419;
+    --surface: #191f27;
+    --text: #e6e9ee;
+    --muted: #9aa4b2;
+    --border: #2a323d;
+    --accent: #4b8bff;
+    --accent-contrast: #0f1419;
+    --danger: #f2555a;
+    --ok: #3fbf7f;
+  }
+}
+
+:root {
+  --danger: #d1343b;
+  --ok: #178f56;
+}
+
+/* Explicit theme choice (Settings) overrides prefers-color-scheme.
+   data-theme is stamped on <html> (== :root) by ui/theme.js. */
+:root[data-theme='light'] {
+  --bg: #ffffff;
+  --surface: #f4f5f7;
+  --text: #1a1d21;
+  --muted: #5c6470;
+  --border: #d8dce2;
+  --accent: #2563eb;
+  --accent-contrast: #ffffff;
+  --danger: #d1343b;
+  --ok: #178f56;
+}
+
+:root[data-theme='dark'] {
+  --bg: #0f1419;
+  --surface: #191f27;
+  --text: #e6e9ee;
+  --muted: #9aa4b2;
+  --border: #2a323d;
+  --accent: #4b8bff;
+  --accent-contrast: #0f1419;
+  --danger: #f2555a;
+  --ok: #3fbf7f;
+}
+
+/* Privacy mode: blur money values, reveal on hover. */
+body.privacy .money {
+  filter: blur(6px);
+  transition: filter 0.12s ease;
+}
+body.privacy .money:hover {
+  filter: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica,
+    Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app {
+  min-height: 100vh;
+}
+
+/* Top navigation bar */
+.topnav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 1.25rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  flex-wrap: wrap;
+}
+
+.topnav__brand {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.topnav__tabs {
+  display: flex;
+  gap: 0.25rem;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+}
+
+.topnav__tab,
+.topnav__settings {
+  font: inherit;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 0.4rem 0.75rem;
+  cursor: pointer;
+}
+
+.topnav__tab:hover,
+.topnav__settings:hover {
+  color: var(--text);
+  background: var(--bg);
+}
+
+.topnav__tab.is-active,
+.topnav__settings.is-active {
+  color: var(--accent-contrast);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.topnav__settings {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+/* Main content container */
+.container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem;
+}
+
+/* Placeholder screens */
+.placeholder h2 {
+  margin: 0 0 0.25rem;
+}
+
+.placeholder__note {
+  color: var(--muted);
+  margin: 0;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Phase 2 setup screens (Settings, Money In & Out, Debts)
+   ───────────────────────────────────────────────────────────────────────── */
+
+.muted {
+  color: var(--muted);
+}
+
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.screen__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+.screen__head h2 {
+  margin: 0;
+}
+
+.screen__head-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Panels & sections */
+.panel {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.25rem;
+  background: var(--surface);
+}
+
+.panel__title {
+  margin: 0 0 1rem;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.panel--placeholder {
+  border-style: dashed;
+  background: transparent;
+}
+
+.subsection {
+  margin-bottom: 1.5rem;
+}
+.subsection:last-child {
+  margin-bottom: 0;
+}
+
+.subsection__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.subsection__head h3 {
+  margin: 0;
+}
+
+/* Buttons */
+.btn {
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.4rem 0.8rem;
+  cursor: pointer;
+  line-height: 1.2;
+}
+.btn:hover {
+  border-color: var(--muted);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn--sm {
+  padding: 0.25rem 0.55rem;
+  font-size: 0.85rem;
+}
+.btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+}
+.btn--danger {
+  color: var(--accent-contrast);
+  background: var(--danger);
+  border-color: var(--danger);
+}
+.linkbtn {
+  font: inherit;
+  font-size: 0.8rem;
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 0 0 0 0.4rem;
+  text-decoration: underline;
+}
+
+/* Forms */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  margin: 0.75rem 0;
+}
+.form-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-end;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 10rem;
+  flex: 1 1 10rem;
+}
+.field label {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.field__hint {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.input {
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.4rem 0.55rem;
+  width: 100%;
+}
+.input--sm {
+  padding: 0.25rem 0.4rem;
+  width: auto;
+}
+.input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+.currency-input {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.currency-input__symbol {
+  color: var(--muted);
+}
+.form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+.form__actions--left {
+  justify-content: flex-start;
+}
+.form__error {
+  color: var(--danger);
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+/* Cards & lists */
+.card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  padding: 1rem;
+}
+.card-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.row-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.row-card__main {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+}
+.row-card__title {
+  font-weight: 600;
+}
+.row-card__amount {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.row-card__actions,
+.row-actions {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+.is-inactive {
+  opacity: 0.55;
+}
+
+/* Tables */
+.table-wrap {
+  overflow-x: auto;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+.table th,
+.table td {
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.table th {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.tag {
+  display: inline-block;
+  margin-left: 0.4rem;
+  font-size: 0.7rem;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 0.3rem;
+}
+.tag--from-debts {
+  color: var(--accent, #4f46e5);
+  border-color: currentColor;
+}
+
+/* Derived debt-payment rows in the recurring bills list (read-only). */
+.row--derived {
+  background: color-mix(in srgb, var(--surface) 60%, transparent);
+}
+.select-cell {
+  width: 1.5rem;
+  text-align: center;
+}
+
+/* Bulk mark-paid action bar */
+.bulk-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+
+/* Tab-content error boundary fallback (BUG-1 graceful degradation). */
+.error-boundary {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25rem 1.5rem;
+  background: var(--surface);
+}
+.error-boundary h3 {
+  margin: 0 0 0.5rem;
+}
+.error-boundary p {
+  margin: 0 0 0.75rem;
+  word-break: break-word;
+}
+
+/* Empty state */
+.empty-state {
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  color: var(--muted);
+  background: var(--surface);
+}
+.empty-state__title {
+  margin: 0 0 0.25rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.empty-state__hint {
+  margin: 0;
+}
+
+/* Dialog */
+.dialog__overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 50;
+}
+.dialog {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.25rem;
+  max-width: 30rem;
+  width: 100%;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+}
+.dialog__title {
+  margin: 0 0 0.5rem;
+}
+.dialog__body {
+  color: var(--text);
+  margin-bottom: 1rem;
+}
+.dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+.type-picker__buttons {
+  display: flex;
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+}
+
+/* Credit-card statement import preview (spec §4.6) */
+.statement-summary {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0.75rem 0;
+  padding: 0.9rem 1rem;
+}
+.statement-summary__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+}
+.field--check {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+.field--check input {
+  width: auto;
+}
+
+/* Debts */
+.debt-group {
+  margin-bottom: 1.5rem;
+}
+.debt-group__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.6rem;
+}
+.debt-group__head h3 {
+  margin: 0;
+}
+.debt-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  gap: 0.75rem;
+}
+.debt-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.debt-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.debt-card__name {
+  font-weight: 600;
+  font-size: 1.05rem;
+}
+.debt-card__amount {
+  font-size: 1.3rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.debt-card__facts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  margin: 0;
+}
+.debt-card__facts dt {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+.debt-card__facts dd {
+  margin: 0.1rem 0 0;
+  font-variant-numeric: tabular-nums;
+}
+.debt-card__actions,
+.debt-card__balform .form__actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.debt-card__balform {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.6rem;
+}
+.badge {
+  font-size: 0.72rem;
+  border-radius: 999px;
+  padding: 0.1rem 0.55rem;
+  border: 1px solid var(--border);
+}
+.badge--promo {
+  color: var(--ok);
+  border-color: var(--ok);
+}
+.util {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.util__bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.util__fill {
+  height: 100%;
+  background: var(--accent);
+}
+.util__label {
+  font-size: 0.75rem;
+}
+.totals {
+  color: var(--muted);
+}
+.totals__value {
+  color: var(--text);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.debt-group__subtotal {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Settings */
+.settings-group {
+  border-top: 1px solid var(--border);
+  padding-top: 1.25rem;
+}
+.settings-group > h3 {
+  margin: 0 0 0.75rem;
+}
+.settings-flash {
+  color: var(--ok);
+  font-size: 0.9rem;
+  margin: 0.5rem 0 0;
+}
+.warn-line {
+  color: var(--danger);
+  font-size: 0.9rem;
+  margin: 0.25rem 0 0.75rem;
+}
+.cat-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 1rem;
+}
+.cat-group h4 {
+  margin: 0 0 0.5rem;
+}
+.cat-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.cat-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.cat-item__name {
+  flex: 1 1 auto;
+}
+.cat-item__blocked {
+  flex-basis: 100%;
+  color: var(--danger);
+  font-size: 0.8rem;
+}
+.cat-add {
+  align-items: center;
+}
+.danger-zone h3 {
+  color: var(--danger);
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Phase 3 engine screens (Dashboard pay-period + Payoff)
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Balance strip */
+.balance-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  background: var(--surface);
+}
+.balance-strip--prompt {
+  border-style: dashed;
+  border-color: var(--accent);
+}
+.balance-strip__prompt-title {
+  margin: 0 0 0.15rem;
+  font-weight: 700;
+}
+.balance-strip__main {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.balance-strip__label {
+  color: var(--muted);
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+}
+.balance-strip__amount {
+  font-size: 1.6rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.balance-strip__side {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.balance-strip__stale {
+  margin: 0;
+  color: var(--danger);
+  font-size: 0.85rem;
+  max-width: 22rem;
+}
+.balance-form {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  width: 100%;
+}
+.balance-form__actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Pay-period + this-month panels */
+.payperiod__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+.payperiod__label {
+  margin: 0;
+  font-weight: 600;
+  font-size: 1.05rem;
+}
+.payperiod__nav {
+  display: flex;
+  gap: 0.35rem;
+}
+.payperiod__income {
+  margin: 0 0 0.75rem;
+  color: var(--muted);
+}
+.payperiod__income .money {
+  color: var(--text);
+  font-weight: 600;
+}
+.payperiod__table tfoot td {
+  font-weight: 700;
+  border-top: 2px solid var(--border);
+  border-bottom: none;
+}
+.payperiod__opening td {
+  color: var(--muted);
+}
+.payperiod__end {
+  font-size: 1.05rem;
+}
+.row--below td {
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+}
+.row--negative td {
+  background: color-mix(in srgb, var(--danger) 18%, transparent);
+  color: var(--danger);
+}
+
+/* Warning banner */
+.banner {
+  border-radius: 8px;
+  padding: 0.6rem 0.85rem;
+  margin-bottom: 0.85rem;
+  font-size: 0.92rem;
+  border: 1px solid var(--border);
+}
+.banner--warn {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+}
+.banner--danger {
+  border-color: var(--danger);
+  color: var(--accent-contrast);
+  background: var(--danger);
+}
+
+/* Recommendation card (centrepiece) */
+.reco-card {
+  margin-top: 1rem;
+  border-radius: 10px;
+  padding: 1.1rem 1.25rem;
+  border: 1px solid var(--border);
+}
+.reco-card__title {
+  margin: 0 0 0.25rem;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.reco-card__detail {
+  margin: 0;
+  color: var(--muted);
+}
+.reco-card--spare {
+  border-color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 12%, transparent);
+}
+.reco-card--spare .reco-card__title {
+  color: var(--ok);
+}
+.reco-card--debt-free {
+  border-color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 8%, transparent);
+}
+.reco-card--no-spare {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+}
+.reco-card--no-spare .reco-card__title {
+  color: var(--danger);
+}
+.reco-card--needs-balance {
+  border-style: dashed;
+  border-color: var(--accent);
+}
+
+/* This-month stats */
+.thismonth__totals {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.stat__label {
+  color: var(--muted);
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+}
+.stat__value {
+  font-size: 1.3rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.stat__value--neg {
+  color: var(--danger);
+}
+
+/* Payoff */
+.strategy-row--selected td {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.schedule {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  align-items: flex-start;
+}
+.schedule__scroll {
+  max-height: 22rem;
+  overflow-y: auto;
+  width: 100%;
+}
+.bt-results {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0 0.5rem;
+}
+.bt-results dt {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+.bt-results dd {
+  margin: 0.15rem 0 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.bt-reco {
+  margin: 0.25rem 0 0;
+}
+.bt-reco--warn {
+  color: var(--danger);
+}
+
+/* ── Phase 4: transactions ledger + bill confirmation ─────────────────────── */
+.banner--info {
+  border-color: var(--accent);
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.txn-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.txn-filters {
+  display: flex;
+  gap: 0.6rem;
+  margin: 0.75rem 0;
+  flex-wrap: wrap;
+}
+.txn-filters .input {
+  max-width: 18rem;
+}
+.field--grow {
+  flex: 1 1 14rem;
+}
+.input--inline {
+  padding: 0.2rem 0.3rem;
+  font-size: 0.85rem;
+}
+
+.amount--income {
+  color: var(--ok);
+  font-variant-numeric: tabular-nums;
+}
+.amount--income .money {
+  color: inherit;
+}
+
+.badge--income {
+  color: var(--ok);
+  border-color: var(--ok);
+}
+.badge--spend {
+  color: var(--muted);
+}
+.badge--source {
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.txn-totals td {
+  font-weight: 600;
+  border-top: 2px solid var(--border);
+}
+
+/* Mark-paid inline control (shared by bills list + pay-period timeline) */
+.markpaid {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+.markpaid .currency-input {
+  max-width: 7rem;
+}
+.markpaid__date {
+  font-size: 0.8rem;
+}
+.payperiod__markpaid {
+  margin-left: 0.5rem;
+}
+
+/* Paid-this-period informational list (does not affect projected balance) */
+.payperiod__paid {
+  margin-top: 0.85rem;
+}
+.payperiod__paid-title {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 0.4rem;
+}
+.payperiod__paid-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.payperiod__paid-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.9rem;
+}
+.payperiod__paid-tick {
+  color: var(--ok);
+  font-weight: 700;
+}
+.payperiod__paid-label {
+  flex: 1 1 auto;
+}
+
+/* ── Phase 5: Childcare + PDF import ──────────────────────────────────────── */
+.panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.dialog--wide {
+  max-width: 56rem;
+  width: calc(100vw - 3rem);
+}
+
+.childcare-card__deposit {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+.childcare-card__deposit-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  font-weight: 600;
+}
+.childcare-card__amount {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+.childcare-card__breakdown {
+  margin: 0.35rem 0 0;
+}
+.childcare-card__stale {
+  margin: 0.5rem 0 0;
+}
+
+.import-table {
+  min-width: 46rem;
+}
+.import-row--dup {
+  opacity: 0.62;
+}

@@ -1,213 +1,107 @@
 /**
- * Database backup utility
+ * Backup: JSON export / import (spec §5 envelope).
  *
- * Provides a single, shared implementation of the database restoration
- * transaction used by both local (src/ui/backup.js) and cloud
- * (src/ui/cloud-backup.js) restore flows.
- *
- * Centralising this logic here eliminates the parallel implementations that
- * existed in the two UI modules and ensures both flows behave identically.
+ * The envelope carries **raw rows** exactly as stored — money stays as integer
+ * pence, no pounds translation. Import is a full replace-all: validate → refuse
+ * newer format/schema → wipe → bulk-insert inside a single Dexie transaction.
  */
 
-import { db } from './schema.js';
-import { findBestMatch } from '../utils/string-similarity.js';
+import { db, SCHEMA_VERSION, TABLE_NAMES } from './schema.js';
+import { settings } from './settings.js';
+import { dispatchMutation } from './events.js';
+
+export const APP_NAME = 'budget-app';
+export const BACKUP_FORMAT = 1;
 
 /**
- * Similarity threshold for category name deduplication (0-1).
- * Matches above this threshold will be considered the same category.
+ * Build the backup envelope from raw table contents and record the export time.
+ * @returns {Promise<object>} the spec §5 envelope.
  */
-const CATEGORY_MATCH_THRESHOLD = 0.9;
-
-/**
- * Tables that contain a `categoryId` field and need remapping during merge imports.
- */
-const TABLES_WITH_CATEGORY_ID = ['income', 'recurrentExpenses', 'oneOffExpenses', 'expectedIncome', 'recurringTemplates'];
-
-/**
- * Imports backup data into IndexedDB with validation and flexible merge/overwrite modes.
- *
- * **Validation**:
- * - Checks `data.schema_version` (reject if newer than current db version).
- * - Checks for at least one table presence.
- *
- * **Overwrite mode**: Clears all tables (or only those present in backup) before importing.
- *
- * **Merge mode**: Imports data while preserving local records:
- * - Category deduplication: Incoming categories are matched by name to local ones.
- *   If a match is found, the incoming ID is mapped to the local ID in all linked records.
- * - Other tables use bulkPut (file data wins on ID collision).
- *
- * **Settings**: If `restoreSettings: true`, localStorage is also restored.
- *
- * @param {{ [tableName: string]: object[] }} data - The `.data` property from a
- *   parsed backup object (already decrypted if encrypted).
- * @param {{ mode: 'overwrite' | 'merge', restoreSettings: boolean }} options
- *   - `mode`: 'overwrite' (clear then import) or 'merge' (preserve local data, deduplicate categories)
- *   - `restoreSettings`: If true, restore localStorage settings from the backup envelope.
- * @returns {Promise<void>} Resolves when all tables have been restored.
- * @throws {Error} 'Invalid backup data' if `data` is missing or not an object.
- * @throws {Error} 'Schema version mismatch' if backup is from a newer app version.
- * @throws {Error} 'No data tables found in backup' if no tables are present.
- * @throws {Error} Re-throws any Dexie transaction error.
- */
-export async function importBackupData(data, options = {}) {
-  const { mode = 'overwrite', restoreSettings = true } = options;
-
-  // 1. Validate input
-  if (!data || typeof data !== 'object') {
-    throw new Error('Invalid backup data');
+export async function exportBackup() {
+  const data = {};
+  for (const name of TABLE_NAMES) {
+    data[name] = await db.table(name).toArray();
   }
+  const exportedAt = new Date().toISOString();
+  const envelope = {
+    app: APP_NAME,
+    format: BACKUP_FORMAT,
+    exportedAt,
+    schemaVersion: SCHEMA_VERSION,
+    data,
+  };
+  await settings.setLastExportAt(exportedAt); // dispatches db:mutated
+  return envelope;
+}
 
-  // 2. Schema version guard
-  const backupSchemaVersion = data.schema_version || 1; // Default to v1 for older backups
-  if (backupSchemaVersion > db.verno) {
+/**
+ * Export and trigger a browser download of `budget-backup-YYYY-MM-DD.json`.
+ * @returns {Promise<object>} the exported envelope.
+ */
+export async function downloadBackup() {
+  const envelope = await exportBackup();
+  const json = JSON.stringify(envelope, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const filename = `budget-backup-${envelope.exportedAt.slice(0, 10)}.json`;
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+  return envelope;
+}
+
+/**
+ * Replace all data from a parsed backup envelope.
+ *
+ * Validates shape, refuses `format`/`schemaVersion` newer than this app, then
+ * wipes every table and bulk-inserts the backup rows in one Dexie transaction.
+ * `lastExportAt` is intentionally left as-is (importing is not exporting).
+ *
+ * @param {object} parsed - a parsed JSON backup envelope.
+ */
+export async function importBackup(parsed) {
+  if (!parsed || typeof parsed !== 'object') {
+    throw new Error('Import failed: backup is not a valid object.');
+  }
+  if (parsed.app !== APP_NAME) {
     throw new Error(
-      `Schema version mismatch: backup is from a newer version (v${backupSchemaVersion}) than current app (v${db.verno}). ` +
-      'Please update the app to import this backup.'
+      `Import failed: not a ${APP_NAME} backup (app="${parsed.app}").`
     );
   }
-
-  // 3. Check for backup format version (basic validation)
-  if (data.version === undefined) {
-    // Assume v1 for old backups that don't have a version field
-    data.version = 1;
+  if (!Number.isInteger(parsed.format)) {
+    throw new Error('Import failed: backup is missing a numeric "format".');
+  }
+  if (parsed.format > BACKUP_FORMAT) {
+    throw new Error(
+      `Import failed: backup format ${parsed.format} is newer than this app (format ${BACKUP_FORMAT}). Update the app to import it.`
+    );
+  }
+  if (!Number.isInteger(parsed.schemaVersion)) {
+    throw new Error('Import failed: backup is missing a numeric "schemaVersion".');
+  }
+  if (parsed.schemaVersion > SCHEMA_VERSION) {
+    throw new Error(
+      `Import failed: backup schemaVersion ${parsed.schemaVersion} is newer than this app (schema ${SCHEMA_VERSION}). Update the app to import it.`
+    );
+  }
+  if (!parsed.data || typeof parsed.data !== 'object') {
+    throw new Error('Import failed: backup has no "data" section.');
   }
 
-  // 4. Ensure at least one table is present in the backup
-  const hasAnyTable = db.tables.some(table => data[table.name]);
-  if (!hasAnyTable) {
-    throw new Error('No data tables found in backup');
-  }
-
-  // 5. Perform import transaction
-  await db.transaction('rw', db.tables, async () => {
-    // Build category ID mapping for merge mode (matched by name or fuzzy match)
-    let categoryIdMap = {}; // incoming ID -> local ID
-    if (mode === 'merge' && data.categories) {
-      const localCategories = await db.categories.toArray();
-
-      for (const incomingCategory of data.categories) {
-        if (!incomingCategory.name) continue;
-        const incomingNameLower = incomingCategory.name.toLowerCase();
-        const incomingGroup = incomingCategory.group ?? incomingCategory.type ?? null;
-
-        const filteredLocalCategories = incomingGroup
-          ? localCategories.filter(localCategory => (localCategory.group ?? localCategory.type) === incomingGroup)
-          : localCategories;
-
-        const filteredLocalNames = filteredLocalCategories.map(localCategory => localCategory.name);
-        const filteredLocalNameMap = new Map(
-          filteredLocalCategories.map(localCategory => [localCategory.name.toLowerCase(), localCategory.id])
-        );
-
-        // 1. Case-insensitive exact match
-        if (filteredLocalNameMap.has(incomingNameLower)) {
-          categoryIdMap[incomingCategory.id] = filteredLocalNameMap.get(incomingNameLower);
-          continue;
-        }
-
-        // 2. Fuzzy match for minor typos/pluralization
-        const { target, rating } = findBestMatch(incomingCategory.name, filteredLocalNames);
-        if (target && rating >= CATEGORY_MATCH_THRESHOLD) {
-          categoryIdMap[incomingCategory.id] = filteredLocalNameMap.get(target.toLowerCase());
-        }
+  const tables = TABLE_NAMES.map((name) => db.table(name));
+  await db.transaction('rw', tables, async () => {
+    for (const name of TABLE_NAMES) {
+      await db.table(name).clear();
+      const rows = parsed.data[name];
+      if (Array.isArray(rows) && rows.length > 0) {
+        await db.table(name).bulkAdd(rows);
       }
-    }
-
-    // Import each table
-    for (const table of db.tables) {
-      if (!data[table.name]) continue;
-
-      // Clear table in overwrite mode
-      if (mode === 'overwrite') {
-        await table.clear();
-      }
-
-      // For merge mode with categories, skip direct import (we handle manually below)
-      if (mode === 'merge' && table.name === 'categories') {
-        // Only add categories that don't already exist (by name or fuzzy match in map)
-        for (const incomingCategory of data.categories) {
-          if (!categoryIdMap[incomingCategory.id]) {
-            try {
-              // Omit the backup id so Dexie generates a new local auto-increment id,
-              // then record the mapping so downstream records get the correct local id.
-              const { id: _omitId, ...newCategoryData } = incomingCategory;
-              const newId = await db.categories.add(newCategoryData);
-              categoryIdMap[incomingCategory.id] = newId;
-            } catch (e) {
-              if (e.failures) {
-                console.warn(`[importBackupData] categories: ${e.failures.length} record(s) skipped (likely duplicate)`, e.failures);
-              } else {
-                throw e;
-              }
-            }
-          }
-        }
-        continue;
-      }
-
-      // For categoryMappings in merge mode, also skip (handle manually below)
-      if (mode === 'merge' && table.name === 'categoryMappings') {
-        // Import categoryMappings, remapping categoryIds to local ones
-        const mappingsWithRemappedIds = (data.categoryMappings || []).map(mapping => ({
-          ...mapping,
-          categoryId: categoryIdMap[mapping.categoryId] ?? mapping.categoryId
-        }));
-        for (const mapping of mappingsWithRemappedIds) {
-          try {
-            await db.categoryMappings.put(mapping);
-          } catch (e) {
-            if (e.failures) {
-              console.warn(`[importBackupData] categoryMappings: record skipped`, e);
-            } else {
-              throw e;
-            }
-          }
-        }
-        continue;
-      }
-
-      // Standard bulkPut for all other tables
-      try {
-        // In merge mode, remap categoryId references if applicable
-        let recordsToImport = data[table.name];
-        if (mode === 'merge' && Object.keys(categoryIdMap).length > 0 && table.name !== 'categories' && table.name !== 'categoryMappings') {
-          // Tables with categoryId field: remap to local IDs
-          if (TABLES_WITH_CATEGORY_ID.includes(table.name)) {
-            recordsToImport = recordsToImport.map(record => ({
-              ...record,
-              categoryId: categoryIdMap[record.categoryId] ?? record.categoryId
-            }));
-          }
-        }
-
-        await table.bulkPut(recordsToImport);
-      } catch (e) {
-        if (e.failures) {
-          console.error(`[importBackupData] ${table.name}: ${e.failures.length} record(s) failed to import`, e.failures);
-        } else {
-          throw e;
-        }
-      }
-    }
-
-    // Post-import cleanup: normalize category groups and ensure required categories exist
-    await db.categories.toCollection().modify(category => {
-      if (category.group === 'fixed' || category.group === 'variable') {
-        category.group = 'expenses';
-      }
-    });
-
-    const incomeCount = await db.categories.where('group').equals('income').count();
-    if (incomeCount === 0) {
-      await db.categories.add({ name: 'Salary', group: 'income' });
     }
   });
 
-  // Restore localStorage settings if requested and available in backup
-  if (restoreSettings && data.settings && typeof data.settings === 'object') {
-    for (const [key, value] of Object.entries(data.settings)) {
-      localStorage.setItem(key, value);
-    }
-  }
+  dispatchMutation();
 }
