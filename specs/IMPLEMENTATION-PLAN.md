@@ -106,6 +106,29 @@ The heart of the app:
 3. Tests: importHash stability/dedup, childcare deposit incl. quarterly cap and the
    disabled-child cap.
 
+## Phase 7 — Income: two-person tax-year tracker (amendment 2026-07-07 (b))
+
+Branch `claude/multi-person-income-tracking-4t5xmg`. Spec: REFACTOR-SPEC amendment
+2026-07-07 (b). Independent of Phase 6.
+
+1. **Engine** `src/engine/tax.js` (pure, no DB): tax-year helpers
+   (`taxYearForDate`, boundaries, prev/next), per-year constants (2025-26, 2026-27;
+   later dates fall back to the latest table), and `computePersonTax(...)` — personal
+   allowance taper, non-dividend bands, dividend stacking with the £500 allowance,
+   adjusted net income, PAYE-vs-dividend split, headroom to £50,270 and to £100k ANI.
+   Everything in integer pence.
+2. **Data layer**: Dexie v3 adds `people` + `incomeEvents` (additive; no upgrade
+   function needed). Repos with pence conversion + kind validation; `TABLE_NAMES`
+   gains both tables (backup/wipe follow automatically).
+3. **UI**: `Income` tab (second in the tab bar): tax-year navigator, person cards,
+   person form, dividend-draw / salary-adjustment dialog, event list. Reuse
+   `CurrencyInput`, `ConfirmDialog`, `EmptyState`, card/form styles.
+4. Tests: tax-year boundary maths (5/6 April), band + taper + dividend cases checked
+   against hand-worked HMRC examples, headroom edge cases, schema v3 upgrade keeps
+   existing rows, repo round-trips, a render test of the person card with events.
+5. Gate: `npm test` + `npm run build` green; browser verification of the full flow
+   (add two people → add dividends → figures and warnings move correctly).
+
 ## Phase 6 — Deferred analytics (separate, later milestone)
 
 Not part of v4.0 sign-off. When the owner asks: spending-by-category chart,

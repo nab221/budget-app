@@ -37,6 +37,101 @@ happened; it is a live picture of **how much is going out per week / month / yea
 
 ---
 
+## ⚠ Amendment 2026-07-07 (b) — Income phase activated: two-person tax-year tracker
+
+The "future phase" flagged in the amendment above is now specified (owner interview,
+2026-07-07). It adds a new top-level **Income** tab. Where this conflicts with older
+sections, this amendment wins.
+
+### Purpose
+
+The household is two adults (the owner and his wife). Both draw a **PAYE salary** and
+both can draw **dividends** from their company. The tab answers, per person, per UK tax
+year (6 April – 5 April):
+
+1. **"How close am I to £100,000?"** — Tax-Free Childcare and free hours are lost if
+   **either** parent's *adjusted net income* crosses £100,000, so the £100k line is shown
+   for **both** people, with a plain warning when crossed.
+2. **"How close is she to the 40% band?"** — headroom to the £50,270 higher-rate
+   threshold, shown for both people.
+3. **"What will the tax bill be?"** — estimated **total income tax for the year** per
+   person, split into the part PAYE handles automatically and the **extra bill created
+   by dividends** (settled later via Self Assessment) — both figures shown (owner
+   decision).
+
+This is a *tax-year planning* concern, entirely separate from the dormant
+`incomeSources` table (a *cashflow pay-date* concern). `incomeSources` stays untouched.
+
+### Owner decisions (interview 2026-07-07)
+
+| Decision | Choice |
+|---|---|
+| Salary input | **Annual gross salary once** per person, plus optional dated **salary adjustments** (signed one-off amounts for a bonus month, unpaid leave, a mid-year raise correction). No monthly payslip logging. |
+| Pensions | Per-person **annual personal pension contributions** field, subtracted when computing adjusted net income for the £100k check. UI hint: if the provider adds 25% basic-rate relief, enter the grossed-up total. £0 default. |
+| Salary sacrifice | Per-person **annual salary sacrifice** field (owner follow-up 2026-07-07: wife has a car salary-sacrifice scheme). Subtracted **from the annual salary before anything else** — it reduces taxable pay *and* adjusted net income, unlike the pension field. UI hint: a sacrificed car usually creates a benefit in kind, which belongs in the P11D field. £0 default. |
+| Other income | Two optional per-person annual figures: **benefits in kind** (P11D: car, medical…) and a generic **other income** catch-all. Both count toward the totals and the £100k line. |
+| Tax figure | **Both**: full-year total income tax AND the extra dividend bill highlighted separately. |
+| Dividends | Recorded per person via an **"Add dividend draw"** action: date (defaults today), amount, optional note. Editable/deletable. |
+
+### Tax rules (engine `src/engine/tax.js`, pure + tested)
+
+- Tax-year constants keyed by label (`2025-26`, `2026-27` seeded). A date after the last
+  known year reuses the latest table (simpler option; revisit each Budget).
+  2026-27 values: personal allowance £12,570 (tapered £1 per £2 of adjusted net income
+  over £100,000, gone at £125,140); basic-rate band £37,700 (higher rate from £50,270,
+  additional from £125,140); rates 20/40/45%; dividend allowance £500; dividend rates
+  **10.75% / 35.75% / 39.35%** (the April 2026 increases).
+- Non-dividend income (salary − salary sacrifice + adjustments + BIK + other) is taxed
+  first through the bands after the personal allowance; dividends stack on top — the £500 allowance is
+  taxed at 0% but **consumes band space**, then dividend rates apply per band.
+- **Adjusted net income** = all of the above income **plus dividends minus pension
+  contributions**.
+- Projection convention: salary/BIK/other are annual figures assumed for the full year;
+  dividends and adjustments count only as actually entered (dividends are discretionary
+  — that is the point of the tool). So the headline reads "if you draw nothing more,
+  this is the year".
+- Headroom figures: dividends drawable before the £100k adjusted-net-income line, and
+  before the higher-rate threshold.
+- **Documented simplifications** (chosen per the "simpler option" rule): National
+  Insurance ignored (not income tax); student loans out of scope; personal pension
+  contributions reduce adjusted net income only (basic-rate band extension not
+  modelled); savings-interest allowances not modelled (other income treated as general
+  income); rUK bands only (no Scottish rates); tax codes not modelled — PAYE is
+  estimated from the annual salary.
+
+### Screen (§4.8 Income)
+
+- Tab order: Dashboard, **Income**, Expenses, Payoff, Childcare.
+- **Tax-year navigator** (‹ 2026–27 ›), defaulting to the tax year containing today.
+- One **person card** per person (add/edit/delete people; expected count: 2):
+  - Headline: gross income and adjusted net income for the selected year.
+  - Two threshold meters — £50,270 (40% band) and £100,000 (childcare) — each with
+    "≈ £X more dividends before …" headroom text; a clear danger state when crossed
+    (£100k crossing = "household loses Tax-Free Childcare / free hours").
+  - Tax summary: estimated total income tax for the year; of which PAYE ≈ £X; **extra
+    bill from dividends ≈ £Y** (Self Assessment).
+  - **Add dividend draw** (primary action) and *Add salary adjustment*; the year's
+    events listed beneath with edit/delete.
+- Deleting a person asks for confirmation and removes their events.
+
+### Data model (schema v3 — additive)
+
+| Table | Fields (indexed → `*`) |
+|---|---|
+| `people` | `*id`, name, annualSalaryPence, salarySacrificePence, pensionAnnualPence, benefitsInKindPence, otherIncomePence |
+| `incomeEvents` | `*id`, `*personId`, `*date`, `*kind` (`dividend`\|`salary-adjustment`), amountPence, note |
+
+Both join `TABLE_NAMES` (so backup/wipe cover them automatically). All money integer
+pence at rest; pounds at the repository edge, as everywhere else.
+
+### Non-goals for this phase
+
+No company-side accounting (corporation tax, retained profit, dividend vouchers). No
+National Insurance or student-loan maths. No Scottish bands. No payslip OCR/import. No
+HMRC filing or export. No linkage between `people` and the dormant `incomeSources`.
+
+---
+
 ## 1. Purpose
 
 A personal budgeting tool for a single user on **one Mac**, used in a **web browser as a

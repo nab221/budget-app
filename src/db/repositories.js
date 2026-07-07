@@ -111,6 +111,7 @@ const BILL_FREQUENCIES = [
   'annual',
 ];
 const TRANSACTION_KINDS = ['income', 'spend'];
+const INCOME_EVENT_KINDS = ['dividend', 'salary-adjustment'];
 const TRANSACTION_SOURCES = ['manual', 'import', 'bill'];
 const DEBT_TYPES = ['credit-card', 'loan'];
 
@@ -150,6 +151,17 @@ function validateTransaction(data) {
     throw new Error(
       `transactions.source must be one of ${TRANSACTION_SOURCES.join(', ')}; got "${data.source}"`
     );
+  }
+}
+
+function validateIncomeEvent(data) {
+  if (data.kind !== undefined && !INCOME_EVENT_KINDS.includes(data.kind)) {
+    throw new Error(
+      `incomeEvents.kind must be one of ${INCOME_EVENT_KINDS.join(', ')}; got "${data.kind}"`
+    );
+  }
+  if (data.date !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(String(data.date))) {
+    throw new Error(`incomeEvents.date must be an ISO yyyy-MM-dd string; got "${data.date}"`);
   }
 }
 
@@ -344,6 +356,57 @@ export const childrenRepo = createBaseRepository(
   ['providerMonthlyCostPence', 'tfcBalancePence'],
   { isDisabled: false, paymentDayOfMonth: 1 }
 );
+
+export const peopleRepo = {
+  ...createBaseRepository(
+    db.people,
+    [
+      'annualSalaryPence',
+      'salarySacrificePence',
+      'pensionAnnualPence',
+      'benefitsInKindPence',
+      'otherIncomePence',
+    ],
+    {
+      annualSalaryPence: 0,
+      salarySacrificePence: 0,
+      pensionAnnualPence: 0,
+      benefitsInKindPence: 0,
+      otherIncomePence: 0,
+    }
+  ),
+
+  /**
+   * Delete a person AND their income events in one transaction, so no orphan
+   * dividend/adjustment rows point at a person that no longer exists.
+   * @param {number} id
+   */
+  async delete(id) {
+    await db.transaction('rw', db.people, db.incomeEvents, async () => {
+      await db.incomeEvents.where('personId').equals(id).delete();
+      await db.people.delete(id);
+    });
+    dispatchMutation();
+  },
+};
+
+export const incomeEventsRepo = {
+  ...createBaseRepository(db.incomeEvents, ['amountPence'], {}, validateIncomeEvent),
+
+  /**
+   * All income events dated within [startDate, endDate] (both inclusive —
+   * tax-year bounds are inclusive). Pounds at the edge, like every repo read.
+   * @param {string} startDate - ISO yyyy-MM-dd
+   * @param {string} endDate - ISO yyyy-MM-dd
+   */
+  async between(startDate, endDate) {
+    const rows = await db.incomeEvents
+      .where('date')
+      .between(startDate, endDate, true, true)
+      .toArray();
+    return rows.map(this._fromStorage);
+  },
+};
 
 export const categoryMappingsRepo = {
   ...createBaseRepository(db.categoryMappings, [], {}),
