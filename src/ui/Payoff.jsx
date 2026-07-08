@@ -2,18 +2,19 @@ import { useEffect, useState } from 'react';
 import { useLiveData } from '../db/useLiveData.js';
 import { gatherPlanData } from '../db/planData.js';
 import { buildPlan } from '../engine/plan.js';
-import { simulatePayoff } from '../engine/finance.js';
 import { settings } from '../db/settings.js';
 import Money from './components/Money.jsx';
 import EmptyState from './components/EmptyState.jsx';
 import CurrencyInput, { parseCurrencyInput } from './components/CurrencyInput.jsx';
 import StrategyComparison from './payoff/StrategyComparison.jsx';
+import PaymentPlan from './payoff/PaymentPlan.jsx';
 import LoanOverpayment from './payoff/LoanOverpayment.jsx';
 import BalanceTransferModeler from './payoff/BalanceTransferModeler.jsx';
 import ScheduleTable from './payoff/ScheduleTable.jsx';
 import {
   defaultExtraPence,
   buildStrategyComparison,
+  buildDebtBreakdown,
   toFinanceDebts,
 } from './payoff/payoffModel.js';
 
@@ -89,8 +90,10 @@ export default function Payoff() {
   };
 
   const comparison = cards.length > 0 ? buildStrategyComparison(cards, extraPence, data.now) : null;
-  const selectedSim =
-    cards.length > 0 ? simulatePayoff(cards, strategy, extraPence, data.now) : null;
+  // One simulation of the selected strategy backs both the per-card payment
+  // plan and the month-by-month schedule.
+  const breakdown =
+    cards.length > 0 ? buildDebtBreakdown(cards, strategy, extraPence, data.now) : null;
 
   return (
     <div className="screen">
@@ -129,6 +132,13 @@ export default function Payoff() {
         </section>
       )}
 
+      {breakdown && (
+        <section className="panel">
+          <h3 className="panel__title">Payment plan — which card first ({strategy})</h3>
+          <PaymentPlan breakdown={breakdown} extraPence={extraPence} />
+        </section>
+      )}
+
       {loans.length > 0 && <LoanOverpayment loans={loans} extraPence={extraPence} />}
 
       {cards.length > 0 && (
@@ -138,10 +148,13 @@ export default function Payoff() {
         </section>
       )}
 
-      {selectedSim && (
+      {breakdown && (
         <section className="panel">
           <h3 className="panel__title">Month-by-month schedule ({strategy})</h3>
-          <ScheduleTable history={selectedSim.history} />
+          <ScheduleTable
+            history={breakdown.sim.history}
+            debtColumns={breakdown.rows.map(({ id, name }) => ({ id, name }))}
+          />
         </section>
       )}
     </div>

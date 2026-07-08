@@ -945,6 +945,33 @@ body {
 .strategy-row--selected td {
   background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
+.strategy-order {
+  color: var(--muted);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+.payment-plan__callout {
+  margin: 0 0 0.75rem;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid var(--ok);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ok) 10%, transparent);
+}
+.payment-plan__callout--warn {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+}
+.schedule__cell--cleared {
+  color: var(--ok);
+  font-weight: 600;
+}
+.schedule__cleared-mark {
+  color: var(--ok);
+}
+.schedule__legend {
+  margin: 0;
+  font-size: 0.8rem;
+}
 .schedule {
   display: flex;
   flex-direction: column;
