@@ -1407,6 +1407,54 @@ body.privacy .chart:hover {
   filter: none;
 }
 
+/* Z5b debt facts */
+.debtfacts__group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  margin-bottom: 0.9rem;
+}
+.util__fill--high {
+  background: var(--danger);
+}
+.debtfacts__promos {
+  list-style: none;
+  margin: 0 0 0.9rem;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.badge--promo-ending {
+  color: var(--warn);
+  border-color: var(--warn);
+}
+
+/* Z6 income & tax strip */
+.taxstrip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 1.5rem;
+}
+.taxstrip__person {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.taxstrip__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+}
+.taxstrip__name {
+  font-weight: 600;
+}
+.taxstrip__tax {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
 /* Z4b cost table: sortable headers */
 .cost-table__sort {
   font: inherit;

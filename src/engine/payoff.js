@@ -112,3 +112,85 @@ export function debtFreeProjection(debts, strategy, extraPence = 0, startDate = 
 
   return { hasDebts: true, monthsToClear, clearMonth, neverClears, totalInterestPence };
 }
+
+/**
+ * Projected total-debt balance by month for the payoff chart (dashboard plan
+ * §Z5): the chosen strategy (with the extra payment) drawn against the
+ * minimums-only baseline — the gap between the lines is what the extra
+ * payments buy. Loans run at their fixed payments in both series.
+ *
+ * @returns {Array<{month: string, chosenPence: number, minimumsPence: number}>}
+ *   index 0 is the start month at current balances; entry i is the balance
+ *   after i simulated months. Ends when both series reach zero (or the
+ *   simulators' 600-month cap).
+ */
+export function payoffBalanceSeries(debts, strategy, extraPence = 0, startDate = new Date()) {
+  const { cards, loans } = toFinanceDebts(debts);
+  if (cards.length === 0 && loans.length === 0) return [];
+
+  const startBalance =
+    cards.reduce((t, c) => t + c.currentBalance, 0) +
+    loans.reduce((t, l) => t + l.currentBalance, 0);
+
+  const cardChosen = cards.length ? simulatePayoff(cards, strategy, extraPence, startDate) : null;
+  const cardMin = cards.length ? simulatePayoff(cards, 'min', 0, startDate) : null;
+  const loanSim = loans.length ? simulateLoanPayoff(loans, 'term-reduction', 0, startDate) : null;
+
+  const at = (sim, i) =>
+    !sim ? 0 : i < sim.history.length ? sim.history[i].totalRemainingBalance : 0;
+
+  const months = Math.max(
+    cardChosen?.history.length || 0,
+    cardMin?.history.length || 0,
+    loanSim?.history.length || 0
+  );
+
+  const start = typeof startDate === 'string' ? parseISO(startDate) : startDate;
+  const series = [{ month: format(start, 'yyyy-MM'), chosenPence: startBalance, minimumsPence: startBalance }];
+  for (let i = 0; i < months; i += 1) {
+    series.push({
+      month: format(addMonths(start, i + 1), 'yyyy-MM'),
+      chosenPence: at(cardChosen, i) + at(loanSim, i),
+      minimumsPence: at(cardMin, i) + at(loanSim, i),
+    });
+  }
+  return series;
+}
+
+/**
+ * Actual total-debt observations from the `balanceUpdates` log (dashboard
+ * plan §7) — the dots proving the plan is working.
+ *
+ * A total is only honest when every current debt has a known balance, so a
+ * point is emitted for an update date only once EVERY debt in `debts` has at
+ * least one logged balance on or before it (creation seeds the log, so this
+ * holds from the moment a debt is added; debts predating the log start
+ * contributing once they get their first update). The latest logged balance
+ * per debt as of that date is summed.
+ *
+ * @param {Array<{debtId, date, balancePence}>} updates - pence domain.
+ * @param {Array<{id}>} debts - the CURRENT debts (deleted debts' logs cascade away).
+ * @returns {Array<{date: string, totalPence: number}>} oldest first, one per date.
+ */
+export function actualDebtPoints(updates, debts) {
+  const wanted = new Set((debts || []).map((d) => d.id));
+  if (wanted.size === 0) return [];
+
+  const sorted = (updates || [])
+    .filter((u) => wanted.has(u.debtId))
+    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : (a.id || 0) - (b.id || 0)));
+
+  const latest = new Map(); // debtId → balancePence
+  const points = [];
+  for (let i = 0; i < sorted.length; i += 1) {
+    latest.set(sorted[i].debtId, sorted[i].balancePence || 0);
+    const isLastForDate = i === sorted.length - 1 || sorted[i + 1].date !== sorted[i].date;
+    if (isLastForDate && latest.size === wanted.size) {
+      points.push({
+        date: sorted[i].date,
+        totalPence: [...latest.values()].reduce((t, v) => t + v, 0),
+      });
+    }
+  }
+  return points;
+}

@@ -32,6 +32,8 @@ export const SMALL_EXPENSE_MIN_COUNT = 3;
 export const STRATEGY_SAVING_MIN_PENCE = 1000; // ignore < £10 differences
 export const STALE_BALANCE_DAYS = 60;
 export const BACKUP_STALE_DAYS = 14;
+export const TAX_100K_PROXIMITY_PENCE = 1000000; // warn within £10,000 of £100k
+export const TAX_40PC_PROXIMITY_PENCE = 500000; // mention within £5,000 of £50,270
 
 const daysBetween = (fromStr, toStr) =>
   differenceInCalendarDays(parseISO(toStr), parseISO(fromStr));
@@ -145,6 +147,46 @@ function heavyWeekAhead(data, nowStr) {
   ];
 }
 
+/**
+ * Rule 3 — proximity to the £100k childcare cliff / the 40% band, per person
+ * (mirrors the Income tab's warning). `data.people` is optional: entries of
+ * `{ name, summary }` where `summary` is a `computePersonTax` result.
+ */
+function taxThresholds(data) {
+  const cards = [];
+  for (const p of data.people || []) {
+    const s = p.summary;
+    if (!s) continue;
+    if (s.over100k) {
+      cards.push({
+        id: `tax-100k-${p.name}`,
+        severity: 'danger',
+        title: `${p.name} is over the £100,000 line`,
+        body: 'One parent over £100,000 adjusted net income is enough for the household to lose Tax-Free Childcare and free hours for the year.',
+        tab: 'income',
+      });
+    } else if (s.headroomTo100kPence < TAX_100K_PROXIMITY_PENCE) {
+      cards.push({
+        id: `tax-100k-${p.name}`,
+        severity: 'warn',
+        title: `${p.name} is close to the £100,000 line`,
+        body: `≈ ${formatGBP(s.headroomTo100kPence)} more dividends before the household loses Tax-Free Childcare and free hours. Check before the next draw.`,
+        tab: 'income',
+      });
+    }
+    if (!s.overHigherRate && s.headroomToHigherRatePence < TAX_40PC_PROXIMITY_PENCE) {
+      cards.push({
+        id: `tax-40pc-${p.name}`,
+        severity: 'info',
+        title: `${p.name} is close to the 40% band`,
+        body: `≈ ${formatGBP(s.headroomToHigherRatePence)} more income before the higher rate starts — further dividends would be taxed at the higher dividend rate.`,
+        tab: 'income',
+      });
+    }
+  }
+  return cards;
+}
+
 /** Rule 4 — many small recurring expenses quietly add up. */
 function subscriptionCreep(data) {
   const small = (data.recurringBills || []).filter(
@@ -243,6 +285,7 @@ function backupNudge(data, nowStr) {
 const RULES = [
   promoCliff,
   heavyWeekAhead,
+  taxThresholds,
   subscriptionCreep,
   strategyCheck,
   staleBalances,
@@ -255,7 +298,9 @@ const RULES = [
  *
  * @param {{ recurringBills?: Array, debts?: Array, childcareDeposits?: Array,
  *   payoffStrategy?: string, payoffExtraPence?: number,
- *   lastExportAt?: string|null }} data - PENCE domain.
+ *   lastExportAt?: string|null,
+ *   people?: Array<{name: string, summary: object}> }} data - PENCE domain
+ *   (`people[].summary` = a `computePersonTax` result for the current tax year).
  * @param {string} nowStr - ISO yyyy-MM-dd "today".
  * @returns {Array<{id, severity, title, body, tab?}>}
  */

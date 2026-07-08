@@ -5,11 +5,13 @@
  */
 import { resetDb } from '../../db/test-utils.js';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, cleanup, fireEvent } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, within } from '@testing-library/react';
 import {
   debtsRepo,
   recurringBillsRepo,
   categoriesRepo,
+  peopleRepo,
+  incomeEventsRepo,
 } from '../../db/repositories.js';
 import { setSetting } from '../../db/settings.js';
 import Dashboard from '../Dashboard.jsx';
@@ -55,10 +57,11 @@ describe('Dashboard v2', () => {
 
     await screen.findByText('This month');
     expect(screen.getByText('Total debt')).toBeTruthy();
-    expect(screen.getByText('£1,000.00')).toBeTruthy();
-    // £1,000 at 20% ÷ 12 ≈ £16.67/month interest.
-    expect(screen.getByText('Interest / month')).toBeTruthy();
-    expect(screen.getByText('£16.67')).toBeTruthy();
+    expect(screen.getAllByText('£1,000.00').length).toBeGreaterThan(0);
+    // £1,000 at 20% ÷ 12 ≈ £16.67/month interest (label also heads the
+    // debt-facts table column).
+    expect(screen.getAllByText('Interest / month').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('£16.67').length).toBeGreaterThan(0);
     // £50/month against £1,000 at 20% clears in under 3 years.
     expect(screen.getByText('Debt-free')).toBeTruthy();
     expect(screen.getByText(/months on avalanche/)).toBeTruthy();
@@ -86,7 +89,8 @@ describe('Dashboard v2', () => {
     render(<Dashboard />);
     await screen.findByText('What everything costs');
 
-    const table = screen.getByRole('table');
+    const panel = screen.getByText('What everything costs').closest('.panel');
+    const table = within(panel).getByRole('table');
     const rows = [...table.querySelectorAll('tbody tr')].map((tr) => tr.textContent);
     // Visa £600/yr before Broadband £360/yr.
     expect(rows).toHaveLength(2);
@@ -94,7 +98,7 @@ describe('Dashboard v2', () => {
     expect(rows[1]).toContain('Broadband');
 
     // Sorting by label re-orders.
-    fireEvent.click(screen.getByRole('button', { name: 'What' }));
+    fireEvent.click(within(panel).getByRole('button', { name: 'What' }));
     const relabelled = [...table.querySelectorAll('tbody tr')].map((tr) => tr.textContent);
     expect(relabelled[0]).toContain('Broadband');
   });
@@ -149,16 +153,71 @@ describe('Dashboard v2', () => {
     render(<Dashboard />);
     await screen.findByText('Next 12 months');
 
-    fireEvent.click(screen.getByRole('button', { name: 'View as table' }));
-    const table = screen
-      .getAllByRole('table')
-      .find((t) => t.textContent.includes('Recurring expenses'));
+    const panel = screen.getByText('Next 12 months').closest('.panel');
+    fireEvent.click(within(panel).getByRole('button', { name: 'View as table' }));
+    const table = within(panel).getByRole('table');
     const rows = [...table.querySelectorAll('tbody tr')];
     expect(rows).toHaveLength(12);
     // Every month: £30 bills + £50 debt = £80 total.
     expect(rows[0].textContent).toContain('Jul 2026');
     expect(rows[0].textContent).toContain('£80.00');
     expect(screen.getByText(/Heaviest month/)).toBeTruthy();
+  });
+
+  it('debt facts show utilisation, promo countdown, and per-debt interest', async () => {
+    await seed();
+    await debtsRepo.add({
+      name: 'Amex',
+      debtType: 'credit-card',
+      balancePence: 500, // £500
+      apr: 30,
+      creditLimitPence: 2000, // £2,000 limit → 25% used
+      promoEndDate: '2026-09-30',
+      postPromoApr: 30,
+      paymentDayOfMonth: 10,
+      balanceAsOf: '2026-07-01',
+    });
+    render(<Dashboard />);
+    await screen.findByText('Debt facts');
+
+    expect(screen.getByText('25% used')).toBeTruthy();
+    expect(screen.getByText(/0% ends 30 Sep 2026 \(85 days\)/)).toBeTruthy();
+    // Visa £1,000 at 20% → £16.67/month; Amex in promo → £0.00.
+    const facts = screen.getByText('Debt facts').closest('.panel');
+    expect(facts.textContent).toContain('£16.67');
+  });
+
+  it('payoff projection offers plan-vs-minimums as a table with the debt-free month', async () => {
+    await seed();
+    render(<Dashboard />);
+    await screen.findByText('Payoff projection');
+
+    const panel = screen.getByText('Payoff projection').closest('.panel');
+    expect(within(panel).getByText(/Debt-free/)).toBeTruthy();
+    fireEvent.click(within(panel).getByRole('button', { name: 'View as table' }));
+    const table = within(panel).getByRole('table');
+    expect(table.textContent).toContain('Your plan');
+    expect(table.textContent).toContain('Minimums only');
+    // Month 0 at the current £1,000 balance in both columns.
+    expect([...table.querySelectorAll('tbody tr')][0].textContent).toContain('£1,000.00');
+  });
+
+  it('income & tax strip mirrors the current tax year per person', async () => {
+    await seed();
+    const personId = await peopleRepo.add({ name: 'Anderson', annualSalaryPence: 90000 }); // £90,000
+    await incomeEventsRepo.add({
+      personId,
+      date: '2026-07-01',
+      kind: 'dividend',
+      amountPence: 8000, // £8,000 → ANI £98,000, inside the £10k warning band
+    });
+    render(<Dashboard />);
+    await screen.findByText(/Income & tax — 2026-27/);
+
+    expect(screen.getByText('Anderson')).toBeTruthy();
+    expect(screen.getByText(/Childcare line \(£100,000\)/)).toBeTruthy();
+    // The proximity insight fires too (≈ £2,000 headroom).
+    expect(screen.getByText('Anderson is close to the £100,000 line')).toBeTruthy();
   });
 
   it('renders no insight section when there is nothing to say', async () => {

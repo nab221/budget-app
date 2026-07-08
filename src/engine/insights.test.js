@@ -285,3 +285,67 @@ describe('buildInsights — ordering', () => {
     expect(severities[0]).toBe('danger');
   });
 });
+
+describe('buildInsights — tax thresholds (rule 3)', () => {
+  const person = (name, summary) => ({ name, summary });
+  const safeSummary = {
+    over100k: false,
+    headroomTo100kPence: 4000000, // £40,000 clear
+    overHigherRate: false,
+    headroomToHigherRatePence: 2000000, // £20,000 clear
+  };
+
+  it('stays silent with comfortable headroom (or no people at all)', () => {
+    expect(
+      buildInsights(quiet({ people: [person('Anderson', safeSummary)] }), NOW).filter((c) =>
+        c.id.startsWith('tax-')
+      )
+    ).toEqual([]);
+    expect(buildInsights(quiet(), NOW).filter((c) => c.id.startsWith('tax-'))).toEqual([]);
+  });
+
+  it('warns within £10k of the £100k line and quantifies the headroom', () => {
+    const cards = buildInsights(
+      quiet({
+        people: [person('Anderson', { ...safeSummary, headroomTo100kPence: 420000 })],
+      }),
+      NOW
+    );
+    const card = cards.find((c) => c.id === 'tax-100k-Anderson');
+    expect(card.severity).toBe('warn');
+    expect(card.body).toContain('£4,200.00');
+    expect(card.tab).toBe('income');
+  });
+
+  it('turns danger once the £100k line is crossed', () => {
+    const cards = buildInsights(
+      quiet({
+        people: [person('Anderson', { ...safeSummary, over100k: true, headroomTo100kPence: 0 })],
+      }),
+      NOW
+    );
+    const card = cards.find((c) => c.id === 'tax-100k-Anderson');
+    expect(card.severity).toBe('danger');
+    expect(card.body).toContain('Tax-Free Childcare');
+  });
+
+  it('mentions 40%-band proximity as info, silently once crossed', () => {
+    const near = buildInsights(
+      quiet({
+        people: [person('Wife', { ...safeSummary, headroomToHigherRatePence: 300000 })],
+      }),
+      NOW
+    );
+    expect(near.find((c) => c.id === 'tax-40pc-Wife').severity).toBe('info');
+
+    const over = buildInsights(
+      quiet({
+        people: [
+          person('Wife', { ...safeSummary, overHigherRate: true, headroomToHigherRatePence: 0 }),
+        ],
+      }),
+      NOW
+    );
+    expect(over.find((c) => c.id === 'tax-40pc-Wife')).toBeUndefined();
+  });
+});

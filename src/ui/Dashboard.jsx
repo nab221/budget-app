@@ -5,13 +5,17 @@ import {
   debtsRepo,
   childrenRepo,
   categoriesRepo,
+  balanceUpdatesRepo,
 } from '../db/repositories.js';
 import { getSetting } from '../db/settings.js';
 import {
   mapBillsToPence,
   mapDebtsToPence,
+  mapBalanceUpdatesToPence,
   childcareDepositsFromChildren,
 } from '../db/planData.js';
+import { gatherIncomeData } from '../db/incomeData.js';
+import { taxYearForDate } from '../engine/tax.js';
 import { upcomingPayments, localDayStr } from '../engine/spending.js';
 import { buildInsights } from '../engine/insights.js';
 import Money from './components/Money.jsx';
@@ -23,6 +27,9 @@ import PaymentCalendar from './dashboard/PaymentCalendar.jsx';
 import MonthlyOutgoings from './dashboard/MonthlyOutgoings.jsx';
 import CategoryBreakdown from './dashboard/CategoryBreakdown.jsx';
 import CostTable from './dashboard/CostTable.jsx';
+import PayoffProjection from './dashboard/PayoffProjection.jsx';
+import DebtFacts from './dashboard/DebtFacts.jsx';
+import IncomeTaxStrip from './dashboard/IncomeTaxStrip.jsx';
 
 /**
  * Dashboard v2 (specs/DASHBOARD-PLAN.md) — the read-only answers screen.
@@ -33,16 +40,27 @@ import CostTable from './dashboard/CostTable.jsx';
  */
 export default function Dashboard({ onNavigate }) {
   const { data, loading } = useLiveData(async () => {
-    const [bills, debts, children, categories, payoffStrategy, payoffExtraPence, lastExportAt] =
-      await Promise.all([
-        recurringBillsRepo.getAll(),
-        debtsRepo.getAll(),
-        childrenRepo.getAll(),
-        categoriesRepo.getAll(),
-        getSetting('payoffStrategy'),
-        getSetting('payoffExtraPence'),
-        getSetting('lastExportAt'),
-      ]);
+    const [
+      bills,
+      debts,
+      children,
+      categories,
+      payoffStrategy,
+      payoffExtraPence,
+      lastExportAt,
+      balanceUpdatesRaw,
+      income,
+    ] = await Promise.all([
+      recurringBillsRepo.getAll(),
+      debtsRepo.getAll(),
+      childrenRepo.getAll(),
+      categoriesRepo.getAll(),
+      getSetting('payoffStrategy'),
+      getSetting('payoffExtraPence'),
+      getSetting('lastExportAt'),
+      balanceUpdatesRepo.allByDate(),
+      gatherIncomeData(taxYearForDate(localDayStr(new Date()))),
+    ]);
     return {
       recurringBills: mapBillsToPence(bills),
       debts: mapDebtsToPence(debts),
@@ -51,6 +69,10 @@ export default function Dashboard({ onNavigate }) {
       payoffStrategy,
       payoffExtraPence,
       lastExportAt,
+      balanceUpdates: mapBalanceUpdatesToPence(balanceUpdatesRaw),
+      income,
+      // The insights engine's tax rule wants just names + computed summaries.
+      people: income.people.map((p) => ({ name: p.name, summary: p.summary })),
     };
   }, []);
 
@@ -131,6 +153,18 @@ export default function Dashboard({ onNavigate }) {
 
           <CategoryBreakdown data={data} categories={data.categories} fromStr={from} />
           <CostTable data={data} categories={data.categories} fromStr={from} />
+
+          <div className="dash-cols">
+            <PayoffProjection
+              data={data}
+              balanceUpdates={data.balanceUpdates}
+              fromStr={from}
+              onNavigate={onNavigate}
+            />
+            <DebtFacts data={data} fromStr={from} />
+          </div>
+
+          <IncomeTaxStrip income={data.income} onNavigate={onNavigate} />
         </>
       )}
     </div>

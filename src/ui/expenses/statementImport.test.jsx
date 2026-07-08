@@ -60,9 +60,12 @@ describe('StatementImport', () => {
     // Override NOT set (checkbox default off).
     expect(debts[0].minPaymentOverridePence == null || debts[0].minPaymentOverridePence === undefined).toBe(true);
 
-    // Association remembered.
-    const map = await getStatementDebtMap();
-    expect(map.MBNA).toBe(debts[0].id);
+    // Association remembered (written by the component just after the balance
+    // update — wait for it rather than racing it).
+    await waitFor(async () => {
+      const map = await getStatementDebtMap();
+      expect(map.MBNA).toBe(debts[0].id);
+    });
 
     // Success confirmation shows old → new (£500 → £1,234.56).
     expect(screen.getByText(/MBNA Platinum/)).toBeTruthy();
