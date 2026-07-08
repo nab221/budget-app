@@ -1324,6 +1324,89 @@ body {
   font-size: 0.82rem;
 }
 
+/* Z3 row: calendar beside the next-payments list; stacks when narrow. */
+.dash-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.75rem;
+  align-items: start;
+}
+@media (max-width: 760px) {
+  .dash-cols {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Z3a payment calendar (sequential single-hue heatmap) */
+.calendar {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+.calendar__weekday {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-align: center;
+  padding-bottom: 0.2rem;
+}
+.calendar__pad {
+  aspect-ratio: 1.15;
+}
+.calendar__day {
+  font: inherit;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  aspect-ratio: 1.15;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  cursor: pointer;
+  padding: 0;
+}
+.calendar__day:hover {
+  border-color: var(--muted);
+}
+.calendar__day--today {
+  font-weight: 700;
+  border-color: var(--accent);
+}
+.calendar__day--selected {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.calendar__month {
+  font-weight: 600;
+  padding: 0 0.4rem;
+}
+.calendar__total {
+  margin: 0.75rem 0 0;
+  font-size: 0.82rem;
+}
+.calendar__detail {
+  margin-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.6rem;
+}
+.calendar__detail-title {
+  margin: 0 0 0.35rem;
+  font-size: 0.85rem;
+}
+
+/* Z3b chart wrapper. Canvas text can't wear the .money class, so privacy
+   mode blurs the whole plot (hover reveals, like every money value). */
+.chart {
+  position: relative;
+}
+body.privacy .chart {
+  filter: blur(6px);
+  transition: filter 0.12s ease;
+}
+body.privacy .chart:hover {
+  filter: none;
+}
+
 /* Z4b cost table: sortable headers */
 .cost-table__sort {
   font: inherit;

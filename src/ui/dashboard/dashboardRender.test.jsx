@@ -121,6 +121,46 @@ describe('Dashboard v2', () => {
     expect(onNavigate).toHaveBeenCalledWith('payoff');
   });
 
+  it('payment calendar shades due days, navigates months, and lists a selected day', async () => {
+    await seed();
+    render(<Dashboard />);
+    await screen.findByText('Payment calendar');
+
+    // July 2026: Broadband on the 15th (£30) and Visa on the 20th (£50).
+    const day15 = screen.getByRole('button', { name: '15 Jul 2026 — £30.00 due' });
+    expect(screen.getByRole('button', { name: '20 Jul 2026 — £50.00 due' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '2 Jul 2026 — nothing due' })).toBeTruthy();
+
+    // Selecting a day lists its payments.
+    fireEvent.click(day15);
+    const detail = document.querySelector('.calendar__detail');
+    expect(detail.textContent).toContain('Broadband');
+    expect(detail.textContent).toContain('£30.00');
+
+    // Month navigation recomputes: August 2026 has its own occurrences
+    // (Broadband doesn't shift — seeded with adjustToWorkingDay: false).
+    fireEvent.click(screen.getByRole('button', { name: 'Next month' }));
+    await screen.findByText('August 2026');
+    expect(screen.getByRole('button', { name: '15 Aug 2026 — £30.00 due' })).toBeTruthy();
+  });
+
+  it('next-12-months panel offers the figures as a table', async () => {
+    await seed();
+    render(<Dashboard />);
+    await screen.findByText('Next 12 months');
+
+    fireEvent.click(screen.getByRole('button', { name: 'View as table' }));
+    const table = screen
+      .getAllByRole('table')
+      .find((t) => t.textContent.includes('Recurring expenses'));
+    const rows = [...table.querySelectorAll('tbody tr')];
+    expect(rows).toHaveLength(12);
+    // Every month: £30 bills + £50 debt = £80 total.
+    expect(rows[0].textContent).toContain('Jul 2026');
+    expect(rows[0].textContent).toContain('£80.00');
+    expect(screen.getByText(/Heaviest month/)).toBeTruthy();
+  });
+
   it('renders no insight section when there is nothing to say', async () => {
     await seed();
     render(<Dashboard />);

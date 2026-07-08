@@ -12,9 +12,9 @@
  * (engine `formatGBP`), so tests can assert the exact copy.
  */
 
-import { differenceInCalendarDays, parseISO } from 'date-fns';
+import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { calcMinPayment, simulatePayoff } from './finance.js';
-import { annualisedBillPence } from './spending.js';
+import { annualisedBillPence, spendingOccurrences } from './spending.js';
 import { toFinanceDebts } from './payoff.js';
 import { formatGBP } from './currency.js';
 
@@ -24,6 +24,9 @@ const SEVERITY_RANK = { danger: 0, warn: 1, info: 2 };
 export const PROMO_NOTICE_DAYS = 90; // promo-cliff rule starts firing
 export const PROMO_WARN_DAYS = 30;
 export const PROMO_DANGER_DAYS = 7;
+export const HEAVY_WEEK_LOOKAHEAD_WEEKS = 13; // ≈ 3 months
+export const HEAVY_WEEK_FACTOR = 1.5; // heaviest ≥ 1.5× the second-heaviest week
+export const HEAVY_WEEK_MIN_GAP_PENCE = 5000; // …and at least £50 above it
 export const SMALL_EXPENSE_PENCE = 1500; // "subscription creep" = under £15
 export const SMALL_EXPENSE_MIN_COUNT = 3;
 export const STRATEGY_SAVING_MIN_PENCE = 1000; // ignore < £10 differences
@@ -96,6 +99,50 @@ function promoCliff(data, nowStr) {
     });
   }
   return cards;
+}
+
+/**
+ * Rule 2 — an unusually heavy payment week is coming (dashboard plan §Z2).
+ *
+ * "Unusual" is judged against the OTHER weeks in the window, not the weekly
+ * average: payments clustering at the start of every month make every
+ * month-start week ~4× the average, and a card that fires every month is
+ * filler. A week only counts as heavy when it towers over the second-heaviest
+ * week ahead — which is exactly the annual-insurance / quarterly-bill month
+ * the owner would otherwise be surprised by.
+ */
+function heavyWeekAhead(data, nowStr) {
+  // Monday-based weeks (UK convention, matching periodWindow), starting with
+  // the current week.
+  const base = parseISO(nowStr);
+  const monday = addDays(base, -((base.getDay() + 6) % 7));
+  const weeks = [];
+  for (let i = 0; i < HEAVY_WEEK_LOOKAHEAD_WEEKS; i += 1) {
+    const start = addDays(monday, i * 7);
+    const startStr = format(start, 'yyyy-MM-dd');
+    const endStr = format(addDays(start, 7), 'yyyy-MM-dd');
+    const rows = spendingOccurrences(data, startStr, endStr);
+    weeks.push({
+      startStr,
+      totalPence: rows.reduce((t, r) => t + (r.amountPence || 0), 0),
+      count: rows.length,
+    });
+  }
+  const sorted = [...weeks].sort((a, b) => b.totalPence - a.totalPence);
+  const [heaviest, second] = sorted;
+  if (!heaviest || heaviest.totalPence <= 0) return [];
+  if (heaviest.totalPence < (second?.totalPence || 0) * HEAVY_WEEK_FACTOR) return [];
+  if (heaviest.totalPence - (second?.totalPence || 0) < HEAVY_WEEK_MIN_GAP_PENCE) return [];
+
+  return [
+    {
+      id: 'heavy-week',
+      severity: 'info',
+      title: `Week of ${format(parseISO(heaviest.startStr), 'd MMM')} is your heaviest coming up`,
+      body: `${formatGBP(heaviest.totalPence)} leaves across ${heaviest.count} payment${heaviest.count === 1 ? '' : 's'} that week — ${formatGBP(heaviest.totalPence - (second?.totalPence || 0))} more than any other week in the next ${HEAVY_WEEK_LOOKAHEAD_WEEKS} weeks. Nothing to do; just don't let it surprise you.`,
+      tab: 'expenses',
+    },
+  ];
 }
 
 /** Rule 4 — many small recurring expenses quietly add up. */
@@ -193,7 +240,14 @@ function backupNudge(data, nowStr) {
 // Entry point
 // ---------------------------------------------------------------------------
 
-const RULES = [promoCliff, subscriptionCreep, strategyCheck, staleBalances, backupNudge];
+const RULES = [
+  promoCliff,
+  heavyWeekAhead,
+  subscriptionCreep,
+  strategyCheck,
+  staleBalances,
+  backupNudge,
+];
 
 /**
  * Run every insight rule and return the cards, most severe first (stable by

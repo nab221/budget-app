@@ -19,6 +19,8 @@ import EmptyState from './components/EmptyState.jsx';
 import { formatDay } from './components/dates.js';
 import KpiStrip from './dashboard/KpiStrip.jsx';
 import InsightCards from './dashboard/InsightCards.jsx';
+import PaymentCalendar from './dashboard/PaymentCalendar.jsx';
+import MonthlyOutgoings from './dashboard/MonthlyOutgoings.jsx';
 import CategoryBreakdown from './dashboard/CategoryBreakdown.jsx';
 import CostTable from './dashboard/CostTable.jsx';
 
@@ -101,25 +103,31 @@ export default function Dashboard({ onNavigate }) {
 
           <InsightCards cards={insights} onNavigate={onNavigate} />
 
-          <section className="panel">
-            <h3 className="panel__title">Next payments</h3>
-            {upcoming.length === 0 ? (
-              <EmptyState hint="Nothing due — add expenses on the Expenses tab." />
-            ) : (
-              <ul className="upcoming-list">
-                {upcoming.map((r, i) => (
-                  <li className="upcoming-list__row" key={`${r.date}-${r.label}-${i}`}>
-                    <span className="upcoming-list__date">{formatDay(r.date)}</span>
-                    <span className="upcoming-list__label">
-                      {r.label}
-                      {r.isAdjusted && <span className="tag">shifted</span>}
-                    </span>
-                    <Money pence={r.amountPence} className="upcoming-list__amount" />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+          <div className="dash-cols">
+            <PaymentCalendar data={data} fromStr={from} />
+
+            <section className="panel">
+              <h3 className="panel__title">Next payments</h3>
+              {upcoming.length === 0 ? (
+                <EmptyState hint="Nothing due — add expenses on the Expenses tab." />
+              ) : (
+                <ul className="upcoming-list">
+                  {upcoming.map((r, i) => (
+                    <li className="upcoming-list__row" key={`${r.date}-${r.label}-${i}`}>
+                      <span className="upcoming-list__date">{formatDay(r.date)}</span>
+                      <span className="upcoming-list__label">
+                        {r.label}
+                        {r.isAdjusted && <span className="tag">shifted</span>}
+                      </span>
+                      <Money pence={r.amountPence} className="upcoming-list__amount" />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </div>
+
+          <MonthlyOutgoings data={data} fromStr={from} />
 
           <CategoryBreakdown data={data} categories={data.categories} fromStr={from} />
           <CostTable data={data} categories={data.categories} fromStr={from} />

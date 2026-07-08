@@ -99,6 +99,56 @@ describe('buildInsights — promo cliff (rule 1)', () => {
   });
 });
 
+describe('buildInsights — heavy week ahead (rule 2)', () => {
+  const monthly = (id, label, amountPence, day) => ({
+    id,
+    label,
+    amountPence,
+    frequency: 'monthly',
+    nextDueDate: `2026-07-${String(day).padStart(2, '0')}`,
+    dueDayAnchor: day,
+    adjustToWorkingDay: false,
+    active: true,
+  });
+
+  it('stays silent when every month looks the same (regular clustering)', () => {
+    // Everything on the 1st: every month-start week is equally heavy.
+    const cards = buildInsights(
+      quiet({ recurringBills: [monthly(1, 'Rent', 120000, 1), monthly(2, 'Energy', 20000, 1)] }),
+      NOW
+    );
+    expect(cards.find((c) => c.id === 'heavy-week')).toBeUndefined();
+  });
+
+  it('fires when one week towers over every other week ahead', () => {
+    // Rent on the 3rd every month; the £800 annual premium lands on 3 Aug
+    // (a Monday) — that week carries £2,000 vs £1,200 in ordinary rent weeks.
+    const cards = buildInsights(
+      quiet({
+        recurringBills: [
+          monthly(1, 'Rent', 120000, 3),
+          {
+            id: 2,
+            label: 'Car insurance',
+            amountPence: 80000, // £800 annual premium
+            frequency: 'annual',
+            nextDueDate: '2026-08-03',
+            dueDayAnchor: 3,
+            adjustToWorkingDay: false,
+            active: true,
+          },
+        ],
+      }),
+      NOW
+    );
+    const heavy = cards.find((c) => c.id === 'heavy-week');
+    expect(heavy).toBeTruthy();
+    expect(heavy.severity).toBe('info');
+    expect(heavy.title).toBe('Week of 3 Aug is your heaviest coming up');
+    expect(heavy.body).toContain('£2,000.00'); // £1,200 rent + £800 premium
+  });
+});
+
 describe('buildInsights — subscription creep (rule 4)', () => {
   const sub = (id, amountPence) => ({
     id,
