@@ -1,7 +1,7 @@
 /**
  * Verifies the additive upgrades preserve live data: v1 → v2 (adds the
  * `debtId` index to transactions) and v2 → v3 (adds the `people` +
- * `incomeEvents` stores). Simulates pre-existing databases with throwaway
+ * `incomeEvents` stores) and v3 → v4 (adds the `balanceUpdates` store). Simulates pre-existing databases with throwaway
  * Dexie connections, then opens the real schema against the same database
  * name and confirms old rows survive and the new stores/indexes work.
  */
@@ -49,7 +49,7 @@ describe('schema upgrades', () => {
 
     // 2. Open the real schema against the same database → in-place upgrade.
     await db.open();
-    expect(db.verno).toBe(3);
+    expect(db.verno).toBe(4);
 
     const tx = await db.transactions.get(txId);
     expect(tx).toBeTruthy();
@@ -76,9 +76,9 @@ describe('schema upgrades', () => {
     const debtId = await v2.debts.add({ name: 'Card', debtType: 'credit-card', balancePence: 50000 });
     v2.close();
 
-    // 2. Open the real v3 schema → in-place upgrade.
+    // 2. Open the real schema → in-place upgrade.
     await db.open();
-    expect(db.verno).toBe(3);
+    expect(db.verno).toBe(4);
     const debt = await db.debts.get(debtId);
     expect(debt.name).toBe('Card');
 
@@ -94,5 +94,36 @@ describe('schema upgrades', () => {
     const events = await db.incomeEvents.where('personId').equals(personId).toArray();
     expect(events).toHaveLength(1);
     expect(events[0].kind).toBe('dividend');
+  });
+
+  it('v3 → v4: preserves rows and adds a usable balanceUpdates store', async () => {
+    // 1. Create and populate a v3 database (v1 chain + v2 index + v3 stores).
+    const v3 = new Dexie(DB_NAME);
+    v3.version(1).stores(V1_STORES);
+    v3.version(2).stores({
+      transactions: '++id, date, kind, categoryId, source, importHash, debtId',
+    });
+    v3.version(3).stores({
+      people: '++id',
+      incomeEvents: '++id, personId, date, kind',
+    });
+    await v3.open();
+    expect(v3.verno).toBe(3);
+    const debtId = await v3.debts.add({ name: 'Card', debtType: 'credit-card', balancePence: 50000 });
+    const personId = await v3.people.add({ name: 'A', annualSalaryPence: 6000000 });
+    v3.close();
+
+    // 2. Open the real v4 schema → in-place upgrade.
+    await db.open();
+    expect(db.verno).toBe(4);
+    expect((await db.debts.get(debtId)).name).toBe('Card');
+    expect((await db.people.get(personId)).name).toBe('A');
+
+    // 3. The new store exists, is empty, and its debtId/date indexes work.
+    expect(await db.balanceUpdates.count()).toBe(0);
+    await db.balanceUpdates.add({ debtId, date: '2026-07-08', balancePence: 48000, source: 'update' });
+    const rows = await db.balanceUpdates.where('debtId').equals(debtId).toArray();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].balancePence).toBe(48000);
   });
 });

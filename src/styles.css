@@ -19,12 +19,14 @@
     --accent: #4b8bff;
     --accent-contrast: #0f1419;
     --danger: #f2555a;
+    --warn: #f0a840;
     --ok: #3fbf7f;
   }
 }
 
 :root {
   --danger: #d1343b;
+  --warn: #b45309;
   --ok: #178f56;
 }
 
@@ -39,6 +41,7 @@
   --accent: #2563eb;
   --accent-contrast: #ffffff;
   --danger: #d1343b;
+  --warn: #b45309;
   --ok: #178f56;
 }
 
@@ -51,6 +54,7 @@
   --accent: #4b8bff;
   --accent-contrast: #0f1419;
   --danger: #f2555a;
+  --warn: #f0a840;
   --ok: #3fbf7f;
 }
 
@@ -1241,6 +1245,321 @@ body {
 .segmented__btn:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
+}
+
+/* ── Dashboard v2 (specs/DASHBOARD-PLAN.md) ───────────────────────────────── */
+
+/* Z1 KPI strip: tiles wrap into a responsive grid. */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: 1.25rem 2rem;
+}
+.stat__sub--warn {
+  font-size: 0.82rem;
+  color: var(--danger);
+}
+
+/* Z2 insight cards */
+.insight-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.insight {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: 8px;
+  padding: 0.7rem 1rem;
+  background: var(--surface);
+}
+.insight--danger {
+  border-left-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 7%, var(--surface));
+}
+.insight--warn {
+  border-left-color: var(--warn);
+}
+.insight--info {
+  border-left-color: var(--accent);
+}
+.insight__text {
+  flex: 1 1 auto;
+}
+.insight__title {
+  margin: 0 0 0.15rem;
+  font-size: 0.95rem;
+}
+.insight--danger .insight__title {
+  color: var(--danger);
+}
+.insight__body {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+.insight__action {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* Z4a category bars — single hue: magnitude, not identity. */
+.catbar-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+.catbar__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  margin-bottom: 0.25rem;
+}
+.catbar__name {
+  font-size: 0.9rem;
+}
+.catbar__value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.catbar__share {
+  font-weight: 400;
+  font-size: 0.8rem;
+}
+.catbar__track {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.catbar__fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 4px 0 0 4px;
+}
+.catbar-total {
+  margin: 0.9rem 0 0;
+  font-size: 0.82rem;
+}
+
+/* Z3 row: calendar beside the next-payments list; stacks when narrow. */
+.dash-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.75rem;
+  align-items: start;
+}
+@media (max-width: 760px) {
+  .dash-cols {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Z3a payment calendar (sequential single-hue heatmap) */
+.calendar {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+.calendar__weekday {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-align: center;
+  padding-bottom: 0.2rem;
+}
+.calendar__pad {
+  aspect-ratio: 1.15;
+}
+.calendar__day {
+  font: inherit;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  aspect-ratio: 1.15;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  cursor: pointer;
+  padding: 0;
+}
+.calendar__day:hover {
+  border-color: var(--muted);
+}
+.calendar__day--today {
+  font-weight: 700;
+  border-color: var(--accent);
+}
+.calendar__day--selected {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.calendar__month {
+  font-weight: 600;
+  padding: 0 0.4rem;
+}
+.calendar__total {
+  margin: 0.75rem 0 0;
+  font-size: 0.82rem;
+}
+.calendar__detail {
+  margin-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.6rem;
+}
+.calendar__detail-title {
+  margin: 0 0 0.35rem;
+  font-size: 0.85rem;
+}
+
+/* Z3b chart wrapper. Canvas text can't wear the .money class, so privacy
+   mode blurs the whole plot (hover reveals, like every money value). */
+.chart {
+  position: relative;
+}
+body.privacy .chart {
+  filter: blur(6px);
+  transition: filter 0.12s ease;
+}
+body.privacy .chart:hover {
+  filter: none;
+}
+
+/* Z5b debt facts */
+.debtfacts__group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  margin-bottom: 0.9rem;
+}
+.util__fill--high {
+  background: var(--danger);
+}
+.debtfacts__promos {
+  list-style: none;
+  margin: 0 0 0.9rem;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.badge--promo-ending {
+  color: var(--warn);
+  border-color: var(--warn);
+}
+
+/* Z6 income & tax strip */
+.taxstrip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 1.5rem;
+}
+.taxstrip__person {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.taxstrip__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+}
+.taxstrip__name {
+  font-weight: 600;
+}
+.taxstrip__tax {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+/* Z4b cost table: sortable headers */
+.cost-table__sort {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-transform: inherit;
+  letter-spacing: inherit;
+}
+.cost-table__sort:hover {
+  color: var(--text);
+}
+
+/* Z7 reports */
+.reports__actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.reports__hint {
+  margin: 0.75rem 0 0;
+  font-size: 0.82rem;
+}
+
+/* The Monthly Money Report exists for print — hidden on screen. */
+.money-report {
+  display: none;
+}
+
+@media print {
+  /* While printing the report, the report is the page. */
+  body.printing-report .topnav,
+  body.printing-report .screen > *:not(.money-report) {
+    display: none !important;
+  }
+  body.printing-report .money-report {
+    display: block;
+  }
+  body.printing-report {
+    background: #fff;
+    color: #000;
+  }
+  /* Privacy blur must never survive onto paper the owner asked to print. */
+  body.printing-report .money {
+    filter: none !important;
+  }
+  .money-report h1 {
+    font-size: 1.35rem;
+    margin: 0 0 0.1rem;
+  }
+  .money-report h2 {
+    font-size: 1rem;
+    margin: 0.9rem 0 0.35rem;
+    border-bottom: 1px solid #999;
+    padding-bottom: 0.15rem;
+  }
+  .money-report .table th,
+  .money-report .table td {
+    padding: 0.18rem 0.45rem;
+    font-size: 0.78rem;
+    border-bottom: 1px solid #ccc;
+  }
+  .money-report ul {
+    margin: 0.25rem 0;
+    padding-left: 1.1rem;
+  }
+  .money-report li {
+    font-size: 0.85rem;
+  }
+  .money-report section {
+    break-inside: avoid;
+  }
+  .money-report footer {
+    margin-top: 0.9rem;
+    font-size: 0.72rem;
+  }
 }
 
 /* ── Income tab (spec amendment 2026-07-07 (b)) ─────────────────────────── */

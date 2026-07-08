@@ -321,8 +321,30 @@ export const transactionsRepo = {
   },
 };
 
-export const debtsRepo = {
-  ...createBaseRepository(
+/** Today as a local ISO day (the balance-log date when no as-of is supplied). */
+const localToday = () => {
+  const d = new Date();
+  const p2 = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+};
+
+/**
+ * Append a row to the `balanceUpdates` log (dashboard plan §7). Raw pence at
+ * rest, like every store. Deliberately append-only — the log is the owner's
+ * record of the balances they entered, powering the payoff chart's
+ * actual-vs-plan overlay.
+ */
+async function logBalanceUpdate(debtId, balancePence, date, source) {
+  await db.balanceUpdates.add({
+    debtId,
+    balancePence,
+    date: date || localToday(),
+    source, // 'create' | 'update' | 'edit'
+  });
+}
+
+export const debtsRepo = (() => {
+  const base = createBaseRepository(
     db.debts,
     [
       'balancePence',
@@ -332,22 +354,69 @@ export const debtsRepo = {
     ],
     { debtType: 'credit-card' },
     validateDebt
-  ),
+  );
+  return {
+    ...base,
 
-  /**
-   * Quick "update balance" flow (spec §4.3): store a new balance (POUNDS) and
-   * its as-of date. No statement history.
-   * @param {number} id
-   * @param {number} poundsBalance - new balance in pounds
-   * @param {string} asOfDate - ISO yyyy-MM-dd
-   */
-  async updateBalance(id, poundsBalance, asOfDate) {
-    const count = await db.debts.update(id, {
-      balancePence: toPence(poundsBalance),
-      balanceAsOf: asOfDate,
-    });
-    dispatchMutation();
-    return count;
+    /** Creating a debt seeds its balance log with the opening balance. */
+    async add(data) {
+      const id = await base.add(data);
+      if (data.balancePence != null) {
+        await logBalanceUpdate(id, toPence(data.balancePence), data.balanceAsOf, 'create');
+      }
+      dispatchMutation();
+      return id;
+    },
+
+    /** The edit form logs a balance row only when the balance actually changed. */
+    async update(id, data) {
+      if (data.balancePence != null) {
+        const existing = await db.debts.get(id);
+        const newPence = toPence(data.balancePence);
+        if (existing && existing.balancePence !== newPence) {
+          await logBalanceUpdate(id, newPence, data.balanceAsOf ?? existing.balanceAsOf, 'edit');
+        }
+      }
+      return base.update(id, data);
+    },
+
+    /**
+     * Quick "update balance" flow (spec §4.3): store a new balance (POUNDS) and
+     * its as-of date, and append it to the balance log. Both entry points — the
+     * debt card's inline form and the statement-PDF import — go through here.
+     * @param {number} id
+     * @param {number} poundsBalance - new balance in pounds
+     * @param {string} asOfDate - ISO yyyy-MM-dd
+     */
+    async updateBalance(id, poundsBalance, asOfDate) {
+      const balancePence = toPence(poundsBalance);
+      const count = await db.debts.update(id, {
+        balancePence,
+        balanceAsOf: asOfDate,
+      });
+      if (count) await logBalanceUpdate(id, balancePence, asOfDate, 'update');
+      dispatchMutation();
+      return count;
+    },
+
+    /** Deleting a debt removes its balance log too (no orphan rows). */
+    async delete(id) {
+      await db.transaction('rw', db.debts, db.balanceUpdates, async () => {
+        await db.balanceUpdates.where('debtId').equals(id).delete();
+        await db.debts.delete(id);
+      });
+      dispatchMutation();
+    },
+  };
+})();
+
+export const balanceUpdatesRepo = {
+  ...createBaseRepository(db.balanceUpdates, ['balancePence'], {}),
+
+  /** Every log row, oldest first (pounds at the edge, like every repo read). */
+  async allByDate() {
+    const rows = await db.balanceUpdates.orderBy('date').toArray();
+    return rows.map(this._fromStorage);
   },
 };
 

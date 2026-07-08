@@ -1,10 +1,16 @@
 import { simulatePayoff, orderDebtsByStrategy, calcMinPayment } from '../../engine/finance.js';
+import { toFinanceDebts } from '../../engine/payoff.js';
 
 /**
  * Pure helpers backing the Payoff tab. All money is integer PENCE (the debts
  * passed in are already in the pence domain, mapped to the finance-module shape
  * `{ id, name, currentBalance, apr, promoEndDate, postPromoApr }`).
  */
+
+// The pence→finance-shape mapping moved to the engine (`engine/payoff.js`) so
+// the dashboard projection and insights can share it; re-exported unchanged
+// for the existing Payoff-tab imports.
+export { toFinanceDebts };
 
 /**
  * The extra-payment input defaults to the current pay-period "safe to pay"
@@ -116,41 +122,4 @@ export function buildDebtBreakdown(debts, strategy, extraPence, startDate = new 
   // its own minimum, cascading the extra to the next card down.
   const focus = rows.find((r) => r.extraPence > 0) ?? rows[0] ?? null;
   return { rows, focusId: focus ? focus.id : null, sim };
-}
-
-/**
- * Map pence-domain debts (from planData) into the finance-module shape.
- * @param {Array} debts
- * @returns {{ cards: Array, loans: Array }}
- */
-export function toFinanceDebts(debts) {
-  const cards = [];
-  const loans = [];
-  for (const d of debts || []) {
-    if ((d.balancePence || 0) <= 0) continue;
-    if (d.debtType === 'loan') {
-      loans.push({
-        id: d.id,
-        name: d.name,
-        currentBalance: d.balancePence,
-        interestRate: d.interestRate ?? 0,
-        fixedMonthlyPayment: d.fixedMonthlyPaymentPence ?? 0,
-        // Enable overpayments with no early-repayment charge (spec keeps loans simple).
-        earlyRepaymentAllowed: true,
-        earlyRepaymentFee: 0,
-      });
-    } else {
-      cards.push({
-        id: d.id,
-        name: d.name,
-        currentBalance: d.balancePence,
-        apr: d.apr ?? 0,
-        promoEndDate: d.promoEndDate ?? null,
-        // Omit postPromoApr entirely when blank so the finance engine falls back
-        // to `apr` rather than seeing a null and simulating the card at 0% (H1).
-        ...(d.postPromoApr != null ? { postPromoApr: d.postPromoApr } : {}),
-      });
-    }
-  }
-  return { cards, loans };
 }
