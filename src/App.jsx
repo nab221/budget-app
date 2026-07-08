@@ -71,7 +71,7 @@ export default function App() {
 
       <main className="container">
         <ErrorBoundary resetKey={active.id}>
-          <ActiveComponent />
+          <ActiveComponent onNavigate={setActiveTab} />
         </ErrorBoundary>
       </main>
     </div>

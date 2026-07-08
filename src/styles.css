@@ -19,12 +19,14 @@
     --accent: #4b8bff;
     --accent-contrast: #0f1419;
     --danger: #f2555a;
+    --warn: #f0a840;
     --ok: #3fbf7f;
   }
 }
 
 :root {
   --danger: #d1343b;
+  --warn: #b45309;
   --ok: #178f56;
 }
 
@@ -39,6 +41,7 @@
   --accent: #2563eb;
   --accent-contrast: #ffffff;
   --danger: #d1343b;
+  --warn: #b45309;
   --ok: #178f56;
 }
 
@@ -51,6 +54,7 @@
   --accent: #4b8bff;
   --accent-contrast: #0f1419;
   --danger: #f2555a;
+  --warn: #f0a840;
   --ok: #3fbf7f;
 }
 
@@ -1214,6 +1218,125 @@ body {
 .segmented__btn:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
+}
+
+/* ── Dashboard v2 (specs/DASHBOARD-PLAN.md) ───────────────────────────────── */
+
+/* Z1 KPI strip: tiles wrap into a responsive grid. */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: 1.25rem 2rem;
+}
+.stat__sub--warn {
+  font-size: 0.82rem;
+  color: var(--danger);
+}
+
+/* Z2 insight cards */
+.insight-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.insight {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: 8px;
+  padding: 0.7rem 1rem;
+  background: var(--surface);
+}
+.insight--danger {
+  border-left-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 7%, var(--surface));
+}
+.insight--warn {
+  border-left-color: var(--warn);
+}
+.insight--info {
+  border-left-color: var(--accent);
+}
+.insight__text {
+  flex: 1 1 auto;
+}
+.insight__title {
+  margin: 0 0 0.15rem;
+  font-size: 0.95rem;
+}
+.insight--danger .insight__title {
+  color: var(--danger);
+}
+.insight__body {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+.insight__action {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* Z4a category bars — single hue: magnitude, not identity. */
+.catbar-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+.catbar__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  margin-bottom: 0.25rem;
+}
+.catbar__name {
+  font-size: 0.9rem;
+}
+.catbar__value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.catbar__share {
+  font-weight: 400;
+  font-size: 0.8rem;
+}
+.catbar__track {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.catbar__fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 4px 0 0 4px;
+}
+.catbar-total {
+  margin: 0.9rem 0 0;
+  font-size: 0.82rem;
+}
+
+/* Z4b cost table: sortable headers */
+.cost-table__sort {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-transform: inherit;
+  letter-spacing: inherit;
+}
+.cost-table__sort:hover {
+  color: var(--text);
 }
 
 /* ── Income tab (spec amendment 2026-07-07 (b)) ─────────────────────────── */

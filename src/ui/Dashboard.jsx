@@ -1,46 +1,64 @@
+import { useMemo } from 'react';
 import { useLiveData } from '../db/useLiveData.js';
-import { recurringBillsRepo, debtsRepo, childrenRepo } from '../db/repositories.js';
+import {
+  recurringBillsRepo,
+  debtsRepo,
+  childrenRepo,
+  categoriesRepo,
+} from '../db/repositories.js';
+import { getSetting } from '../db/settings.js';
 import {
   mapBillsToPence,
   mapDebtsToPence,
   childcareDepositsFromChildren,
 } from '../db/planData.js';
-import {
-  periodWindow,
-  actualTotalPence,
-  normalisedTotalPence,
-  upcomingPayments,
-  localDayStr,
-} from '../engine/spending.js';
+import { upcomingPayments, localDayStr } from '../engine/spending.js';
+import { buildInsights } from '../engine/insights.js';
 import Money from './components/Money.jsx';
 import EmptyState from './components/EmptyState.jsx';
 import { formatDay } from './components/dates.js';
-
-const TILES = [
-  { period: 'week', label: 'This week' },
-  { period: 'month', label: 'This month' },
-  { period: 'year', label: 'This year' },
-];
+import KpiStrip from './dashboard/KpiStrip.jsx';
+import InsightCards from './dashboard/InsightCards.jsx';
+import CategoryBreakdown from './dashboard/CategoryBreakdown.jsx';
+import CostTable from './dashboard/CostTable.jsx';
 
 /**
- * Dashboard — deliberately minimal while the full redesign waits its turn:
- * how much goes out this week / month / year, and the next payments due.
- * Everything is computed live from the Expenses schedule (plus the childcare
- * deposits the Childcare tab computes); nothing to confirm.
+ * Dashboard v2 (specs/DASHBOARD-PLAN.md) — the read-only answers screen.
+ * Zones, in the order the questions get asked: the KPI strip (how much),
+ * insight cards (anything worth acting on), upcoming payments (when),
+ * the category breakdown and cost-of-everything table (where).
+ * Everything is computed live from the schedule; nothing is persisted.
  */
-export default function Dashboard() {
+export default function Dashboard({ onNavigate }) {
   const { data, loading } = useLiveData(async () => {
-    const [bills, debts, children] = await Promise.all([
-      recurringBillsRepo.getAll(),
-      debtsRepo.getAll(),
-      childrenRepo.getAll(),
-    ]);
+    const [bills, debts, children, categories, payoffStrategy, payoffExtraPence, lastExportAt] =
+      await Promise.all([
+        recurringBillsRepo.getAll(),
+        debtsRepo.getAll(),
+        childrenRepo.getAll(),
+        categoriesRepo.getAll(),
+        getSetting('payoffStrategy'),
+        getSetting('payoffExtraPence'),
+        getSetting('lastExportAt'),
+      ]);
     return {
       recurringBills: mapBillsToPence(bills),
       debts: mapDebtsToPence(debts),
       childcareDeposits: childcareDepositsFromChildren(children),
+      categories,
+      payoffStrategy,
+      payoffExtraPence,
+      lastExportAt,
     };
   }, []);
+
+  const now = new Date();
+  const from = localDayStr(now);
+
+  const insights = useMemo(
+    () => (data ? buildInsights(data, from) : []),
+    [data, from]
+  );
 
   if (loading || !data) {
     return (
@@ -53,8 +71,6 @@ export default function Dashboard() {
     );
   }
 
-  const now = new Date();
-  const from = localDayStr(now);
   const upcoming = upcomingPayments(data, from, 8);
   const hasAnything =
     (data.recurringBills?.length || 0) +
@@ -75,26 +91,15 @@ export default function Dashboard() {
         />
       ) : (
         <>
-          <section className="panel">
-            <h3 className="panel__title">Going out</h3>
-            <div className="tile-row">
-              {TILES.map(({ period, label }) => {
-                const { startStr, endStr } = periodWindow(period, now);
-                return (
-                  <div className="stat" key={period}>
-                    <span className="stat__label">{label}</span>
-                    <Money
-                      pence={actualTotalPence(data, startStr, endStr)}
-                      className="stat__value"
-                    />
-                    <span className="muted stat__sub">
-                      avg <Money pence={normalisedTotalPence(data, period, from)} />
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
+          <KpiStrip
+            data={data}
+            strategy={data.payoffStrategy}
+            extraPence={data.payoffExtraPence || 0}
+            fromStr={from}
+            now={now}
+          />
+
+          <InsightCards cards={insights} onNavigate={onNavigate} />
 
           <section className="panel">
             <h3 className="panel__title">Next payments</h3>
@@ -115,6 +120,9 @@ export default function Dashboard() {
               </ul>
             )}
           </section>
+
+          <CategoryBreakdown data={data} categories={data.categories} fromStr={from} />
+          <CostTable data={data} categories={data.categories} fromStr={from} />
         </>
       )}
     </div>
