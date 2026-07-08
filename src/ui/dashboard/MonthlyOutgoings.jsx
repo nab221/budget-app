@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { monthlySeriesPence } from '../../engine/spending.js';
 import { formatGBP, fromPence } from '../../engine/currency.js';
-import { chartTokens } from '../theme.js';
+import { useChartTokens } from '../components/useChartTokens.js';
 import Chart from '../components/Chart.jsx';
 import Money from '../components/Money.jsx';
 
@@ -30,8 +30,8 @@ export default function MonthlyOutgoings({ data, fromStr }) {
   );
   const usedGroups = GROUPS.filter((g) => series.some((m) => m[g.key] > 0));
 
+  const tokens = useChartTokens();
   const chartConfig = useMemo(() => {
-    const tokens = chartTokens();
     return {
       data: {
         labels: series.map((m) => format(parseISO(`${m.month}-01`), 'MMM yy')),
@@ -80,7 +80,7 @@ export default function MonthlyOutgoings({ data, fromStr }) {
         },
       },
     };
-  }, [series, usedGroups]);
+  }, [series, usedGroups, tokens]);
 
   const heaviest = series.reduce((a, b) => (b.totalPence > a.totalPence ? b : a), series[0]);
 

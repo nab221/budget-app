@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { differenceInCalendarMonths, format, parseISO } from 'date-fns';
 import { payoffBalanceSeries, actualDebtPoints, debtFreeProjection } from '../../engine/payoff.js';
 import { formatGBP, fromPence } from '../../engine/currency.js';
-import { chartTokens } from '../theme.js';
+import { useChartTokens } from '../components/useChartTokens.js';
 import Chart from '../components/Chart.jsx';
 import Money from '../components/Money.jsx';
 import EmptyState from '../components/EmptyState.jsx';
@@ -40,9 +40,9 @@ export default function PayoffProjection({ data, balanceUpdates, fromStr, onNavi
     [balanceUpdates, data.debts]
   );
 
+  const tokens = useChartTokens();
   const chartConfig = useMemo(() => {
     if (series.length === 0) return null;
-    const tokens = chartTokens();
     const startMonth = parseISO(`${series[0].month}-01`);
     // Actual observations mapped onto the month axis (category scale → index).
     const actualByIndex = new Array(series.length).fill(null);
@@ -128,7 +128,7 @@ export default function PayoffProjection({ data, balanceUpdates, fromStr, onNavi
         },
       },
     };
-  }, [series, actuals, strategy, extraPence]);
+  }, [series, actuals, strategy, extraPence, tokens]);
 
   if (series.length === 0) {
     return (
