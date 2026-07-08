@@ -26,9 +26,15 @@ import Dexie from 'dexie';
  *      stores, `people` and `incomeEvents`, for the two-person tax-year
  *      tracker. Existing stores untouched, so live v1/v2 databases upgrade in
  *      place with no upgrade function.
+ * v4 — additive only (dashboard plan §7, owner-approved 2026-07-08): a
+ *      `balanceUpdates` store logging each debt balance update (manual, edit,
+ *      or statement PDF) so the payoff chart can show actual-vs-plan. This is
+ *      USER-ENTERED data — the record of balances the owner typed in — not a
+ *      computed/projection row, so the "never persist computed rows" rule is
+ *      untouched. New store only — no upgrade function.
  */
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 export const db = new Dexie('BudgetAppV4');
 
@@ -59,6 +65,11 @@ db.version(3).stores({
   incomeEvents: '++id, personId, date, kind',
 });
 
+// v4 — additive: the `balanceUpdates` log (dashboard plan §7). New store only.
+db.version(4).stores({
+  balanceUpdates: '++id, debtId, date',
+});
+
 // The ordered list of table names — the single source of truth for backup /
 // wipe operations so a new table never gets silently missed.
 export const TABLE_NAMES = [
@@ -72,6 +83,7 @@ export const TABLE_NAMES = [
   'categoryMappings',
   'people',
   'incomeEvents',
+  'balanceUpdates',
 ];
 
 // Another tab upgraded the schema: close this connection and reload so the

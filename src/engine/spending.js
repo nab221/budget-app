@@ -150,6 +150,58 @@ export function normalisedTotalPence(data, period, refDateStr) {
 }
 
 /**
+ * Total committed outgoings per day in [startStr, endStr) — the payment
+ * calendar's shading input (dashboard plan §Z3).
+ * @returns {Map<string, number>} 'yyyy-MM-dd' → pence (days with nothing due
+ *   are absent).
+ */
+export function dailyTotalsPence(data, startStr, endStr) {
+  const totals = new Map();
+  for (const r of spendingOccurrences(data, startStr, endStr)) {
+    totals.set(r.date, (totals.get(r.date) || 0) + (r.amountPence || 0));
+  }
+  return totals;
+}
+
+/**
+ * Committed outgoings per calendar month for `months` months starting with
+ * the month containing `fromStr`, grouped the way the stacked columns chart
+ * wants them: recurring expenses / debt payments / childcare (dashboard plan
+ * §Z3 — lumpy annual/quarterly months stop being surprises).
+ *
+ * @returns {Array<{month: string, billsPence: number, debtPence: number,
+ *   childcarePence: number, totalPence: number}>} `month` is 'yyyy-MM'.
+ */
+export function monthlySeriesPence(data, fromStr, months = 12) {
+  const out = [];
+  let y = Number(fromStr.slice(0, 4));
+  let m = Number(fromStr.slice(5, 7));
+  for (let i = 0; i < months; i += 1) {
+    const startStr = `${y}-${p2(m)}-01`;
+    const [ny, nm] = m === 12 ? [y + 1, 1] : [y, m + 1];
+    const endStr = `${ny}-${p2(nm)}-01`;
+    let billsPence = 0;
+    let debtPence = 0;
+    let childcarePence = 0;
+    for (const r of spendingOccurrences(data, startStr, endStr)) {
+      if (r.kind === 'bill') billsPence += r.amountPence || 0;
+      else if (r.kind === 'childcare') childcarePence += r.amountPence || 0;
+      else debtPence += r.amountPence || 0; // 'debt-min' + 'loan'
+    }
+    out.push({
+      month: startStr.slice(0, 7),
+      billsPence,
+      debtPence,
+      childcarePence,
+      totalPence: billsPence + debtPence + childcarePence,
+    });
+    y = ny;
+    m = nm;
+  }
+  return out;
+}
+
+/**
  * The next occurrence of ONE recurring expense on or after `fromStr`
  * (working-day adjusted), or null when it has ended / is inactive.
  * Reuses the plan walker over a 24-month window so even an annual expense

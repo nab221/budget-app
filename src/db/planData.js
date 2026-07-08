@@ -96,6 +96,20 @@ export function mapDebtsToPence(debtsRaw) {
 }
 
 /**
+ * Balance-update log rows: repository POUNDS edge → engine PENCE domain
+ * (feeds `actualDebtPoints` for the payoff chart's actual-vs-plan overlay).
+ * @param {Array} updatesRaw - rows from `balanceUpdatesRepo` (pounds at edge).
+ */
+export function mapBalanceUpdatesToPence(updatesRaw) {
+  return (updatesRaw || []).map((u) => ({
+    id: u.id,
+    debtId: u.debtId,
+    date: u.date,
+    balancePence: toPence(u.balancePence), // pounds → pence
+  }));
+}
+
+/**
  * Read everything the plan engine needs and return a pence-domain snapshot.
  *
  * @param {Date} [now=new Date()]
