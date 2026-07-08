@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLiveData } from '../db/useLiveData.js';
 import {
   recurringBillsRepo,
@@ -30,6 +30,8 @@ import CostTable from './dashboard/CostTable.jsx';
 import PayoffProjection from './dashboard/PayoffProjection.jsx';
 import DebtFacts from './dashboard/DebtFacts.jsx';
 import IncomeTaxStrip from './dashboard/IncomeTaxStrip.jsx';
+import ReportsPanel from './dashboard/ReportsPanel.jsx';
+import MonthlyReport from './dashboard/MonthlyReport.jsx';
 
 /**
  * Dashboard v2 (specs/DASHBOARD-PLAN.md) — the read-only answers screen.
@@ -78,11 +80,31 @@ export default function Dashboard({ onNavigate }) {
 
   const now = new Date();
   const from = localDayStr(now);
+  const [printing, setPrinting] = useState(false);
 
   const insights = useMemo(
     () => (data ? buildInsights(data, from) : []),
     [data, from]
   );
+
+  // Print flow: mount the report, stamp a body class the print stylesheet
+  // keys on, open the browser dialog, and clean up when it closes.
+  useEffect(() => {
+    if (!printing) return undefined;
+    document.body.classList.add('printing-report');
+    const done = () => setPrinting(false);
+    window.addEventListener('afterprint', done);
+    // Let the report paint before the dialog freezes rendering.
+    const t = setTimeout(() => {
+      if (typeof window.print === 'function') window.print();
+      else setPrinting(false); // environments without print (tests)
+    }, 50);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener('afterprint', done);
+      document.body.classList.remove('printing-report');
+    };
+  }, [printing]);
 
   if (loading || !data) {
     return (
@@ -165,6 +187,12 @@ export default function Dashboard({ onNavigate }) {
           </div>
 
           <IncomeTaxStrip income={data.income} onNavigate={onNavigate} />
+
+          <ReportsPanel data={data} fromStr={from} onPrint={() => setPrinting(true)} />
+
+          {printing && (
+            <MonthlyReport data={data} insights={insights} fromStr={from} now={now} />
+          )}
         </>
       )}
     </div>

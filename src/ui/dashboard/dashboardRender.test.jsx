@@ -220,6 +220,26 @@ describe('Dashboard v2', () => {
     expect(screen.getByText('Anderson is close to the £100,000 line')).toBeTruthy();
   });
 
+  it('print opens the Monthly Money Report with the whole story in tables', async () => {
+    await seed();
+    window.print = vi.fn();
+    render(<Dashboard />);
+    await screen.findByText('Reports');
+
+    expect(document.querySelector('.money-report')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Print Monthly Money Report' }));
+
+    const report = document.querySelector('.money-report');
+    expect(report).toBeTruthy();
+    expect(report.textContent).toContain('Monthly Money Report — July 2026');
+    expect(report.textContent).toContain('Where it goes');
+    expect(report.textContent).toContain('What everything costs');
+    expect(report.textContent).toContain('Broadband');
+    expect(report.textContent).toContain('Debt-free');
+    await vi.waitFor(() => expect(window.print).toHaveBeenCalled());
+    expect(document.body.classList.contains('printing-report')).toBe(true);
+  });
+
   it('renders no insight section when there is nothing to say', async () => {
     await seed();
     render(<Dashboard />);
