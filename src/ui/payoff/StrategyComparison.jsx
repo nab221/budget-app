@@ -21,6 +21,7 @@ export default function StrategyComparison({ comparison, strategy, onStrategyCha
           <tr>
             <th />
             <th>Strategy</th>
+            <th>Payoff order</th>
             <th className="num">Debt-free in</th>
             <th className="num">Total interest</th>
             <th className="num">Interest saved</th>
@@ -47,6 +48,9 @@ export default function StrategyComparison({ comparison, strategy, onStrategyCha
                   )}
                 </td>
                 <td>{row.label}</td>
+                <td className="strategy-order">
+                  {row.orderNames ? row.orderNames.join(' → ') : <span className="muted">—</span>}
+                </td>
                 <td className="num">{monthsLabel(row.monthsToClear, row.neverClears)}</td>
                 <td className="num">
                   <Money pence={row.totalInterestPence} />

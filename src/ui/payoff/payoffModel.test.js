@@ -1,6 +1,11 @@
 import { resetDb } from '../../db/test-utils.js';
 import { describe, it, expect, beforeEach } from 'vitest';
-import { defaultExtraPence, buildStrategyComparison, toFinanceDebts } from './payoffModel.js';
+import {
+  defaultExtraPence,
+  buildStrategyComparison,
+  buildDebtBreakdown,
+  toFinanceDebts,
+} from './payoffModel.js';
 import { settings } from '../../db/settings.js';
 
 describe('defaultExtraPence', () => {
@@ -33,6 +38,53 @@ describe('buildStrategyComparison', () => {
     expect(avalanche.totalInterestPence).toBeLessThan(min.totalInterestPence);
     expect(avalanche.interestSavedPence).toBeGreaterThan(0);
     expect(avalanche.monthsToClear).toBeLessThan(min.monthsToClear);
+  });
+
+  it('exposes the per-strategy payoff order so the owner can see which card each method targets', () => {
+    const cmp = buildStrategyComparison(debts, 20000, '2026-03-01');
+    const avalanche = cmp.rows.find((r) => r.key === 'avalanche');
+    const snowball = cmp.rows.find((r) => r.key === 'snowball');
+    const min = cmp.rows.find((r) => r.key === 'min');
+    expect(avalanche.orderNames).toEqual(['A', 'B']); // highest APR first
+    expect(snowball.orderNames).toEqual(['B', 'A']); // smallest balance first
+    expect(min.orderNames).toBeNull(); // no target — minimums only
+  });
+});
+
+describe('buildDebtBreakdown', () => {
+  const debts = [
+    { id: 1, name: 'A', currentBalance: 200000, apr: 25 },
+    { id: 2, name: 'B', currentBalance: 100000, apr: 12 },
+  ];
+
+  it('orders debts by strategy priority and sends the extra to the focus card', () => {
+    const { rows, focusId } = buildDebtBreakdown(debts, 'avalanche', 20000, '2026-03-01');
+    expect(rows.map((r) => r.name)).toEqual(['A', 'B']);
+    expect(rows.map((r) => r.priority)).toEqual([1, 2]);
+    expect(focusId).toBe(1);
+    // Focus card pays minimum + the full extra; the other pays minimum only.
+    expect(rows[0].extraPence).toBe(20000);
+    expect(rows[0].paymentPence).toBe(rows[0].minPence + 20000);
+    expect(rows[1].extraPence).toBe(0);
+  });
+
+  it('reports when each card clears, in strategy order', () => {
+    const { rows, sim } = buildDebtBreakdown(debts, 'snowball', 20000, '2026-03-01');
+    expect(rows.map((r) => r.name)).toEqual(['B', 'A']); // smallest balance first
+    expect(rows[0].clearedMonth).toBeLessThan(rows[1].clearedMonth);
+    expect(rows[0].neverClears).toBe(false);
+    expect(rows[1].clearedLabel).toBe(sim.history[rows[1].clearedMonth - 1].date);
+  });
+
+  it('cascades the focus to the next card when the top priority is swallowed by its minimum', () => {
+    const tiny = [
+      { id: 1, name: 'Tiny', currentBalance: 400, apr: 30 }, // £4 < £5 min-payment floor
+      { id: 2, name: 'Big', currentBalance: 100000, apr: 20 },
+    ];
+    const { rows, focusId } = buildDebtBreakdown(tiny, 'avalanche', 10000, '2026-03-01');
+    expect(rows[0].name).toBe('Tiny'); // still priority 1
+    expect(rows[0].extraPence).toBe(0); // but its balance is below its own minimum
+    expect(focusId).toBe(2); // so the extra lands on Big
   });
 });
 
