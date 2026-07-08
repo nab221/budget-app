@@ -18,13 +18,19 @@ export default function PaymentPlan({ breakdown, extraPence }) {
 
   return (
     <div className="payment-plan">
-      {extraPence > 0 ? (
+      {focus.extraPence > 0 ? (
         <p className="payment-plan__callout">
           This month: pay the minimum on every card, plus{' '}
           <strong>
             <Money pence={focus.extraPence} /> extra to {focus.name}
           </strong>
           . When it clears, the money rolls onto the next card down.
+        </p>
+      ) : extraPence > 0 ? (
+        // Extra is set but nothing can absorb it — every balance is already
+        // covered by its own minimum this month.
+        <p className="payment-plan__callout">
+          The minimum payments alone clear every balance this month — no extra needed.
         </p>
       ) : (
         <p className="payment-plan__callout payment-plan__callout--warn">
