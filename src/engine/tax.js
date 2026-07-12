@@ -42,6 +42,7 @@ export const TAX_YEAR_TABLES = {
     incomeRates: { basic: 0.2, higher: 0.4, additional: 0.45 },
     dividendAllowancePence: 50000, // £500
     dividendRates: { basic: 0.0875, higher: 0.3375, additional: 0.3935 },
+    pensionAnnualAllowancePence: 6000000, // £60,000
   },
   '2026-27': {
     personalAllowancePence: 1257000,
@@ -53,6 +54,7 @@ export const TAX_YEAR_TABLES = {
     dividendAllowancePence: 50000,
     // April 2026 increases: ordinary 8.75 → 10.75%, upper 33.75 → 35.75%.
     dividendRates: { basic: 0.1075, higher: 0.3575, additional: 0.3935 },
+    pensionAnnualAllowancePence: 6000000,
   },
 };
 
@@ -177,10 +179,17 @@ export function parseTaxCode(code) {
  * bands, not at dividend rates — but the tax on them is owed via Self
  * Assessment, so they are kept out of the salary figure.
  *
+ * `sipp-contribution` events (amendment 2026-07-12 (g)) are personal pension
+ * payments made from taxed pay under relief at source: the amount entered is
+ * what was actually PAID, the provider adds 25% basic-rate relief, and the
+ * grossed-up total (×1.25) is what reduces adjusted net income and counts
+ * toward the pension annual allowance — alongside the person's annual
+ * personal-pension field, which is entered already grossed up.
+ *
  * @param {{ annualSalaryPence?: number, salarySacrificePence?: number,
  *           pensionAnnualPence?: number, benefitsInKindPence?: number,
  *           otherIncomePence?: number }} person - integer pence.
- * @param {Array<{ kind: 'dividend'|'salary-adjustment'|'other-income', amountPence: number }>} events
+ * @param {Array<{ kind: 'dividend'|'salary-adjustment'|'other-income'|'sipp-contribution', amountPence: number }>} events
  * @param {number|null} [salaryOverridePence] - the year's taxable salary as
  *   already assembled by the monthly timeline (salaryTimeline.js). When given,
  *   it replaces the annual − sacrifice figure (sacrifice, workplace pension,
@@ -190,19 +199,25 @@ export function parseTaxCode(code) {
  *   benefit entered both there and on the timeline would count twice.
  * @returns {{ nonDividendPence, dividendPence, pensionPence,
  *             dividendTotalPence, adjustmentTotalPence, otherEventTotalPence,
- *             salaryPence }}
+ *             sippPaidTotalPence, sippGrossPence, salaryPence }}
  */
 export function buildPersonYearInput(person, events, salaryOverridePence = null) {
   const p = (v) => Math.round(Number(v) || 0);
   let dividendTotalPence = 0;
   let adjustmentTotalPence = 0;
   let otherEventTotalPence = 0;
+  let sippPaidTotalPence = 0;
   for (const ev of events || []) {
     if (ev.kind === 'dividend') dividendTotalPence += p(ev.amountPence);
     else if (ev.kind === 'salary-adjustment') adjustmentTotalPence += p(ev.amountPence);
     else if (ev.kind === 'other-income') otherEventTotalPence += p(ev.amountPence);
+    else if (ev.kind === 'sipp-contribution') sippPaidTotalPence += p(ev.amountPence);
   }
   otherEventTotalPence = Math.max(0, otherEventTotalPence);
+  sippPaidTotalPence = Math.max(0, sippPaidTotalPence);
+  // Relief at source: the provider tops up basic-rate relief, so £100 paid is
+  // £125 in the pension — the grossed-up figure is the tax-relevant one.
+  const sippGrossPence = Math.round(sippPaidTotalPence * 1.25);
   // Sacrificed pay never reaches the payslip; a negative result means the
   // sacrifice exceeds pay — clamp, it cannot create negative income.
   const salaryPence = Math.max(
@@ -216,13 +231,47 @@ export function buildPersonYearInput(person, events, salaryOverridePence = null)
     dividendTotalPence,
     adjustmentTotalPence,
     otherEventTotalPence,
+    sippPaidTotalPence,
+    sippGrossPence,
     nonDividendPence:
       salaryPence +
       p(person.benefitsInKindPence) +
       p(person.otherIncomePence) +
       otherEventTotalPence,
     dividendPence: Math.max(0, dividendTotalPence),
-    pensionPence: Math.max(0, p(person.pensionAnnualPence)),
+    pensionPence: Math.max(0, p(person.pensionAnnualPence)) + sippGrossPence,
+  };
+}
+
+/**
+ * How much of the pension ANNUAL ALLOWANCE a person's contributions use
+ * (amendment 2026-07-12 (g)). £60,000 for 2025-26/2026-27.
+ *
+ * Documented simplifications (chosen per the "simpler option" rule): no
+ * high-income taper (bites only when threshold income > £200k AND adjusted
+ * income > £260k), no 3-year carry-forward, no MPAA. Employer contributions
+ * and pension paid via salary sacrifice are not tracked — the sacrifice
+ * figure on the timeline can be a car, so it never counts here.
+ *
+ * @param {{ workplacePence?: number, personalPence?: number }} input - integer
+ *   pence: before-tax workplace contributions for the year (payslip actuals +
+ *   timeline projections) and grossed-up personal/SIPP contributions.
+ * @param {object} table - a TAX_YEAR_TABLES entry.
+ * @returns {{ usedPence, workplacePence, personalPence, allowancePence,
+ *             headroomPence, over }}
+ */
+export function computePensionAllowance(input, table) {
+  const workplacePence = Math.max(0, Math.round(input.workplacePence || 0));
+  const personalPence = Math.max(0, Math.round(input.personalPence || 0));
+  const usedPence = workplacePence + personalPence;
+  const allowancePence = table.pensionAnnualAllowancePence;
+  return {
+    usedPence,
+    workplacePence,
+    personalPence,
+    allowancePence,
+    headroomPence: Math.max(0, allowancePence - usedPence),
+    over: usedPence > allowancePence,
   };
 }
 

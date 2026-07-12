@@ -7,22 +7,25 @@ export const EVENT_KIND_LABELS = {
   dividend: 'Dividend draw',
   'salary-adjustment': 'Salary adjustment',
   'other-income': 'Other income',
+  'sipp-contribution': 'SIPP contribution',
 };
 
 const NOTE_PLACEHOLDERS = {
   dividend: 'e.g. Q2 dividend',
   'salary-adjustment': 'e.g. June bonus',
   'other-income': 'e.g. consultancy fee',
+  'sipp-contribution': 'e.g. July top-up',
 };
 
 /**
  * Add / edit form for an income event (spec amendment 2026-07-07 (b)):
  * a dividend draw, a one-off salary adjustment (bonus, unpaid leave — signed),
- * or gross-paid other income such as a consultancy fee (amendment (e)).
+ * gross-paid other income such as a consultancy fee (amendment (e)), or a
+ * SIPP contribution paid from taxed pay (amendment (g)).
  * Money is pounds at the repository edge, as everywhere else.
  *
  * @param {object} props
- * @param {'dividend'|'salary-adjustment'|'other-income'} props.kind
+ * @param {'dividend'|'salary-adjustment'|'other-income'|'sipp-contribution'} props.kind
  * @param {string} props.personName - shown in the form title.
  * @param {object} [props.initial] - existing event (pounds at edge) when editing.
  */
@@ -110,6 +113,13 @@ export default function EventForm({ kind, personName, initial, onSubmit, onCance
           For income paid gross, outside PAYE (a consultancy fee, freelance work). It is
           taxed as general income — not at dividend rates — and the tax on it shows under
           the Self Assessment figure.
+        </p>
+      )}
+      {kind === 'sipp-contribution' && (
+        <p className="muted">
+          Enter the amount you actually paid in. The provider adds 25% basic-rate relief
+          on top, so the grossed-up amount (×1.25) is what counts — toward the £100k
+          childcare line and the pension annual allowance.
         </p>
       )}
       {error && <p className="form__error">{error}</p>}

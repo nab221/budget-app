@@ -12,6 +12,7 @@ import {
   taxYearTable,
   buildPersonYearInput,
   computePersonTax,
+  computePensionAllowance,
 } from '../engine/tax.js';
 import { monthsOfTaxYear, buildMonthlyPay, expectedPayeYtd } from '../engine/salaryTimeline.js';
 
@@ -93,6 +94,8 @@ export async function gatherIncomeData(taxYearLabel, today = isoToday()) {
         id: s.id,
         month: s.month,
         note: s.note,
+        // null for pre-(g) rows — buildMonthlyPay falls back to gross−pension+BIK.
+        taxablePence: s.taxablePence == null ? null : toPence(s.taxablePence), // pounds → pence
         grossPence: toPence(s.grossPence), // pounds → pence
         pensionPence: toPence(s.pensionPence), // pounds → pence
         bikPence: toPence(s.bikPence), // pounds → pence
@@ -119,6 +122,11 @@ export async function gatherIncomeData(taxYearLabel, today = isoToday()) {
     });
     const yearSalaryPence = monthly[monthly.length - 1].cumulativePence;
     const input = buildPersonYearInput(personPence, events, yearSalaryPence);
+    // Annual-allowance use (amendment (g)): workplace = the 12 months' pension
+    // contributions (payslip actuals over projections, like pay); personal =
+    // the annual personal-pension field + grossed-up SIPP events, which is
+    // exactly the input's pensionPence.
+    const workplacePensionYearPence = monthly.reduce((sum, row) => sum + row.pensionPence, 0);
     return {
       id: p.id,
       name: p.name,
@@ -131,6 +139,10 @@ export async function gatherIncomeData(taxYearLabel, today = isoToday()) {
       input,
       summary: computePersonTax(input, table),
       payeCheck: expectedPayeYtd(monthly, table, p.taxCode),
+      pensionAllowance: computePensionAllowance(
+        { workplacePence: workplacePensionYearPence, personalPence: input.pensionPence },
+        table
+      ),
     };
   });
 

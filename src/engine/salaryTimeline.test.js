@@ -180,6 +180,41 @@ describe('buildMonthlyPay', () => {
     expect(input.salaryPence).toBe(6000000);
     expect(input.nonDividendPence).toBe(6000000);
   });
+
+  it('a payslip taxablePence is used directly, beating any legacy fields (amendment (g))', () => {
+    // The wife's real payslip: Taxable Pay £2,636.08 printed directly.
+    const rows = buildMonthlyPay({
+      periods: FLAT_60K,
+      payslips: [
+        { month: '2026-04', taxablePence: 263608, pensionPence: 20000, taxPaidPence: 30000 },
+        // A row carrying BOTH shapes must prefer the direct figure.
+        { month: '2026-05', taxablePence: 550000, grossPence: 999900, bikPence: 11111 },
+      ],
+      taxYear: '2026-27',
+      todayMonth: '2026-07',
+    });
+    expect(rows[0].taxablePence).toBe(263608);
+    expect(rows[1].taxablePence).toBe(550000);
+  });
+
+  it('carries each month’s pension contribution for the allowance tracker', () => {
+    const periods = [
+      {
+        effectiveFrom: '1900-01-01',
+        annualSalaryPence: 6000000,
+        workplacePensionAnnualPence: 600000, // £6,000/yr → £500/month expected
+      },
+    ];
+    const rows = buildMonthlyPay({
+      periods,
+      payslips: [{ month: '2026-04', taxablePence: 500000, pensionPence: 70971 }],
+      taxYear: '2026-27',
+      todayMonth: '2026-07',
+    });
+    expect(rows[0].pensionPence).toBe(70971); // payslip actual
+    expect(rows[1].pensionPence).toBe(50000); // timeline projection
+    expect(rows.reduce((s, r) => s + r.pensionPence, 0)).toBe(70971 + 11 * 50000);
+  });
 });
 
 describe('expectedPayeYtd', () => {

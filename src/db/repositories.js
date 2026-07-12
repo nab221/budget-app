@@ -112,7 +112,7 @@ const BILL_FREQUENCIES = [
   'annual',
 ];
 const TRANSACTION_KINDS = ['income', 'spend'];
-const INCOME_EVENT_KINDS = ['dividend', 'salary-adjustment', 'other-income'];
+const INCOME_EVENT_KINDS = ['dividend', 'salary-adjustment', 'other-income', 'sipp-contribution'];
 const TRANSACTION_SOURCES = ['manual', 'import', 'bill'];
 const DEBT_TYPES = ['credit-card', 'loan'];
 
@@ -164,11 +164,11 @@ function validateIncomeEvent(data) {
   if (data.date !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(String(data.date))) {
     throw new Error(`incomeEvents.date must be an ISO yyyy-MM-dd string; got "${data.date}"`);
   }
-  // Only a salary adjustment is signed (unpaid leave); a dividend draw or
-  // other income received is a positive amount — enforced here too so direct
-  // repo writes can't bypass the form's check.
+  // Only a salary adjustment is signed (unpaid leave); a dividend draw,
+  // other income received, or a SIPP payment is a positive amount — enforced
+  // here too so direct repo writes can't bypass the form's check.
   if (
-    (data.kind === 'dividend' || data.kind === 'other-income') &&
+    ['dividend', 'other-income', 'sipp-contribution'].includes(data.kind) &&
     data.amountPence !== undefined &&
     Number(data.amountPence) < 0
   ) {
@@ -534,7 +534,10 @@ export const salaryPeriodsRepo = {
 export const payslipsRepo = {
   ...createBaseRepository(
     db.payslips,
-    ['grossPence', 'pensionPence', 'bikPence', 'taxPaidPence'],
+    // `taxablePence` (amendment (g)) is deliberately NOT defaulted: a pre-(g)
+    // row keeps computing gross − pension + BIK, and only rows that actually
+    // carry the payslip's Taxable Pay figure override it.
+    ['taxablePence', 'grossPence', 'pensionPence', 'bikPence', 'taxPaidPence'],
     { grossPence: 0, pensionPence: 0, bikPence: 0, taxPaidPence: 0, note: '' },
     validatePayslip
   ),

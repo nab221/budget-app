@@ -37,6 +37,45 @@ happened; it is a live picture of **how much is going out per week / month / yea
 
 ---
 
+## ⚠ Amendment 2026-07-12 (g) — Taxable-pay-first payslips, SIPP contributions, pension annual-allowance tracker
+
+Owner feedback on (f): the wife's payslip prints no per-period gross — but it DOES
+print **Taxable Pay** (and Pensionable Pay / Pension Conts), so assembling gross −
+pension + BIK by hand was backwards. The owner also asked for pension contributions to
+be tracked against the **annual allowance**, and for **SIPP contributions** to be
+recordable. Where this conflicts with (c)/(d)/(f), this wins:
+
+- **Payslip entry is taxable-pay-first**: the form asks for the month's **Taxable Pay
+  exactly as printed** (plus pension contributions, income tax deducted, note). No more
+  gross or BIK entry — a payrolled BIK is already inside the printed figure, and
+  non-taxable pay is already outside it. `payslips` gains **`taxablePence`**
+  (non-indexed, no default — still schema v5, no version bump). Rows without it (pre-(g))
+  still compute `max(0, gross − pension) + BIK`; editing one reconstructs the figure to
+  prefill the field and writes `taxablePence` from then on. Projections are unchanged
+  (timeline: salary − sacrifice − workplace pension + BIK).
+- **Payslip pension contributions now feed a tracker**, not the taxable computation.
+  Each month row carries `pensionPence` (payslip actual, else the timeline's expected
+  workplace pension, pro-rated like pay).
+- **SIPP contributions**: `incomeEvents.kind` gains **`sipp-contribution`** — a dated,
+  positive amount, added via an "Add SIPP contribution" action on the person card.
+  The amount entered is what was actually **paid**; relief at source means the
+  provider adds 25%, so the engine counts the grossed-up figure (×1.25) toward
+  **adjusted net income** (the £100k line) and the annual allowance. The person-level
+  annual personal-pension field stays (entered gross, per its hint) — steady monthly
+  personal pensions belong there; one-off SIPP top-ups are events.
+- **Pension annual-allowance tracker** (owner-requested research, 2026-07-12): the
+  allowance is **£60,000** for 2025-26 and 2026-27 (`pensionAnnualAllowancePence` in
+  the rate tables). A third meter on the person card shows contributions used =
+  year's workplace contributions (payslip actuals over projections) + annual personal
+  pension + grossed-up SIPP events, with headroom and an over-allowance warning.
+  **Documented simplifications** (simpler-option rule): no high-income taper (bites
+  only when threshold income > £200k AND adjusted income > £260k — far above this
+  household), no 3-year carry-forward (the over-warning mentions it), no MPAA, and
+  employer / salary-sacrifice contributions are NOT counted (the sacrifice figure can
+  be a car; the card says so).
+
+---
+
 ## ⚠ Amendment 2026-07-12 (f) — PAYE tax codes + payslip wording
 
 The wife's PAYE tax code is not the standard 1257L, so the PAYE check flagged her
