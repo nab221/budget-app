@@ -163,6 +163,16 @@ function validateIncomeEvent(data) {
   if (data.date !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(String(data.date))) {
     throw new Error(`incomeEvents.date must be an ISO yyyy-MM-dd string; got "${data.date}"`);
   }
+  // Only a salary adjustment is signed (unpaid leave); a dividend draw or
+  // other income received is a positive amount — enforced here too so direct
+  // repo writes can't bypass the form's check.
+  if (
+    (data.kind === 'dividend' || data.kind === 'other-income') &&
+    data.amountPence !== undefined &&
+    Number(data.amountPence) < 0
+  ) {
+    throw new Error(`incomeEvents.amountPence must be positive for kind "${data.kind}"`);
+  }
 }
 
 function validateSalaryPeriod(data) {

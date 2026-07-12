@@ -65,6 +65,18 @@ describe('incomeEventsRepo', () => {
     await expect(
       incomeEventsRepo.add({ personId: 1, date: '2026-07-01', kind: 'other-income', amountPence: 1 })
     ).resolves.toBeDefined();
+  });
+
+  it('rejects negative amounts for the unsigned kinds', async () => {
+    for (const kind of ['dividend', 'other-income']) {
+      await expect(
+        incomeEventsRepo.add({ personId: 1, date: '2026-07-01', kind, amountPence: -1 })
+      ).rejects.toThrow(/must be positive/);
+    }
+    // A salary adjustment stays signed (unpaid leave).
+    await expect(
+      incomeEventsRepo.add({ personId: 1, date: '2026-07-01', kind: 'salary-adjustment', amountPence: -1 })
+    ).resolves.toBeDefined();
     await expect(
       incomeEventsRepo.add({ personId: 1, date: '01/07/2026', kind: 'dividend', amountPence: 1 })
     ).rejects.toThrow(/ISO/);
