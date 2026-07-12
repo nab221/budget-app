@@ -1,6 +1,8 @@
+import { useEffect } from 'react';
+
 /**
  * Minimal modal confirm dialog. No portal, no dependency — a fixed overlay
- * rendered only when `open` is true.
+ * rendered only when `open` is true. Escape cancels, matching Modal.
  */
 export default function ConfirmDialog({
   open,
@@ -12,6 +14,15 @@ export default function ConfirmDialog({
   onConfirm,
   onCancel,
 }) {
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') onCancel();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onCancel]);
+
   if (!open) return null;
   return (
     <div className="dialog__overlay" role="dialog" aria-modal="true" aria-label={title}>

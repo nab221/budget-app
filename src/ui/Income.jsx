@@ -230,7 +230,11 @@ export default function Income() {
       {payslipDialog && (
         <Modal
           title={`${payslipDialog.payslip ? 'Edit' : 'Add'} payslip — ${payslipDialog.personName}, ${formatPayMonth(payslipDialog.month)}`}
-          onClose={() => setPayslipDialog(null)}
+          // While the delete confirm is stacked on top, Escape belongs to it —
+          // it cancels the confirm and the modal stays put underneath.
+          onClose={() => {
+            if (!confirmDeletePayslip) setPayslipDialog(null);
+          }}
         >
           <PayslipForm
             key={`${payslipDialog.personId}-${payslipDialog.month}`}
