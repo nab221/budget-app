@@ -125,8 +125,11 @@ export function taxYearTable(label) {
  * @param {Array<{ kind: 'dividend'|'salary-adjustment', amountPence: number }>} events
  * @param {number|null} [salaryOverridePence] - the year's taxable salary as
  *   already assembled by the monthly timeline (salaryTimeline.js). When given,
- *   it replaces the annual − sacrifice figure (sacrifice and workplace pension
- *   are already inside the monthly numbers); legacy adjustments still add on.
+ *   it replaces the annual − sacrifice figure (sacrifice, workplace pension,
+ *   and payrolled BIK are already inside the monthly numbers); legacy
+ *   adjustments still add on. `person.benefitsInKindPence` is therefore only
+ *   for benefits NOT payrolled (assessed via P11D/tax code) — a payrolled
+ *   benefit entered both there and on the timeline would count twice.
  * @returns {{ nonDividendPence, dividendPence, pensionPence,
  *             dividendTotalPence, adjustmentTotalPence, salaryPence }}
  */

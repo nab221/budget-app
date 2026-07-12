@@ -25,6 +25,7 @@ export default function SalaryPeriodForm({ personName, initial, onSubmit, onCanc
     annualSalaryPence: initial?.annualSalaryPence || '',
     salarySacrificePence: initial?.salarySacrificePence || '',
     workplacePensionAnnualPence: initial?.workplacePensionAnnualPence || '',
+    bikAnnualPence: initial?.bikAnnualPence || '',
     note: initial?.note || '',
   }));
   const [error, setError] = useState(null);
@@ -42,6 +43,7 @@ export default function SalaryPeriodForm({ personName, initial, onSubmit, onCanc
       annualSalaryPence: numOrZero(form.annualSalaryPence),
       salarySacrificePence: numOrZero(form.salarySacrificePence),
       workplacePensionAnnualPence: numOrZero(form.workplacePensionAnnualPence),
+      bikAnnualPence: numOrZero(form.bikAnnualPence),
     };
     if (Object.values(money).some((v) => v < 0)) {
       setError('Annual figures can’t be negative.');
@@ -124,6 +126,18 @@ export default function SalaryPeriodForm({ personName, initial, onSubmit, onCanc
           <p className="field__hint">
             Your own before-tax pension deduction (e.g. NHS pension) expected per year at
             this rate — keeps projected months in line with real payslips. £0 if unsure.
+          </p>
+        </div>
+        <div className="field">
+          <label>Payrolled benefit (BIK) / year</label>
+          <CurrencyInput
+            value={form.bikAnnualPence}
+            onChange={(v) => set({ bikAnnualPence: v })}
+          />
+          <p className="field__hint">
+            A benefit in kind taxed through the payslip — e.g. the car a salary sacrifice
+            buys. PAYE adds it to taxable pay each month. Benefits taxed via your tax code
+            or P11D go on the person’s details instead, not here. £0 if none.
           </p>
         </div>
         <div className="field field--grow">

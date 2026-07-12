@@ -66,6 +66,32 @@ describe('projectedMonthPence', () => {
     expect(projectedMonthPence(periods, '2026-05')).toBe(0);
   });
 
+  it('adds a payrolled BIK to the rate', () => {
+    const periods = [
+      {
+        effectiveFrom: '1900-01-01',
+        annualSalaryPence: 6000000,
+        salarySacrificePence: 600000, // £6k car scheme…
+        bikAnnualPence: 180000, // …creating an £1,800/yr payrolled benefit
+      },
+    ];
+    // (60000 − 6000 + 1800) / 12 = £4,650.
+    expect(projectedMonthPence(periods, '2026-07')).toBe(465000);
+  });
+
+  it('taxes the BIK even when the cash part clamps to zero', () => {
+    const periods = [
+      {
+        effectiveFrom: '1900-01-01',
+        annualSalaryPence: 100000,
+        salarySacrificePence: 900000,
+        bikAnnualPence: 120000,
+      },
+    ];
+    // Cash clamps to £0; the £1,200/yr benefit is still taxable.
+    expect(projectedMonthPence(periods, '2026-07')).toBe(10000);
+  });
+
   it('clamps a sacrifice larger than pay to zero, not negative', () => {
     const periods = [
       { effectiveFrom: '1900-01-01', annualSalaryPence: 100000, salarySacrificePence: 900000 },
@@ -94,6 +120,26 @@ describe('buildMonthlyPay', () => {
     expect(rows[1]).toMatchObject({ month: '2026-05', source: 'projected', taxablePence: 500000 });
     expect(rows[8]).toMatchObject({ month: '2026-12', source: 'planned', taxablePence: 900000 });
     expect(rows[11].source).toBe('projected');
+  });
+
+  it('adds a payslip BIK to the month: taxable = gross − pension + BIK', () => {
+    // The owner's real payslip: gross £5,607.69, pension £600.02, BIK £156.75
+    // → taxable £5,164.42 (not the £5,007.67 gross − pension gives alone).
+    const rows = buildMonthlyPay({
+      periods: FLAT_60K,
+      payslips: [
+        {
+          month: '2026-04',
+          grossPence: 560769,
+          pensionPence: 60002,
+          bikPence: 15675,
+          taxPaidPence: 101806,
+        },
+      ],
+      taxYear: '2026-27',
+      todayMonth: '2026-07',
+    });
+    expect(rows[0].taxablePence).toBe(516442);
   });
 
   it('accumulates the running total and sums to the year salary', () => {
