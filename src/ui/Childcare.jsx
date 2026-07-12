@@ -3,6 +3,7 @@ import { useLiveData } from '../db/useLiveData.js';
 import { childrenRepo } from '../db/repositories.js';
 import EmptyState from './components/EmptyState.jsx';
 import ConfirmDialog from './components/ConfirmDialog.jsx';
+import Modal from './components/Modal.jsx';
 import ChildCard from './childcare/ChildCard.jsx';
 import ChildForm from './childcare/ChildForm.jsx';
 
@@ -46,17 +47,21 @@ export default function Childcare() {
             Tax-Free Childcare top-up calculator. The required deposit appears in your pay period
             automatically.
           </p>
-          {!adding && !editing && (
-            <button type="button" className="btn btn--primary" onClick={() => setAdding(true)}>
-              Add child
-            </button>
-          )}
+          <button type="button" className="btn btn--primary" onClick={() => setAdding(true)}>
+            Add child
+          </button>
         </div>
       </header>
 
-      {adding && <ChildForm onSubmit={add} onCancel={() => setAdding(false)} />}
+      {adding && (
+        <Modal title="Add child" onClose={() => setAdding(false)}>
+          <ChildForm onSubmit={add} onCancel={() => setAdding(false)} />
+        </Modal>
+      )}
       {editing && (
-        <ChildForm initial={editing} onSubmit={save} onCancel={() => setEditing(null)} />
+        <Modal title={`Edit child — ${editing.name}`} onClose={() => setEditing(null)}>
+          <ChildForm initial={editing} onSubmit={save} onCancel={() => setEditing(null)} />
+        </Modal>
       )}
 
       {loading ? (
