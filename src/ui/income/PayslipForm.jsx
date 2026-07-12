@@ -1,17 +1,16 @@
 import { useState } from 'react';
 import CurrencyInput from '../components/CurrencyInput.jsx';
-import { formatPayMonth } from '../components/dates.js';
 
 /**
  * Add / edit the payslip for one pay month (income redesign, amendment (c)).
  * Full-detail entry per the owner's decision: gross pay, before-tax pension,
  * the payrolled benefit in kind (amendment (d)), and the income tax actually
  * deducted — the tax figure powers the PAYE sanity check on the card. Money
- * is pounds at the repository edge.
+ * is pounds at the repository edge. Rendered inside a Modal, which carries
+ * the title (person + pay month).
  *
  * @param {object} props
  * @param {string} props.month - 'yyyy-MM' pay month being entered.
- * @param {string} props.personName - shown in the form title.
  * @param {object} [props.initial] - existing payslip (pounds at edge) when editing.
  * @param {number} [props.projectedPounds] - the month's projected taxable pay,
  *   pre-filling gross on a fresh entry so a normal month is confirm-and-save.
@@ -19,7 +18,6 @@ import { formatPayMonth } from '../components/dates.js';
  */
 export default function PayslipForm({
   month,
-  personName,
   initial,
   projectedPounds,
   onSubmit,
@@ -67,10 +65,7 @@ export default function PayslipForm({
   };
 
   return (
-    <form className="form card" onSubmit={submit}>
-      <h3 className="form__title">
-        {initial ? 'Edit' : 'Add'} payslip — {personName}, {formatPayMonth(month)}
-      </h3>
+    <form className="form" onSubmit={submit}>
       <div className="form-row">
         <div className="field">
           <label>Gross pay this month</label>
