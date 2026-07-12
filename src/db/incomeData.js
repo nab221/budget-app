@@ -69,6 +69,7 @@ export async function gatherIncomeData(taxYearLabel, today = isoToday()) {
         annualSalaryPence: toPence(sp.annualSalaryPence), // pounds → pence
         salarySacrificePence: toPence(sp.salarySacrificePence), // pounds → pence
         workplacePensionAnnualPence: toPence(sp.workplacePensionAnnualPence), // pounds → pence
+        bikAnnualPence: toPence(sp.bikAnnualPence), // pounds → pence
       }));
     // Legacy fallback: no periods → the person's annual fields, always in force.
     const usingLegacySalary = periods.length === 0;
@@ -81,6 +82,7 @@ export async function gatherIncomeData(taxYearLabel, today = isoToday()) {
             annualSalaryPence: personPence.annualSalaryPence,
             salarySacrificePence: personPence.salarySacrificePence,
             workplacePensionAnnualPence: 0,
+            bikAnnualPence: 0,
           },
         ]
       : periods;
@@ -93,6 +95,7 @@ export async function gatherIncomeData(taxYearLabel, today = isoToday()) {
         note: s.note,
         grossPence: toPence(s.grossPence), // pounds → pence
         pensionPence: toPence(s.pensionPence), // pounds → pence
+        bikPence: toPence(s.bikPence), // pounds → pence
         taxPaidPence: toPence(s.taxPaidPence), // pounds → pence
       }));
 

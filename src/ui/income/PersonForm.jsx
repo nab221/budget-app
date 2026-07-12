@@ -104,7 +104,8 @@ export default function PersonForm({ initial, onSubmit, onCancel }) {
             />
             <p className="field__hint">
               Car scheme, cycle-to-work, pension via sacrifice — taken out of pay before tax.
-              A sacrificed car usually creates a benefit in kind: put that in the P11D field.
+              A sacrificed car usually creates a benefit in kind: if it shows on the payslip
+              as a BIK line, put it on the salary timeline; otherwise in the P11D field.
             </p>
           </div>
         )}
@@ -130,7 +131,11 @@ export default function PersonForm({ initial, onSubmit, onCancel }) {
             value={form.benefitsInKindPence}
             onChange={(v) => set({ benefitsInKindPence: v })}
           />
-          <p className="field__hint">Company car, private medical… from the P11D.</p>
+          <p className="field__hint">
+            Company car, private medical… from the P11D — only benefits NOT on the payslip.
+            A BIK line that appears on the payslip each month is payrolled: enter it on the
+            salary timeline and payslips instead, or it counts twice.
+          </p>
         </div>
         <div className="field">
           <label>Other income / year</label>

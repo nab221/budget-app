@@ -36,7 +36,8 @@ function ThresholdMeter({ label, valuePence, limitPence, headroomPence, over, ov
   );
 }
 
-/** One salary timeline entry: "From <date>: £X/yr" with what's taken off it. */
+/** One salary timeline entry: "From <date>: £X/yr" with what's taken off
+ * (sacrifice, pension) or added to (payrolled BIK) taxable pay. */
 function PeriodRow({ period, onEdit, onDelete }) {
   const deductions = [
     period.salarySacrificePence > 0 && (
@@ -47,6 +48,11 @@ function PeriodRow({ period, onEdit, onDelete }) {
     period.workplacePensionAnnualPence > 0 && (
       <span key="pen">
         − <Money pence={period.workplacePensionAnnualPence} /> pension
+      </span>
+    ),
+    period.bikAnnualPence > 0 && (
+      <span key="bik">
+        + <Money pence={period.bikAnnualPence} /> BIK
       </span>
     ),
   ].filter(Boolean);

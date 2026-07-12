@@ -5,8 +5,9 @@ import { formatPayMonth } from '../components/dates.js';
 /**
  * Add / edit the payslip for one pay month (income redesign, amendment (c)).
  * Full-detail entry per the owner's decision: gross pay, before-tax pension,
- * and the income tax actually deducted — the tax figure powers the PAYE
- * sanity check on the card. Money is pounds at the repository edge.
+ * the payrolled benefit in kind (amendment (d)), and the income tax actually
+ * deducted — the tax figure powers the PAYE sanity check on the card. Money
+ * is pounds at the repository edge.
  *
  * @param {object} props
  * @param {string} props.month - 'yyyy-MM' pay month being entered.
@@ -28,6 +29,7 @@ export default function PayslipForm({
   const [form, setForm] = useState(() => ({
     grossPence: initial ? initial.grossPence : (projectedPounds ?? ''),
     pensionPence: initial?.pensionPence || '',
+    bikPence: initial?.bikPence || '',
     taxPaidPence: initial?.taxPaidPence || '',
     note: initial?.note || '',
   }));
@@ -44,9 +46,10 @@ export default function PayslipForm({
     }
     const optional = (v) => (v === '' || v == null ? 0 : Number(v));
     const pension = optional(form.pensionPence);
+    const bik = optional(form.bikPence);
     const taxPaid = optional(form.taxPaidPence);
-    if (pension < 0 || taxPaid < 0) {
-      setError('Pension and tax figures can’t be negative.');
+    if (pension < 0 || bik < 0 || taxPaid < 0) {
+      setError('Pension, BIK, and tax figures can’t be negative.');
       return;
     }
     try {
@@ -54,6 +57,7 @@ export default function PayslipForm({
         month,
         grossPence: gross, // pounds edge
         pensionPence: pension,
+        bikPence: bik,
         taxPaidPence: taxPaid,
         note: form.note.trim(),
       });
@@ -81,6 +85,14 @@ export default function PayslipForm({
           <CurrencyInput value={form.pensionPence} onChange={(v) => set({ pensionPence: v })} />
           <p className="field__hint">
             The workplace pension line deducted before tax (e.g. NHS pension). £0 if none.
+          </p>
+        </div>
+        <div className="field">
+          <label>Payrolled benefit (BIK)</label>
+          <CurrencyInput value={form.bikPence} onChange={(v) => set({ bikPence: v })} />
+          <p className="field__hint">
+            The benefit-in-kind line PAYE adds to taxable pay (e.g. a salary-sacrifice car).
+            Taxable pay on the payslip = gross − pension + this. £0 if none.
           </p>
         </div>
         <div className="field">

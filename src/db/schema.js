@@ -40,6 +40,11 @@ import Dexie from 'dexie';
  *      old per-person annual fields stop being written but stay in place (and
  *      `incomeData.js` still falls back to them for a person with no periods,
  *      which covers pre-v5 backup restores too).
+ *
+ * Still v5 (payrolled BIK, spec amendment 2026-07-12 (d)): non-indexed fields
+ * `bikAnnualPence` on `salaryPeriods` and `bikPence` on `payslips`. Dexie only
+ * declares indexes, so adding un-indexed fields needs no version bump; rows
+ * without them read back as £0 through the repositories.
  */
 
 export const SCHEMA_VERSION = 5;

@@ -485,11 +485,12 @@ export const peopleRepo = {
 export const salaryPeriodsRepo = {
   ...createBaseRepository(
     db.salaryPeriods,
-    ['annualSalaryPence', 'salarySacrificePence', 'workplacePensionAnnualPence'],
+    ['annualSalaryPence', 'salarySacrificePence', 'workplacePensionAnnualPence', 'bikAnnualPence'],
     {
       annualSalaryPence: 0,
       salarySacrificePence: 0,
       workplacePensionAnnualPence: 0,
+      bikAnnualPence: 0,
       note: '',
     },
     validateSalaryPeriod
@@ -510,8 +511,8 @@ export const salaryPeriodsRepo = {
 export const payslipsRepo = {
   ...createBaseRepository(
     db.payslips,
-    ['grossPence', 'pensionPence', 'taxPaidPence'],
-    { grossPence: 0, pensionPence: 0, taxPaidPence: 0, note: '' },
+    ['grossPence', 'pensionPence', 'bikPence', 'taxPaidPence'],
+    { grossPence: 0, pensionPence: 0, bikPence: 0, taxPaidPence: 0, note: '' },
     validatePayslip
   ),
 

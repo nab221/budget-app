@@ -7,19 +7,24 @@
  *
  * The model:
  * - A person's pay is a TIMELINE of salary periods: { effectiveFrom,
- *   annualSalaryPence, salarySacrificePence, workplacePensionAnnualPence }.
+ *   annualSalaryPence, salarySacrificePence, workplacePensionAnnualPence,
+ *   bikAnnualPence }.
  *   The period in force on a date is the one with the latest effectiveFrom on
  *   or before it. A raise, an LTFT step-down, or a new contract is just a new
  *   dated period; the month a change lands in is pro-rated by day.
  * - A month's projected taxable pay is (salary − sacrifice − workplace
- *   pension) / 12 for the period(s) in force. Workplace pension here is the
- *   before-tax (net-pay) deduction that never reaches taxable pay — distinct
- *   from the person's taxed-pay personal pension, which only reduces adjusted
- *   net income (tax.js).
+ *   pension + payrolled BIK) / 12 for the period(s) in force. Workplace
+ *   pension here is the before-tax (net-pay) deduction that never reaches
+ *   taxable pay — distinct from the person's taxed-pay personal pension,
+ *   which only reduces adjusted net income (tax.js). Payrolled BIK (amendment
+ *   (d)) is a benefit taxed through the payslip — e.g. the car a salary
+ *   sacrifice buys: it is not cash, but PAYE adds it to taxable pay every
+ *   month. BIK assessed via P11D/tax code instead stays an annual figure on
+ *   the person (tax.js) and must NOT be entered here too.
  * - A PAYSLIP for a month overrides the projection with the actual figures:
- *   taxable = gross − pension. Payslips for past/current months are 'actual';
- *   a payslip on a future month is 'planned' (a pencilled-in bonus or the
- *   like); everything else is 'projected'.
+ *   taxable = gross − pension + BIK. Payslips for past/current months are
+ *   'actual'; a payslip on a future month is 'planned' (a pencilled-in bonus
+ *   or the like); everything else is 'projected'.
  * - Documented simplification: a payslip belongs to the tax year of its
  *   calendar month (April payslip → new tax year), and pay months are the 12
  *   calendar months Apr–Mar.
@@ -47,15 +52,16 @@ function daysInMonth(yyyyMM) {
   return new Date(Date.UTC(y, m, 0)).getUTCDate();
 }
 
-/** A period's taxable pay per month, clamped ≥ 0 (a sacrifice + pension can't
- * create negative pay). */
+/** A period's taxable pay per month. The cash part is clamped ≥ 0 (a
+ * sacrifice + pension can't create negative pay); payrolled BIK adds on top
+ * regardless — it is taxed even in a nil-cash month. */
 function monthlyRateOf(period) {
   const p = (v) => Math.round(Number(v) || 0);
-  const annual =
+  const cashAnnual =
     p(period.annualSalaryPence) -
     p(period.salarySacrificePence) -
     p(period.workplacePensionAnnualPence);
-  return Math.max(0, Math.round(annual / 12));
+  return Math.round((Math.max(0, cashAnnual) + p(period.bikAnnualPence)) / 12);
 }
 
 /** Periods sorted oldest-first by effectiveFrom (stable for equal dates). */
@@ -104,8 +110,8 @@ export function projectedMonthPence(periods, yyyyMM) {
  * @param {object} args
  * @param {Array<object>} args.periods - pence-domain salary periods.
  * @param {Array<object>} args.payslips - pence-domain payslips
- *   ({ month, grossPence, pensionPence, taxPaidPence, ... }) — any month, only
- *   this tax year's are used.
+ *   ({ month, grossPence, pensionPence, bikPence, taxPaidPence, ... }) — any
+ *   month, only this tax year's are used.
  * @param {string} args.taxYear - e.g. "2026-27".
  * @param {string} args.todayMonth - 'yyyy-MM' of today (clock stays with caller).
  * @returns {Array<{ month: string, source: 'actual'|'planned'|'projected',
@@ -123,7 +129,7 @@ export function buildMonthlyPay({ periods, payslips, taxYear, todayMonth }) {
     if (slip) {
       source = month <= todayMonth ? 'actual' : 'planned';
       const p = (v) => Math.round(Number(v) || 0);
-      taxablePence = Math.max(0, p(slip.grossPence) - p(slip.pensionPence));
+      taxablePence = Math.max(0, p(slip.grossPence) - p(slip.pensionPence)) + p(slip.bikPence);
     } else {
       taxablePence = projectedMonthPence(periods, month);
     }

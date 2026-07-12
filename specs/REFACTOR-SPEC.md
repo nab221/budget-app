@@ -37,6 +37,28 @@ happened; it is a live picture of **how much is going out per week / month / yea
 
 ---
 
+## ⚠ Amendment 2026-07-12 (d) — Payrolled benefits in kind on the payslip
+
+The owner's payslip carries a **payrolled BIK** line (the car bought via salary
+sacrifice): PAYE adds it to taxable pay every month, so taxable pay on the payslip is
+**gross − pension + BIK** — amendment (c)'s `gross − pension` under-read it (real
+example: £5,607.69 − £600.02 + £156.75 = £5,164.42) and the PAYE check flagged the tax
+deducted on the benefit as an overpayment. Where this conflicts with (c), this wins:
+
+- `payslips` gains **`bikPence`** and `salaryPeriods` gains **`bikAnnualPence`** (both
+  non-indexed, £0 default — still schema v5, no version bump; old rows read as £0). A
+  month's taxable pay is `max(0, gross − pension) + BIK`; projections use
+  `(max(0, salary − sacrifice − workplace pension) + BIK) / 12` — the benefit is taxed
+  even in a nil-cash month.
+- The person-level annual **`benefitsInKindPence` (P11D) field stays**, but is now only
+  for benefits **not** payrolled (assessed via P11D/tax code). A payrolled benefit
+  entered both there and on the timeline would count twice — the UI hints say which
+  field to use: on the payslip → timeline/payslips; P11D-only → person details.
+- The PAYE check needs no change: it reads the month's taxable pay, which now includes
+  the payrolled BIK.
+
+---
+
 ## ⚠ Amendment 2026-07-12 (c) — Income redesign: salary timeline + monthly payslips
 
 The owner's pay stopped fitting a single annual figure (mid-year raise, reduction to

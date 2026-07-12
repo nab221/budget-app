@@ -163,6 +163,35 @@ describe('gatherIncomeData', () => {
     expect(person.payeCheck).toBeNull(); // no actual payslips yet
   });
 
+  it('payrolled BIK flows from periods and payslips into taxable pay', async () => {
+    const p = await peopleRepo.add({ name: 'Anderson' });
+    // £60k salary sacrificing £7,200 for a car with a £1,881/yr payrolled BIK
+    // → projected months (60000 − 7200 + 1881) / 12 = £4,556.75.
+    await salaryPeriodsRepo.add({
+      personId: p,
+      effectiveFrom: '1900-01-01',
+      annualSalaryPence: 60000,
+      salarySacrificePence: 7200,
+      bikAnnualPence: 1881,
+    });
+    // April actual — the owner's real payslip: taxable = gross − pension + BIK.
+    await payslipsRepo.upsert(p, {
+      month: '2026-04',
+      grossPence: 5607.69,
+      pensionPence: 600.02,
+      bikPence: 156.75,
+      taxPaidPence: 1018.06,
+    });
+
+    const data = await gatherIncomeData('2026-27', '2026-04-30');
+    const person = data.people[0];
+    expect(person.monthly[0].taxablePence).toBe(516442); // £5,164.42
+    expect(person.monthly[1].taxablePence).toBe(455675); // projected May
+    // The PAYE check's YTD taxable includes the BIK, so the tax deducted on
+    // it no longer reads as an overpayment.
+    expect(person.payeCheck.taxableYtdPence).toBe(516442);
+  });
+
   it('payslipsRepo.upsert keeps one payslip per person-month', async () => {
     const p = await peopleRepo.add({ name: 'Anderson' });
     await payslipsRepo.upsert(p, { month: '2026-04', grossPence: 5000 });
