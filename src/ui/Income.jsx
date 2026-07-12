@@ -289,6 +289,14 @@ export default function Income() {
                   event: null,
                 })
               }
+              onAddSippContribution={() =>
+                setEventDialog({
+                  personId: entry.id,
+                  personName: entry.name,
+                  kind: 'sipp-contribution',
+                  event: null,
+                })
+              }
               onAddPeriod={() =>
                 setPeriodDialog({ personId: entry.id, personName: entry.name, period: null })
               }

@@ -41,6 +41,16 @@ describe('peopleRepo', () => {
     expect(raw.otherIncomePence).toBe(0);
   });
 
+  it('stores a normalisable tax code and rejects nonsense (amendment (f))', async () => {
+    const id = await peopleRepo.add({ name: 'Wife', taxCode: 'K475' });
+    expect((await db.people.get(id)).taxCode).toBe('K475');
+    // Blank default for old rows / codes not entered.
+    const plain = await peopleRepo.add({ name: 'A' });
+    expect((await db.people.get(plain)).taxCode).toBe('');
+    await expect(peopleRepo.add({ name: 'B', taxCode: 'HELLO' })).rejects.toThrow(/taxCode/);
+    await expect(peopleRepo.update(id, { taxCode: '99' })).rejects.toThrow(/taxCode/);
+  });
+
   it('deleting a person cascades to their income events only', async () => {
     const a = await peopleRepo.add({ name: 'A' });
     const b = await peopleRepo.add({ name: 'B' });
@@ -225,6 +235,73 @@ describe('gatherIncomeData', () => {
     // The PAYE check's YTD taxable includes the BIK, so the tax deducted on
     // it no longer reads as an overpayment.
     expect(person.payeCheck.taxableYtdPence).toBe(516442);
+  });
+
+  it("the person's tax code drives the PAYE check (amendment (f))", async () => {
+    const p = await peopleRepo.add({ name: 'Wife', taxCode: '1383M' });
+    await salaryPeriodsRepo.add({ personId: p, effectiveFrom: '1900-01-01', annualSalaryPence: 60000 });
+    await payslipsRepo.upsert(p, { month: '2026-04', grossPence: 4000, taxPaidPence: 570 });
+
+    const data = await gatherIncomeData('2026-27', '2026-04-30');
+    const check = data.people[0].payeCheck;
+    expect(check.taxCode).toBe('1383M');
+    // 1 month: allowance £13,830/12 = £1,152.50; taxable £2,847.50 at 20% = £569.50
+    // (the standard 1257L allowance would have expected £590.50).
+    expect(check.expectedPence).toBe(56950);
+  });
+
+  it('a taxable-pay-first payslip flows through directly (amendment (g))', async () => {
+    const p = await peopleRepo.add({ name: 'Wife' });
+    await salaryPeriodsRepo.add({ personId: p, effectiveFrom: '1900-01-01', annualSalaryPence: 30000 });
+    // The wife's real June payslip: Taxable Pay £2,636.08 printed directly.
+    await payslipsRepo.upsert(p, {
+      month: '2026-04',
+      taxablePence: 2636.08,
+      pensionPence: 236.57,
+      taxPaidPence: 516.53,
+    });
+
+    const data = await gatherIncomeData('2026-27', '2026-04-30');
+    const person = data.people[0];
+    expect(person.monthly[0].taxablePence).toBe(263608);
+    expect(person.monthly[0].source).toBe('actual');
+    expect(person.payeCheck.taxableYtdPence).toBe(263608);
+  });
+
+  it('SIPP contributions reduce adjusted net income and use the annual allowance', async () => {
+    const p = await peopleRepo.add({ name: 'Anderson', annualSalaryPence: 60000 });
+    await incomeEventsRepo.add({
+      personId: p,
+      date: '2026-06-15',
+      kind: 'sipp-contribution',
+      amountPence: 800, // £800 paid → £1,000 with relief at source
+    });
+
+    const data = await gatherIncomeData('2026-27');
+    const person = data.people[0];
+    expect(person.input.sippGrossPence).toBe(100000);
+    // ANI: £60,000 − £1,000 grossed-up SIPP.
+    expect(person.summary.adjustedNetIncomePence).toBe(5900000);
+    expect(person.pensionAllowance.personalPence).toBe(100000);
+    expect(person.pensionAllowance.usedPence).toBe(100000);
+    expect(person.pensionAllowance.over).toBe(false);
+  });
+
+  it('the allowance tracker sums payslip pension actuals with timeline projections', async () => {
+    const p = await peopleRepo.add({ name: 'Anderson' });
+    await salaryPeriodsRepo.add({
+      personId: p,
+      effectiveFrom: '1900-01-01',
+      annualSalaryPence: 60000,
+      workplacePensionAnnualPence: 6000, // £500/month expected
+    });
+    await payslipsRepo.upsert(p, { month: '2026-04', taxablePence: 4500, pensionPence: 709.71 });
+
+    const data = await gatherIncomeData('2026-27', '2026-04-30');
+    const person = data.people[0];
+    // April actual £709.71 + 11 projected months at £500.
+    expect(person.pensionAllowance.workplacePence).toBe(70971 + 11 * 50000);
+    expect(person.pensionAllowance.headroomPence).toBe(6000000 - (70971 + 11 * 50000));
   });
 
   it('payslipsRepo.upsert keeps one payslip per person-month', async () => {

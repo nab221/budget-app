@@ -180,6 +180,41 @@ describe('buildMonthlyPay', () => {
     expect(input.salaryPence).toBe(6000000);
     expect(input.nonDividendPence).toBe(6000000);
   });
+
+  it('a payslip taxablePence is used directly, beating any legacy fields (amendment (g))', () => {
+    // The wife's real payslip: Taxable Pay £2,636.08 printed directly.
+    const rows = buildMonthlyPay({
+      periods: FLAT_60K,
+      payslips: [
+        { month: '2026-04', taxablePence: 263608, pensionPence: 20000, taxPaidPence: 30000 },
+        // A row carrying BOTH shapes must prefer the direct figure.
+        { month: '2026-05', taxablePence: 550000, grossPence: 999900, bikPence: 11111 },
+      ],
+      taxYear: '2026-27',
+      todayMonth: '2026-07',
+    });
+    expect(rows[0].taxablePence).toBe(263608);
+    expect(rows[1].taxablePence).toBe(550000);
+  });
+
+  it('carries each month’s pension contribution for the allowance tracker', () => {
+    const periods = [
+      {
+        effectiveFrom: '1900-01-01',
+        annualSalaryPence: 6000000,
+        workplacePensionAnnualPence: 600000, // £6,000/yr → £500/month expected
+      },
+    ];
+    const rows = buildMonthlyPay({
+      periods,
+      payslips: [{ month: '2026-04', taxablePence: 500000, pensionPence: 70971 }],
+      taxYear: '2026-27',
+      todayMonth: '2026-07',
+    });
+    expect(rows[0].pensionPence).toBe(70971); // payslip actual
+    expect(rows[1].pensionPence).toBe(50000); // timeline projection
+    expect(rows.reduce((s, r) => s + r.pensionPence, 0)).toBe(70971 + 11 * 50000);
+  });
 });
 
 describe('expectedPayeYtd', () => {
@@ -244,5 +279,47 @@ describe('expectedPayeYtd', () => {
     expect(check.months).toBe(1);
     expect(check.taxableYtdPence).toBe(500000);
     expect(check.complete).toBe(true);
+  });
+
+  // 3 actual months of £5,000 — the base for the tax-code cases below.
+  const threeMonths = (tax = 95000) =>
+    buildMonthlyPay({
+      periods: FLAT_60K,
+      payslips: [
+        slip('2026-04', 500000, tax),
+        slip('2026-05', 500000, tax),
+        slip('2026-06', 500000, tax),
+      ],
+      taxYear: '2026-27',
+      todayMonth: '2026-07',
+    });
+
+  it('reports no tax code when none is given or it is unparseable', () => {
+    expect(expectedPayeYtd(threeMonths(), TABLE).taxCode).toBeNull();
+    const fallback = expectedPayeYtd(threeMonths(), TABLE, 'nonsense');
+    expect(fallback.taxCode).toBeNull();
+    expect(fallback.expectedPence).toBe(285800); // standard allowance
+  });
+
+  it('uses the free pay a numeric tax code encodes', () => {
+    // 1383M: allowance 3/12 × £13,830 = £3,457.50. Taxable £11,542.50 →
+    // £9,425 at 20% + £2,117.50 at 40% = £1,885 + £847 = £2,732.
+    const check = expectedPayeYtd(threeMonths(), TABLE, '1383m');
+    expect(check.taxCode).toBe('1383M');
+    expect(check.expectedPence).toBe(273200);
+  });
+
+  it('adds a K code to taxable pay (negative allowance)', () => {
+    // K475: 3/12 × £4,750 = £1,187.50 ADDED. Taxable £16,187.50 →
+    // £9,425 at 20% + £6,762.50 at 40% = £1,885 + £2,705 = £4,590.
+    const check = expectedPayeYtd(threeMonths(), TABLE, 'K475');
+    expect(check.expectedPence).toBe(459000);
+  });
+
+  it('taxes everything at one rate for BR and expects nothing for NT', () => {
+    const br = expectedPayeYtd(threeMonths(), TABLE, 'BR');
+    expect(br.expectedPence).toBe(300000); // £15,000 × 20%
+    expect(br.taxCode).toBe('BR');
+    expect(expectedPayeYtd(threeMonths(0), TABLE, 'NT').expectedPence).toBe(0);
   });
 });

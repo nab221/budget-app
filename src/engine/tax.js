@@ -16,8 +16,11 @@
  * - Adjusted net income = all income (incl. dividends) − personal pension
  *   contributions. Salary sacrifice never reaches the salary figure at all.
  * - Documented simplifications: no NI, no student loans, no savings-interest
- *   allowances, pension contributions do not extend the basic-rate band,
- *   tax codes not modelled.
+ *   allowances, pension contributions do not extend the basic-rate band.
+ * - Tax codes (amendment 2026-07-12 (f)): `parseTaxCode` understands the common
+ *   PAYE codes so the payslip check (salaryTimeline.js) can use the person's
+ *   real free pay. The ANNUAL summary here stays the statutory computation —
+ *   a tax code is how HMRC collects, not what is owed.
  */
 
 // ---------------------------------------------------------------------------
@@ -39,6 +42,7 @@ export const TAX_YEAR_TABLES = {
     incomeRates: { basic: 0.2, higher: 0.4, additional: 0.45 },
     dividendAllowancePence: 50000, // £500
     dividendRates: { basic: 0.0875, higher: 0.3375, additional: 0.3935 },
+    pensionAnnualAllowancePence: 6000000, // £60,000
   },
   '2026-27': {
     personalAllowancePence: 1257000,
@@ -50,6 +54,7 @@ export const TAX_YEAR_TABLES = {
     dividendAllowancePence: 50000,
     // April 2026 increases: ordinary 8.75 → 10.75%, upper 33.75 → 35.75%.
     dividendRates: { basic: 0.1075, higher: 0.3575, additional: 0.3935 },
+    pensionAnnualAllowancePence: 6000000,
   },
 };
 
@@ -112,6 +117,52 @@ export function taxYearTable(label) {
 }
 
 // ---------------------------------------------------------------------------
+// Tax codes
+// ---------------------------------------------------------------------------
+
+/**
+ * Parse a UK PAYE tax code into what the payslip check needs (amendment
+ * 2026-07-12 (f)).
+ *
+ * Understood: numeric codes with an L/M/N/T suffix (1257L → £12,570 of free
+ * pay), K codes (K475 → £4,750 ADDED to taxable pay: negative allowance),
+ * 0T (no allowance), and the flat-rate codes BR / D0 / D1 / NT. A leading
+ * S (Scottish) or C (Welsh) is accepted but rUK bands are still used — a
+ * documented simplification. Trailing week-1/month-1 markers (W1, M1, X)
+ * are ignored: the check stays cumulative.
+ *
+ * @param {string} code - as typed, e.g. "1257L", "k475", "S1100L M1".
+ * @returns {{ code: string, allowancePence: number,
+ *             flatRate: 'basic'|'higher'|'additional'|'none'|null } | null}
+ *   `code` is the normalised form; `allowancePence` is the annual free pay
+ *   (negative for K codes, 0 for flat-rate codes); `flatRate` names the single
+ *   rate everything is taxed at ('none' = NT, no tax), or null for banded
+ *   codes. Returns null for a blank or unrecognised code.
+ */
+export function parseTaxCode(code) {
+  let s = String(code ?? '')
+    .toUpperCase()
+    .replace(/[\s/]+/g, '');
+  if (!s) return null;
+  // Emergency (non-cumulative) markers sit after the code proper.
+  s = s.replace(/(?:W1|M1|X|W1M1)$/, '') || s;
+  // Scottish / Welsh prefix — bands still rUK, per the module simplifications.
+  const body = /^[SC]/.test(s) && s.length > 2 ? s.slice(1) : s;
+
+  const flat = { BR: 'basic', D0: 'higher', D1: 'additional', NT: 'none' }[body];
+  if (flat) return { code: s, allowancePence: 0, flatRate: flat };
+  if (body === '0T') return { code: s, allowancePence: 0, flatRate: null };
+
+  const k = body.match(/^K(\d{1,5})$/);
+  if (k) return { code: s, allowancePence: -Number(k[1]) * 1000, flatRate: null };
+
+  const numeric = body.match(/^(\d{1,5})[LMNT]$/);
+  if (numeric) return { code: s, allowancePence: Number(numeric[1]) * 1000, flatRate: null };
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // Person-year assembly
 // ---------------------------------------------------------------------------
 
@@ -128,10 +179,17 @@ export function taxYearTable(label) {
  * bands, not at dividend rates — but the tax on them is owed via Self
  * Assessment, so they are kept out of the salary figure.
  *
+ * `sipp-contribution` events (amendment 2026-07-12 (g)) are personal pension
+ * payments made from taxed pay under relief at source: the amount entered is
+ * what was actually PAID, the provider adds 25% basic-rate relief, and the
+ * grossed-up total (×1.25) is what reduces adjusted net income and counts
+ * toward the pension annual allowance — alongside the person's annual
+ * personal-pension field, which is entered already grossed up.
+ *
  * @param {{ annualSalaryPence?: number, salarySacrificePence?: number,
  *           pensionAnnualPence?: number, benefitsInKindPence?: number,
  *           otherIncomePence?: number }} person - integer pence.
- * @param {Array<{ kind: 'dividend'|'salary-adjustment'|'other-income', amountPence: number }>} events
+ * @param {Array<{ kind: 'dividend'|'salary-adjustment'|'other-income'|'sipp-contribution', amountPence: number }>} events
  * @param {number|null} [salaryOverridePence] - the year's taxable salary as
  *   already assembled by the monthly timeline (salaryTimeline.js). When given,
  *   it replaces the annual − sacrifice figure (sacrifice, workplace pension,
@@ -141,19 +199,25 @@ export function taxYearTable(label) {
  *   benefit entered both there and on the timeline would count twice.
  * @returns {{ nonDividendPence, dividendPence, pensionPence,
  *             dividendTotalPence, adjustmentTotalPence, otherEventTotalPence,
- *             salaryPence }}
+ *             sippPaidTotalPence, sippGrossPence, salaryPence }}
  */
 export function buildPersonYearInput(person, events, salaryOverridePence = null) {
   const p = (v) => Math.round(Number(v) || 0);
   let dividendTotalPence = 0;
   let adjustmentTotalPence = 0;
   let otherEventTotalPence = 0;
+  let sippPaidTotalPence = 0;
   for (const ev of events || []) {
     if (ev.kind === 'dividend') dividendTotalPence += p(ev.amountPence);
     else if (ev.kind === 'salary-adjustment') adjustmentTotalPence += p(ev.amountPence);
     else if (ev.kind === 'other-income') otherEventTotalPence += p(ev.amountPence);
+    else if (ev.kind === 'sipp-contribution') sippPaidTotalPence += p(ev.amountPence);
   }
   otherEventTotalPence = Math.max(0, otherEventTotalPence);
+  sippPaidTotalPence = Math.max(0, sippPaidTotalPence);
+  // Relief at source: the provider tops up basic-rate relief, so £100 paid is
+  // £125 in the pension — the grossed-up figure is the tax-relevant one.
+  const sippGrossPence = Math.round(sippPaidTotalPence * 1.25);
   // Sacrificed pay never reaches the payslip; a negative result means the
   // sacrifice exceeds pay — clamp, it cannot create negative income.
   const salaryPence = Math.max(
@@ -167,13 +231,47 @@ export function buildPersonYearInput(person, events, salaryOverridePence = null)
     dividendTotalPence,
     adjustmentTotalPence,
     otherEventTotalPence,
+    sippPaidTotalPence,
+    sippGrossPence,
     nonDividendPence:
       salaryPence +
       p(person.benefitsInKindPence) +
       p(person.otherIncomePence) +
       otherEventTotalPence,
     dividendPence: Math.max(0, dividendTotalPence),
-    pensionPence: Math.max(0, p(person.pensionAnnualPence)),
+    pensionPence: Math.max(0, p(person.pensionAnnualPence)) + sippGrossPence,
+  };
+}
+
+/**
+ * How much of the pension ANNUAL ALLOWANCE a person's contributions use
+ * (amendment 2026-07-12 (g)). £60,000 for 2025-26/2026-27.
+ *
+ * Documented simplifications (chosen per the "simpler option" rule): no
+ * high-income taper (bites only when threshold income > £200k AND adjusted
+ * income > £260k), no 3-year carry-forward, no MPAA. Employer contributions
+ * and pension paid via salary sacrifice are not tracked — the sacrifice
+ * figure on the timeline can be a car, so it never counts here.
+ *
+ * @param {{ workplacePence?: number, personalPence?: number }} input - integer
+ *   pence: before-tax workplace contributions for the year (payslip actuals +
+ *   timeline projections) and grossed-up personal/SIPP contributions.
+ * @param {object} table - a TAX_YEAR_TABLES entry.
+ * @returns {{ usedPence, workplacePence, personalPence, allowancePence,
+ *             headroomPence, over }}
+ */
+export function computePensionAllowance(input, table) {
+  const workplacePence = Math.max(0, Math.round(input.workplacePence || 0));
+  const personalPence = Math.max(0, Math.round(input.personalPence || 0));
+  const usedPence = workplacePence + personalPence;
+  const allowancePence = table.pensionAnnualAllowancePence;
+  return {
+    usedPence,
+    workplacePence,
+    personalPence,
+    allowancePence,
+    headroomPence: Math.max(0, allowancePence - usedPence),
+    over: usedPence > allowancePence,
   };
 }
 

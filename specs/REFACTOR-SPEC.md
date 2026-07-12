@@ -37,6 +37,78 @@ happened; it is a live picture of **how much is going out per week / month / yea
 
 ---
 
+## ⚠ Amendment 2026-07-12 (g) — Taxable-pay-first payslips, SIPP contributions, pension annual-allowance tracker
+
+Owner feedback on (f): the wife's payslip prints no per-period gross — but it DOES
+print **Taxable Pay** (and Pensionable Pay / Pension Conts), so assembling gross −
+pension + BIK by hand was backwards. The owner also asked for pension contributions to
+be tracked against the **annual allowance**, and for **SIPP contributions** to be
+recordable. Where this conflicts with (c)/(d)/(f), this wins:
+
+- **Payslip entry is taxable-pay-first**: the form asks for the month's **Taxable Pay
+  exactly as printed** (plus pension contributions, income tax deducted, note). No more
+  gross or BIK entry — a payrolled BIK is already inside the printed figure, and
+  non-taxable pay is already outside it. `payslips` gains **`taxablePence`**
+  (non-indexed, no default — still schema v5, no version bump). Rows without it (pre-(g))
+  still compute `max(0, gross − pension) + BIK`; editing one reconstructs the figure to
+  prefill the field and writes `taxablePence` from then on. Projections are unchanged
+  (timeline: salary − sacrifice − workplace pension + BIK).
+- **Payslip pension contributions now feed a tracker**, not the taxable computation.
+  Each month row carries `pensionPence` (payslip actual, else the timeline's expected
+  workplace pension, pro-rated like pay).
+- **SIPP contributions**: `incomeEvents.kind` gains **`sipp-contribution`** — a dated,
+  positive amount, added via an "Add SIPP contribution" action on the person card.
+  The amount entered is what was actually **paid**; relief at source means the
+  provider adds 25%, so the engine counts the grossed-up figure (×1.25) toward
+  **adjusted net income** (the £100k line) and the annual allowance. The person-level
+  annual personal-pension field stays (entered gross, per its hint) — steady monthly
+  personal pensions belong there; one-off SIPP top-ups are events.
+- **Pension annual-allowance tracker** (owner-requested research, 2026-07-12): the
+  allowance is **£60,000** for 2025-26 and 2026-27 (`pensionAnnualAllowancePence` in
+  the rate tables). A third meter on the person card shows contributions used =
+  year's workplace contributions (payslip actuals over projections) + annual personal
+  pension + grossed-up SIPP events, with headroom and an over-allowance warning.
+  **Documented simplifications** (simpler-option rule): no high-income taper (bites
+  only when threshold income > £200k AND adjusted income > £260k — far above this
+  household), no 3-year carry-forward (the over-warning mentions it), no MPAA, and
+  employer / salary-sacrifice contributions are NOT counted (the sacrifice figure can
+  be a car; the card says so).
+
+---
+
+## ⚠ Amendment 2026-07-12 (f) — PAYE tax codes + payslip wording
+
+The wife's PAYE tax code is not the standard 1257L, so the PAYE check flagged her
+(correct) deductions as "less tax than expected" — amendment (b)'s "tax codes not
+modelled" simplification is **partially superseded**. Both household payslips also word
+the same figures differently (Taxable Pay / Tax Paid / Pensionable Pay / Pension Pay),
+which made the payslip form ambiguous. Where this conflicts with older sections, this
+wins:
+
+- `people` gains **`taxCode`** (string, `''` default, non-indexed — still schema v5, no
+  version bump; old rows read as blank = standard allowance). Entered/edited on the
+  person form, validated and stored normalised (uppercase, no spaces).
+- **Engine** (`parseTaxCode`, `tax.js`): numeric codes with an L/M/N/T suffix (1257L →
+  £12,570 free pay), **K codes** (negative allowance — the amount is added to taxable
+  pay), **0T**, and the flat-rate codes **BR / D0 / D1 / NT**. A leading S/C (Scottish/
+  Welsh) is accepted but rUK bands are still used; trailing W1/M1/X emergency markers
+  are ignored (the check stays cumulative). Unrecognised → treated as blank.
+- **The PAYE check** (`expectedPayeYtd`) uses the code's free pay instead of the
+  standard allowance (flat-rate codes expect one rate on everything; NT expects £0);
+  band widths stay fixed in taxable-pay space, as PAYE does. The check line names the
+  code it used.
+- **The annual tax summary (`computePersonTax`) is unchanged**: a tax code is how HMRC
+  *collects* (often prior-year catch-ups), not what is *owed* — the statutory
+  computation remains the year-end truth.
+- **Payslip form wording**: each field hint names the payslip labels it corresponds to
+  (gross = "Gross Pay"/"Total Gross Pay", NOT "Pensionable Pay" or "Taxable Pay";
+  pension = "Pension"/"Pension Pay"; tax = "Tax Paid"/"PAYE" — never NI or student/
+  postgraduate loan, which don't reduce tax), and the form shows a live
+  **taxable pay = gross − pension + BIK** line to cross-check against the payslip's own
+  Taxable Pay figure before saving.
+
+---
+
 ## ⚠ Amendment 2026-07-12 (e) — Dated "other income" events (consultancy fees…)
 
 The owner received a **consultancy fee paid gross** (pre-tax, outside PAYE). It is not
@@ -182,8 +254,9 @@ This is a *tax-year planning* concern, entirely separate from the dormant
   Insurance ignored (not income tax); student loans out of scope; personal pension
   contributions reduce adjusted net income only (basic-rate band extension not
   modelled); savings-interest allowances not modelled (other income treated as general
-  income); rUK bands only (no Scottish rates); tax codes not modelled — PAYE is
-  estimated from the annual salary.
+  income); rUK bands only (no Scottish rates); ~~tax codes not modelled — PAYE is
+  estimated from the annual salary~~ (partially superseded by amendment (f): the PAYE
+  check uses the person's tax code; the annual summary stays statutory).
 
 ### Screen (§4.8 Income)
 

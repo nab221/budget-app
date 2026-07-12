@@ -2,18 +2,22 @@ import { useState } from 'react';
 import CurrencyInput from '../components/CurrencyInput.jsx';
 
 /**
- * Add / edit the payslip for one pay month (income redesign, amendment (c)).
- * Full-detail entry per the owner's decision: gross pay, before-tax pension,
- * the payrolled benefit in kind (amendment (d)), and the income tax actually
- * deducted — the tax figure powers the PAYE sanity check on the card. Money
- * is pounds at the repository edge. Rendered inside a Modal, which carries
- * the title (person + pay month).
+ * Add / edit the payslip for one pay month (income redesign, amendment (c);
+ * taxable-pay-first entry per amendment (g)). The form asks for the figures
+ * payslips actually print: the month's TAXABLE PAY (no more assembling it
+ * from gross − pension + BIK), the pension contributions (feeds the annual-
+ * allowance tracker), and the income tax deducted (powers the PAYE check).
+ * Money is pounds at the repository edge. Rendered inside a Modal, which
+ * carries the title (person + pay month).
  *
  * @param {object} props
  * @param {string} props.month - 'yyyy-MM' pay month being entered.
- * @param {object} [props.initial] - existing payslip (pounds at edge) when editing.
+ * @param {object} [props.initial] - existing payslip (pounds at edge) when
+ *   editing. A pre-(g) row has no taxablePence — its taxable pay is
+ *   reconstructed from gross − pension + BIK to prefill the field, and
+ *   saving writes the direct figure from then on.
  * @param {number} [props.projectedPounds] - the month's projected taxable pay,
- *   pre-filling gross on a fresh entry so a normal month is confirm-and-save.
+ *   pre-filling a fresh entry so a normal month is confirm-and-save.
  * @param {() => void} [props.onDelete] - offered only when editing.
  */
 export default function PayslipForm({
@@ -24,38 +28,42 @@ export default function PayslipForm({
   onDelete,
   onCancel,
 }) {
-  const [form, setForm] = useState(() => ({
-    grossPence: initial ? initial.grossPence : (projectedPounds ?? ''),
-    pensionPence: initial?.pensionPence || '',
-    bikPence: initial?.bikPence || '',
-    taxPaidPence: initial?.taxPaidPence || '',
-    note: initial?.note || '',
-  }));
+  const [form, setForm] = useState(() => {
+    const n = (v) => Number(v) || 0;
+    const legacyTaxable = initial
+      ? Math.max(0, n(initial.grossPence) - n(initial.pensionPence)) + n(initial.bikPence)
+      : null;
+    return {
+      taxablePence: initial ? (initial.taxablePence ?? legacyTaxable) : (projectedPounds ?? ''),
+      pensionPence: initial?.pensionPence || '',
+      taxPaidPence: initial?.taxPaidPence || '',
+      note: initial?.note || '',
+    };
+  });
   const [error, setError] = useState(null);
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
 
   const submit = async (e) => {
     e.preventDefault();
     setError(null);
-    const gross = form.grossPence === '' || form.grossPence == null ? null : Number(form.grossPence);
-    if (gross == null || Number.isNaN(gross) || gross < 0) {
-      setError('Gross pay for the month is required (0 is fine for a nil month).');
+    const taxable =
+      form.taxablePence === '' || form.taxablePence == null ? null : Number(form.taxablePence);
+    if (taxable == null || Number.isNaN(taxable) || taxable < 0) {
+      setError('Taxable pay for the month is required (0 is fine for a nil month).');
       return;
     }
     const optional = (v) => (v === '' || v == null ? 0 : Number(v));
     const pension = optional(form.pensionPence);
-    const bik = optional(form.bikPence);
     const taxPaid = optional(form.taxPaidPence);
-    if (pension < 0 || bik < 0 || taxPaid < 0) {
-      setError('Pension, BIK, and tax figures can’t be negative.');
+    if (pension < 0 || taxPaid < 0) {
+      setError('Pension and tax figures can’t be negative.');
       return;
     }
     try {
       await onSubmit({
         month,
-        grossPence: gross, // pounds edge
+        taxablePence: taxable, // pounds edge
         pensionPence: pension,
-        bikPence: bik,
         taxPaidPence: taxPaid,
         note: form.note.trim(),
       });
@@ -68,32 +76,30 @@ export default function PayslipForm({
     <form className="form" onSubmit={submit}>
       <div className="form-row">
         <div className="field">
-          <label>Gross pay this month</label>
-          <CurrencyInput value={form.grossPence} onChange={(v) => set({ grossPence: v })} />
+          <label>Taxable pay this month</label>
+          <CurrencyInput value={form.taxablePence} onChange={(v) => set({ taxablePence: v })} />
           <p className="field__hint">
-            The month’s gross from the payslip — after any salary sacrifice, before tax.
-            Includes extra sessions, on-call, a bonus…
+            The payslip’s “Taxable Pay” for this period, exactly as printed — it already
+            excludes salary sacrifice, before-tax pension, and any non-taxable pay, and
+            includes a payrolled benefit (car BIK). Not “Gross Pay” or “Pensionable Pay”.
           </p>
         </div>
         <div className="field">
-          <label>Pension taken before tax</label>
+          <label>Pension contributions</label>
           <CurrencyInput value={form.pensionPence} onChange={(v) => set({ pensionPence: v })} />
           <p className="field__hint">
-            The workplace pension line deducted before tax (e.g. NHS pension). £0 if none.
-          </p>
-        </div>
-        <div className="field">
-          <label>Payrolled benefit (BIK)</label>
-          <CurrencyInput value={form.bikPence} onChange={(v) => set({ bikPence: v })} />
-          <p className="field__hint">
-            The benefit-in-kind line PAYE adds to taxable pay (e.g. a salary-sacrifice car).
-            Taxable pay on the payslip = gross − pension + this. £0 if none.
+            “Pension Conts” / “Pension Pay” — your contribution deducted this month. Only
+            feeds the annual-allowance tracker (taxable pay above already excludes it).
+            £0 if none.
           </p>
         </div>
         <div className="field">
           <label>Income tax deducted</label>
           <CurrencyInput value={form.taxPaidPence} onChange={(v) => set({ taxPaidPence: v })} />
-          <p className="field__hint">The PAYE tax line only — not NI or student loan.</p>
+          <p className="field__hint">
+            “Tax Paid” / “PAYE” — the income-tax line only, not NI and not student or
+            postgraduate loan (those never reduce tax).
+          </p>
         </div>
         <div className="field field--grow">
           <label>Note (optional)</label>

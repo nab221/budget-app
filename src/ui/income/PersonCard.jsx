@@ -12,7 +12,15 @@ const poundsLabel = (pence) =>
  * One threshold meter: how far the person's figure is toward a limit, with
  * headroom ("≈ £X more dividends before …") or a crossed state.
  */
-function ThresholdMeter({ label, valuePence, limitPence, headroomPence, over, overText }) {
+function ThresholdMeter({
+  label,
+  valuePence,
+  limitPence,
+  headroomPence,
+  headroomText = 'more dividends before this line',
+  over,
+  overText,
+}) {
   const pct = limitPence > 0 ? Math.min(100, Math.round((valuePence / limitPence) * 100)) : 0;
   return (
     <div className={`util threshold${over ? ' threshold--over' : ''}`}>
@@ -28,7 +36,7 @@ function ThresholdMeter({ label, valuePence, limitPence, headroomPence, over, ov
           <span className="threshold__over">{overText}</span>
         ) : (
           <span>
-            ≈ <Money pence={headroomPence} /> more dividends before this line
+            ≈ <Money pence={headroomPence} /> {headroomText}
           </span>
         )}
       </div>
@@ -102,6 +110,7 @@ export default function PersonCard({
   todayMonth,
   onAddDividend,
   onAddOtherIncome,
+  onAddSippContribution,
   onAddPeriod,
   onEditPeriod,
   onDeletePeriod,
@@ -111,7 +120,17 @@ export default function PersonCard({
   onEditEvent,
   onDeleteEvent,
 }) {
-  const { name, input, summary, events, periods, monthly, payeCheck, usingLegacySalary } = entry;
+  const {
+    name,
+    input,
+    summary,
+    events,
+    periods,
+    monthly,
+    payeCheck,
+    pensionAllowance,
+    usingLegacySalary,
+  } = entry;
 
   return (
     <li className="card person-card">
@@ -178,6 +197,29 @@ export default function PersonCard({
         over={summary.over100k}
         overText={`Over ${poundsLabel(table.taperThresholdPence)} — the household loses Tax-Free Childcare and free hours.`}
       />
+      <ThresholdMeter
+        label={`Pension annual allowance (${poundsLabel(table.pensionAnnualAllowancePence)})`}
+        valuePence={pensionAllowance.usedPence}
+        limitPence={table.pensionAnnualAllowancePence}
+        headroomPence={pensionAllowance.headroomPence}
+        headroomText="more pension contributions before the allowance"
+        over={pensionAllowance.over}
+        overText="Over the annual allowance — the excess is taxed, unless unused allowance from the last 3 years covers it (carry-forward isn’t tracked here)."
+      />
+      <p className="muted">
+        Pension so far: workplace <Money pence={pensionAllowance.workplacePence} /> · personal
+        &amp; SIPP <Money pence={pensionAllowance.personalPence} />
+        {input.sippPaidTotalPence > 0 && (
+          <>
+            {' '}
+            (SIPP <Money pence={input.sippPaidTotalPence} /> paid → <Money
+              pence={input.sippGrossPence}
+            />{' '}
+            with relief)
+          </>
+        )}
+        . Employer contributions and pension via salary sacrifice aren’t counted.
+      </p>
 
       <div className="person-card__tax">
         <div className="stat">
@@ -255,6 +297,9 @@ export default function PersonCard({
         </button>
         <button type="button" className="btn" onClick={onAddOtherIncome}>
           Add other income
+        </button>
+        <button type="button" className="btn" onClick={onAddSippContribution}>
+          Add SIPP contribution
         </button>
       </div>
 
