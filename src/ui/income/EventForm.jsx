@@ -22,14 +22,14 @@ const NOTE_PLACEHOLDERS = {
  * a dividend draw, a one-off salary adjustment (bonus, unpaid leave — signed),
  * gross-paid other income such as a consultancy fee (amendment (e)), or a
  * SIPP contribution paid from taxed pay (amendment (g)).
- * Money is pounds at the repository edge, as everywhere else.
+ * Money is pounds at the repository edge, as everywhere else. Rendered inside
+ * a Modal, which carries the title (kind + person).
  *
  * @param {object} props
  * @param {'dividend'|'salary-adjustment'|'other-income'|'sipp-contribution'} props.kind
- * @param {string} props.personName - shown in the form title.
  * @param {object} [props.initial] - existing event (pounds at edge) when editing.
  */
-export default function EventForm({ kind, personName, initial, onSubmit, onCancel }) {
+export default function EventForm({ kind, initial, onSubmit, onCancel }) {
   const [form, setForm] = useState(() => ({
     date: initial?.date || today(),
     amountPence: initial?.amountPence ?? '',
@@ -71,10 +71,7 @@ export default function EventForm({ kind, personName, initial, onSubmit, onCance
   };
 
   return (
-    <form className="form card" onSubmit={submit}>
-      <h3 className="form__title">
-        {initial ? 'Edit' : 'Add'} {EVENT_KIND_LABELS[kind].toLowerCase()} — {personName}
-      </h3>
+    <form className="form" onSubmit={submit}>
       <div className="form-row">
         <div className="field">
           <label>Date</label>
