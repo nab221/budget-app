@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import CurrencyInput from '../components/CurrencyInput.jsx';
+import Money from '../components/Money.jsx';
 
 /**
  * Add / edit the payslip for one pay month (income redesign, amendment (c)).
@@ -8,6 +9,11 @@ import CurrencyInput from '../components/CurrencyInput.jsx';
  * deducted — the tax figure powers the PAYE sanity check on the card. Money
  * is pounds at the repository edge. Rendered inside a Modal, which carries
  * the title (person + pay month).
+ *
+ * Field hints name the labels real payslips use (amendment (f)) — both
+ * household payslips word these differently — and a live "Taxable pay" line
+ * shows gross − pension + BIK so it can be checked against the payslip's own
+ * Taxable Pay figure before saving.
  *
  * @param {object} props
  * @param {string} props.month - 'yyyy-MM' pay month being entered.
@@ -33,6 +39,14 @@ export default function PayslipForm({
   }));
   const [error, setError] = useState(null);
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
+
+  // Live cross-check against the payslip's own "Taxable Pay" line. Form
+  // values are pounds (repo edge); Money wants pence.
+  const pounds = (v) => (v === '' || v == null || Number.isNaN(Number(v)) ? 0 : Number(v));
+  const taxablePreviewPence = Math.round(
+    (Math.max(0, pounds(form.grossPence) - pounds(form.pensionPence)) + pounds(form.bikPence)) *
+      100
+  );
 
   const submit = async (e) => {
     e.preventDefault();
@@ -71,15 +85,17 @@ export default function PayslipForm({
           <label>Gross pay this month</label>
           <CurrencyInput value={form.grossPence} onChange={(v) => set({ grossPence: v })} />
           <p className="field__hint">
-            The month’s gross from the payslip — after any salary sacrifice, before tax.
-            Includes extra sessions, on-call, a bonus…
+            “Gross Pay” / “Total Gross Pay” on the payslip — already after any salary
+            sacrifice, before tax. Includes extra sessions, on-call, a bonus… Not
+            “Taxable Pay” and not “Pensionable Pay” (the base a pension is worked out on).
           </p>
         </div>
         <div className="field">
           <label>Pension taken before tax</label>
           <CurrencyInput value={form.pensionPence} onChange={(v) => set({ pensionPence: v })} />
           <p className="field__hint">
-            The workplace pension line deducted before tax (e.g. NHS pension). £0 if none.
+            The pension contribution deducted before tax — “Pension” or “Pension Pay” on
+            the payslip (e.g. NHS pension). £0 if none.
           </p>
         </div>
         <div className="field">
@@ -87,13 +103,16 @@ export default function PayslipForm({
           <CurrencyInput value={form.bikPence} onChange={(v) => set({ bikPence: v })} />
           <p className="field__hint">
             The benefit-in-kind line PAYE adds to taxable pay (e.g. a salary-sacrifice car).
-            Taxable pay on the payslip = gross − pension + this. £0 if none.
+            £0 if none.
           </p>
         </div>
         <div className="field">
           <label>Income tax deducted</label>
           <CurrencyInput value={form.taxPaidPence} onChange={(v) => set({ taxPaidPence: v })} />
-          <p className="field__hint">The PAYE tax line only — not NI or student loan.</p>
+          <p className="field__hint">
+            “Tax Paid” / “PAYE” — the income-tax line only, not NI and not student or
+            postgraduate loan (those never reduce tax).
+          </p>
         </div>
         <div className="field field--grow">
           <label>Note (optional)</label>
@@ -106,6 +125,10 @@ export default function PayslipForm({
           />
         </div>
       </div>
+      <p className="muted">
+        Taxable pay this month = <Money pence={taxablePreviewPence} /> (gross − pension +
+        BIK) — should match the “Taxable Pay” figure on the payslip.
+      </p>
       {error && <p className="form__error">{error}</p>}
       <div className="form__actions">
         {initial && onDelete && (

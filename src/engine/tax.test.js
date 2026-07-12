@@ -5,6 +5,7 @@ import {
   taxYearBounds,
   shiftTaxYear,
   taxYearTable,
+  parseTaxCode,
   buildPersonYearInput,
   computePersonTax,
 } from './tax.js';
@@ -38,6 +39,56 @@ describe('tax-year calendar', () => {
     expect(taxYearTable('2026-27').tableYear).toBe('2026-27');
     expect(taxYearTable('2031-32').tableYear).toBe('2026-27');
     expect(taxYearTable('2020-21').tableYear).toBe('2025-26');
+  });
+});
+
+describe('parseTaxCode', () => {
+  it('reads numeric L/M/N/T codes as £10-per-point free pay', () => {
+    expect(parseTaxCode('1257L')).toEqual({ code: '1257L', allowancePence: 1257000, flatRate: null });
+    expect(parseTaxCode('1383M')).toEqual({ code: '1383M', allowancePence: 1383000, flatRate: null });
+    expect(parseTaxCode('1131N').allowancePence).toBe(1131000);
+    expect(parseTaxCode('500T').allowancePence).toBe(500000);
+  });
+
+  it('normalises case and spaces', () => {
+    expect(parseTaxCode(' 1257l ')).toEqual({ code: '1257L', allowancePence: 1257000, flatRate: null });
+  });
+
+  it('reads K codes as a negative allowance (pay added)', () => {
+    expect(parseTaxCode('K475')).toEqual({ code: 'K475', allowancePence: -475000, flatRate: null });
+  });
+
+  it('reads 0T as no allowance with normal bands', () => {
+    expect(parseTaxCode('0T')).toEqual({ code: '0T', allowancePence: 0, flatRate: null });
+  });
+
+  it('reads the flat-rate codes', () => {
+    expect(parseTaxCode('BR').flatRate).toBe('basic');
+    expect(parseTaxCode('D0').flatRate).toBe('higher');
+    expect(parseTaxCode('D1').flatRate).toBe('additional');
+    expect(parseTaxCode('NT').flatRate).toBe('none');
+  });
+
+  it('accepts Scottish/Welsh prefixes (rUK bands still used)', () => {
+    expect(parseTaxCode('S1257L').allowancePence).toBe(1257000);
+    expect(parseTaxCode('C1257L').allowancePence).toBe(1257000);
+  });
+
+  it('ignores W1/M1/X emergency markers', () => {
+    expect(parseTaxCode('1257L W1').allowancePence).toBe(1257000);
+    expect(parseTaxCode('1257L M1')).toEqual({ code: '1257L', allowancePence: 1257000, flatRate: null });
+    expect(parseTaxCode('1257LX').allowancePence).toBe(1257000);
+    // The marker strip must not eat a real M-suffix code.
+    expect(parseTaxCode('1257M').allowancePence).toBe(1257000);
+  });
+
+  it('returns null for blank or unrecognised codes', () => {
+    expect(parseTaxCode('')).toBeNull();
+    expect(parseTaxCode(null)).toBeNull();
+    expect(parseTaxCode(undefined)).toBeNull();
+    expect(parseTaxCode('ABC')).toBeNull();
+    expect(parseTaxCode('12570')).toBeNull();
+    expect(parseTaxCode('L1257')).toBeNull();
   });
 });
 

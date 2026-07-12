@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import CurrencyInput from '../components/CurrencyInput.jsx';
+import { parseTaxCode } from '../../engine/tax.js';
 
 const blank = {
   name: '',
+  taxCode: '',
   annualSalaryPence: '',
   salarySacrificePence: '',
   pensionAnnualPence: '',
@@ -30,6 +32,7 @@ export default function PersonForm({ initial, onSubmit, onCancel }) {
     ...(initial
       ? {
           name: initial.name || '',
+          taxCode: initial.taxCode || '',
           pensionAnnualPence: initial.pensionAnnualPence || '',
           benefitsInKindPence: initial.benefitsInKindPence || '',
           otherIncomePence: initial.otherIncomePence || '',
@@ -46,6 +49,14 @@ export default function PersonForm({ initial, onSubmit, onCancel }) {
       setError('Name is required.');
       return;
     }
+    const codeTyped = form.taxCode.trim();
+    const parsedCode = codeTyped ? parseTaxCode(codeTyped) : null;
+    if (codeTyped && !parsedCode) {
+      setError(
+        `"${codeTyped}" doesn’t look like a PAYE tax code — expected something like 1257L, K475, BR, D0, or NT (leave blank for the standard allowance).`
+      );
+      return;
+    }
     const money = {
       pensionAnnualPence: numOrZero(form.pensionAnnualPence),
       benefitsInKindPence: numOrZero(form.benefitsInKindPence),
@@ -60,7 +71,8 @@ export default function PersonForm({ initial, onSubmit, onCancel }) {
       return;
     }
     try {
-      await onSubmit({ name: form.name.trim(), ...money }); // pounds edge
+      // Stored normalised (uppercase, no spaces) so the card and check agree.
+      await onSubmit({ name: form.name.trim(), taxCode: parsedCode ? parsedCode.code : '', ...money }); // pounds edge
     } catch (err) {
       setError(err.message || String(err));
     }
@@ -78,6 +90,21 @@ export default function PersonForm({ initial, onSubmit, onCancel }) {
             onChange={(e) => set({ name: e.target.value })}
             placeholder="e.g. Anderson"
           />
+        </div>
+        <div className="field">
+          <label>Tax code</label>
+          <input
+            className="input"
+            type="text"
+            value={form.taxCode}
+            onChange={(e) => set({ taxCode: e.target.value })}
+            placeholder="e.g. 1257L"
+          />
+          <p className="field__hint">
+            From the payslip. The PAYE check uses it, so an HMRC-adjusted code (marriage
+            allowance, a K code collecting a benefit…) stops showing as unexpected tax.
+            Leave blank for the standard allowance.
+          </p>
         </div>
         {!editing && (
           <div className="field">

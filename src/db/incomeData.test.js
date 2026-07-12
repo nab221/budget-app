@@ -41,6 +41,16 @@ describe('peopleRepo', () => {
     expect(raw.otherIncomePence).toBe(0);
   });
 
+  it('stores a normalisable tax code and rejects nonsense (amendment (f))', async () => {
+    const id = await peopleRepo.add({ name: 'Wife', taxCode: 'K475' });
+    expect((await db.people.get(id)).taxCode).toBe('K475');
+    // Blank default for old rows / codes not entered.
+    const plain = await peopleRepo.add({ name: 'A' });
+    expect((await db.people.get(plain)).taxCode).toBe('');
+    await expect(peopleRepo.add({ name: 'B', taxCode: 'HELLO' })).rejects.toThrow(/taxCode/);
+    await expect(peopleRepo.update(id, { taxCode: '99' })).rejects.toThrow(/taxCode/);
+  });
+
   it('deleting a person cascades to their income events only', async () => {
     const a = await peopleRepo.add({ name: 'A' });
     const b = await peopleRepo.add({ name: 'B' });
@@ -225,6 +235,19 @@ describe('gatherIncomeData', () => {
     // The PAYE check's YTD taxable includes the BIK, so the tax deducted on
     // it no longer reads as an overpayment.
     expect(person.payeCheck.taxableYtdPence).toBe(516442);
+  });
+
+  it("the person's tax code drives the PAYE check (amendment (f))", async () => {
+    const p = await peopleRepo.add({ name: 'Wife', taxCode: '1383M' });
+    await salaryPeriodsRepo.add({ personId: p, effectiveFrom: '1900-01-01', annualSalaryPence: 60000 });
+    await payslipsRepo.upsert(p, { month: '2026-04', grossPence: 4000, taxPaidPence: 570 });
+
+    const data = await gatherIncomeData('2026-27', '2026-04-30');
+    const check = data.people[0].payeCheck;
+    expect(check.taxCode).toBe('1383M');
+    // 1 month: allowance £13,830/12 = £1,152.50; taxable £2,847.50 at 20% = £569.50
+    // (the standard 1257L allowance would have expected £590.50).
+    expect(check.expectedPence).toBe(56950);
   });
 
   it('payslipsRepo.upsert keeps one payslip per person-month', async () => {

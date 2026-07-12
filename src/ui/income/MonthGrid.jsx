@@ -81,15 +81,18 @@ export default function MonthGrid({ monthly, todayMonth, payeCheck, onEditMonth 
       {payeCheck &&
         (payeCheck.complete ? (
           <p className={`month-grid__paye${payeDiffOver ? ' month-grid__paye--warn' : ''}`}>
-            PAYE check ({payeCheck.months} month{payeCheck.months === 1 ? '' : 's'}): tax
-            deducted <Money pence={payeCheck.paidPence} /> vs expected ≈{' '}
+            PAYE check ({payeCheck.months} month{payeCheck.months === 1 ? '' : 's'}
+            {payeCheck.taxCode ? `, tax code ${payeCheck.taxCode}` : ''}): tax deducted{' '}
+            <Money pence={payeCheck.paidPence} /> vs expected ≈{' '}
             <Money pence={payeCheck.expectedPence} />
             {payeDiffOver ? (
               <>
                 {' '}
                 — <Money pence={Math.abs(payeCheck.diffPence)} />{' '}
-                {payeCheck.diffPence > 0 ? 'more' : 'less'} than expected. Worth checking your
-                tax code with HMRC.
+                {payeCheck.diffPence > 0 ? 'more' : 'less'} than expected.{' '}
+                {payeCheck.taxCode
+                  ? 'Worth checking the payslip figures, or whether the tax code changed mid-year.'
+                  : 'Worth checking the tax code on the payslip — enter it under Edit details and the check will use it.'}
               </>
             ) : (
               ' — looks right.'

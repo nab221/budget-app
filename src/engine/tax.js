@@ -16,8 +16,11 @@
  * - Adjusted net income = all income (incl. dividends) − personal pension
  *   contributions. Salary sacrifice never reaches the salary figure at all.
  * - Documented simplifications: no NI, no student loans, no savings-interest
- *   allowances, pension contributions do not extend the basic-rate band,
- *   tax codes not modelled.
+ *   allowances, pension contributions do not extend the basic-rate band.
+ * - Tax codes (amendment 2026-07-12 (f)): `parseTaxCode` understands the common
+ *   PAYE codes so the payslip check (salaryTimeline.js) can use the person's
+ *   real free pay. The ANNUAL summary here stays the statutory computation —
+ *   a tax code is how HMRC collects, not what is owed.
  */
 
 // ---------------------------------------------------------------------------
@@ -109,6 +112,52 @@ export function taxYearTable(label) {
   const newest = KNOWN_YEARS[KNOWN_YEARS.length - 1];
   const tableYear = String(label) < oldest ? oldest : newest;
   return { table: TAX_YEAR_TABLES[tableYear], tableYear };
+}
+
+// ---------------------------------------------------------------------------
+// Tax codes
+// ---------------------------------------------------------------------------
+
+/**
+ * Parse a UK PAYE tax code into what the payslip check needs (amendment
+ * 2026-07-12 (f)).
+ *
+ * Understood: numeric codes with an L/M/N/T suffix (1257L → £12,570 of free
+ * pay), K codes (K475 → £4,750 ADDED to taxable pay: negative allowance),
+ * 0T (no allowance), and the flat-rate codes BR / D0 / D1 / NT. A leading
+ * S (Scottish) or C (Welsh) is accepted but rUK bands are still used — a
+ * documented simplification. Trailing week-1/month-1 markers (W1, M1, X)
+ * are ignored: the check stays cumulative.
+ *
+ * @param {string} code - as typed, e.g. "1257L", "k475", "S1100L M1".
+ * @returns {{ code: string, allowancePence: number,
+ *             flatRate: 'basic'|'higher'|'additional'|'none'|null } | null}
+ *   `code` is the normalised form; `allowancePence` is the annual free pay
+ *   (negative for K codes, 0 for flat-rate codes); `flatRate` names the single
+ *   rate everything is taxed at ('none' = NT, no tax), or null for banded
+ *   codes. Returns null for a blank or unrecognised code.
+ */
+export function parseTaxCode(code) {
+  let s = String(code ?? '')
+    .toUpperCase()
+    .replace(/[\s/]+/g, '');
+  if (!s) return null;
+  // Emergency (non-cumulative) markers sit after the code proper.
+  s = s.replace(/(?:W1|M1|X|W1M1)$/, '') || s;
+  // Scottish / Welsh prefix — bands still rUK, per the module simplifications.
+  const body = /^[SC]/.test(s) && s.length > 2 ? s.slice(1) : s;
+
+  const flat = { BR: 'basic', D0: 'higher', D1: 'additional', NT: 'none' }[body];
+  if (flat) return { code: s, allowancePence: 0, flatRate: flat };
+  if (body === '0T') return { code: s, allowancePence: 0, flatRate: null };
+
+  const k = body.match(/^K(\d{1,5})$/);
+  if (k) return { code: s, allowancePence: -Number(k[1]) * 1000, flatRate: null };
+
+  const numeric = body.match(/^(\d{1,5})[LMNT]$/);
+  if (numeric) return { code: s, allowancePence: Number(numeric[1]) * 1000, flatRate: null };
+
+  return null;
 }
 
 // ---------------------------------------------------------------------------

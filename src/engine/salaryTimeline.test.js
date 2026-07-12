@@ -245,4 +245,46 @@ describe('expectedPayeYtd', () => {
     expect(check.taxableYtdPence).toBe(500000);
     expect(check.complete).toBe(true);
   });
+
+  // 3 actual months of £5,000 — the base for the tax-code cases below.
+  const threeMonths = (tax = 95000) =>
+    buildMonthlyPay({
+      periods: FLAT_60K,
+      payslips: [
+        slip('2026-04', 500000, tax),
+        slip('2026-05', 500000, tax),
+        slip('2026-06', 500000, tax),
+      ],
+      taxYear: '2026-27',
+      todayMonth: '2026-07',
+    });
+
+  it('reports no tax code when none is given or it is unparseable', () => {
+    expect(expectedPayeYtd(threeMonths(), TABLE).taxCode).toBeNull();
+    const fallback = expectedPayeYtd(threeMonths(), TABLE, 'nonsense');
+    expect(fallback.taxCode).toBeNull();
+    expect(fallback.expectedPence).toBe(285800); // standard allowance
+  });
+
+  it('uses the free pay a numeric tax code encodes', () => {
+    // 1383M: allowance 3/12 × £13,830 = £3,457.50. Taxable £11,542.50 →
+    // £9,425 at 20% + £2,117.50 at 40% = £1,885 + £847 = £2,732.
+    const check = expectedPayeYtd(threeMonths(), TABLE, '1383m');
+    expect(check.taxCode).toBe('1383M');
+    expect(check.expectedPence).toBe(273200);
+  });
+
+  it('adds a K code to taxable pay (negative allowance)', () => {
+    // K475: 3/12 × £4,750 = £1,187.50 ADDED. Taxable £16,187.50 →
+    // £9,425 at 20% + £6,762.50 at 40% = £1,885 + £2,705 = £4,590.
+    const check = expectedPayeYtd(threeMonths(), TABLE, 'K475');
+    expect(check.expectedPence).toBe(459000);
+  });
+
+  it('taxes everything at one rate for BR and expects nothing for NT', () => {
+    const br = expectedPayeYtd(threeMonths(), TABLE, 'BR');
+    expect(br.expectedPence).toBe(300000); // £15,000 × 20%
+    expect(br.taxCode).toBe('BR');
+    expect(expectedPayeYtd(threeMonths(0), TABLE, 'NT').expectedPence).toBe(0);
+  });
 });

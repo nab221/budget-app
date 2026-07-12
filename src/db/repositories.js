@@ -23,6 +23,7 @@
 
 import { db } from './schema.js';
 import { toPence, fromPence } from '../engine/currency.js';
+import { parseTaxCode } from '../engine/tax.js';
 import { dispatchMutation } from './events.js';
 
 // ---------------------------------------------------------------------------
@@ -172,6 +173,16 @@ function validateIncomeEvent(data) {
     Number(data.amountPence) < 0
   ) {
     throw new Error(`incomeEvents.amountPence must be positive for kind "${data.kind}"`);
+  }
+}
+
+function validatePerson(data) {
+  // Blank means "use the standard allowance"; anything else must be a code
+  // the engine understands, or the PAYE check would silently ignore it.
+  if (data.taxCode !== undefined && data.taxCode !== '' && !parseTaxCode(data.taxCode)) {
+    throw new Error(
+      `people.taxCode must be a recognised PAYE code (e.g. 1257L, K475, BR, D0, NT) or blank; got "${data.taxCode}"`
+    );
   }
 }
 
@@ -466,7 +477,9 @@ export const peopleRepo = {
       pensionAnnualPence: 0,
       benefitsInKindPence: 0,
       otherIncomePence: 0,
-    }
+      taxCode: '',
+    },
+    validatePerson
   ),
 
   /**

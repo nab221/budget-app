@@ -30,7 +30,7 @@
  *   calendar months Apr–Mar.
  */
 
-import { startYearOf } from './tax.js';
+import { startYearOf, parseTaxCode } from './tax.js';
 
 /** The 12 'yyyy-MM' pay months of a tax year, April first. */
 export function monthsOfTaxYear(label) {
@@ -148,17 +148,27 @@ export function buildMonthlyPay({ periods, payslips, taxYear, todayMonth }) {
  * present (a gap understates YTD pay) — `complete` is false otherwise and the
  * UI should ask for the missing months instead of warning.
  *
- * Documented simplifications: standard personal allowance (no £100k taper —
- * PAYE only tapers via an adjusted tax code), non-dividend income only, rUK
- * bands.
+ * When the person's PAYE tax code is known (amendment (f)) the check uses
+ * the free pay it encodes — a K code adds to taxable pay, BR/D0/D1 tax
+ * everything at one rate, NT expects no tax — so an HMRC-adjusted code no
+ * longer shows up as a false warning. No/blank/unparseable code falls back
+ * to the standard personal allowance.
+ *
+ * Documented simplifications: no £100k taper beyond what the code encodes,
+ * non-dividend income only, rUK bands (S/C codes accepted, rUK rates used),
+ * W1/M1 emergency markers treated as cumulative.
  *
  * @param {Array<object>} monthlyRows - from `buildMonthlyPay`.
  * @param {object} table - a TAX_YEAR_TABLES entry.
+ * @param {string} [taxCode] - the person's PAYE code, e.g. "1257L", "K475".
  * @returns {{ months: number, taxableYtdPence: number, expectedPence: number,
- *   paidPence: number, diffPence: number, complete: boolean } | null}
- *   null when no actual payslips are entered.
+ *   paidPence: number, diffPence: number, complete: boolean,
+ *   taxCode: string|null } | null}
+ *   null when no actual payslips are entered. `taxCode` is the normalised
+ *   code the expectation used, or null when it fell back to the standard
+ *   allowance.
  */
-export function expectedPayeYtd(monthlyRows, table) {
+export function expectedPayeYtd(monthlyRows, table, taxCode = null) {
   let lastActual = -1;
   for (let i = 0; i < monthlyRows.length; i += 1) {
     if (monthlyRows[i].source === 'actual') lastActual = i;
@@ -180,16 +190,30 @@ export function expectedPayeYtd(monthlyRows, table) {
 
   const months = lastActual + 1;
   const twelfth = (pence) => Math.round((pence * months) / 12);
-  const allowance = twelfth(table.personalAllowancePence);
-  const basicEdge = twelfth(table.basicBandPence);
-  const higherEdge = Math.max(basicEdge, twelfth(table.additionalRateThresholdPence) - allowance);
-
-  const taxable = Math.max(0, taxableYtdPence - allowance);
+  const parsed = parseTaxCode(taxCode);
   const ir = table.incomeRates;
-  const expectedPence =
-    Math.round(Math.min(taxable, basicEdge) * ir.basic) +
-    Math.round(Math.max(0, Math.min(taxable, higherEdge) - basicEdge) * ir.higher) +
-    Math.round(Math.max(0, taxable - higherEdge) * ir.additional);
+
+  let expectedPence;
+  if (parsed?.flatRate) {
+    // BR/D0/D1: one rate on everything, no free pay. NT: no tax at all.
+    const rate = parsed.flatRate === 'none' ? 0 : ir[parsed.flatRate];
+    expectedPence = Math.round(taxableYtdPence * rate);
+  } else {
+    // Free pay from the code when known (negative for K codes — pay added),
+    // else the standard allowance. The band WIDTHS never move with the code:
+    // PAYE fixes them in taxable-pay space from the standard allowance.
+    const allowance = twelfth(parsed ? parsed.allowancePence : table.personalAllowancePence);
+    const basicEdge = twelfth(table.basicBandPence);
+    const higherEdge = Math.max(
+      basicEdge,
+      twelfth(table.additionalRateThresholdPence - table.personalAllowancePence)
+    );
+    const taxable = Math.max(0, taxableYtdPence - allowance);
+    expectedPence =
+      Math.round(Math.min(taxable, basicEdge) * ir.basic) +
+      Math.round(Math.max(0, Math.min(taxable, higherEdge) - basicEdge) * ir.higher) +
+      Math.round(Math.max(0, taxable - higherEdge) * ir.additional);
+  }
 
   return {
     months,
@@ -198,5 +222,6 @@ export function expectedPayeYtd(monthlyRows, table) {
     paidPence,
     diffPence: paidPence - expectedPence,
     complete,
+    taxCode: parsed ? parsed.code : null,
   };
 }

@@ -45,6 +45,9 @@ import Dexie from 'dexie';
  * `bikAnnualPence` on `salaryPeriods` and `bikPence` on `payslips`. Dexie only
  * declares indexes, so adding un-indexed fields needs no version bump; rows
  * without them read back as £0 through the repositories.
+ *
+ * Still v5 (tax codes, spec amendment 2026-07-12 (f)): non-indexed `taxCode`
+ * string on `people`; rows without it read back as '' (standard allowance).
  */
 
 export const SCHEMA_VERSION = 5;

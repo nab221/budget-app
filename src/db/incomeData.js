@@ -130,7 +130,7 @@ export async function gatherIncomeData(taxYearLabel, today = isoToday()) {
       events,
       input,
       summary: computePersonTax(input, table),
-      payeCheck: expectedPayeYtd(monthly, table),
+      payeCheck: expectedPayeYtd(monthly, table, p.taxCode),
     };
   });
 

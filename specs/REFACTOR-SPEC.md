@@ -37,6 +37,39 @@ happened; it is a live picture of **how much is going out per week / month / yea
 
 ---
 
+## ⚠ Amendment 2026-07-12 (f) — PAYE tax codes + payslip wording
+
+The wife's PAYE tax code is not the standard 1257L, so the PAYE check flagged her
+(correct) deductions as "less tax than expected" — amendment (b)'s "tax codes not
+modelled" simplification is **partially superseded**. Both household payslips also word
+the same figures differently (Taxable Pay / Tax Paid / Pensionable Pay / Pension Pay),
+which made the payslip form ambiguous. Where this conflicts with older sections, this
+wins:
+
+- `people` gains **`taxCode`** (string, `''` default, non-indexed — still schema v5, no
+  version bump; old rows read as blank = standard allowance). Entered/edited on the
+  person form, validated and stored normalised (uppercase, no spaces).
+- **Engine** (`parseTaxCode`, `tax.js`): numeric codes with an L/M/N/T suffix (1257L →
+  £12,570 free pay), **K codes** (negative allowance — the amount is added to taxable
+  pay), **0T**, and the flat-rate codes **BR / D0 / D1 / NT**. A leading S/C (Scottish/
+  Welsh) is accepted but rUK bands are still used; trailing W1/M1/X emergency markers
+  are ignored (the check stays cumulative). Unrecognised → treated as blank.
+- **The PAYE check** (`expectedPayeYtd`) uses the code's free pay instead of the
+  standard allowance (flat-rate codes expect one rate on everything; NT expects £0);
+  band widths stay fixed in taxable-pay space, as PAYE does. The check line names the
+  code it used.
+- **The annual tax summary (`computePersonTax`) is unchanged**: a tax code is how HMRC
+  *collects* (often prior-year catch-ups), not what is *owed* — the statutory
+  computation remains the year-end truth.
+- **Payslip form wording**: each field hint names the payslip labels it corresponds to
+  (gross = "Gross Pay"/"Total Gross Pay", NOT "Pensionable Pay" or "Taxable Pay";
+  pension = "Pension"/"Pension Pay"; tax = "Tax Paid"/"PAYE" — never NI or student/
+  postgraduate loan, which don't reduce tax), and the form shows a live
+  **taxable pay = gross − pension + BIK** line to cross-check against the payslip's own
+  Taxable Pay figure before saving.
+
+---
+
 ## ⚠ Amendment 2026-07-12 (e) — Dated "other income" events (consultancy fees…)
 
 The owner received a **consultancy fee paid gross** (pre-tax, outside PAYE). It is not
@@ -182,8 +215,9 @@ This is a *tax-year planning* concern, entirely separate from the dormant
   Insurance ignored (not income tax); student loans out of scope; personal pension
   contributions reduce adjusted net income only (basic-rate band extension not
   modelled); savings-interest allowances not modelled (other income treated as general
-  income); rUK bands only (no Scottish rates); tax codes not modelled — PAYE is
-  estimated from the annual salary.
+  income); rUK bands only (no Scottish rates); ~~tax codes not modelled — PAYE is
+  estimated from the annual salary~~ (partially superseded by amendment (f): the PAYE
+  check uses the person's tax code; the annual summary stays statutory).
 
 ### Screen (§4.8 Income)
 
