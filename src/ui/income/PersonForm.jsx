@@ -67,7 +67,7 @@ export default function PersonForm({ initial, onSubmit, onCancel }) {
   };
 
   return (
-    <form className="form card" onSubmit={submit}>
+    <form className="form" onSubmit={submit}>
       <div className="form-row">
         <div className="field field--grow">
           <label>Name</label>

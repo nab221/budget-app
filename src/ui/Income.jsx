@@ -46,8 +46,6 @@ export default function Income() {
   const bounds = taxYearBounds(taxYear);
   const people = data?.people ?? [];
   const anyOver100k = people.filter((p) => p.summary.over100k);
-  // Payslip entry is a modal now, so it doesn't count as an inline form.
-  const formOpen = addingPerson || editingPerson || eventDialog || periodDialog;
 
   const addPerson = async (payload) => {
     // The add form's salary/sacrifice seed the first timeline entry; the person
@@ -173,11 +171,9 @@ export default function Income() {
               </button>
             )}
           </div>
-          {!formOpen && (
-            <button type="button" className="btn btn--primary" onClick={() => setAddingPerson(true)}>
-              Add person
-            </button>
-          )}
+          <button type="button" className="btn btn--primary" onClick={() => setAddingPerson(true)}>
+            Add person
+          </button>
         </div>
       </header>
 
@@ -197,35 +193,49 @@ export default function Income() {
         </p>
       )}
 
-      {addingPerson && <PersonForm onSubmit={addPerson} onCancel={() => setAddingPerson(false)} />}
+      {addingPerson && (
+        <Modal title="Add person" onClose={() => setAddingPerson(false)}>
+          <PersonForm onSubmit={addPerson} onCancel={() => setAddingPerson(false)} />
+        </Modal>
+      )}
       {editingPerson && (
-        <PersonForm
-          initial={editingPerson}
-          onSubmit={savePerson}
-          onCancel={() => setEditingPerson(null)}
-        />
+        <Modal title={`Edit person — ${editingPerson.name}`} onClose={() => setEditingPerson(null)}>
+          <PersonForm
+            initial={editingPerson}
+            onSubmit={savePerson}
+            onCancel={() => setEditingPerson(null)}
+          />
+        </Modal>
       )}
       {/* The forms seed their state once on mount, so each carries a key tied
           to the entity being edited — clicking Edit on a different entry
           while a form is open remounts it instead of showing stale figures. */}
       {eventDialog && (
-        <EventForm
-          key={eventDialog.event?.id ?? `new-${eventDialog.personId}-${eventDialog.kind}`}
-          kind={eventDialog.kind}
-          personName={eventDialog.personName}
-          initial={eventDialog.event}
-          onSubmit={saveEvent}
-          onCancel={() => setEventDialog(null)}
-        />
+        <Modal
+          title={`${eventDialog.event ? 'Edit' : 'Add'} ${EVENT_KIND_LABELS[eventDialog.kind].toLowerCase()} — ${eventDialog.personName}`}
+          onClose={() => setEventDialog(null)}
+        >
+          <EventForm
+            key={eventDialog.event?.id ?? `new-${eventDialog.personId}-${eventDialog.kind}`}
+            kind={eventDialog.kind}
+            initial={eventDialog.event}
+            onSubmit={saveEvent}
+            onCancel={() => setEventDialog(null)}
+          />
+        </Modal>
       )}
       {periodDialog && (
-        <SalaryPeriodForm
-          key={periodDialog.period?.id ?? `new-${periodDialog.personId}`}
-          personName={periodDialog.personName}
-          initial={periodDialog.period}
-          onSubmit={savePeriod}
-          onCancel={() => setPeriodDialog(null)}
-        />
+        <Modal
+          title={`${periodDialog.period ? 'Edit' : 'Add'} salary change — ${periodDialog.personName}`}
+          onClose={() => setPeriodDialog(null)}
+        >
+          <SalaryPeriodForm
+            key={periodDialog.period?.id ?? `new-${periodDialog.personId}`}
+            initial={periodDialog.period}
+            onSubmit={savePeriod}
+            onCancel={() => setPeriodDialog(null)}
+          />
+        </Modal>
       )}
       {payslipDialog && (
         <Modal

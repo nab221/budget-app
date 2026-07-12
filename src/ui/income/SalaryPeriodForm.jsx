@@ -11,13 +11,13 @@ const today = () => new Date().toISOString().slice(0, 10);
  * an annual rate in force from a date — a pay raise, a step down to
  * less-than-full-time, or a new contract is just a new entry. Money is
  * pounds at the repository edge. Months without a payslip are projected from
- * whichever entry is in force; the change month is pro-rated by day.
+ * whichever entry is in force; the change month is pro-rated by day. Rendered
+ * inside a Modal, which carries the title (person).
  *
  * @param {object} props
- * @param {string} props.personName - shown in the form title.
  * @param {object} [props.initial] - existing period (pounds at edge) when editing.
  */
-export default function SalaryPeriodForm({ personName, initial, onSubmit, onCancel }) {
+export default function SalaryPeriodForm({ initial, onSubmit, onCancel }) {
   const [form, setForm] = useState(() => ({
     effectiveFrom:
       initial && initial.effectiveFrom !== PERIOD_START_SENTINEL ? initial.effectiveFrom : today(),
@@ -61,10 +61,7 @@ export default function SalaryPeriodForm({ personName, initial, onSubmit, onCanc
   };
 
   return (
-    <form className="form card" onSubmit={submit}>
-      <h3 className="form__title">
-        {initial ? 'Edit' : 'Add'} salary change — {personName}
-      </h3>
+    <form className="form" onSubmit={submit}>
       <div className="form-row">
         <div className="field">
           <label>In force from</label>
