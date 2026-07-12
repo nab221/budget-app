@@ -37,6 +37,35 @@ happened; it is a live picture of **how much is going out per week / month / yea
 
 ---
 
+## ⚠ Amendment 2026-07-12 (e) — Dated "other income" events (consultancy fees…)
+
+The owner received a **consultancy fee paid gross** (pre-tax, outside PAYE). It is not
+a dividend (dividend rates and the £500 allowance don't apply) and not salary (no PAYE
+deducted), so neither existing entry type fits. Where this conflicts with older
+sections, this wins:
+
+- `incomeEvents.kind` gains a third value: **`other-income`** — dated income paid gross
+  outside PAYE (consultancy fee, freelance work). Same shape as a dividend draw: date
+  (defaults today), positive amount, optional note; added via an **"Add other income"**
+  action on the person card; editable/deletable. No schema version bump (`kind` values
+  are not constrained at the Dexie level).
+- **Tax treatment**: general income — it joins the non-dividend stack (taxed through
+  the normal 20/40/45% bands, consumes band space before dividends, counts toward the
+  £100k line and gross income), but its tax is **owed via Self Assessment**, not
+  collected by PAYE. The engine treats it as the top slice of non-dividend income
+  (marginal rates on top of salary) and reports the split: `payeTaxPence` (collected at
+  source) vs `selfAssessmentTaxPence` (dividend tax + other-income tax).
+- The projection convention follows dividends: other-income events count only as
+  actually entered — no annualising.
+- The person-level annual **`otherIncomePence` field stays** for steady annual amounts
+  known up front (still estimated on the PAYE side, as before — e.g. amounts collected
+  via a tax-code adjustment). One-off gross receipts belong in dated events.
+- The person card's second tax stat becomes "**Extra bill via Self Assessment**"
+  (dividends + other income, with the split shown when both exist); the dashboard Z6
+  strip and monthly report show `PAYE ≈ X · Self Assessment ≈ Y`.
+
+---
+
 ## ⚠ Amendment 2026-07-12 (d) — Payrolled benefits in kind on the payslip
 
 The owner's payslip carries a **payrolled BIK** line (the car bought via salary

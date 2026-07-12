@@ -64,6 +64,17 @@ describe('buildPersonYearInput', () => {
     expect(input.pensionPence).toBe(200000);
   });
 
+  it('routes other-income events into the non-dividend total, not the salary', () => {
+    const input = buildPersonYearInput(person, [
+      { kind: 'other-income', amountPence: 500000 }, // £5,000 consultancy fee
+      { kind: 'dividend', amountPence: 1000000 },
+    ]);
+    expect(input.otherEventTotalPence).toBe(500000);
+    expect(input.salaryPence).toBe(6000000 - 600000); // fee not in PAYE salary
+    expect(input.nonDividendPence).toBe(input.salaryPence + 100000 + 50000 + 500000);
+    expect(input.dividendPence).toBe(1000000); // and not a dividend either
+  });
+
   it('clamps a sacrifice larger than the salary to zero pay', () => {
     const input = buildPersonYearInput(
       { annualSalaryPence: 100000, salarySacrificePence: 500000 },
@@ -101,6 +112,49 @@ describe('computePersonTax — hand-worked HMRC examples (2026-27)', () => {
     expect(r.overHigherRate).toBe(true);
     expect(r.headroomTo100kPence).toBe(3000000); // £30,000 more before £100k
     expect(r.over100k).toBe(false);
+  });
+
+  it('a gross consultancy fee splits PAYE vs Self Assessment correctly', () => {
+    // £60,000 salary + £5,000 gross fee + £10,000 dividends.
+    const r = computePersonTax(
+      {
+        nonDividendPence: 6500000,
+        dividendPence: 1000000,
+        pensionPence: 0,
+        otherEventTotalPence: 500000,
+      },
+      T26
+    );
+    // Whole non-dividend stack: £7,540 basic + (£52,430 − £37,700) × 40%.
+    expect(r.nonDividendTaxPence).toBe(1343200);
+    // The fee is the top £5,000 slice of that stack — all in the 40% band.
+    expect(r.otherIncomeTaxPence).toBe(200000);
+    // PAYE only ever sees the salary — same £11,432 as the salary-only case.
+    expect(r.payeTaxPence).toBe(1143200);
+    expect(r.dividendTaxPence).toBe(339625);
+    expect(r.selfAssessmentTaxPence).toBe(200000 + 339625);
+    expect(r.totalTaxPence).toBe(1343200 + 339625);
+  });
+
+  it('a basic-rate fee is taxed at 20% via Self Assessment', () => {
+    // £30,000 salary + £5,000 fee — both fully inside the basic band.
+    const r = computePersonTax(
+      { nonDividendPence: 3500000, dividendPence: 0, pensionPence: 0, otherEventTotalPence: 500000 },
+      T26
+    );
+    expect(r.otherIncomeTaxPence).toBe(100000); // £5,000 × 20%
+    expect(r.payeTaxPence).toBe(r.nonDividendTaxPence - 100000);
+    expect(r.selfAssessmentTaxPence).toBe(100000);
+  });
+
+  it('without other income the split degenerates to the old figures', () => {
+    const r = computePersonTax(
+      { nonDividendPence: 6000000, dividendPence: 1000000, pensionPence: 0 },
+      T26
+    );
+    expect(r.otherIncomeTaxPence).toBe(0);
+    expect(r.payeTaxPence).toBe(r.nonDividendTaxPence);
+    expect(r.selfAssessmentTaxPence).toBe(r.dividendTaxPence);
   });
 
   it('salary £30,000 + dividends £15,000: everything basic rate', () => {

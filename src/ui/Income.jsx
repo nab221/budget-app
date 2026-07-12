@@ -271,6 +271,14 @@ export default function Income() {
                   event: null,
                 })
               }
+              onAddOtherIncome={() =>
+                setEventDialog({
+                  personId: entry.id,
+                  personName: entry.name,
+                  kind: 'other-income',
+                  event: null,
+                })
+              }
               onAddPeriod={() =>
                 setPeriodDialog({ personId: entry.id, personName: entry.name, period: null })
               }

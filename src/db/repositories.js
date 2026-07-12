@@ -111,7 +111,7 @@ const BILL_FREQUENCIES = [
   'annual',
 ];
 const TRANSACTION_KINDS = ['income', 'spend'];
-const INCOME_EVENT_KINDS = ['dividend', 'salary-adjustment'];
+const INCOME_EVENT_KINDS = ['dividend', 'salary-adjustment', 'other-income'];
 const TRANSACTION_SOURCES = ['manual', 'import', 'bill'];
 const DEBT_TYPES = ['credit-card', 'loan'];
 
@@ -162,6 +162,16 @@ function validateIncomeEvent(data) {
   }
   if (data.date !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(String(data.date))) {
     throw new Error(`incomeEvents.date must be an ISO yyyy-MM-dd string; got "${data.date}"`);
+  }
+  // Only a salary adjustment is signed (unpaid leave); a dividend draw or
+  // other income received is a positive amount — enforced here too so direct
+  // repo writes can't bypass the form's check.
+  if (
+    (data.kind === 'dividend' || data.kind === 'other-income') &&
+    data.amountPence !== undefined &&
+    Number(data.amountPence) < 0
+  ) {
+    throw new Error(`incomeEvents.amountPence must be positive for kind "${data.kind}"`);
   }
 }
 

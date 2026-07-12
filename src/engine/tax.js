@@ -9,6 +9,9 @@
  * - Non-dividend income (salary − salary sacrifice + adjustments + BIK + other)
  *   is taxed first through the bands after the personal allowance; dividends
  *   stack on top. The dividend allowance is taxed at 0% but consumes band space.
+ * - Dated other-income events (gross-paid consultancy fees…) are general
+ *   income inside the non-dividend stack, but their tax is reported as owed
+ *   via Self Assessment rather than PAYE.
  * - Personal allowance tapers £1 per £2 of adjusted net income over £100,000.
  * - Adjusted net income = all income (incl. dividends) − personal pension
  *   contributions. Salary sacrifice never reaches the salary figure at all.
@@ -116,13 +119,19 @@ export function taxYearTable(label) {
  * Fold a person record + their income events (already filtered to one tax
  * year) into the pence inputs `computePersonTax` wants. Annual figures
  * (salary, sacrifice, BIK, other, pension) are assumed for the full year;
- * dividends and salary adjustments count only as actually entered — dividends
- * are discretionary, which is the point of the tool.
+ * dividends, salary adjustments, and other-income events count only as
+ * actually entered — dividends are discretionary, which is the point of the
+ * tool.
+ *
+ * `other-income` events are income paid GROSS outside PAYE (a consultancy
+ * fee, freelance work). They are general income — taxed through the normal
+ * bands, not at dividend rates — but the tax on them is owed via Self
+ * Assessment, so they are kept out of the salary figure.
  *
  * @param {{ annualSalaryPence?: number, salarySacrificePence?: number,
  *           pensionAnnualPence?: number, benefitsInKindPence?: number,
  *           otherIncomePence?: number }} person - integer pence.
- * @param {Array<{ kind: 'dividend'|'salary-adjustment', amountPence: number }>} events
+ * @param {Array<{ kind: 'dividend'|'salary-adjustment'|'other-income', amountPence: number }>} events
  * @param {number|null} [salaryOverridePence] - the year's taxable salary as
  *   already assembled by the monthly timeline (salaryTimeline.js). When given,
  *   it replaces the annual − sacrifice figure (sacrifice, workplace pension,
@@ -131,16 +140,20 @@ export function taxYearTable(label) {
  *   for benefits NOT payrolled (assessed via P11D/tax code) — a payrolled
  *   benefit entered both there and on the timeline would count twice.
  * @returns {{ nonDividendPence, dividendPence, pensionPence,
- *             dividendTotalPence, adjustmentTotalPence, salaryPence }}
+ *             dividendTotalPence, adjustmentTotalPence, otherEventTotalPence,
+ *             salaryPence }}
  */
 export function buildPersonYearInput(person, events, salaryOverridePence = null) {
   const p = (v) => Math.round(Number(v) || 0);
   let dividendTotalPence = 0;
   let adjustmentTotalPence = 0;
+  let otherEventTotalPence = 0;
   for (const ev of events || []) {
     if (ev.kind === 'dividend') dividendTotalPence += p(ev.amountPence);
     else if (ev.kind === 'salary-adjustment') adjustmentTotalPence += p(ev.amountPence);
+    else if (ev.kind === 'other-income') otherEventTotalPence += p(ev.amountPence);
   }
+  otherEventTotalPence = Math.max(0, otherEventTotalPence);
   // Sacrificed pay never reaches the payslip; a negative result means the
   // sacrifice exceeds pay — clamp, it cannot create negative income.
   const salaryPence = Math.max(
@@ -153,7 +166,12 @@ export function buildPersonYearInput(person, events, salaryOverridePence = null)
     salaryPence,
     dividendTotalPence,
     adjustmentTotalPence,
-    nonDividendPence: salaryPence + p(person.benefitsInKindPence) + p(person.otherIncomePence),
+    otherEventTotalPence,
+    nonDividendPence:
+      salaryPence +
+      p(person.benefitsInKindPence) +
+      p(person.otherIncomePence) +
+      otherEventTotalPence,
     dividendPence: Math.max(0, dividendTotalPence),
     pensionPence: Math.max(0, p(person.pensionAnnualPence)),
   };
@@ -171,9 +189,14 @@ function overlap(a, b, lo, hi) {
 /**
  * Compute a person's income tax for one tax year.
  *
- * @param {{ nonDividendPence: number, dividendPence: number, pensionPence: number }} input
+ * @param {{ nonDividendPence: number, dividendPence: number, pensionPence: number,
+ *           otherEventTotalPence?: number }} input
  *   integer pence: non-dividend income (salary after sacrifice + adjustments +
  *   BIK + other), dividends, and personal pension contributions.
+ *   `otherEventTotalPence` is the part of the non-dividend figure that came
+ *   from gross-paid other-income events (consultancy fees…) — used only to
+ *   split the non-dividend tax into a PAYE part and a Self Assessment part;
+ *   it never changes the total.
  * @param {object} table - a TAX_YEAR_TABLES entry.
  * @returns {object} pence figures — see fields below.
  */
@@ -181,6 +204,7 @@ export function computePersonTax(input, table) {
   const nonDividend = Math.max(0, Math.round(input.nonDividendPence || 0));
   const dividends = Math.max(0, Math.round(input.dividendPence || 0));
   const pension = Math.max(0, Math.round(input.pensionPence || 0));
+  const otherEvents = Math.max(0, Math.round(input.otherEventTotalPence || 0));
 
   const grossIncomePence = nonDividend + dividends;
   const adjustedNetIncomePence = Math.max(0, grossIncomePence - pension);
@@ -214,6 +238,17 @@ export function computePersonTax(input, table) {
     Math.round(overlap(0, ndTaxable, basicEdge, higherEdge) * ir.higher) +
     Math.round(Math.max(0, ndTaxable - higherEdge) * ir.additional);
 
+  // Gross-paid other income (consultancy fees…) never goes through PAYE, so
+  // its tax is owed via Self Assessment. It sits at the TOP of the
+  // non-dividend stack — HMRC assesses it at the marginal rates on top of
+  // salary — so its tax is the band walk over the top slice of ndTaxable.
+  const otherSlice = Math.min(otherEvents, nonDividend);
+  const otherStart = Math.max(0, ndTaxable - otherSlice);
+  const otherIncomeTaxPence =
+    Math.round(overlap(otherStart, ndTaxable, 0, basicEdge) * ir.basic) +
+    Math.round(overlap(otherStart, ndTaxable, basicEdge, higherEdge) * ir.higher) +
+    Math.round(Math.max(0, ndTaxable - Math.max(otherStart, higherEdge)) * ir.additional);
+
   // Dividends stack on top of non-dividend taxable income. The dividend
   // allowance sits at the bottom of the stack: 0% tax, but band space used.
   const allowanceUsed = Math.min(table.dividendAllowancePence, divTaxable);
@@ -229,10 +264,18 @@ export function computePersonTax(input, table) {
     grossIncomePence,
     adjustedNetIncomePence,
     personalAllowancePence,
-    // ≈ what PAYE deducts from salary automatically.
+    // Tax on ALL non-dividend income (salary + BIK + other).
     nonDividendTaxPence,
+    // The split of the above: what PAYE deducts at source vs the part on
+    // gross-paid other income, owed later via Self Assessment. (BIK and the
+    // annual other-income field stay on the PAYE side — they are usually
+    // collected through the tax code.)
+    payeTaxPence: nonDividendTaxPence - otherIncomeTaxPence,
+    otherIncomeTaxPence,
     // The EXTRA bill dividends create, settled later via Self Assessment.
     dividendTaxPence,
+    // Everything settled via Self Assessment: dividends + gross other income.
+    selfAssessmentTaxPence: dividendTaxPence + otherIncomeTaxPence,
     totalTaxPence: nonDividendTaxPence + dividendTaxPence,
     // How much more could be drawn before the 40% band / the £100k line.
     // Extra dividends raise gross income and ANI 1:1, so these read directly
