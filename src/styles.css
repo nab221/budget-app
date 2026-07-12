@@ -1581,7 +1581,7 @@ body.privacy .chart:hover {
 }
 .income-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(24rem, 1fr));
+  grid-template-columns: 1fr;
   gap: 1rem;
   list-style: none;
   margin: 0;
@@ -1702,8 +1702,5 @@ body.privacy .chart:hover {
 @media (max-width: 760px) {
   .person-card__facts {
     grid-template-columns: repeat(2, 1fr);
-  }
-  .income-list {
-    grid-template-columns: 1fr;
   }
 }
