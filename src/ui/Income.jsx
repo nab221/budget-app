@@ -5,6 +5,7 @@ import { gatherIncomeData } from '../db/incomeData.js';
 import { taxYearForDate, shiftTaxYear, taxYearBounds } from '../engine/tax.js';
 import EmptyState from './components/EmptyState.jsx';
 import ConfirmDialog from './components/ConfirmDialog.jsx';
+import Modal from './components/Modal.jsx';
 import { formatDay, formatPayMonth } from './components/dates.js';
 import PersonCard from './income/PersonCard.jsx';
 import PersonForm from './income/PersonForm.jsx';
@@ -45,7 +46,8 @@ export default function Income() {
   const bounds = taxYearBounds(taxYear);
   const people = data?.people ?? [];
   const anyOver100k = people.filter((p) => p.summary.over100k);
-  const formOpen = addingPerson || editingPerson || eventDialog || periodDialog || payslipDialog;
+  // Payslip entry is a modal now, so it doesn't count as an inline form.
+  const formOpen = addingPerson || editingPerson || eventDialog || periodDialog;
 
   const addPerson = async (payload) => {
     // The add form's salary/sacrifice seed the first timeline entry; the person
@@ -226,16 +228,20 @@ export default function Income() {
         />
       )}
       {payslipDialog && (
-        <PayslipForm
-          key={`${payslipDialog.personId}-${payslipDialog.month}`}
-          month={payslipDialog.month}
-          personName={payslipDialog.personName}
-          initial={payslipDialog.payslip}
-          projectedPounds={payslipDialog.projectedPounds}
-          onSubmit={savePayslip}
-          onDelete={() => setConfirmDeletePayslip(payslipDialog.payslip)}
-          onCancel={() => setPayslipDialog(null)}
-        />
+        <Modal
+          title={`${payslipDialog.payslip ? 'Edit' : 'Add'} payslip — ${payslipDialog.personName}, ${formatPayMonth(payslipDialog.month)}`}
+          onClose={() => setPayslipDialog(null)}
+        >
+          <PayslipForm
+            key={`${payslipDialog.personId}-${payslipDialog.month}`}
+            month={payslipDialog.month}
+            initial={payslipDialog.payslip}
+            projectedPounds={payslipDialog.projectedPounds}
+            onSubmit={savePayslip}
+            onDelete={() => setConfirmDeletePayslip(payslipDialog.payslip)}
+            onCancel={() => setPayslipDialog(null)}
+          />
+        </Modal>
       )}
 
       {loading && !data ? (
