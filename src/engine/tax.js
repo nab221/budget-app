@@ -123,10 +123,14 @@ export function taxYearTable(label) {
  *           pensionAnnualPence?: number, benefitsInKindPence?: number,
  *           otherIncomePence?: number }} person - integer pence.
  * @param {Array<{ kind: 'dividend'|'salary-adjustment', amountPence: number }>} events
+ * @param {number|null} [salaryOverridePence] - the year's taxable salary as
+ *   already assembled by the monthly timeline (salaryTimeline.js). When given,
+ *   it replaces the annual − sacrifice figure (sacrifice and workplace pension
+ *   are already inside the monthly numbers); legacy adjustments still add on.
  * @returns {{ nonDividendPence, dividendPence, pensionPence,
  *             dividendTotalPence, adjustmentTotalPence, salaryPence }}
  */
-export function buildPersonYearInput(person, events) {
+export function buildPersonYearInput(person, events, salaryOverridePence = null) {
   const p = (v) => Math.round(Number(v) || 0);
   let dividendTotalPence = 0;
   let adjustmentTotalPence = 0;
@@ -138,7 +142,9 @@ export function buildPersonYearInput(person, events) {
   // sacrifice exceeds pay — clamp, it cannot create negative income.
   const salaryPence = Math.max(
     0,
-    p(person.annualSalaryPence) - p(person.salarySacrificePence) + adjustmentTotalPence
+    (salaryOverridePence != null
+      ? p(salaryOverridePence)
+      : p(person.annualSalaryPence) - p(person.salarySacrificePence)) + adjustmentTotalPence
   );
   return {
     salaryPence,

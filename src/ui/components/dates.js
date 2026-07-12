@@ -19,3 +19,13 @@ export function formatMonth(iso) {
     return iso;
   }
 }
+
+/** 'yyyy-MM' (a pay month) → a compact 'Jul 2026'. */
+export function formatPayMonth(yyyyMM) {
+  if (!yyyyMM) return '—';
+  try {
+    return format(parseISO(`${yyyyMM}-01`), 'MMM yyyy');
+  } catch {
+    return yyyyMM;
+  }
+}

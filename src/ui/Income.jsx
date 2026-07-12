@@ -1,23 +1,28 @@
 import { useState } from 'react';
 import { useLiveData } from '../db/useLiveData.js';
-import { peopleRepo, incomeEventsRepo } from '../db/repositories.js';
+import { peopleRepo, incomeEventsRepo, salaryPeriodsRepo, payslipsRepo } from '../db/repositories.js';
 import { gatherIncomeData } from '../db/incomeData.js';
 import { taxYearForDate, shiftTaxYear, taxYearBounds } from '../engine/tax.js';
 import EmptyState from './components/EmptyState.jsx';
 import ConfirmDialog from './components/ConfirmDialog.jsx';
-import { formatDay } from './components/dates.js';
+import { formatDay, formatPayMonth } from './components/dates.js';
 import PersonCard from './income/PersonCard.jsx';
 import PersonForm from './income/PersonForm.jsx';
 import EventForm, { EVENT_KIND_LABELS } from './income/EventForm.jsx';
+import SalaryPeriodForm, { PERIOD_START_SENTINEL } from './income/SalaryPeriodForm.jsx';
+import PayslipForm from './income/PayslipForm.jsx';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
 /**
- * Income tab (spec amendment 2026-07-07 (b)) — the two-person tax-year
- * tracker. Per person: annual salary/sacrifice/pension/BIK/other plus dated
- * dividend draws and salary adjustments; the engine computes gross income,
- * adjusted net income, headroom to the 40% band and the £100k childcare line,
- * and the PAYE-vs-dividend tax split. All figures computed at read time.
+ * Income tab (spec §4.8, income redesign amendment (c)) — the two-person
+ * tax-year tracker. Per person: a salary TIMELINE of dated annual rates
+ * (raise / LTFT / new contract = a new entry), a monthly payslip log whose
+ * actuals override the timeline projection month by month, plus dated
+ * dividend draws; the engine computes gross income, adjusted net income,
+ * headroom to the 40% band and the £100k childcare line, the PAYE-vs-dividend
+ * tax split, and a cumulative-basis PAYE sanity check. All figures computed
+ * at read time.
  */
 export default function Income() {
   const [taxYear, setTaxYear] = useState(() => taxYearForDate(today()));
@@ -25,8 +30,14 @@ export default function Income() {
   const [editingPerson, setEditingPerson] = useState(null); // raw repo row
   // { personId, personName, kind, event|null } — one dialog for add + edit.
   const [eventDialog, setEventDialog] = useState(null);
+  // { personId, personName, period|null } — add + edit a salary timeline entry.
+  const [periodDialog, setPeriodDialog] = useState(null);
+  // { personId, personName, month, payslip|null, projectedPounds } — the month grid form.
+  const [payslipDialog, setPayslipDialog] = useState(null);
   const [confirmDeletePerson, setConfirmDeletePerson] = useState(null);
   const [confirmDeleteEvent, setConfirmDeleteEvent] = useState(null);
+  const [confirmDeletePeriod, setConfirmDeletePeriod] = useState(null);
+  const [confirmDeletePayslip, setConfirmDeletePayslip] = useState(null);
 
   const { data, loading } = useLiveData(() => gatherIncomeData(taxYear), [taxYear]);
 
@@ -34,10 +45,21 @@ export default function Income() {
   const bounds = taxYearBounds(taxYear);
   const people = data?.people ?? [];
   const anyOver100k = people.filter((p) => p.summary.over100k);
-  const formOpen = addingPerson || editingPerson || eventDialog;
+  const formOpen = addingPerson || editingPerson || eventDialog || periodDialog || payslipDialog;
 
   const addPerson = async (payload) => {
-    await peopleRepo.add(payload);
+    // The add form's salary/sacrifice seed the first timeline entry; the person
+    // row itself only keeps the person-level annual figures.
+    const { annualSalaryPence = 0, salarySacrificePence = 0, ...person } = payload;
+    const personId = await peopleRepo.add(person);
+    if (annualSalaryPence > 0 || salarySacrificePence > 0) {
+      await salaryPeriodsRepo.add({
+        personId,
+        effectiveFrom: PERIOD_START_SENTINEL,
+        annualSalaryPence,
+        salarySacrificePence,
+      });
+    }
     setAddingPerson(false);
   };
   const savePerson = async (payload) => {
@@ -60,12 +82,59 @@ export default function Income() {
     await incomeEventsRepo.delete(confirmDeleteEvent.id);
     setConfirmDeleteEvent(null);
   };
+  const savePeriod = async (payload) => {
+    if (periodDialog.period?.id != null) {
+      await salaryPeriodsRepo.update(periodDialog.period.id, payload);
+    } else {
+      // Covers both a brand-new entry and materialising the legacy annual
+      // salary (a virtual period with no id) into a real timeline row.
+      await salaryPeriodsRepo.add({ ...payload, personId: periodDialog.personId });
+    }
+    setPeriodDialog(null);
+  };
+  const removePeriod = async () => {
+    await salaryPeriodsRepo.delete(confirmDeletePeriod.id);
+    setConfirmDeletePeriod(null);
+  };
+  const savePayslip = async (payload) => {
+    await payslipsRepo.upsert(payslipDialog.personId, payload);
+    setPayslipDialog(null);
+  };
+  const removePayslip = async () => {
+    await payslipsRepo.delete(confirmDeletePayslip.id);
+    setConfirmDeletePayslip(null);
+    setPayslipDialog(null);
+  };
 
-  // Events are stored in pounds at the repo edge but arrive here in pence via
-  // gatherIncomeData — the edit form needs the pounds row back.
+  // Events, periods, and payslips are stored in pounds at the repo edge but
+  // arrive here in pence via gatherIncomeData — the edit forms need the
+  // pounds rows back.
   const openEditEvent = async (entry, ev) => {
     const row = await incomeEventsRepo.get(ev.id);
     setEventDialog({ personId: entry.id, personName: entry.name, kind: row.kind, event: row });
+  };
+  const openEditPeriod = async (entry, period) => {
+    const row =
+      period.id != null
+        ? await salaryPeriodsRepo.get(period.id)
+        : {
+            // The legacy virtual period: prefill from the person's annual
+            // fields (pounds); saving creates the first real timeline row.
+            effectiveFrom: PERIOD_START_SENTINEL,
+            annualSalaryPence: entry.person.annualSalaryPence,
+            salarySacrificePence: entry.person.salarySacrificePence,
+          };
+    setPeriodDialog({ personId: entry.id, personName: entry.name, period: row });
+  };
+  const openEditMonth = async (entry, row) => {
+    const payslip = row.payslip ? await payslipsRepo.get(row.payslip.id) : null;
+    setPayslipDialog({
+      personId: entry.id,
+      personName: entry.name,
+      month: row.month,
+      payslip,
+      projectedPounds: row.taxablePence / 100,
+    });
   };
 
   return (
@@ -143,13 +212,32 @@ export default function Income() {
           onCancel={() => setEventDialog(null)}
         />
       )}
+      {periodDialog && (
+        <SalaryPeriodForm
+          personName={periodDialog.personName}
+          initial={periodDialog.period}
+          onSubmit={savePeriod}
+          onCancel={() => setPeriodDialog(null)}
+        />
+      )}
+      {payslipDialog && (
+        <PayslipForm
+          month={payslipDialog.month}
+          personName={payslipDialog.personName}
+          initial={payslipDialog.payslip}
+          projectedPounds={payslipDialog.projectedPounds}
+          onSubmit={savePayslip}
+          onDelete={() => setConfirmDeletePayslip(payslipDialog.payslip)}
+          onCancel={() => setPayslipDialog(null)}
+        />
+      )}
 
       {loading && !data ? (
         <p className="muted">Loading…</p>
       ) : people.length === 0 ? (
         <EmptyState
           title="No people yet"
-          hint="Add yourself and your wife with your annual salaries. Then record each dividend draw as you take it — the card shows how close each of you is to the 40% band and the £100,000 childcare line, and what the tax bill will be."
+          hint="Add yourself and your wife with your current annual salaries. Enter each month's payslip as it arrives and record salary changes on the timeline — the card shows how close each of you is to the 40% band and the £100,000 childcare line, and what the tax bill will be."
         />
       ) : (
         <ul className="card-list income-list">
@@ -158,6 +246,7 @@ export default function Income() {
               key={entry.id}
               entry={entry}
               table={data.table}
+              todayMonth={data.todayMonth}
               onAddDividend={() =>
                 setEventDialog({
                   personId: entry.id,
@@ -166,14 +255,12 @@ export default function Income() {
                   event: null,
                 })
               }
-              onAddAdjustment={() =>
-                setEventDialog({
-                  personId: entry.id,
-                  personName: entry.name,
-                  kind: 'salary-adjustment',
-                  event: null,
-                })
+              onAddPeriod={() =>
+                setPeriodDialog({ personId: entry.id, personName: entry.name, period: null })
               }
+              onEditPeriod={(period) => openEditPeriod(entry, period)}
+              onDeletePeriod={(period) => setConfirmDeletePeriod(period)}
+              onEditMonth={(row) => openEditMonth(entry, row)}
               onEdit={() => setEditingPerson(entry.person)}
               onDelete={() => setConfirmDeletePerson(entry)}
               onEditEvent={(ev) => openEditEvent(entry, ev)}
@@ -188,7 +275,7 @@ export default function Income() {
         title="Remove person"
         message={
           confirmDeletePerson
-            ? `Remove "${confirmDeletePerson.name}" and all their dividend draws and salary adjustments (every tax year)? This can't be undone.`
+            ? `Remove "${confirmDeletePerson.name}" with their whole salary history, payslips, and dividend draws (every tax year)? This can't be undone.`
             : ''
         }
         confirmLabel="Remove"
@@ -208,6 +295,32 @@ export default function Income() {
         danger
         onConfirm={removeEvent}
         onCancel={() => setConfirmDeleteEvent(null)}
+      />
+      <ConfirmDialog
+        open={!!confirmDeletePeriod}
+        title="Delete salary change"
+        message={
+          confirmDeletePeriod
+            ? `Delete the salary change${confirmDeletePeriod.effectiveFrom !== PERIOD_START_SENTINEL ? ` of ${formatDay(confirmDeletePeriod.effectiveFrom)}` : ''}? Months will project from the previous rate instead.`
+            : ''
+        }
+        confirmLabel="Delete"
+        danger
+        onConfirm={removePeriod}
+        onCancel={() => setConfirmDeletePeriod(null)}
+      />
+      <ConfirmDialog
+        open={!!confirmDeletePayslip}
+        title="Remove payslip"
+        message={
+          confirmDeletePayslip
+            ? `Remove the ${formatPayMonth(confirmDeletePayslip.month)} payslip? The month goes back to the projected figure.`
+            : ''
+        }
+        confirmLabel="Remove"
+        danger
+        onConfirm={removePayslip}
+        onCancel={() => setConfirmDeletePayslip(null)}
       />
     </div>
   );

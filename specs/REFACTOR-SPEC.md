@@ -37,6 +37,41 @@ happened; it is a live picture of **how much is going out per week / month / yea
 
 ---
 
+## ⚠ Amendment 2026-07-12 (c) — Income redesign: salary timeline + monthly payslips
+
+The owner's pay stopped fitting a single annual figure (mid-year raise, reduction to
+less-than-full-time, an upcoming new contract), so the "**No monthly payslip logging**"
+decision in amendment (b) is **superseded**. Full design and owner-confirmed decisions:
+`specs/INCOME-TAB-REDESIGN-PLAN.md`. Where this conflicts with amendment (b), this
+amendment wins. In brief:
+
+- **Salary timeline** (`salaryPeriods`, schema v5): per person, dated entries
+  "£X/year in force from date D" carrying annual salary, salary sacrifice, and the
+  expected before-tax **workplace pension** per year. Months project from whichever
+  entry is in force; a change month is pro-rated by day. The person row's
+  `annualSalaryPence`/`salarySacrificePence` stop being written (v5 migrates them into
+  an initial always-in-force entry; a person with no entries still falls back to them,
+  covering pre-v5 backup restores).
+- **Monthly payslip log** (`payslips`, one per person-month): full-detail entry per
+  the owner's decision — gross pay, before-tax pension, **income tax deducted**, note.
+  A month with a payslip shows the actual (taxable = gross − pension); a payslip on a
+  future month is a *planned* amount (pencilled bonus); everything else stays
+  projected.
+- **Month grid** on the person card: Apr–Mar rows with actual/planned/projected
+  badges and a running total toward the two thresholds; the current month nudges when
+  its payslip is missing. Documented simplification: a payslip belongs to the tax year
+  of its calendar month.
+- **PAYE check**: cumulative-basis comparison (m/12 of allowance and bands) of tax
+  actually deducted vs expected, warning beyond ±£100 — only when every month up to
+  the latest payslip is entered. Standard allowance (no taper), non-dividend only.
+- **"Add salary adjustment" is retired**: real payslips carry one-offs; known future
+  one-offs go on future months. Existing adjustment events still count and stay
+  editable/deletable; they can no longer be created.
+- Dividends, the threshold meters, `computePersonTax`, and the dashboard Z6 strip are
+  unchanged.
+
+---
+
 ## ⚠ Amendment 2026-07-07 (b) — Income phase activated: two-person tax-year tracker
 
 The "future phase" flagged in the amendment above is now specified (owner interview,
@@ -66,7 +101,7 @@ This is a *tax-year planning* concern, entirely separate from the dormant
 
 | Decision | Choice |
 |---|---|
-| Salary input | **Annual gross salary once** per person, plus optional dated **salary adjustments** (signed one-off amounts for a bonus month, unpaid leave, a mid-year raise correction). No monthly payslip logging. |
+| Salary input | ~~**Annual gross salary once** per person, plus optional dated **salary adjustments** (signed one-off amounts for a bonus month, unpaid leave, a mid-year raise correction). No monthly payslip logging.~~ **Superseded by amendment (c)**: salary timeline + monthly payslips. |
 | Pensions | Per-person **annual personal pension contributions** field, subtracted when computing adjusted net income for the £100k check. UI hint: if the provider adds 25% basic-rate relief, enter the grossed-up total. £0 default. |
 | Salary sacrifice | Per-person **annual salary sacrifice** field (owner follow-up 2026-07-07: wife has a car salary-sacrifice scheme). Subtracted **from the annual salary before anything else** — it reduces taxable pay *and* adjusted net income, unlike the pension field. UI hint: a sacrificed car usually creates a benefit in kind, which belongs in the P11D field. £0 default. |
 | Other income | Two optional per-person annual figures: **benefits in kind** (P11D: car, medical…) and a generic **other income** catch-all. Both count toward the totals and the £100k line. |

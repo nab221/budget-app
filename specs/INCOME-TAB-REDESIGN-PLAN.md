@@ -1,7 +1,8 @@
 # Income tab redesign — salary timeline + monthly payslips
 
-Status: **plan for owner review** — supersedes the "no monthly payslip logging" owner
-decision of 2026-07-07 (REFACTOR-SPEC amendment (b)). Nothing here is built yet.
+Status: **implemented** (owner decisions confirmed 2026-07-12; REFACTOR-SPEC
+amendment (c) records the summary). Supersedes the "no monthly payslip logging" owner
+decision of 2026-07-07 (REFACTOR-SPEC amendment (b)).
 
 ## 1. Why
 
@@ -21,18 +22,14 @@ Two ideas fix it together:
    from the rate timeline. The year figure — and the £50,270 / £100,000 meters — then
    always sit on the most-updated track.
 
-## 2. Owner decisions (proposed defaults — confirm or override)
+## 2. Owner decisions (confirmed 2026-07-12)
 
-These were posed as questions; the interactive dialog could not be delivered, so the
-recommended option is taken as the working default. **Any of these can be flipped
-before implementation.**
-
-| # | Question | Default taken |
+| # | Question | Decision |
 |---|---|---|
-| 1 | How much detail per payslip entry? | **One number per month**: the month's *taxable pay* (the payslip figure that already reflects LTFT, salary sacrifice, and net-pay pension), plus an optional note. |
-| 2 | How are un-entered months estimated? | **Rate timeline + payslip overrides**: months with a payslip use the actual; all other months use the annual rate in force that month (so a known future contract change is anticipated before its first payslip). |
-| 3 | Fate of "salary adjustment" events? | **Folded into the months**: a past bonus / unpaid-leave month is already inside that month's real payslip; a known *future* one-off is entered as a planned amount on that future month. The "Add salary adjustment" button goes away; existing adjustment rows keep counting until deleted (no data loss). |
-| 4 | Card layout? | **Month grid with running total**: an Apr–Mar table per person — each month shows its figure, an *actual / planned / projected* badge, and a cumulative-income column so you can watch yourself approach the two thresholds month by month. Click a month to enter or edit its payslip. |
+| 1 | How much detail per payslip entry? | **Full detail including tax paid** (owner's explicit choice): gross pay for the month, before-tax pension, and the income tax actually deducted, plus an optional note. Taxable pay = gross − pension. The tax figure powers a cumulative-basis **PAYE check** (m/12 of allowance and bands vs tax deducted to date; warns beyond ±£100; runs only when every month up to the latest payslip is entered; standard allowance, non-dividend only — documented simplifications). |
+| 2 | How are un-entered months estimated? | **Rate timeline + payslip overrides** (default confirmed): months with a payslip use the actual; all other months use the annual rate in force that month (so a known future contract change is anticipated before its first payslip). |
+| 3 | Fate of "salary adjustment" events? | **Folded into the months** (default confirmed): a past bonus / unpaid-leave month is already inside that month's real payslip; a known *future* one-off is entered as a planned amount on that future month. The "Add salary adjustment" button goes away; existing adjustment rows keep counting until deleted (no data loss). |
+| 4 | Card layout? | **Month grid with running total** (default confirmed): an Apr–Mar table per person — each month shows its figure, an *actual / planned / projected* badge, tax deducted, and a cumulative-income column so you can watch yourself approach the two thresholds month by month. Click a month to enter or edit its payslip. |
 
 Also assumed (flag if wrong):
 
@@ -47,19 +44,24 @@ Also assumed (flag if wrong):
   timeline, because a contract change can change it.
 - No payslip PDF import/OCR (stays a non-goal). Manual entry is one number per month.
 
-## 3. Data model (schema v4 — additive, follows the v3 pattern)
+## 3. Data model (schema v5 — additive, follows the v3 pattern)
 
 | Table | Fields (indexed → `*`) |
 |---|---|
-| `salaryPeriods` | `*id`, `*personId`, `*effectiveFrom` (ISO date), `annualSalaryPence`, `salarySacrificePence`, `note` |
-| `payslips` | `*id`, `*personId`, `*month` (`yyyy-MM`, unique per person+month), `taxablePence`, `note` |
+| `salaryPeriods` | `*id`, `*personId`, `*effectiveFrom` (ISO date), `annualSalaryPence`, `salarySacrificePence`, `workplacePensionAnnualPence`, `note` |
+| `payslips` | `*id`, `*personId`, `*month` (`yyyy-MM`, `&[personId+month]` unique), `grossPence`, `pensionPence`, `taxPaidPence`, `note` |
 
-- `people` keeps `pensionAnnualPence`, `benefitsInKindPence`, `otherIncomePence`.
-  `annualSalaryPence` / `salarySacrificePence` stop being written (kept in the schema
-  for backup compatibility, ignored by the engine once a person has periods).
+- The timeline entry carries the expected before-tax **workplace pension** per year
+  (decision #1's full-detail payslips subtract real pension from gross, so projected
+  months must too or actuals would systematically undershoot projections).
+- `people` keeps `pensionAnnualPence` (taxed-pay personal pension — a different
+  concept: it reduces adjusted net income only), `benefitsInKindPence`,
+  `otherIncomePence`. `annualSalaryPence` / `salarySacrificePence` stop being written
+  (kept in the schema for backup compatibility; `incomeData` falls back to them for a
+  person with no periods, which also covers pre-v5 backup restores).
 - **Upgrade migration**: for each existing person with a salary, create one
   `salaryPeriods` row effective from `1900-01-01` carrying their current salary +
-  sacrifice — the app behaves identically to today until the owner adds a dated change.
+  sacrifice — the app behaves identically to before until the owner adds a dated change.
 - `incomeEvents` unchanged: dividends work exactly as now; legacy `salary-adjustment`
   rows remain counted (added to the year's non-dividend income) but can no longer be
   created.
@@ -71,19 +73,22 @@ Also assumed (flag if wrong):
 New pure module `salaryTimeline.js`:
 
 - `monthsOfTaxYear(label)` → the 12 `yyyy-MM` slots Apr…Mar.
-- `rateForMonth(periods, month)` → the period in force (latest `effectiveFrom` ≤ the
-  month), pro-rated **by day** when a change lands mid-month.
-- `buildMonthlyPay(periods, payslips, taxYear)` → 12 rows
-  `{ month, pence, source: 'actual' | 'planned' | 'projected' }`
-  - payslip row for a past/current month → `actual`
+- `projectedMonthPence(periods, month)` → taxable pay from the period in force
+  (latest `effectiveFrom` ≤ the month), pro-rated **by day** when a change lands
+  mid-month; (annual − sacrifice − workplace pension) / 12 per period.
+- `buildMonthlyPay({ periods, payslips, taxYear, todayMonth })` → 12 rows
+  `{ month, taxablePence, source: 'actual' | 'planned' | 'projected',
+  cumulativePence, payslip }`
+  - payslip row for a past/current month → `actual` (taxable = gross − pension)
   - payslip row for a future month → `planned` (the pencilled bonus case)
-  - no payslip → `projected` from the timeline
-  - plus a `cumulativePence` running total.
+  - no payslip → `projected` from the timeline.
+- `expectedPayeYtd(monthlyRows, table)` → the decision-#1 PAYE check.
 
-`buildPersonYearInput` gains the monthly path: `salaryPence` = sum of the 12 rows
-(replacing `annual − sacrifice`); adjustments/dividends/pension/BIK/other fold in
-exactly as today. `computePersonTax` is **untouched** — the band/taper/dividend maths
-is already correct and tested; only its input assembly changes.
+`buildPersonYearInput` gains an optional salary override: `salaryPence` = the
+12-row sum (replacing `annual − sacrifice`); adjustments/dividends/pension/BIK/other
+fold in exactly as before. `computePersonTax` is **untouched** — the
+band/taper/dividend maths is already correct and tested; only its input assembly
+changes.
 
 ## 5. UI
 
@@ -97,8 +102,10 @@ is already correct and tested; only its input assembly changes.
   not the percentage").
 - **PersonForm** slims down to name + pension + BIK + other income; salary moves to
   the timeline editor.
-- **Payslip form** (click a month): amount (taxable pay for the month) + optional
-  note; pre-filled with the projected figure so a normal month is *confirm-and-save*.
+- **Payslip form** (click a month): gross pay, before-tax pension, income tax
+  deducted + optional note; gross pre-filled with the projected figure so a normal
+  month is close to *confirm-and-save*. The card shows the PAYE check line under the
+  grid once payslips exist.
 - "Add salary adjustment" button removed; legacy adjustment rows still listed with
   edit/delete.
 - Dashboard Z6 strip needs no change (it mirrors `computePersonTax` output).
@@ -120,6 +127,5 @@ is already correct and tested; only its input assembly changes.
 ## 7. Non-goals
 
 No NI / student loans (unchanged), no payslip OCR or PDF import, no weekly pay
-frequencies, no per-payslip tax-paid reconciliation (owner can opt into decision #1's
-fuller variant later — the schema extends without migration pain), no changes to
-dividends, childcare, or the dormant `incomeSources` cashflow table.
+frequencies, no changes to dividends, childcare, or the dormant `incomeSources`
+cashflow table.

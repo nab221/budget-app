@@ -49,7 +49,7 @@ describe('schema upgrades', () => {
 
     // 2. Open the real schema against the same database → in-place upgrade.
     await db.open();
-    expect(db.verno).toBe(4);
+    expect(db.verno).toBe(5);
 
     const tx = await db.transactions.get(txId);
     expect(tx).toBeTruthy();
@@ -78,7 +78,7 @@ describe('schema upgrades', () => {
 
     // 2. Open the real schema → in-place upgrade.
     await db.open();
-    expect(db.verno).toBe(4);
+    expect(db.verno).toBe(5);
     const debt = await db.debts.get(debtId);
     expect(debt.name).toBe('Card');
 
@@ -115,7 +115,7 @@ describe('schema upgrades', () => {
 
     // 2. Open the real v4 schema → in-place upgrade.
     await db.open();
-    expect(db.verno).toBe(4);
+    expect(db.verno).toBe(5);
     expect((await db.debts.get(debtId)).name).toBe('Card');
     expect((await db.people.get(personId)).name).toBe('A');
 
@@ -125,5 +125,53 @@ describe('schema upgrades', () => {
     const rows = await db.balanceUpdates.where('debtId').equals(debtId).toArray();
     expect(rows).toHaveLength(1);
     expect(rows[0].balancePence).toBe(48000);
+  });
+
+  it('v4 → v5: migrates each person’s annual salary into an initial salary period', async () => {
+    // 1. Create and populate a v4 database (full prior chain).
+    const v4 = new Dexie(DB_NAME);
+    v4.version(1).stores(V1_STORES);
+    v4.version(2).stores({
+      transactions: '++id, date, kind, categoryId, source, importHash, debtId',
+    });
+    v4.version(3).stores({
+      people: '++id',
+      incomeEvents: '++id, personId, date, kind',
+    });
+    v4.version(4).stores({
+      balanceUpdates: '++id, debtId, date',
+    });
+    await v4.open();
+    expect(v4.verno).toBe(4);
+    const earner = await v4.people.add({
+      name: 'A',
+      annualSalaryPence: 6000000,
+      salarySacrificePence: 120000,
+    });
+    const noSalary = await v4.people.add({ name: 'B', annualSalaryPence: 0 });
+    v4.close();
+
+    // 2. Open the real v5 schema → in-place upgrade runs the migration.
+    await db.open();
+    expect(db.verno).toBe(5);
+
+    // 3. The earner got an always-in-force period carrying salary + sacrifice;
+    //    the zero-salary person got nothing.
+    const periods = await db.salaryPeriods.where('personId').equals(earner).toArray();
+    expect(periods).toHaveLength(1);
+    expect(periods[0]).toMatchObject({
+      effectiveFrom: '1900-01-01',
+      annualSalaryPence: 6000000,
+      salarySacrificePence: 120000,
+      workplacePensionAnnualPence: 0,
+    });
+    expect(await db.salaryPeriods.where('personId').equals(noSalary).count()).toBe(0);
+
+    // 4. The payslips store exists and enforces one payslip per person-month.
+    await db.payslips.add({ personId: earner, month: '2026-04', grossPence: 500000 });
+    await expect(
+      db.payslips.add({ personId: earner, month: '2026-04', grossPence: 1 })
+    ).rejects.toThrow();
+    expect(await db.payslips.where('personId').equals(earner).count()).toBe(1);
   });
 });
