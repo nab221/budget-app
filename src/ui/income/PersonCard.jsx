@@ -202,7 +202,12 @@ export default function PersonCard({
               key={period.id ?? 'legacy'}
               period={period}
               onEdit={() => onEditPeriod(period)}
-              onDelete={period.id != null ? () => onDeletePeriod(period) : null}
+              // No delete on the legacy virtual row, nor on the only real
+              // period — removing the last rate would drop every projected
+              // month to £0 (edit it instead).
+              onDelete={
+                period.id != null && periods.length > 1 ? () => onDeletePeriod(period) : null
+              }
             />
           ))}
         </ul>

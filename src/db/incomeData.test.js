@@ -141,16 +141,26 @@ describe('gatherIncomeData', () => {
     // April actual: £5,200 gross, £200 pension, £900 tax deducted.
     await payslipsRepo.upsert(p, { month: '2026-04', grossPence: 5200, pensionPence: 200, taxPaidPence: 900 });
 
-    const data = await gatherIncomeData('2026-27');
+    // Fixed "today" mid-tax-year makes the actual/planned boundary deterministic.
+    const data = await gatherIncomeData('2026-27', '2026-04-30');
     const person = data.people[0];
     const april = person.monthly[0];
     expect(april.taxablePence).toBe(500000); // gross − pension
-    expect(['actual', 'planned']).toContain(april.source);
+    expect(april.source).toBe('actual');
     // 11 projected months at £5,000 + the £5,000 actual = £60,000.
     expect(person.input.salaryPence).toBe(6000000);
-    if (april.source === 'actual') {
-      expect(person.payeCheck).toMatchObject({ paidPence: 90000, complete: true });
-    }
+    expect(person.payeCheck).toMatchObject({ months: 1, paidPence: 90000, complete: true });
+  });
+
+  it('a payslip after the injected today is planned, not actual', async () => {
+    const p = await peopleRepo.add({ name: 'Anderson' });
+    await salaryPeriodsRepo.add({ personId: p, effectiveFrom: '1900-01-01', annualSalaryPence: 60000 });
+    await payslipsRepo.upsert(p, { month: '2026-11', grossPence: 9000, taxPaidPence: 0 }); // pencilled bonus
+
+    const data = await gatherIncomeData('2026-27', '2026-04-30');
+    const person = data.people[0];
+    expect(person.monthly[7].source).toBe('planned'); // Nov
+    expect(person.payeCheck).toBeNull(); // no actual payslips yet
   });
 
   it('payslipsRepo.upsert keeps one payslip per person-month', async () => {

@@ -203,8 +203,12 @@ export default function Income() {
           onCancel={() => setEditingPerson(null)}
         />
       )}
+      {/* The forms seed their state once on mount, so each carries a key tied
+          to the entity being edited — clicking Edit on a different entry
+          while a form is open remounts it instead of showing stale figures. */}
       {eventDialog && (
         <EventForm
+          key={eventDialog.event?.id ?? `new-${eventDialog.personId}-${eventDialog.kind}`}
           kind={eventDialog.kind}
           personName={eventDialog.personName}
           initial={eventDialog.event}
@@ -214,6 +218,7 @@ export default function Income() {
       )}
       {periodDialog && (
         <SalaryPeriodForm
+          key={periodDialog.period?.id ?? `new-${periodDialog.personId}`}
           personName={periodDialog.personName}
           initial={periodDialog.period}
           onSubmit={savePeriod}
@@ -222,6 +227,7 @@ export default function Income() {
       )}
       {payslipDialog && (
         <PayslipForm
+          key={`${payslipDialog.personId}-${payslipDialog.month}`}
           month={payslipDialog.month}
           personName={payslipDialog.personName}
           initial={payslipDialog.payslip}

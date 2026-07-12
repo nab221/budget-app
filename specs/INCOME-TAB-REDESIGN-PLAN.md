@@ -115,7 +115,7 @@ changes.
 1. **Engine**: `salaryTimeline.js` + tests (proration incl. mid-month change, leap
    Feb, empty timeline, future planned payslip); `buildPersonYearInput` monthly path +
    tests.
-2. **DB**: schema v4, repos (`salaryPeriodsRepo`, `payslipsRepo` with per-person-month
+2. **DB**: schema v5, repos (`salaryPeriodsRepo`, `payslipsRepo` with per-person-month
    upsert), upgrade migration + tests, backup round-trip test.
 3. **Data adapter**: `gatherIncomeData` gathers periods + payslips, returns the
    12-row grid per person; tests.

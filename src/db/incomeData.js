@@ -15,8 +15,8 @@ import {
 } from '../engine/tax.js';
 import { monthsOfTaxYear, buildMonthlyPay, expectedPayeYtd } from '../engine/salaryTimeline.js';
 
-/** Today's 'yyyy-MM' — the actual/planned boundary for payslips. */
-const currentMonth = () => new Date().toISOString().slice(0, 7);
+/** Today as an ISO 'yyyy-MM-dd' — overridable so tests are deterministic. */
+const isoToday = () => new Date().toISOString().slice(0, 10);
 
 /**
  * Read every person + their salary periods, payslips, and income events for
@@ -32,15 +32,17 @@ const currentMonth = () => new Date().toISOString().slice(0, 7);
  * figures but `salaryPeriods` is empty.
  *
  * @param {string} taxYearLabel - e.g. "2026-27".
+ * @param {string} [today] - ISO 'yyyy-MM-dd' override of "today" (the
+ *   actual/planned payslip boundary); defaults to the system clock.
  * @returns {Promise<{ taxYear: string, tableYear: string, startDate: string,
  *   endDate: string, people: Array<object> }>} `tableYear` differs from
  *   `taxYear` when the rates fell back to the nearest known Budget year.
  */
-export async function gatherIncomeData(taxYearLabel) {
+export async function gatherIncomeData(taxYearLabel, today = isoToday()) {
   const { startDate, endDate } = taxYearBounds(taxYearLabel);
   const { table, tableYear } = taxYearTable(taxYearLabel);
   const months = monthsOfTaxYear(taxYearLabel);
-  const todayMonth = currentMonth();
+  const todayMonth = String(today).slice(0, 7);
 
   const [peopleRaw, eventsRaw, periodsRaw, payslipsRaw] = await Promise.all([
     peopleRepo.getAll(), // pounds at the edge

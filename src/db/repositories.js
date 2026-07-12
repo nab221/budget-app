@@ -537,14 +537,18 @@ export const payslipsRepo = {
    */
   async upsert(personId, data) {
     validatePayslip(data);
-    const existing = await db.payslips
-      .where('[personId+month]')
-      .equals([personId, data.month])
-      .first();
-    if (existing) {
-      return this.update(existing.id, data);
-    }
-    return this.add({ ...data, personId });
+    // Transaction makes the check-then-write atomic, so two concurrent saves
+    // for the same month can't race past the unique [personId+month] index.
+    return db.transaction('rw', db.payslips, async () => {
+      const existing = await db.payslips
+        .where('[personId+month]')
+        .equals([personId, data.month])
+        .first();
+      if (existing) {
+        return this.update(existing.id, data);
+      }
+      return this.add({ ...data, personId });
+    });
   },
 };
 
