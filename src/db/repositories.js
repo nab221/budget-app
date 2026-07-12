@@ -165,6 +165,20 @@ function validateIncomeEvent(data) {
   }
 }
 
+function validateSalaryPeriod(data) {
+  if (data.effectiveFrom !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(String(data.effectiveFrom))) {
+    throw new Error(
+      `salaryPeriods.effectiveFrom must be an ISO yyyy-MM-dd string; got "${data.effectiveFrom}"`
+    );
+  }
+}
+
+function validatePayslip(data) {
+  if (data.month !== undefined && !/^\d{4}-\d{2}$/.test(String(data.month))) {
+    throw new Error(`payslips.month must be a yyyy-MM string; got "${data.month}"`);
+  }
+}
+
 function validateDebt(data) {
   if (data.debtType !== undefined && !DEBT_TYPES.includes(data.debtType)) {
     throw new Error(
@@ -446,16 +460,95 @@ export const peopleRepo = {
   ),
 
   /**
-   * Delete a person AND their income events in one transaction, so no orphan
-   * dividend/adjustment rows point at a person that no longer exists.
+   * Delete a person AND their income events, salary periods, and payslips in
+   * one transaction, so no orphan rows point at a person that no longer exists.
    * @param {number} id
    */
   async delete(id) {
-    await db.transaction('rw', db.people, db.incomeEvents, async () => {
-      await db.incomeEvents.where('personId').equals(id).delete();
-      await db.people.delete(id);
-    });
+    await db.transaction(
+      'rw',
+      db.people,
+      db.incomeEvents,
+      db.salaryPeriods,
+      db.payslips,
+      async () => {
+        await db.incomeEvents.where('personId').equals(id).delete();
+        await db.salaryPeriods.where('personId').equals(id).delete();
+        await db.payslips.where('personId').equals(id).delete();
+        await db.people.delete(id);
+      }
+    );
     dispatchMutation();
+  },
+};
+
+export const salaryPeriodsRepo = {
+  ...createBaseRepository(
+    db.salaryPeriods,
+    ['annualSalaryPence', 'salarySacrificePence', 'workplacePensionAnnualPence'],
+    {
+      annualSalaryPence: 0,
+      salarySacrificePence: 0,
+      workplacePensionAnnualPence: 0,
+      note: '',
+    },
+    validateSalaryPeriod
+  ),
+
+  /**
+   * A person's salary periods, oldest effectiveFrom first (the order the
+   * timeline engine and the UI list both want). Pounds at the edge.
+   * @param {number} personId
+   */
+  async forPerson(personId) {
+    const rows = await db.salaryPeriods.where('personId').equals(personId).toArray();
+    rows.sort((a, b) => (a.effectiveFrom < b.effectiveFrom ? -1 : 1));
+    return rows.map(this._fromStorage);
+  },
+};
+
+export const payslipsRepo = {
+  ...createBaseRepository(
+    db.payslips,
+    ['grossPence', 'pensionPence', 'taxPaidPence'],
+    { grossPence: 0, pensionPence: 0, taxPaidPence: 0, note: '' },
+    validatePayslip
+  ),
+
+  /**
+   * All payslips with a month in [startMonth, endMonth] (inclusive — the 12
+   * pay months of a tax year). Pounds at the edge, like every repo read.
+   * @param {string} startMonth - 'yyyy-MM'
+   * @param {string} endMonth - 'yyyy-MM'
+   */
+  async betweenMonths(startMonth, endMonth) {
+    const rows = await db.payslips
+      .where('month')
+      .between(startMonth, endMonth, true, true)
+      .toArray();
+    return rows.map(this._fromStorage);
+  },
+
+  /**
+   * One payslip per person-month: update in place if the month already has
+   * one, insert otherwise (the month-grid form always goes through here).
+   * @param {number} personId
+   * @param {object} data - pounds-at-edge payslip fields incl. `month`.
+   */
+  async upsert(personId, data) {
+    validatePayslip(data);
+    // Transaction makes the check-then-write atomic, so two concurrent saves
+    // for the same month can't race past the unique [personId+month] index.
+    return db.transaction('rw', db.payslips, async () => {
+      const existing = await db.payslips
+        .where('[personId+month]')
+        .equals([personId, data.month])
+        .first();
+      if (existing) {
+        return this.update(existing.id, data);
+      }
+      return this.add({ ...data, personId });
+    });
   },
 };
 

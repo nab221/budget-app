@@ -1,6 +1,8 @@
 import Money from '../components/Money.jsx';
 import { formatDay } from '../components/dates.js';
 import { EVENT_KIND_LABELS } from './EventForm.jsx';
+import MonthGrid from './MonthGrid.jsx';
+import { PERIOD_START_SENTINEL } from './SalaryPeriodForm.jsx';
 
 /** Whole-pound label for a threshold, e.g. 5027000 → "£50,270". */
 const poundsLabel = (pence) =>
@@ -34,26 +36,75 @@ function ThresholdMeter({ label, valuePence, limitPence, headroomPence, over, ov
   );
 }
 
+/** One salary timeline entry: "From <date>: £X/yr" with what's taken off it. */
+function PeriodRow({ period, onEdit, onDelete }) {
+  const deductions = [
+    period.salarySacrificePence > 0 && (
+      <span key="sac">
+        − <Money pence={period.salarySacrificePence} /> sacrifice
+      </span>
+    ),
+    period.workplacePensionAnnualPence > 0 && (
+      <span key="pen">
+        − <Money pence={period.workplacePensionAnnualPence} /> pension
+      </span>
+    ),
+  ].filter(Boolean);
+
+  return (
+    <li className="event-list__row">
+      <span className="event-list__date">
+        {period.effectiveFrom === PERIOD_START_SENTINEL
+          ? 'From the start'
+          : `From ${formatDay(period.effectiveFrom)}`}
+      </span>
+      <span className="event-list__amount">
+        <Money pence={period.annualSalaryPence} />
+        /yr
+      </span>
+      {deductions.length > 0 && <span className="muted">{deductions}</span>}
+      <span className="event-list__note muted">{period.note}</span>
+      <span className="event-list__actions">
+        <button type="button" className="btn btn--sm" onClick={onEdit}>
+          Edit
+        </button>
+        {onDelete && (
+          <button type="button" className="btn btn--sm" onClick={onDelete}>
+            Delete
+          </button>
+        )}
+      </span>
+    </li>
+  );
+}
+
 /**
- * A person's tax-year card (spec §4.8): headline income figures, the two
- * threshold meters (£50,270 / £100,000), the tax split, and the year's
- * dividend draws + salary adjustments. Everything displayed here is computed
- * at read time by `gatherIncomeData` — nothing persisted.
+ * A person's tax-year card (spec §4.8, income redesign amendment (c)):
+ * headline income figures, the two threshold meters (£50,270 / £100,000),
+ * the tax split, the salary timeline (dated rates), the Apr–Mar month grid
+ * (payslip actuals over projections, running total, PAYE check), and the
+ * year's dividend draws. Everything displayed here is computed at read time
+ * by `gatherIncomeData` — nothing persisted.
  *
  * @param {object} props.entry - one entry from `gatherIncomeData().people`.
  * @param {object} props.table - the tax-year rate table in force (thresholds).
+ * @param {string} props.todayMonth - 'yyyy-MM' of today.
  */
 export default function PersonCard({
   entry,
   table,
+  todayMonth,
   onAddDividend,
-  onAddAdjustment,
+  onAddPeriod,
+  onEditPeriod,
+  onDeletePeriod,
+  onEditMonth,
   onEdit,
   onDelete,
   onEditEvent,
   onDeleteEvent,
 }) {
-  const { name, input, summary, events } = entry;
+  const { name, input, summary, events, periods, monthly, payeCheck, usingLegacySalary } = entry;
 
   return (
     <li className="card person-card">
@@ -83,7 +134,7 @@ export default function PersonCard({
           </dd>
         </div>
         <div>
-          <dt>Salary (after sacrifice)</dt>
+          <dt>Taxable salary (year)</dt>
           <dd>
             <Money pence={input.salaryPence} />
           </dd>
@@ -132,12 +183,51 @@ export default function PersonCard({
         </div>
       </div>
 
+      <div className="person-card__section">
+        <div className="person-card__section-head">
+          <h4>Salary timeline</h4>
+          <button type="button" className="btn btn--sm" onClick={onAddPeriod}>
+            Add salary change
+          </button>
+        </div>
+        {usingLegacySalary && (
+          <p className="muted">
+            Using the single annual salary from this person’s details. Add a salary change to
+            start tracking raises, hours changes, or a new contract.
+          </p>
+        )}
+        <ul className="event-list">
+          {periods.map((period) => (
+            <PeriodRow
+              key={period.id ?? 'legacy'}
+              period={period}
+              onEdit={() => onEditPeriod(period)}
+              // No delete on the legacy virtual row, nor on the only real
+              // period — removing the last rate would drop every projected
+              // month to £0 (edit it instead).
+              onDelete={
+                period.id != null && periods.length > 1 ? () => onDeletePeriod(period) : null
+              }
+            />
+          ))}
+        </ul>
+      </div>
+
+      <div className="person-card__section">
+        <div className="person-card__section-head">
+          <h4>Pay months</h4>
+        </div>
+        <MonthGrid
+          monthly={monthly}
+          todayMonth={todayMonth}
+          payeCheck={payeCheck}
+          onEditMonth={onEditMonth}
+        />
+      </div>
+
       <div className="debt-card__actions">
         <button type="button" className="btn btn--primary" onClick={onAddDividend}>
           Add dividend draw
-        </button>
-        <button type="button" className="btn" onClick={onAddAdjustment}>
-          Add salary adjustment
         </button>
       </div>
 

@@ -1,0 +1,196 @@
+/**
+ * salaryTimeline.js — dated salary rates + monthly payslips for the Income tab
+ * (spec amendment 2026-07-12 (c), superseding the fixed-annual-salary model).
+ *
+ * Pure module: integer PENCE in, integer pence out. No DB access, no clock —
+ * callers pass "today" in.
+ *
+ * The model:
+ * - A person's pay is a TIMELINE of salary periods: { effectiveFrom,
+ *   annualSalaryPence, salarySacrificePence, workplacePensionAnnualPence }.
+ *   The period in force on a date is the one with the latest effectiveFrom on
+ *   or before it. A raise, an LTFT step-down, or a new contract is just a new
+ *   dated period; the month a change lands in is pro-rated by day.
+ * - A month's projected taxable pay is (salary − sacrifice − workplace
+ *   pension) / 12 for the period(s) in force. Workplace pension here is the
+ *   before-tax (net-pay) deduction that never reaches taxable pay — distinct
+ *   from the person's taxed-pay personal pension, which only reduces adjusted
+ *   net income (tax.js).
+ * - A PAYSLIP for a month overrides the projection with the actual figures:
+ *   taxable = gross − pension. Payslips for past/current months are 'actual';
+ *   a payslip on a future month is 'planned' (a pencilled-in bonus or the
+ *   like); everything else is 'projected'.
+ * - Documented simplification: a payslip belongs to the tax year of its
+ *   calendar month (April payslip → new tax year), and pay months are the 12
+ *   calendar months Apr–Mar.
+ */
+
+import { startYearOf } from './tax.js';
+
+/** The 12 'yyyy-MM' pay months of a tax year, April first. */
+export function monthsOfTaxYear(label) {
+  const y = startYearOf(label);
+  const months = [];
+  for (let i = 0; i < 12; i += 1) {
+    const m = 4 + i;
+    const year = m > 12 ? y + 1 : y;
+    const month = m > 12 ? m - 12 : m;
+    months.push(`${year}-${String(month).padStart(2, '0')}`);
+  }
+  return months;
+}
+
+/** Days in a 'yyyy-MM' month (UTC arithmetic, leap-safe). */
+function daysInMonth(yyyyMM) {
+  const y = Number(yyyyMM.slice(0, 4));
+  const m = Number(yyyyMM.slice(5, 7));
+  return new Date(Date.UTC(y, m, 0)).getUTCDate();
+}
+
+/** A period's taxable pay per month, clamped ≥ 0 (a sacrifice + pension can't
+ * create negative pay). */
+function monthlyRateOf(period) {
+  const p = (v) => Math.round(Number(v) || 0);
+  const annual =
+    p(period.annualSalaryPence) -
+    p(period.salarySacrificePence) -
+    p(period.workplacePensionAnnualPence);
+  return Math.max(0, Math.round(annual / 12));
+}
+
+/** Periods sorted oldest-first by effectiveFrom (stable for equal dates). */
+function sortPeriods(periods) {
+  return [...(periods || [])].sort((a, b) =>
+    a.effectiveFrom < b.effectiveFrom ? -1 : a.effectiveFrom > b.effectiveFrom ? 1 : 0
+  );
+}
+
+/**
+ * Projected taxable pay for one 'yyyy-MM' month from the timeline, pro-rated
+ * by day when a period change lands mid-month. No periods in force → 0.
+ * @param {Array<object>} periods - pence-domain salary periods.
+ * @param {string} yyyyMM
+ * @returns {number} pence
+ */
+export function projectedMonthPence(periods, yyyyMM) {
+  const sorted = sortPeriods(periods);
+  if (sorted.length === 0) return 0;
+
+  const days = daysInMonth(yyyyMM);
+  const monthStart = `${yyyyMM}-01`;
+
+  // The period in force at the start of the month (latest effectiveFrom ≤ start).
+  let inForce = null;
+  for (const p of sorted) if (p.effectiveFrom <= monthStart) inForce = p;
+
+  // Day-weighted blend across any changes landing inside the month.
+  let total = 0;
+  let fromDay = 1;
+  let current = inForce;
+  for (const p of sorted) {
+    if (p.effectiveFrom <= monthStart || p.effectiveFrom.slice(0, 7) !== yyyyMM) continue;
+    const changeDay = Number(p.effectiveFrom.slice(8, 10));
+    if (current) total += monthlyRateOf(current) * (changeDay - fromDay);
+    current = p;
+    fromDay = changeDay;
+  }
+  if (current) total += monthlyRateOf(current) * (days - fromDay + 1);
+  return Math.round(total / days);
+}
+
+/**
+ * Build the 12 pay-month rows for one person's tax year.
+ *
+ * @param {object} args
+ * @param {Array<object>} args.periods - pence-domain salary periods.
+ * @param {Array<object>} args.payslips - pence-domain payslips
+ *   ({ month, grossPence, pensionPence, taxPaidPence, ... }) — any month, only
+ *   this tax year's are used.
+ * @param {string} args.taxYear - e.g. "2026-27".
+ * @param {string} args.todayMonth - 'yyyy-MM' of today (clock stays with caller).
+ * @returns {Array<{ month: string, source: 'actual'|'planned'|'projected',
+ *   taxablePence: number, cumulativePence: number, payslip: object|null }>}
+ */
+export function buildMonthlyPay({ periods, payslips, taxYear, todayMonth }) {
+  const byMonth = new Map();
+  for (const slip of payslips || []) byMonth.set(slip.month, slip);
+
+  let cumulative = 0;
+  return monthsOfTaxYear(taxYear).map((month) => {
+    const slip = byMonth.get(month) || null;
+    let source = 'projected';
+    let taxablePence;
+    if (slip) {
+      source = month <= todayMonth ? 'actual' : 'planned';
+      const p = (v) => Math.round(Number(v) || 0);
+      taxablePence = Math.max(0, p(slip.grossPence) - p(slip.pensionPence));
+    } else {
+      taxablePence = projectedMonthPence(periods, month);
+    }
+    cumulative += taxablePence;
+    return { month, source, taxablePence, cumulativePence: cumulative, payslip: slip };
+  });
+}
+
+/**
+ * Cumulative-basis PAYE sanity check over the entered payslips: PAYE gives
+ * 1/12 of the personal allowance and of each band per pay month, so after m
+ * months the expected tax on the year-to-date taxable pay uses m/12-scaled
+ * bands. Compared against the tax actually deducted per the payslips.
+ *
+ * Only meaningful when every month up to the latest entered payslip is
+ * present (a gap understates YTD pay) — `complete` is false otherwise and the
+ * UI should ask for the missing months instead of warning.
+ *
+ * Documented simplifications: standard personal allowance (no £100k taper —
+ * PAYE only tapers via an adjusted tax code), non-dividend income only, rUK
+ * bands.
+ *
+ * @param {Array<object>} monthlyRows - from `buildMonthlyPay`.
+ * @param {object} table - a TAX_YEAR_TABLES entry.
+ * @returns {{ months: number, taxableYtdPence: number, expectedPence: number,
+ *   paidPence: number, diffPence: number, complete: boolean } | null}
+ *   null when no actual payslips are entered.
+ */
+export function expectedPayeYtd(monthlyRows, table) {
+  let lastActual = -1;
+  for (let i = 0; i < monthlyRows.length; i += 1) {
+    if (monthlyRows[i].source === 'actual') lastActual = i;
+  }
+  if (lastActual < 0) return null;
+
+  let complete = true;
+  let taxableYtdPence = 0;
+  let paidPence = 0;
+  for (let i = 0; i <= lastActual; i += 1) {
+    const row = monthlyRows[i];
+    if (row.source !== 'actual') {
+      complete = false;
+      continue;
+    }
+    taxableYtdPence += row.taxablePence;
+    paidPence += Math.round(Number(row.payslip?.taxPaidPence) || 0);
+  }
+
+  const months = lastActual + 1;
+  const twelfth = (pence) => Math.round((pence * months) / 12);
+  const allowance = twelfth(table.personalAllowancePence);
+  const basicEdge = twelfth(table.basicBandPence);
+  const higherEdge = Math.max(basicEdge, twelfth(table.additionalRateThresholdPence) - allowance);
+
+  const taxable = Math.max(0, taxableYtdPence - allowance);
+  const ir = table.incomeRates;
+  const expectedPence =
+    Math.round(Math.min(taxable, basicEdge) * ir.basic) +
+    Math.round(Math.max(0, Math.min(taxable, higherEdge) - basicEdge) * ir.higher) +
+    Math.round(Math.max(0, taxable - higherEdge) * ir.additional);
+
+  return {
+    months,
+    taxableYtdPence,
+    expectedPence,
+    paidPence,
+    diffPence: paidPence - expectedPence,
+    complete,
+  };
+}

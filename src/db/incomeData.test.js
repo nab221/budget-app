@@ -1,7 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { resetDb } from './test-utils.js';
 import { db } from './schema.js';
-import { peopleRepo, incomeEventsRepo } from './repositories.js';
+import {
+  peopleRepo,
+  incomeEventsRepo,
+  salaryPeriodsRepo,
+  payslipsRepo,
+} from './repositories.js';
 import { gatherIncomeData } from './incomeData.js';
 
 beforeEach(resetDb);
@@ -102,5 +107,68 @@ describe('gatherIncomeData', () => {
     expect(data.tableYear).toBe('2026-27');
     expect(data.startDate).toBe('2031-04-06');
     expect(data.endDate).toBe('2032-04-05');
+  });
+
+  it('a person with no salary periods falls back to their annual fields', async () => {
+    // Pre-v5 shape (e.g. a restored old backup): annual figures, no periods.
+    await peopleRepo.add({ name: 'Wife', annualSalaryPence: 50000, salarySacrificePence: 8000 });
+
+    const data = await gatherIncomeData('2026-27');
+    const person = data.people[0];
+    expect(person.usingLegacySalary).toBe(true);
+    expect(person.monthly).toHaveLength(12);
+    expect(person.monthly.every((r) => r.source === 'projected')).toBe(true);
+    expect(person.input.salaryPence).toBe(4200000); // £50k − £8k sacrifice
+  });
+
+  it('salary periods drive the projection; a mid-year change is pro-rated', async () => {
+    const p = await peopleRepo.add({ name: 'Anderson' });
+    await salaryPeriodsRepo.add({ personId: p, effectiveFrom: '1900-01-01', annualSalaryPence: 60000 });
+    await salaryPeriodsRepo.add({ personId: p, effectiveFrom: '2026-09-01', annualSalaryPence: 48000 }); // LTFT
+
+    const data = await gatherIncomeData('2026-27');
+    const person = data.people[0];
+    expect(person.usingLegacySalary).toBe(false);
+    // 5 months at £5,000 + 7 months at £4,000 = £53,000.
+    expect(person.input.salaryPence).toBe(5300000);
+    expect(person.monthly[4].taxablePence).toBe(500000); // Aug
+    expect(person.monthly[5].taxablePence).toBe(400000); // Sep
+  });
+
+  it('an entered payslip overrides its month and feeds the PAYE check', async () => {
+    const p = await peopleRepo.add({ name: 'Anderson' });
+    await salaryPeriodsRepo.add({ personId: p, effectiveFrom: '1900-01-01', annualSalaryPence: 60000 });
+    // April actual: £5,200 gross, £200 pension, £900 tax deducted.
+    await payslipsRepo.upsert(p, { month: '2026-04', grossPence: 5200, pensionPence: 200, taxPaidPence: 900 });
+
+    // Fixed "today" mid-tax-year makes the actual/planned boundary deterministic.
+    const data = await gatherIncomeData('2026-27', '2026-04-30');
+    const person = data.people[0];
+    const april = person.monthly[0];
+    expect(april.taxablePence).toBe(500000); // gross − pension
+    expect(april.source).toBe('actual');
+    // 11 projected months at £5,000 + the £5,000 actual = £60,000.
+    expect(person.input.salaryPence).toBe(6000000);
+    expect(person.payeCheck).toMatchObject({ months: 1, paidPence: 90000, complete: true });
+  });
+
+  it('a payslip after the injected today is planned, not actual', async () => {
+    const p = await peopleRepo.add({ name: 'Anderson' });
+    await salaryPeriodsRepo.add({ personId: p, effectiveFrom: '1900-01-01', annualSalaryPence: 60000 });
+    await payslipsRepo.upsert(p, { month: '2026-11', grossPence: 9000, taxPaidPence: 0 }); // pencilled bonus
+
+    const data = await gatherIncomeData('2026-27', '2026-04-30');
+    const person = data.people[0];
+    expect(person.monthly[7].source).toBe('planned'); // Nov
+    expect(person.payeCheck).toBeNull(); // no actual payslips yet
+  });
+
+  it('payslipsRepo.upsert keeps one payslip per person-month', async () => {
+    const p = await peopleRepo.add({ name: 'Anderson' });
+    await payslipsRepo.upsert(p, { month: '2026-04', grossPence: 5000 });
+    await payslipsRepo.upsert(p, { month: '2026-04', grossPence: 5500 });
+    const rows = await db.payslips.where('personId').equals(p).toArray();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].grossPence).toBe(550000); // pence at rest, latest value
   });
 });

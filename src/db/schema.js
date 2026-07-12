@@ -32,9 +32,17 @@ import Dexie from 'dexie';
  *      USER-ENTERED data — the record of balances the owner typed in — not a
  *      computed/projection row, so the "never persist computed rows" rule is
  *      untouched. New store only — no upgrade function.
+ * v5 — additive + migration (income redesign, spec amendment 2026-07-12 (c)):
+ *      `salaryPeriods` (dated salary rates — a raise / LTFT / new contract is
+ *      a new row) and `payslips` (one per person-month, actual figures). The
+ *      upgrade copies each person's existing annual salary/sacrifice into an
+ *      always-in-force initial period so live data behaves identically; the
+ *      old per-person annual fields stop being written but stay in place (and
+ *      `incomeData.js` still falls back to them for a person with no periods,
+ *      which covers pre-v5 backup restores too).
  */
 
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 export const db = new Dexie('BudgetAppV4');
 
@@ -70,6 +78,33 @@ db.version(4).stores({
   balanceUpdates: '++id, debtId, date',
 });
 
+// v5 — additive: `salaryPeriods` + `payslips` (income redesign, amendment (c)).
+// `&[personId+month]` makes a payslip unique per person-month at the DB level.
+// The upgrade seeds an initial period from each person's annual fields so a
+// live database keeps computing the same figures the moment it opens.
+db.version(5)
+  .stores({
+    salaryPeriods: '++id, personId, effectiveFrom',
+    payslips: '++id, personId, month, &[personId+month]',
+  })
+  .upgrade(async (tx) => {
+    const people = await tx.table('people').toArray();
+    for (const p of people) {
+      const salary = p.annualSalaryPence || 0;
+      const sacrifice = p.salarySacrificePence || 0;
+      if (salary > 0 || sacrifice > 0) {
+        await tx.table('salaryPeriods').add({
+          personId: p.id,
+          effectiveFrom: '1900-01-01', // in force from the beginning of time
+          annualSalaryPence: salary,
+          salarySacrificePence: sacrifice,
+          workplacePensionAnnualPence: 0,
+          note: '',
+        });
+      }
+    }
+  });
+
 // The ordered list of table names — the single source of truth for backup /
 // wipe operations so a new table never gets silently missed.
 export const TABLE_NAMES = [
@@ -84,6 +119,8 @@ export const TABLE_NAMES = [
   'people',
   'incomeEvents',
   'balanceUpdates',
+  'salaryPeriods',
+  'payslips',
 ];
 
 // Another tab upgraded the schema: close this connection and reload so the

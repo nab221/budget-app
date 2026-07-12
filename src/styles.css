@@ -1660,6 +1660,45 @@ body.privacy .chart:hover {
   display: inline-flex;
   gap: 0.3rem;
 }
+.person-card__section {
+  border-top: 1px solid var(--border);
+  padding-top: 0.6rem;
+}
+.person-card__section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.person-card__section-head h4 {
+  margin: 0 0 0.25rem;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.badge--planned {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.month-grid .table th,
+.month-grid .table td {
+  padding: 0.3rem 0.5rem;
+}
+.month-grid__row--current td {
+  background: var(--surface);
+}
+.month-grid__action {
+  text-align: right;
+}
+.month-grid__paye {
+  margin: 0.4rem 0 0;
+  font-size: 0.85rem;
+}
+.month-grid__paye--warn {
+  color: var(--danger);
+  font-weight: 600;
+}
 @media (max-width: 760px) {
   .person-card__facts {
     grid-template-columns: repeat(2, 1fr);

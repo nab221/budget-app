@@ -13,18 +13,23 @@ const blank = {
 const numOrZero = (v) => (v === '' || v == null ? 0 : Number(v));
 
 /**
- * Add / edit form for a person (spec amendment 2026-07-07 (b)). All money
- * fields are ANNUAL figures in pounds at the repository edge. The field hints
- * carry the tax meaning so the owner doesn't need to remember the rules.
+ * Add / edit form for a person. All money fields are ANNUAL figures in pounds
+ * at the repository edge. The field hints carry the tax meaning so the owner
+ * doesn't need to remember the rules.
+ *
+ * Since the income redesign (amendment (c)) salary and salary sacrifice live
+ * on the person's salary TIMELINE, not here: the add form still asks for them
+ * to seed the first timeline entry, the edit form doesn't (edit the timeline
+ * on the card instead). What stays here is the person-level annual figures —
+ * taxed-pay personal pension, benefits in kind, other income.
  */
 export default function PersonForm({ initial, onSubmit, onCancel }) {
+  const editing = !!initial;
   const [form, setForm] = useState(() => ({
     ...blank,
     ...(initial
       ? {
           name: initial.name || '',
-          annualSalaryPence: initial.annualSalaryPence || '',
-          salarySacrificePence: initial.salarySacrificePence || '',
           pensionAnnualPence: initial.pensionAnnualPence || '',
           benefitsInKindPence: initial.benefitsInKindPence || '',
           otherIncomePence: initial.otherIncomePence || '',
@@ -42,12 +47,14 @@ export default function PersonForm({ initial, onSubmit, onCancel }) {
       return;
     }
     const money = {
-      annualSalaryPence: numOrZero(form.annualSalaryPence),
-      salarySacrificePence: numOrZero(form.salarySacrificePence),
       pensionAnnualPence: numOrZero(form.pensionAnnualPence),
       benefitsInKindPence: numOrZero(form.benefitsInKindPence),
       otherIncomePence: numOrZero(form.otherIncomePence),
     };
+    if (!editing) {
+      money.annualSalaryPence = numOrZero(form.annualSalaryPence);
+      money.salarySacrificePence = numOrZero(form.salarySacrificePence);
+    }
     if (Object.values(money).some((v) => v < 0)) {
       setError('Annual figures can’t be negative.');
       return;
@@ -72,28 +79,35 @@ export default function PersonForm({ initial, onSubmit, onCancel }) {
             placeholder="e.g. Anderson"
           />
         </div>
-        <div className="field">
-          <label>Annual gross salary</label>
-          <CurrencyInput
-            value={form.annualSalaryPence}
-            onChange={(v) => set({ annualSalaryPence: v })}
-          />
-          <p className="field__hint">The contract figure, before tax.</p>
-        </div>
+        {!editing && (
+          <div className="field">
+            <label>Annual gross salary</label>
+            <CurrencyInput
+              value={form.annualSalaryPence}
+              onChange={(v) => set({ annualSalaryPence: v })}
+            />
+            <p className="field__hint">
+              The current contract figure, before tax — it becomes the first entry on the
+              salary timeline (add later changes on the card).
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="form-row">
-        <div className="field">
-          <label>Salary sacrifice / year</label>
-          <CurrencyInput
-            value={form.salarySacrificePence}
-            onChange={(v) => set({ salarySacrificePence: v })}
-          />
-          <p className="field__hint">
-            Car scheme, cycle-to-work, pension via sacrifice — taken out of pay before tax.
-            A sacrificed car usually creates a benefit in kind: put that in the P11D field.
-          </p>
-        </div>
+        {!editing && (
+          <div className="field">
+            <label>Salary sacrifice / year</label>
+            <CurrencyInput
+              value={form.salarySacrificePence}
+              onChange={(v) => set({ salarySacrificePence: v })}
+            />
+            <p className="field__hint">
+              Car scheme, cycle-to-work, pension via sacrifice — taken out of pay before tax.
+              A sacrificed car usually creates a benefit in kind: put that in the P11D field.
+            </p>
+          </div>
+        )}
         <div className="field">
           <label>Personal pension / year</label>
           <CurrencyInput
@@ -103,7 +117,8 @@ export default function PersonForm({ initial, onSubmit, onCancel }) {
           <p className="field__hint">
             Only pension you pay from taxed pay — it lowers the income counted for the
             £100k childcare line. If the provider adds 25% tax relief, enter the total
-            including that top-up. Leave £0 for salary-sacrifice or employer-only pensions.
+            including that top-up. Leave £0 for salary-sacrifice, before-tax (NHS-style),
+            or employer-only pensions.
           </p>
         </div>
       </div>

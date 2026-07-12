@@ -2,13 +2,20 @@
  * Integration smoke test for the Income tab: seed people + income events
  * through the REAL repositories (real Dexie over fake-indexeddb) and render
  * the real Income component. Confirms the person card shows the computed tax
- * split, headroom meters, and the over-£100k childcare warning.
+ * split, headroom meters, the over-£100k childcare warning, the salary
+ * timeline, and the pay-month grid with payslip actuals.
  */
 import { resetDb } from '../../db/test-utils.js';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
-import { peopleRepo, incomeEventsRepo } from '../../db/repositories.js';
+import {
+  peopleRepo,
+  incomeEventsRepo,
+  salaryPeriodsRepo,
+  payslipsRepo,
+} from '../../db/repositories.js';
 import { taxYearForDate, taxYearBounds } from '../../engine/tax.js';
+import { monthsOfTaxYear } from '../../engine/salaryTimeline.js';
 import Income from '../Income.jsx';
 
 beforeEach(resetDb);
@@ -17,7 +24,9 @@ afterEach(cleanup);
 // The component defaults to the tax year containing today, so seed events
 // into that year regardless of when the suite runs.
 const today = new Date().toISOString().slice(0, 10);
-const { startDate } = taxYearBounds(taxYearForDate(today));
+const todayMonth = today.slice(0, 7);
+const currentTaxYear = taxYearForDate(today);
+const { startDate } = taxYearBounds(currentTaxYear);
 
 describe('Income tab (seeded)', () => {
   it('renders a person card with the tax split and headroom', async () => {
@@ -38,8 +47,9 @@ describe('Income tab (seeded)', () => {
     expect(screen.getByText('£11,432.00')).toBeTruthy();
     expect(screen.getByText('£3,396.25')).toBeTruthy();
     expect(screen.getByText('£14,828.25')).toBeTruthy();
-    // £30,000 of headroom to the £100k line; already over the 40% band.
-    expect(screen.getByText(/£30,000\.00/)).toBeTruthy();
+    // £30,000 of headroom to the £100k line (also a month-grid running total);
+    // already over the 40% band.
+    expect(screen.getAllByText(/£30,000\.00/).length).toBeGreaterThan(0);
     expect(screen.getByText(/Over the 40% band/)).toBeTruthy();
     // The dividend draw is listed with its note.
     expect(screen.getByText('Dividend draw')).toBeTruthy();
@@ -64,7 +74,7 @@ describe('Income tab (seeded)', () => {
     ).toBeTruthy();
   });
 
-  it('salary sacrifice reduces the taxed salary figure', async () => {
+  it('salary sacrifice reduces the taxed salary figure (legacy annual fallback)', async () => {
     await peopleRepo.add({
       name: 'Wife',
       annualSalaryPence: 50000,
@@ -74,12 +84,52 @@ describe('Income tab (seeded)', () => {
     render(<Income />);
 
     expect(await screen.findByText('Wife')).toBeTruthy();
-    // Salary (after sacrifice) fact shows £42,000.
+    // Taxable salary fact shows £42,000.
     expect(screen.getAllByText('£42,000.00').length).toBeGreaterThan(0);
+    // With no salary periods the card offers to start the timeline.
+    expect(screen.getByText(/Using the single annual salary/)).toBeTruthy();
+    expect(screen.getByText('Add salary change')).toBeTruthy();
   });
 
-  it('shows an empty state when there are no people', async () => {
+  it('shows the 12-month grid, all projected without payslips', async () => {
+    const p = await peopleRepo.add({ name: 'Anderson' });
+    await salaryPeriodsRepo.add({
+      personId: p,
+      effectiveFrom: '1900-01-01',
+      annualSalaryPence: 60000,
+    });
+
     render(<Income />);
-    expect(await screen.findByText(/No people yet/i)).toBeTruthy();
+
+    expect(await screen.findByText('Anderson')).toBeTruthy();
+    expect(screen.getByText('Pay months')).toBeTruthy();
+    expect(screen.getAllByText('Projected')).toHaveLength(12);
+    expect(screen.getByText('Salary timeline')).toBeTruthy();
+  });
+
+  it('entered payslips show as actuals and power the PAYE check', async () => {
+    const p = await peopleRepo.add({ name: 'Anderson' });
+    await salaryPeriodsRepo.add({
+      personId: p,
+      effectiveFrom: '1900-01-01',
+      annualSalaryPence: 60000,
+    });
+    // Every month from April to today, so the cumulative PAYE check is complete.
+    const entered = monthsOfTaxYear(currentTaxYear).filter((m) => m <= todayMonth);
+    for (const month of entered) {
+      await payslipsRepo.upsert(p, {
+        month,
+        grossPence: 5000,
+        pensionPence: 0,
+        taxPaidPence: 950,
+      });
+    }
+
+    render(<Income />);
+
+    expect(await screen.findByText('Anderson')).toBeTruthy();
+    expect(screen.getAllByText('Payslip')).toHaveLength(entered.length);
+    expect(screen.getAllByText('Projected')).toHaveLength(12 - entered.length);
+    expect(screen.getByText(/PAYE check/)).toBeTruthy();
   });
 });
