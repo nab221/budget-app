@@ -61,6 +61,10 @@ describe('incomeEventsRepo', () => {
     await expect(
       incomeEventsRepo.add({ personId: 1, date: '2026-07-01', kind: 'bonus', amountPence: 1 })
     ).rejects.toThrow(/kind/);
+    // 'other-income' is a valid kind (spec amendment (e)).
+    await expect(
+      incomeEventsRepo.add({ personId: 1, date: '2026-07-01', kind: 'other-income', amountPence: 1 })
+    ).resolves.toBeDefined();
     await expect(
       incomeEventsRepo.add({ personId: 1, date: '01/07/2026', kind: 'dividend', amountPence: 1 })
     ).rejects.toThrow(/ISO/);
@@ -99,6 +103,25 @@ describe('gatherIncomeData', () => {
     // £60k salary + £10k dividends, 2026-27: PAYE £11,432, dividends £3,396.25.
     expect(person.summary.nonDividendTaxPence).toBe(1143200);
     expect(person.summary.dividendTaxPence).toBe(339625);
+  });
+
+  it('other-income events flow through to the Self Assessment split', async () => {
+    const p = await peopleRepo.add({ name: 'Anderson', annualSalaryPence: 60000 });
+    await incomeEventsRepo.add({
+      personId: p,
+      date: '2026-06-15',
+      kind: 'other-income',
+      amountPence: 5000, // £5,000 consultancy fee (pounds edge)
+    });
+
+    const data = await gatherIncomeData('2026-27');
+    const person = data.people[0];
+    expect(person.input.otherEventTotalPence).toBe(500000);
+    expect(person.input.nonDividendPence).toBe(6500000);
+    // The fee's £2,000 of 40% tax is Self Assessment, not PAYE.
+    expect(person.summary.payeTaxPence).toBe(1143200);
+    expect(person.summary.otherIncomeTaxPence).toBe(200000);
+    expect(person.summary.selfAssessmentTaxPence).toBe(200000);
   });
 
   it('flags the rate-table fallback for future years', async () => {

@@ -6,15 +6,23 @@ const today = () => new Date().toISOString().slice(0, 10);
 export const EVENT_KIND_LABELS = {
   dividend: 'Dividend draw',
   'salary-adjustment': 'Salary adjustment',
+  'other-income': 'Other income',
+};
+
+const NOTE_PLACEHOLDERS = {
+  dividend: 'e.g. Q2 dividend',
+  'salary-adjustment': 'e.g. June bonus',
+  'other-income': 'e.g. consultancy fee',
 };
 
 /**
  * Add / edit form for an income event (spec amendment 2026-07-07 (b)):
- * a dividend draw or a one-off salary adjustment (bonus, unpaid leave — signed).
+ * a dividend draw, a one-off salary adjustment (bonus, unpaid leave — signed),
+ * or gross-paid other income such as a consultancy fee (amendment (e)).
  * Money is pounds at the repository edge, as everywhere else.
  *
  * @param {object} props
- * @param {'dividend'|'salary-adjustment'} props.kind
+ * @param {'dividend'|'salary-adjustment'|'other-income'} props.kind
  * @param {string} props.personName - shown in the form title.
  * @param {object} [props.initial] - existing event (pounds at edge) when editing.
  */
@@ -27,7 +35,9 @@ export default function EventForm({ kind, personName, initial, onSubmit, onCance
   const [error, setError] = useState(null);
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
 
-  const isDividend = kind === 'dividend';
+  // Only a salary adjustment can be negative (unpaid leave); a dividend draw
+  // or other income received is always a positive amount.
+  const allowsNegative = kind === 'salary-adjustment';
 
   const submit = async (e) => {
     e.preventDefault();
@@ -41,8 +51,8 @@ export default function EventForm({ kind, personName, initial, onSubmit, onCance
       setError('An amount is required.');
       return;
     }
-    if (isDividend && amount < 0) {
-      setError('A dividend draw must be a positive amount.');
+    if (!allowsNegative && amount < 0) {
+      setError(`${EVENT_KIND_LABELS[kind]} must be a positive amount.`);
       return;
     }
     try {
@@ -86,13 +96,20 @@ export default function EventForm({ kind, personName, initial, onSubmit, onCance
             type="text"
             value={form.note}
             onChange={(e) => set({ note: e.target.value })}
-            placeholder={isDividend ? 'e.g. Q2 dividend' : 'e.g. June bonus'}
+            placeholder={NOTE_PLACEHOLDERS[kind]}
           />
         </div>
       </div>
-      {!isDividend && (
+      {kind === 'salary-adjustment' && (
         <p className="muted">
           Use a negative amount for pay you didn’t receive (e.g. unpaid leave).
+        </p>
+      )}
+      {kind === 'other-income' && (
+        <p className="muted">
+          For income paid gross, outside PAYE (a consultancy fee, freelance work). It is
+          taxed as general income — not at dividend rates — and the tax on it shows under
+          the Self Assessment figure.
         </p>
       )}
       {error && <p className="form__error">{error}</p>}

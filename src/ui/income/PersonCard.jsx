@@ -89,8 +89,8 @@ function PeriodRow({ period, onEdit, onDelete }) {
  * headline income figures, the two threshold meters (£50,270 / £100,000),
  * the tax split, the salary timeline (dated rates), the Apr–Mar month grid
  * (payslip actuals over projections, running total, PAYE check), and the
- * year's dividend draws. Everything displayed here is computed at read time
- * by `gatherIncomeData` — nothing persisted.
+ * year's dividend draws and other gross income. Everything displayed here is
+ * computed at read time by `gatherIncomeData` — nothing persisted.
  *
  * @param {object} props.entry - one entry from `gatherIncomeData().people`.
  * @param {object} props.table - the tax-year rate table in force (thresholds).
@@ -101,6 +101,7 @@ export default function PersonCard({
   table,
   todayMonth,
   onAddDividend,
+  onAddOtherIncome,
   onAddPeriod,
   onEditPeriod,
   onDeletePeriod,
@@ -151,6 +152,14 @@ export default function PersonCard({
             <Money pence={input.dividendTotalPence} />
           </dd>
         </div>
+        {input.otherEventTotalPence > 0 && (
+          <div>
+            <dt>Other income</dt>
+            <dd>
+              <Money pence={input.otherEventTotalPence} />
+            </dd>
+          </div>
+        )}
       </dl>
 
       <ThresholdMeter
@@ -177,15 +186,24 @@ export default function PersonCard({
             <Money pence={summary.totalTaxPence} />
           </span>
           <span className="stat__sub">
-            of which PAYE on salary ≈ <Money pence={summary.nonDividendTaxPence} />
+            of which PAYE on salary ≈ <Money pence={summary.payeTaxPence} />
           </span>
         </div>
         <div className="stat">
-          <span className="stat__label">Extra bill from dividends</span>
+          <span className="stat__label">Extra bill via Self Assessment</span>
           <span className="stat__value person-card__extra">
-            <Money pence={summary.dividendTaxPence} />
+            <Money pence={summary.selfAssessmentTaxPence} />
           </span>
-          <span className="stat__sub">paid later via Self Assessment</span>
+          <span className="stat__sub">
+            {summary.otherIncomeTaxPence > 0 ? (
+              <>
+                dividends ≈ <Money pence={summary.dividendTaxPence} /> · other income ≈{' '}
+                <Money pence={summary.otherIncomeTaxPence} />
+              </>
+            ) : (
+              'from dividend draws, paid later'
+            )}
+          </span>
         </div>
       </div>
 
@@ -234,6 +252,9 @@ export default function PersonCard({
       <div className="debt-card__actions">
         <button type="button" className="btn btn--primary" onClick={onAddDividend}>
           Add dividend draw
+        </button>
+        <button type="button" className="btn" onClick={onAddOtherIncome}>
+          Add other income
         </button>
       </div>
 

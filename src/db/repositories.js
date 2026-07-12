@@ -111,7 +111,7 @@ const BILL_FREQUENCIES = [
   'annual',
 ];
 const TRANSACTION_KINDS = ['income', 'spend'];
-const INCOME_EVENT_KINDS = ['dividend', 'salary-adjustment'];
+const INCOME_EVENT_KINDS = ['dividend', 'salary-adjustment', 'other-income'];
 const TRANSACTION_SOURCES = ['manual', 'import', 'bill'];
 const DEBT_TYPES = ['credit-card', 'loan'];
 

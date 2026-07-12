@@ -76,8 +76,8 @@ export default function IncomeTaxStrip({ income, onNavigate }) {
             />
             <p className="muted taxstrip__tax">
               Tax ≈ <Money pence={p.summary.totalTaxPence} /> (PAYE ≈{' '}
-              <Money pence={p.summary.nonDividendTaxPence} /> · dividends ≈{' '}
-              <Money pence={p.summary.dividendTaxPence} /> via Self Assessment)
+              <Money pence={p.summary.payeTaxPence} /> · Self Assessment ≈{' '}
+              <Money pence={p.summary.selfAssessmentTaxPence} />)
             </p>
           </div>
         ))}

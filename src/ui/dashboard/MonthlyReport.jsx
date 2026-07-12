@@ -199,8 +199,8 @@ export default function MonthlyReport({ data, insights, fromStr, now }) {
                       </>
                     )}
                 {' · '}tax ≈ <Money pence={p.summary.totalTaxPence} /> (PAYE ≈{' '}
-                <Money pence={p.summary.nonDividendTaxPence} />, dividends ≈{' '}
-                <Money pence={p.summary.dividendTaxPence} />)
+                <Money pence={p.summary.payeTaxPence} />, Self Assessment ≈{' '}
+                <Money pence={p.summary.selfAssessmentTaxPence} />)
               </li>
             ))}
           </ul>

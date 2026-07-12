@@ -57,6 +57,31 @@ describe('Income tab (seeded)', () => {
     expect(screen.getByText('Add dividend draw')).toBeTruthy();
   });
 
+  it('a gross consultancy fee shows as other income owed via Self Assessment', async () => {
+    const p = await peopleRepo.add({ name: 'Anderson', annualSalaryPence: 60000 });
+    await incomeEventsRepo.add({
+      personId: p,
+      date: startDate,
+      kind: 'other-income',
+      amountPence: 5000, // £5,000 fee, paid gross
+      note: 'Consultancy fee',
+    });
+
+    render(<Income />);
+
+    expect(await screen.findByText('Anderson')).toBeTruthy();
+    // £60k salary + £5k fee: total tax £13,432 — PAYE still £11,432, the
+    // fee's £2,000 (40% marginal) owed via Self Assessment.
+    expect(screen.getByText('£13,432.00')).toBeTruthy();
+    expect(screen.getByText('£11,432.00')).toBeTruthy();
+    expect(screen.getAllByText('£2,000.00').length).toBeGreaterThan(0);
+    expect(screen.getByText('Extra bill via Self Assessment')).toBeTruthy();
+    // Listed in the facts row and the event list, with its note.
+    expect(screen.getAllByText('Other income').length).toBeGreaterThan(1);
+    expect(screen.getByText('Consultancy fee')).toBeTruthy();
+    expect(screen.getByText('Add other income')).toBeTruthy();
+  });
+
   it('shows the household childcare warning when someone crosses £100k', async () => {
     const p = await peopleRepo.add({ name: 'Wife', annualSalaryPence: 90000 });
     await incomeEventsRepo.add({
