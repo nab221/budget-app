@@ -148,6 +148,45 @@ describe('Dashboard v2', () => {
     expect(screen.getByRole('button', { name: '15 Aug 2026 — £30.00 due' })).toBeTruthy();
   });
 
+  it('totals a selected day in the calendar and totals the Next payments list', async () => {
+    // Two bills on the SAME day, so the day total differs from either row.
+    const catId = await categoriesRepo.add({ name: 'Utilities', kind: 'spending' });
+    for (const [label, amountPence] of [['Broadband', 30], ['Phone', 15]]) {
+      await recurringBillsRepo.add({
+        label,
+        amountPence,
+        categoryId: catId,
+        frequency: 'monthly',
+        nextDueDate: '2026-07-20',
+        dueDayAnchor: 20,
+        adjustToWorkingDay: false,
+        active: true,
+      });
+    }
+    await setSetting('lastExportAt', '2026-07-01T10:00:00.000Z');
+    render(<Dashboard />);
+    await screen.findByText('Payment calendar');
+
+    // Calendar: selecting the 20th shows the day's total £45.00 (£30 + £15),
+    // in its own header, alongside both individual payments.
+    fireEvent.click(screen.getByRole('button', { name: '20 Jul 2026 — £45.00 due' }));
+    const detail = document.querySelector('.calendar__detail');
+    expect(detail.querySelector('.day-group__total').textContent).toContain('£45.00');
+    expect(detail.textContent).toContain('Broadband');
+    expect(detail.textContent).toContain('Phone');
+
+    // Next payments: each date carries its own subtotal, plus a grand total.
+    const nextPanel = screen.getByText('Next payments').closest('.panel');
+    const subtotals = [...nextPanel.querySelectorAll('.day-group__total')].map(
+      (el) => el.textContent
+    );
+    expect(subtotals.every((t) => t.includes('£45.00'))).toBe(true);
+    // 8 upcoming payments = £45 on each of four dates → £180.00 grand total.
+    const grand = nextPanel.querySelector('.upcoming-list__grand');
+    expect(grand.textContent).toContain('Total');
+    expect(grand.textContent).toContain('£180.00');
+  });
+
   it('next-12-months panel offers the figures as a table', async () => {
     await seed();
     render(<Dashboard />);

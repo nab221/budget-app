@@ -1242,6 +1242,38 @@ body {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
+/* A day's payments under a date + day-total header (payment calendar detail
+   and the Next payments list). */
+.day-group + .day-group {
+  margin-top: 0.6rem;
+}
+.day-group__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.1rem;
+}
+.day-group__date {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.day-group__total {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+/* Grand total across a grouped list. */
+.upcoming-list__grand {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0.6rem 0 0;
+  padding-top: 0.5rem;
+  border-top: 2px solid var(--border);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
 .segmented__btn:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;

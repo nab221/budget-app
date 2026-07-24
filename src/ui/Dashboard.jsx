@@ -20,10 +20,10 @@ import { upcomingPayments, localDayStr } from '../engine/spending.js';
 import { buildInsights } from '../engine/insights.js';
 import Money from './components/Money.jsx';
 import EmptyState from './components/EmptyState.jsx';
-import { formatDay } from './components/dates.js';
 import KpiStrip from './dashboard/KpiStrip.jsx';
 import InsightCards from './dashboard/InsightCards.jsx';
 import PaymentCalendar from './dashboard/PaymentCalendar.jsx';
+import PaymentDayGroup from './dashboard/PaymentDayGroup.jsx';
 import MonthlyOutgoings from './dashboard/MonthlyOutgoings.jsx';
 import CategoryBreakdown from './dashboard/CategoryBreakdown.jsx';
 import CostTable from './dashboard/CostTable.jsx';
@@ -32,6 +32,21 @@ import DebtFacts from './dashboard/DebtFacts.jsx';
 import IncomeTaxStrip from './dashboard/IncomeTaxStrip.jsx';
 import ReportsPanel from './dashboard/ReportsPanel.jsx';
 import MonthlyReport from './dashboard/MonthlyReport.jsx';
+
+/**
+ * Collapse date-sorted occurrences into consecutive same-date groups, so the
+ * "Next payments" list can show a subtotal per day. Relies on
+ * `upcomingPayments` already returning rows sorted by date.
+ */
+function groupByDate(rows) {
+  const groups = [];
+  for (const r of rows) {
+    const last = groups[groups.length - 1];
+    if (last && last.date === r.date) last.rows.push(r);
+    else groups.push({ date: r.date, rows: [r] });
+  }
+  return groups;
+}
 
 /**
  * Dashboard v2 (specs/DASHBOARD-PLAN.md) — the read-only answers screen.
@@ -155,18 +170,15 @@ export default function Dashboard({ onNavigate }) {
               {upcoming.length === 0 ? (
                 <EmptyState hint="Nothing due — add expenses on the Expenses tab." />
               ) : (
-                <ul className="upcoming-list">
-                  {upcoming.map((r, i) => (
-                    <li className="upcoming-list__row" key={`${r.date}-${r.label}-${i}`}>
-                      <span className="upcoming-list__date">{formatDay(r.date)}</span>
-                      <span className="upcoming-list__label">
-                        {r.label}
-                        {r.isAdjusted && <span className="tag">shifted</span>}
-                      </span>
-                      <Money pence={r.amountPence} className="upcoming-list__amount" />
-                    </li>
+                <>
+                  {groupByDate(upcoming).map((g) => (
+                    <PaymentDayGroup key={g.date} dateStr={g.date} rows={g.rows} />
                   ))}
-                </ul>
+                  <p className="upcoming-list__grand">
+                    <span>Total</span>
+                    <Money pence={upcoming.reduce((t, r) => t + (r.amountPence || 0), 0)} />
+                  </p>
+                </>
               )}
             </section>
           </div>
