@@ -11,6 +11,21 @@ import {
 const CACHE_KEY = 'uk_bank_holidays_cache';
 const CACHE_DATE_KEY = 'uk_bank_holidays_cache_date';
 
+// ---------------------------------------------------------------------------
+// Stub localStorage (not available in Node/Vitest — Node's native experimental
+// localStorage returns undefined without --localstorage-file, shadowing jsdom's).
+// Mirrors the stub in income.test.js.
+// ---------------------------------------------------------------------------
+if (typeof globalThis.localStorage === 'undefined') {
+  const store = {};
+  globalThis.localStorage = {
+    getItem: (k) => store[k] ?? null,
+    setItem: (k, v) => { store[k] = String(v); },
+    removeItem: (k) => { delete store[k]; },
+    clear: () => { Object.keys(store).forEach(k => delete store[k]); }
+  };
+}
+
 beforeEach(() => {
   localStorage.clear();
   vi.restoreAllMocks();
