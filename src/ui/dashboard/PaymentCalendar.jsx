@@ -3,6 +3,7 @@ import { dailyTotalsPence, spendingOccurrences } from '../../engine/spending.js'
 import { formatGBP } from '../../engine/currency.js';
 import Money from '../components/Money.jsx';
 import { formatDay, formatMonth } from '../components/dates.js';
+import PaymentDayGroup from './PaymentDayGroup.jsx';
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const p2 = (n) => String(n).padStart(2, '0');
@@ -125,21 +126,13 @@ export default function PaymentCalendar({ data, fromStr }) {
 
       {selected && (
         <div className="calendar__detail">
-          <h4 className="calendar__detail-title">{formatDay(selected)}</h4>
           {selectedRows.length === 0 ? (
-            <p className="muted">Nothing due this day.</p>
+            <>
+              <h4 className="calendar__detail-title">{formatDay(selected)}</h4>
+              <p className="muted">Nothing due this day.</p>
+            </>
           ) : (
-            <ul className="upcoming-list">
-              {selectedRows.map((r, i) => (
-                <li className="upcoming-list__row" key={`${r.label}-${i}`}>
-                  <span className="upcoming-list__label">
-                    {r.label}
-                    {r.isAdjusted && <span className="tag">shifted</span>}
-                  </span>
-                  <Money pence={r.amountPence} className="upcoming-list__amount" />
-                </li>
-              ))}
-            </ul>
+            <PaymentDayGroup dateStr={selected} rows={selectedRows} />
           )}
         </div>
       )}
