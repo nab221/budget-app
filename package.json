@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "app": "bash scripts/launch-app.sh",
+    "app:stop": "bash scripts/stop-app.sh",
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest",

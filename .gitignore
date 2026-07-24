@@ -4,3 +4,6 @@ dist
 .DS_Store
 *.local
 coverage/
+
+# Dev-server log written by the macOS launcher (scripts/launch-app.sh)
+.launch-dev.log
