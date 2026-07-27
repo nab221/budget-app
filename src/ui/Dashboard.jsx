@@ -16,9 +16,8 @@ import {
 } from '../db/planData.js';
 import { gatherIncomeData } from '../db/incomeData.js';
 import { taxYearForDate } from '../engine/tax.js';
-import { upcomingPayments, localDayStr } from '../engine/spending.js';
+import { upcomingPaymentDays, localDayStr } from '../engine/spending.js';
 import { buildInsights } from '../engine/insights.js';
-import Money from './components/Money.jsx';
 import EmptyState from './components/EmptyState.jsx';
 import KpiStrip from './dashboard/KpiStrip.jsx';
 import InsightCards from './dashboard/InsightCards.jsx';
@@ -33,20 +32,9 @@ import IncomeTaxStrip from './dashboard/IncomeTaxStrip.jsx';
 import ReportsPanel from './dashboard/ReportsPanel.jsx';
 import MonthlyReport from './dashboard/MonthlyReport.jsx';
 
-/**
- * Collapse date-sorted occurrences into consecutive same-date groups, so the
- * "Next payments" list can show a subtotal per day. Relies on
- * `upcomingPayments` already returning rows sorted by date.
- */
-function groupByDate(rows) {
-  const groups = [];
-  for (const r of rows) {
-    const last = groups[groups.length - 1];
-    if (last && last.date === r.date) last.rows.push(r);
-    else groups.push({ date: r.date, rows: [r] });
-  }
-  return groups;
-}
+// How many payment days the "Next payments" list shows. Whole days, so a busy
+// day is never cut in half and each day's total is right by construction.
+const UPCOMING_DAYS = 5;
 
 /**
  * Dashboard v2 (specs/DASHBOARD-PLAN.md) — the read-only answers screen.
@@ -132,7 +120,7 @@ export default function Dashboard({ onNavigate }) {
     );
   }
 
-  const upcoming = upcomingPayments(data, from, 8);
+  const upcomingDays = upcomingPaymentDays(data, from, UPCOMING_DAYS);
   const hasAnything =
     (data.recurringBills?.length || 0) +
       (data.debts?.length || 0) +
@@ -167,18 +155,12 @@ export default function Dashboard({ onNavigate }) {
 
             <section className="panel">
               <h3 className="panel__title">Next payments</h3>
-              {upcoming.length === 0 ? (
+              {upcomingDays.length === 0 ? (
                 <EmptyState hint="Nothing due — add expenses on the Expenses tab." />
               ) : (
-                <>
-                  {groupByDate(upcoming).map((g) => (
-                    <PaymentDayGroup key={g.date} dateStr={g.date} rows={g.rows} />
-                  ))}
-                  <p className="upcoming-list__grand">
-                    <span>Total</span>
-                    <Money pence={upcoming.reduce((t, r) => t + (r.amountPence || 0), 0)} />
-                  </p>
-                </>
+                upcomingDays.map((g) => (
+                  <PaymentDayGroup key={g.date} dateStr={g.date} rows={g.rows} />
+                ))
               )}
             </section>
           </div>

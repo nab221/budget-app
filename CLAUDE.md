@@ -10,6 +10,9 @@ progress on this branch.**
 2. `specs/IMPLEMENTATION-PLAN.md` — the build order (Phases 0–6), verification
    checklist, and guardrails.
 
+Per-feature design docs also live in `specs/`, named `YYYY-MM-DD-<topic>-design.md`.
+Write new ones there — never under `docs/`.
+
 The previous planning system (GSD milestones v1.0–v3.1, `.planning/`, "Phase N" comments
 scattered in old code, `docs/superpowers/`) is **obsolete and deleted**. Ignore any
 references to it in old code comments or git history. Do not resurrect features listed

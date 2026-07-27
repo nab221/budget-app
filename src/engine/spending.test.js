@@ -10,7 +10,7 @@ import {
   nextBillOccurrence,
   nextDebtPayment,
   nextChildcareDeposit,
-  upcomingPayments,
+  upcomingPaymentDays,
   localDayStr,
 } from './spending.js';
 
@@ -285,21 +285,53 @@ describe('nextChildcareDeposit', () => {
   });
 });
 
-describe('upcomingPayments', () => {
-  it('returns the next N occurrences across bills and debts, sorted', () => {
+describe('upcomingPaymentDays', () => {
+  // Four expenses all falling on 20 Jul — the case an occurrence-count cap
+  // used to slice through.
+  const busyDayBills = ['Water', 'Phone', 'Gym', 'Insurance'].map((label, i) => ({
+    id: 100 + i,
+    label,
+    amountPence: 1000 * (i + 1),
+    frequency: 'monthly',
+    nextDueDate: '2026-07-20',
+    dueDayAnchor: 20,
+    adjustToWorkingDay: false,
+    active: true,
+  }));
+
+  it('groups occurrences by date, in date order', () => {
     const data = { recurringBills: [monthlyBill, weeklyBill], debts: [card] };
-    const rows = upcomingPayments(data, '2026-07-07', 4);
-    expect(rows).toHaveLength(4);
-    expect(rows.map((r) => r.date)).toEqual([
+    const days = upcomingPaymentDays(data, '2026-07-07', 4);
+    expect(days.map((d) => d.date)).toEqual([
       '2026-07-10',
       '2026-07-15',
       '2026-07-17',
       '2026-07-20',
     ]);
+    expect(days[0].rows.map((r) => r.label)).toEqual(['Groceries']);
   });
 
-  it('sees far-out annual bills', () => {
+  it('never cuts a day mid-way: the last day carries all of its payments', () => {
+    const data = { recurringBills: [monthlyBill, ...busyDayBills] };
+    const days = upcomingPaymentDays(data, '2026-07-07', 2);
+    expect(days.map((d) => d.date)).toEqual(['2026-07-15', '2026-07-20']);
+    // The 20th arrives whole — all four rows, so a summed day total is right.
+    expect(days[1].rows.map((r) => r.label)).toEqual(['Water', 'Phone', 'Gym', 'Insurance']);
+    expect(days[1].rows.reduce((t, r) => t + r.amountPence, 0)).toBe(10000);
+  });
+
+  it('bounds the number of days, not the number of payments', () => {
+    const data = { recurringBills: [monthlyBill, ...busyDayBills] };
+    const days = upcomingPaymentDays(data, '2026-07-07', 2);
+    expect(days).toHaveLength(2);
+    expect(days.reduce((t, d) => t + d.rows.length, 0)).toBe(5);
+  });
+
+  it('skips empty stretches — a far-out annual bill still gets its day', () => {
     const data = { recurringBills: [annualBill], debts: [] };
-    expect(upcomingPayments(data, '2026-07-07', 3).map((r) => r.date)).toEqual(['2026-11-10']);
+    const days = upcomingPaymentDays(data, '2026-07-07', 5);
+    expect(days).toHaveLength(1);
+    expect(days[0]).toMatchObject({ date: '2026-11-10' });
+    expect(days[0].rows).toHaveLength(1);
   });
 });

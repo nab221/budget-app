@@ -1258,20 +1258,10 @@ body {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
+/* Matches .day-group__date: the head is a label for the group, not a row
+   competing with the bold payment amounts below it. */
 .day-group__total {
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-/* Grand total across a grouped list. */
-.upcoming-list__grand {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 1rem;
-  margin: 0.6rem 0 0;
-  padding-top: 0.5rem;
-  border-top: 2px solid var(--border);
-  font-weight: 700;
+  color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
 .segmented__btn:focus-visible {

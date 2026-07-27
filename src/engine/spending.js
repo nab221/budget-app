@@ -257,13 +257,29 @@ export function nextChildcareDeposit(dep, fromStr) {
 }
 
 /**
- * The next `count` upcoming payments from `fromStr` (dashboard list).
- * Expands 14 months ahead so annual expenses appear, then trims.
+ * The next `dayCount` days that have payments due, from `fromStr` (dashboard
+ * "Next payments" list). Expands 14 months ahead so annual expenses appear.
+ *
+ * Capping by whole DAYS rather than by occurrence count is what makes each
+ * group's total correct: a day is present with all of its payments or absent
+ * entirely, never sliced through the middle. Days with nothing due are skipped,
+ * so a quiet stretch doesn't consume the budget of `dayCount`.
+ *
+ * @returns {Array<{date: string, rows: Array<{label, amountPence, isAdjusted}>}>}
+ *   Ordered by date; `rows` keeps the full occurrence shape.
  */
-export function upcomingPayments(data, fromStr, count = 8) {
+export function upcomingPaymentDays(data, fromStr, dayCount = 5) {
   const [y, m] = [Number(fromStr.slice(0, 4)), Number(fromStr.slice(5, 7))];
   const endY = m > 10 ? y + 2 : y + 1;
   const endM = ((m + 1) % 12) + 1; // 14 months ahead, clamped into 1..12
   const endStr = `${endY}-${p2(endM)}-01`;
-  return spendingOccurrences(data, fromStr, endStr).slice(0, count);
+  const days = [];
+  // `spendingOccurrences` is date-sorted, so same-date rows arrive together.
+  for (const r of spendingOccurrences(data, fromStr, endStr)) {
+    const last = days[days.length - 1];
+    if (last && last.date === r.date) last.rows.push(r);
+    else if (days.length < dayCount) days.push({ date: r.date, rows: [r] });
+    else break; // the next day would exceed the cap — stop before opening it
+  }
+  return days;
 }
