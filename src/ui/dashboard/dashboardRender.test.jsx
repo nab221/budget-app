@@ -148,7 +148,7 @@ describe('Dashboard v2', () => {
     expect(screen.getByRole('button', { name: '15 Aug 2026 — £30.00 due' })).toBeTruthy();
   });
 
-  it('totals a selected day in the calendar and totals the Next payments list', async () => {
+  it('totals a day carrying more than one payment, and shows no grand total', async () => {
     // Two bills on the SAME day, so the day total differs from either row.
     const catId = await categoriesRepo.add({ name: 'Utilities', kind: 'spending' });
     for (const [label, amountPence] of [['Broadband', 30], ['Phone', 15]]) {
@@ -175,16 +175,69 @@ describe('Dashboard v2', () => {
     expect(detail.textContent).toContain('Broadband');
     expect(detail.textContent).toContain('Phone');
 
-    // Next payments: each date carries its own subtotal, plus a grand total.
+    // Next payments: every listed day has both bills, so every day carries the
+    // true £45.00 sum of its own rows — and there is no grand total.
     const nextPanel = screen.getByText('Next payments').closest('.panel');
     const subtotals = [...nextPanel.querySelectorAll('.day-group__total')].map(
       (el) => el.textContent
     );
+    expect(subtotals.length).toBeGreaterThan(0);
     expect(subtotals.every((t) => t.includes('£45.00'))).toBe(true);
-    // 8 upcoming payments = £45 on each of four dates → £180.00 grand total.
-    const grand = nextPanel.querySelector('.upcoming-list__grand');
-    expect(grand.textContent).toContain('Total');
-    expect(grand.textContent).toContain('£180.00');
+    expect(nextPanel.querySelector('.upcoming-list__grand')).toBeNull();
+  });
+
+  it('omits the day total when a day has a single payment', async () => {
+    // The seed's commitments never collide: Broadband on the 15th, Visa on the
+    // 20th — one payment per day, so a day total would only repeat the amount.
+    await seed();
+    render(<Dashboard />);
+    await screen.findByText('Payment calendar');
+
+    const nextPanel = screen.getByText('Next payments').closest('.panel');
+    expect(nextPanel.querySelectorAll('.day-group').length).toBeGreaterThan(0);
+    expect(nextPanel.querySelector('.day-group__total')).toBeNull();
+    expect(nextPanel.textContent).toContain('Broadband');
+
+    // The calendar's selected-day detail follows the same rule.
+    fireEvent.click(screen.getByRole('button', { name: '15 Jul 2026 — £30.00 due' }));
+    const detail = document.querySelector('.calendar__detail');
+    expect(detail.querySelector('.day-group__total')).toBeNull();
+    expect(detail.textContent).toContain('£30.00');
+  });
+
+  it('caps Next payments by whole days, never mid-day', async () => {
+    // Four bills on one day, immediately after a day with one: an occurrence
+    // cap would slice the busy day; a day cap lists it whole or not at all.
+    const catId = await categoriesRepo.add({ name: 'Utilities', kind: 'spending' });
+    const bills = [
+      ['Broadband', 30, '2026-07-15', 15],
+      ['Water', 10, '2026-07-20', 20],
+      ['Phone', 15, '2026-07-20', 20],
+      ['Gym', 20, '2026-07-20', 20],
+      ['Insurance', 25, '2026-07-20', 20],
+    ];
+    for (const [label, amountPence, nextDueDate, dueDayAnchor] of bills) {
+      await recurringBillsRepo.add({
+        label,
+        amountPence,
+        categoryId: catId,
+        frequency: 'monthly',
+        nextDueDate,
+        dueDayAnchor,
+        adjustToWorkingDay: false,
+        active: true,
+      });
+    }
+    await setSetting('lastExportAt', '2026-07-01T10:00:00.000Z');
+    render(<Dashboard />);
+    await screen.findByText('Next payments');
+
+    const nextPanel = screen.getByText('Next payments').closest('.panel');
+    const groups = [...nextPanel.querySelectorAll('.day-group')];
+    const busy = groups.find((g) => g.textContent.includes('20 Jul'));
+    expect(busy.querySelectorAll('.upcoming-list__row')).toHaveLength(4);
+    // £10 + £15 + £20 + £25 — the whole day, not the survivors of a slice.
+    expect(busy.querySelector('.day-group__total').textContent).toContain('£70.00');
   });
 
   it('next-12-months panel offers the figures as a table', async () => {
