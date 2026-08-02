@@ -52,9 +52,17 @@ import Dexie from 'dexie';
  * Still v5 (taxable-pay-first payslips, spec amendment 2026-07-12 (g)):
  * non-indexed `taxablePence` on `payslips`. Deliberately NO default: rows
  * without it (pre-(g)) keep computing gross − pension + BIK at read time.
+ *
+ * v6 — additive only (mileage claim tracker, spec amendment 2026-08-02 (h)):
+ *      one new store, `mileageTrips`, logging each business trip so the
+ *      tax-year AMAP claim (45p/25p) can be computed at read time. These are
+ *      USER-ENTERED rows — the trips actually driven — so the "never persist
+ *      computed rows" rule is untouched (the band split and claim value are
+ *      never stored). New store only, so live v1–v5 databases upgrade in place
+ *      with no upgrade function.
  */
 
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 export const db = new Dexie('BudgetAppV4');
 
@@ -117,6 +125,12 @@ db.version(5)
     }
   });
 
+// v6 — additive: the `mileageTrips` store (amendment 2026-08-02 (h)). `date` is
+// indexed so a tax year reads as one range query. New store only.
+db.version(6).stores({
+  mileageTrips: '++id, date, vehicle',
+});
+
 // The ordered list of table names — the single source of truth for backup /
 // wipe operations so a new table never gets silently missed.
 export const TABLE_NAMES = [
@@ -133,6 +147,7 @@ export const TABLE_NAMES = [
   'balanceUpdates',
   'salaryPeriods',
   'payslips',
+  'mileageTrips',
 ];
 
 // Another tab upgraded the schema: close this connection and reload so the

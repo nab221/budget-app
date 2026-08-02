@@ -115,6 +115,9 @@ const TRANSACTION_KINDS = ['income', 'spend'];
 const INCOME_EVENT_KINDS = ['dividend', 'salary-adjustment', 'other-income', 'sipp-contribution'];
 const TRANSACTION_SOURCES = ['manual', 'import', 'bill'];
 const DEBT_TYPES = ['credit-card', 'loan'];
+// Kept in step with `src/engine/mileage.js` (VEHICLE_KINDS) — the AMAP rate
+// table has one entry per kind.
+const MILEAGE_VEHICLES = ['car', 'motorcycle', 'bicycle'];
 
 function validateIncomeSource(data) {
   if (data.payDateRule !== undefined) {
@@ -197,6 +200,28 @@ function validateSalaryPeriod(data) {
 function validatePayslip(data) {
   if (data.month !== undefined && !/^\d{4}-\d{2}$/.test(String(data.month))) {
     throw new Error(`payslips.month must be a yyyy-MM string; got "${data.month}"`);
+  }
+}
+
+function validateMileageTrip(data) {
+  if (data.date !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(String(data.date))) {
+    throw new Error(`mileageTrips.date must be an ISO yyyy-MM-dd string; got "${data.date}"`);
+  }
+  if (data.vehicle !== undefined && !MILEAGE_VEHICLES.includes(data.vehicle)) {
+    throw new Error(
+      `mileageTrips.vehicle must be one of ${MILEAGE_VEHICLES.join(', ')}; got "${data.vehicle}"`
+    );
+  }
+  if (data.miles !== undefined) {
+    const miles = Number(data.miles);
+    if (!Number.isFinite(miles) || miles <= 0) {
+      throw new Error(`mileageTrips.miles must be a positive number; got ${JSON.stringify(data.miles)}`);
+    }
+  }
+  // A claim is for miles actually driven, so a negative reimbursement is a
+  // data-entry slip rather than a meaningful "money back".
+  if (data.reimbursedPence !== undefined && Number(data.reimbursedPence) < 0) {
+    throw new Error('mileageTrips.reimbursedPence must not be negative');
   }
 }
 
@@ -593,6 +618,31 @@ export const incomeEventsRepo = {
       .where('date')
       .between(startDate, endDate, true, true)
       .toArray();
+    return rows.map(this._fromStorage);
+  },
+};
+
+export const mileageTripsRepo = {
+  ...createBaseRepository(
+    db.mileageTrips,
+    ['reimbursedPence'],
+    { vehicle: 'car', reimbursedPence: 0, purpose: '' },
+    validateMileageTrip
+  ),
+
+  /**
+   * All trips dated within [startDate, endDate] (both inclusive — tax-year
+   * bounds are inclusive), oldest first. Pounds at the edge, like every repo
+   * read.
+   * @param {string} startDate - ISO yyyy-MM-dd
+   * @param {string} endDate - ISO yyyy-MM-dd
+   */
+  async between(startDate, endDate) {
+    const rows = await db.mileageTrips
+      .where('date')
+      .between(startDate, endDate, true, true)
+      .toArray();
+    rows.sort((a, b) => (a.date === b.date ? a.id - b.id : a.date < b.date ? -1 : 1));
     return rows.map(this._fromStorage);
   },
 };

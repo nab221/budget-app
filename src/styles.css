@@ -1726,3 +1726,36 @@ body.privacy .chart:hover {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* Mileage claim tracker */
+.mileage-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.mileage-summary__route {
+  margin: 0;
+  font-size: 0.85rem;
+}
+.mileage-summary__rates {
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+}
+.mileage-breakdown td,
+.mileage-breakdown th {
+  padding: 0.35rem 0.6rem;
+}
+.mileage-trips {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+.mileage-table__actions {
+  text-align: right;
+  white-space: nowrap;
+}
+.tag--band {
+  color: var(--accent);
+  border-color: currentColor;
+}

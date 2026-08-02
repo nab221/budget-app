@@ -6,6 +6,42 @@ historical reference only — none of their requirements carry over unless resta
 
 ---
 
+## ⚠ Amendment 2026-08-02 (h) — Mileage claim tracker
+
+The owner asked for a place to keep track of business mileage across a tax year, noting
+correctly that the first 10,000 miles are claimable at 45p and the rate reduces after
+that. A new top-level **Mileage** tab logs each business trip and computes the HMRC
+Approved Mileage Allowance Payments (AMAP) position at read time.
+
+- **Rates** (`src/engine/mileage.js`, `AMAP_TABLES` keyed by tax year with the nearest-
+  known-year fallback that `TAX_YEAR_TABLES` uses): car or van **45p** for the first
+  **10,000** business miles in the tax year then **25p**; motorcycle 24p flat; bicycle
+  20p flat. The 10,000-mile line is per tax year and resets on 6 April.
+- **What is claimable is the shortfall**, not the approved amount: AMAP minus whatever
+  the employer already reimbursed, netted per vehicle kind over the year (HMRC works
+  each kind out separately, so an over-payment on one never cancels a shortfall on
+  another). The claim is a deduction from taxable income, so the screen also shows what
+  it is worth as a refund at a chosen marginal rate. An employer over-payment is
+  surfaced as taxable excess rather than a negative claim.
+- **Screen** — tax-year navigation as on Income; a summary panel (miles, approved
+  amount, paid, claim, refund estimate), a 45p-band meter per car/van, a per-vehicle
+  breakdown, and the trips grouped by month with edit/delete. A trip straddling the
+  10,000-mile line is tagged with its split.
+- **Data model (schema v6 — additive)**: one store, `mileageTrips`
+  (`++id, date, vehicle`) holding date, miles, vehicle, purpose, and `reimbursedPence`.
+  Two settings: `mileageEmployerRatePence` (pence per mile, pre-fills a new trip) and
+  `mileageMarginalRate`. Only the trips are stored — the band split, running position,
+  claim, and relief are all computed at read time.
+- **Non-goals for this feature:** no passenger payments (5p/mile — tax-free only if the
+  employer pays them, and no relief is claimable when they don't), no company-car
+  advisory fuel rates, no NI, and no P87/HMRC filing or export (the £2,500 Self
+  Assessment line is a hint only).
+
+Full rationale and the decisions taken where the spec was silent:
+`specs/2026-08-02-mileage-claim-design.md`.
+
+---
+
 ## ⚠ Amendment 2026-07-07 — "Expenses-first" redirection (post-PR #25)
 
 After testing PR #25 the owner redirected the product. Where this amendment conflicts

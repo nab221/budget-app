@@ -1,14 +1,19 @@
 /**
  * Verifies the additive upgrades preserve live data: v1 → v2 (adds the
- * `debtId` index to transactions) and v2 → v3 (adds the `people` +
- * `incomeEvents` stores) and v3 → v4 (adds the `balanceUpdates` store). Simulates pre-existing databases with throwaway
+ * `debtId` index to transactions), v2 → v3 (adds the `people` +
+ * `incomeEvents` stores), v3 → v4 (adds the `balanceUpdates` store),
+ * v4 → v5 (salary periods + payslips, with a migration) and v5 → v6 (adds
+ * the `mileageTrips` store). Simulates pre-existing databases with throwaway
  * Dexie connections, then opens the real schema against the same database
  * name and confirms old rows survive and the new stores/indexes work.
+ *
+ * Every "after the upgrade" assertion reads SCHEMA_VERSION rather than a
+ * literal, so the next additive bump does not have to touch these tests.
  */
 import 'fake-indexeddb/auto';
 import Dexie from 'dexie';
 import { describe, it, expect, beforeEach } from 'vitest';
-import { db } from './schema.js';
+import { db, SCHEMA_VERSION } from './schema.js';
 
 const DB_NAME = 'BudgetAppV4';
 
@@ -49,7 +54,7 @@ describe('schema upgrades', () => {
 
     // 2. Open the real schema against the same database → in-place upgrade.
     await db.open();
-    expect(db.verno).toBe(5);
+    expect(db.verno).toBe(SCHEMA_VERSION);
 
     const tx = await db.transactions.get(txId);
     expect(tx).toBeTruthy();
@@ -78,7 +83,7 @@ describe('schema upgrades', () => {
 
     // 2. Open the real schema → in-place upgrade.
     await db.open();
-    expect(db.verno).toBe(5);
+    expect(db.verno).toBe(SCHEMA_VERSION);
     const debt = await db.debts.get(debtId);
     expect(debt.name).toBe('Card');
 
@@ -115,7 +120,7 @@ describe('schema upgrades', () => {
 
     // 2. Open the real v4 schema → in-place upgrade.
     await db.open();
-    expect(db.verno).toBe(5);
+    expect(db.verno).toBe(SCHEMA_VERSION);
     expect((await db.debts.get(debtId)).name).toBe('Card');
     expect((await db.people.get(personId)).name).toBe('A');
 
@@ -153,7 +158,7 @@ describe('schema upgrades', () => {
 
     // 2. Open the real v5 schema → in-place upgrade runs the migration.
     await db.open();
-    expect(db.verno).toBe(5);
+    expect(db.verno).toBe(SCHEMA_VERSION);
 
     // 3. The earner got an always-in-force period carrying salary + sacrifice;
     //    the zero-salary person got nothing.
@@ -173,5 +178,54 @@ describe('schema upgrades', () => {
       db.payslips.add({ personId: earner, month: '2026-04', grossPence: 1 })
     ).rejects.toThrow();
     expect(await db.payslips.where('personId').equals(earner).count()).toBe(1);
+  });
+
+  it('v5 → v6: preserves rows and adds a usable mileageTrips store', async () => {
+    // 1. Create and populate a v5 database (full prior chain).
+    const v5 = new Dexie(DB_NAME);
+    v5.version(1).stores(V1_STORES);
+    v5.version(2).stores({
+      transactions: '++id, date, kind, categoryId, source, importHash, debtId',
+    });
+    v5.version(3).stores({
+      people: '++id',
+      incomeEvents: '++id, personId, date, kind',
+    });
+    v5.version(4).stores({
+      balanceUpdates: '++id, debtId, date',
+    });
+    v5.version(5).stores({
+      salaryPeriods: '++id, personId, effectiveFrom',
+      payslips: '++id, personId, month, &[personId+month]',
+    });
+    await v5.open();
+    expect(v5.verno).toBe(5);
+    const debtId = await v5.debts.add({ name: 'Card', debtType: 'credit-card', balancePence: 50000 });
+    const personId = await v5.people.add({ name: 'A', annualSalaryPence: 6000000 });
+    await v5.payslips.add({ personId, month: '2026-04', grossPence: 500000 });
+    v5.close();
+
+    // 2. Open the real v6 schema → in-place upgrade, no upgrade function.
+    await db.open();
+    expect(db.verno).toBe(SCHEMA_VERSION);
+    expect((await db.debts.get(debtId)).name).toBe('Card');
+    expect((await db.people.get(personId)).name).toBe('A');
+    expect(await db.payslips.where('personId').equals(personId).count()).toBe(1);
+
+    // 3. The new store exists, is empty, and its date/vehicle indexes work.
+    expect(await db.mileageTrips.count()).toBe(0);
+    await db.mileageTrips.add({
+      date: '2026-05-01',
+      vehicle: 'car',
+      miles: 42.5,
+      purpose: 'Client visit',
+      reimbursedPence: 0,
+    });
+    const inYear = await db.mileageTrips
+      .where('date')
+      .between('2026-04-06', '2027-04-05', true, true)
+      .toArray();
+    expect(inYear).toHaveLength(1);
+    expect(inYear[0].miles).toBe(42.5);
   });
 });

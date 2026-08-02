@@ -24,6 +24,12 @@ export const SETTINGS_DEFAULTS = {
   theme: 'system',
   privacyMode: false,
   lastExportAt: null,
+  // Mileage claim tracker (amendment 2026-08-02 (h)). The employer rate is
+  // pence PER MILE (not a money total), used only to prefill a new trip's
+  // reimbursement; 0 means "employer pays nothing". The marginal rate turns a
+  // shortfall into what the claim is actually worth as a refund.
+  mileageEmployerRatePence: 0,
+  mileageMarginalRate: 0.4,
 };
 
 /**
@@ -96,6 +102,14 @@ export const settings = {
   setTheme: (theme) => setSetting('theme', theme),
   getPrivacyMode: () => getSetting('privacyMode'),
   setPrivacyMode: (on) => setSetting('privacyMode', !!on),
+
+  // Mileage claim tracker. `mileageEmployerRatePence` is pence per mile, so
+  // there is deliberately no `Pounds` bridge — it is a rate, not an amount.
+  getMileageEmployerRatePence: () => getSetting('mileageEmployerRatePence'),
+  setMileageEmployerRatePence: (pencePerMile) =>
+    setSetting('mileageEmployerRatePence', Math.max(0, Math.round(Number(pencePerMile) || 0))),
+  getMileageMarginalRate: () => getSetting('mileageMarginalRate'),
+  setMileageMarginalRate: (rate) => setSetting('mileageMarginalRate', Number(rate) || 0),
 
   // Backup bookkeeping
   getLastExportAt: () => getSetting('lastExportAt'),
