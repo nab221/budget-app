@@ -1,6 +1,6 @@
 import { resetDb } from './test-utils.js';
 import { describe, it, expect, beforeEach } from 'vitest';
-import { db } from './schema.js';
+import { db, SCHEMA_VERSION } from './schema.js';
 import { exportBackup, importBackup, APP_NAME } from './backup.js';
 import { seedDefaultCategories } from './seed.js';
 import { incomeSourcesRepo, debtsRepo, transactionsRepo } from './repositories.js';
@@ -22,7 +22,7 @@ describe('export', () => {
     const env = await exportBackup();
     expect(env.app).toBe(APP_NAME);
     expect(env.format).toBe(1);
-    expect(env.schemaVersion).toBe(5);
+    expect(env.schemaVersion).toBe(SCHEMA_VERSION);
     expect(typeof env.exportedAt).toBe('string');
     expect(env.data.categories).toHaveLength(10);
     // raw pence, not pounds
