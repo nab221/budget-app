@@ -15,8 +15,12 @@
  * If the employer pays **less** than AMAP (or nothing), the shortfall is
  * *Mileage Allowance Relief* — claimable from HMRC, and worth the shortfall ×
  * your marginal rate of income tax. If the employer pays **more**, the excess
- * is taxable pay. Each kind of vehicle is worked out separately and netted
- * over the whole tax year, which is what `buildMileageYear` does.
+ * is taxable pay.
+ *
+ * The calculation is done per **employment** and per **kind of vehicle**: each
+ * job gets its own 10,000-mile allowance at the higher rate, and each pairing
+ * is netted against that employer's reimbursement over the whole tax year.
+ * That pairing is the "group" `buildMileageYear` works in.
  *
  * ── Precision ──────────────────────────────────────────────────────────────
  * Miles are held internally as integer **tenths of a mile** so the running
@@ -27,9 +31,11 @@
  * or two — the ledger adding up matters more).
  *
  * ── Documented simplifications (spec "simpler option" rule) ────────────────
- * - The 10,000-mile threshold is tracked per tax year across all car/van
- *   trips. HMRC counts it per employment; a single user with one job — the
- *   only case this app models — is unaffected.
+ * - Each employment gets its own 10,000-mile allowance. HMRC makes an
+ *   exception for **associated employments** (jobs with the same employer or
+ *   within one group of companies), which share a single allowance between
+ *   them; that is not modelled — put associated jobs under one employer to
+ *   get the right answer.
  * - No passenger payments (5p/mile per colleague). They are tax-free only if
  *   the employer actually pays them; no relief is claimable when they don't,
  *   so tracking them would show a claim that cannot be made.
@@ -154,8 +160,23 @@ function inClaimOrder(trips) {
   });
 }
 
-function emptyVehicleTotal(vehicle, rate) {
+/**
+ * The claim group a trip belongs to. HMRC works the AMAP calculation out per
+ * **employment** and per **kind of vehicle**, so those two together are what
+ * a 10,000-mile threshold and a reimbursement netting belong to.
+ *
+ * `employerId` is nullable: a trip with no employer recorded is its own group
+ * (the single-job case, where naming the employer adds nothing).
+ */
+export function groupKeyFor(employerId, vehicle) {
+  return `${employerId ?? ''}|${vehicle}`;
+}
+
+function emptyGroup(employerId, employerName, vehicle, rate) {
   return {
+    key: groupKeyFor(employerId, vehicle),
+    employerId: employerId ?? null,
+    employerName,
     vehicle,
     rate,
     tenths: 0,
@@ -164,7 +185,7 @@ function emptyVehicleTotal(vehicle, rate) {
     tripCount: 0,
     allowancePence: 0,
     reimbursedPence: 0,
-    // Netted over the year, per vehicle kind — filled in at the end.
+    // Netted over the year, per group — filled in at the end.
     shortfallPence: 0,
     excessPence: 0,
   };
@@ -178,33 +199,43 @@ function emptyVehicleTotal(vehicle, rate) {
  *
  * @param {object} args
  * @param {Array<{ id?: number, date: string, vehicle: string, miles: number,
- *   purpose?: string, reimbursedPence?: number }>} args.trips - integer pence
- *   for `reimbursedPence` (what the employer actually paid for the trip).
+ *   employerId?: number|null, purpose?: string, reimbursedPence?: number }>} args.trips
+ *   integer pence for `reimbursedPence` (what the employer actually paid).
+ * @param {Array<{ id: number, name: string }>} [args.employers] - used to name
+ *   the groups and to order them; a trip pointing at an employer that is not
+ *   in the list still gets its own group.
  * @param {object} args.table - an `AMAP_TABLES` entry.
- * @returns {{ trips: Array<object>, byVehicle: Array<object>, totals: object }}
+ * @returns {{ trips: Array<object>, byGroup: Array<object>, totals: object }}
  *   `trips` is claim-ordered and carries the per-trip band split and value;
- *   `byVehicle` has one entry per vehicle kind actually used, netted over the
- *   year; `totals` sums those.
+ *   `byGroup` has one entry per employment × vehicle kind actually used,
+ *   netted over the year; `totals` sums those.
  */
-export function buildMileageYear({ trips = [], table }) {
+export function buildMileageYear({ trips = [], employers = [], table }) {
+  const nameOf = new Map(employers.map((e) => [e.id, e.name]));
+  // Employers in the order given, then the no-employer group last.
+  const employerOrder = new Map(employers.map((e, i) => [e.id, i]));
   const ordered = inClaimOrder(trips);
-  const byVehicle = new Map();
-  // Running cumulative tenths per vehicle kind — what decides the 10,000 band.
+  const byGroup = new Map();
+  // Running cumulative tenths per group — what decides the 10,000-mile band.
   const cumulative = new Map();
 
   const priced = ordered.map((trip) => {
     const vehicle = VEHICLE_KINDS.includes(trip.vehicle) ? trip.vehicle : 'car';
     const rate = rateForVehicle(table, vehicle);
+    const employerId = trip.employerId ?? null;
+    const key = groupKeyFor(employerId, vehicle);
     const tenths = toTenths(trip.miles);
-    const beforeTenths = cumulative.get(vehicle) || 0;
+    const beforeTenths = cumulative.get(key) || 0;
 
     const { pence, firstTenths, afterTenths } = priceMiles(rate, beforeTenths, tenths);
     const reimbursedPence = Math.max(0, Math.round(trip.reimbursedPence || 0));
 
-    cumulative.set(vehicle, beforeTenths + tenths);
+    cumulative.set(key, beforeTenths + tenths);
 
-    if (!byVehicle.has(vehicle)) byVehicle.set(vehicle, emptyVehicleTotal(vehicle, rate));
-    const agg = byVehicle.get(vehicle);
+    if (!byGroup.has(key)) {
+      byGroup.set(key, emptyGroup(employerId, nameOf.get(employerId) ?? null, vehicle, rate));
+    }
+    const agg = byGroup.get(key);
     agg.tenths += tenths;
     agg.firstBandTenths += firstTenths;
     agg.afterBandTenths += afterTenths;
@@ -215,6 +246,9 @@ export function buildMileageYear({ trips = [], table }) {
     return {
       ...trip,
       vehicle,
+      employerId,
+      employerName: nameOf.get(employerId) ?? null,
+      groupKey: key,
       miles: fromTenths(tenths),
       milesBefore: fromTenths(beforeTenths),
       milesAfter: fromTenths(beforeTenths + tenths),
@@ -229,38 +263,51 @@ export function buildMileageYear({ trips = [], table }) {
     };
   });
 
-  // Net each vehicle kind over the whole year: that is how the claim works.
-  const vehicles = VEHICLE_KINDS.filter((v) => byVehicle.has(v)).map((v) => {
-    const agg = byVehicle.get(v);
-    const net = agg.allowancePence - agg.reimbursedPence;
-    const threshold = agg.rate.thresholdMiles;
-    return {
-      ...agg,
-      miles: fromTenths(agg.tenths),
-      firstBandMiles: fromTenths(agg.firstBandTenths),
-      afterBandMiles: fromTenths(agg.afterBandTenths),
-      shortfallPence: Math.max(0, net),
-      excessPence: Math.max(0, -net),
-      // Miles still available at the higher rate (null when there is no band).
-      milesToThreshold: threshold == null ? null : Math.max(0, threshold - fromTenths(agg.tenths)),
-      thresholdMiles: threshold,
-      overThreshold: threshold != null && fromTenths(agg.tenths) > threshold,
-    };
-  });
+  // Net each group over the whole year: that is how the claim works.
+  const groups = [...byGroup.values()]
+    .sort((a, b) => {
+      // Known employers in list order; the no-employer group last. An unknown
+      // employerId (a deleted row a trip still points at) sorts with it.
+      const ai = employerOrder.has(a.employerId) ? employerOrder.get(a.employerId) : Infinity;
+      const bi = employerOrder.has(b.employerId) ? employerOrder.get(b.employerId) : Infinity;
+      if (ai !== bi) return ai - bi;
+      return VEHICLE_KINDS.indexOf(a.vehicle) - VEHICLE_KINDS.indexOf(b.vehicle);
+    })
+    .map((agg) => {
+      const net = agg.allowancePence - agg.reimbursedPence;
+      const threshold = agg.rate.thresholdMiles;
+      const miles = fromTenths(agg.tenths);
+      return {
+        ...agg,
+        miles,
+        firstBandMiles: fromTenths(agg.firstBandTenths),
+        afterBandMiles: fromTenths(agg.afterBandTenths),
+        shortfallPence: Math.max(0, net),
+        excessPence: Math.max(0, -net),
+        // Miles still available at the higher rate (null when there is no band).
+        milesToThreshold: threshold == null ? null : Math.max(0, threshold - miles),
+        thresholdMiles: threshold,
+        overThreshold: threshold != null && miles > threshold,
+      };
+    });
 
-  const sum = (key) => vehicles.reduce((acc, v) => acc + v[key], 0);
+  const sum = (key) => groups.reduce((acc, g) => acc + g[key], 0);
   const totals = {
     tripCount: priced.length,
-    miles: fromTenths(vehicles.reduce((acc, v) => acc + v.tenths, 0)),
+    miles: fromTenths(groups.reduce((acc, g) => acc + g.tenths, 0)),
     allowancePence: sum('allowancePence'),
     reimbursedPence: sum('reimbursedPence'),
-    // Summed from the per-vehicle nets, so a car shortfall is never cancelled
-    // out by an over-payment on the motorbike (HMRC keeps them separate).
+    // Summed from the per-group nets, so a car shortfall at one employer is
+    // never cancelled out by an over-payment on the motorbike, or by another
+    // employer paying above the approved rate — HMRC keeps them separate.
     shortfallPence: sum('shortfallPence'),
     excessPence: sum('excessPence'),
+    // How many employments the year's trips span (the no-employer bucket
+    // counts as one), so the UI knows whether to show employer labels.
+    employerCount: new Set(groups.map((g) => g.employerId)).size,
   };
 
-  return { trips: priced, byVehicle: vehicles, totals };
+  return { trips: priced, byGroup: groups, totals };
 }
 
 // ---------------------------------------------------------------------------

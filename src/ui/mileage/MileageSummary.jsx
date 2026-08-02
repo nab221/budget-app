@@ -1,29 +1,24 @@
 import Money from '../components/Money.jsx';
 import { MARGINAL_RATES, VEHICLE_LABELS } from '../../engine/mileage.js';
-
-/** A mile count for display: thousands separated, one decimal only when needed. */
-export function formatMiles(miles) {
-  const n = Number(miles) || 0;
-  return n.toLocaleString('en-GB', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 1,
-  });
-}
-
-/** "45p" / "25p" for a rate table entry. */
-const rateLabel = (pence) => `${pence}p`;
+import { formatMiles, rateLabel, employerLabel } from './format.js';
 
 /**
  * The 45p-band meter for cars and vans: how much of the 10,000-mile allowance
- * at the higher rate has been used this tax year, and what is left.
+ * at the higher rate has been used this tax year, and what is left. Each
+ * employment has its own allowance, so there is one meter per employment.
  */
-function BandMeter({ entry }) {
+function BandMeter({ entry, showEmployer }) {
   const { thresholdMiles, miles, milesToThreshold, overThreshold, rate } = entry;
   const pct = Math.min(100, Math.round((miles / thresholdMiles) * 100));
   return (
     <div className={`util threshold${overThreshold ? ' threshold--over' : ''}`}>
       <div className="util__label threshold__head">
         <span>
+          {showEmployer && (
+            <strong className="mileage-summary__employer">
+              {employerLabel(entry.employerName, entry.employerId)} —{' '}
+            </strong>
+          )}
           {formatMiles(thresholdMiles)} miles at {rateLabel(rate.firstRatePence)} —{' '}
           {VEHICLE_LABELS[entry.vehicle].toLowerCase()}
         </span>
@@ -60,9 +55,12 @@ function BandMeter({ entry }) {
  * @param {(pencePerMile: number) => void} props.onEmployerRateChange
  */
 export default function MileageSummary({ data, onMarginalRateChange, onEmployerRateChange }) {
-  const { totals, byVehicle, reliefPence, marginalRate, employerRatePence, route } = data;
-  const carLike = byVehicle.filter((v) => v.thresholdMiles != null);
+  const { totals, byGroup, reliefPence, marginalRate, employerRatePence, route } = data;
+  const carLike = byGroup.filter((g) => g.thresholdMiles != null);
   const ratePct = Math.round((marginalRate || 0) * 100);
+  // With one employment there is nothing to disambiguate, so the labels and
+  // the extra column stay out of the way.
+  const showEmployer = totals.employerCount > 1;
 
   return (
     <section className="panel mileage-summary">
@@ -100,13 +98,22 @@ export default function MileageSummary({ data, onMarginalRateChange, onEmployerR
       </div>
 
       {carLike.map((entry) => (
-        <BandMeter key={entry.vehicle} entry={entry} />
+        <BandMeter key={entry.key} entry={entry} showEmployer={showEmployer} />
       ))}
+
+      {showEmployer && (
+        <p className="mileage-summary__route muted">
+          Each employment gets its own 10,000 miles at the higher rate. Jobs with the same
+          employer, or within one group of companies, share a single allowance — record
+          those under one employer.
+        </p>
+      )}
 
       {totals.excessPence > 0 && (
         <p className="banner banner--warn">
-          Your employer paid <Money pence={totals.excessPence} /> more than the approved
-          amount. The excess counts as taxable pay rather than something to claim.
+          {showEmployer ? 'An employer' : 'Your employer'} paid{' '}
+          <Money pence={totals.excessPence} /> more than the approved amount. The excess
+          counts as taxable pay rather than something to claim.
         </p>
       )}
 
@@ -118,11 +125,12 @@ export default function MileageSummary({ data, onMarginalRateChange, onEmployerR
         </p>
       )}
 
-      {byVehicle.length > 0 && (
+      {byGroup.length > 0 && (
         <div className="table-wrap">
           <table className="table mileage-breakdown">
             <thead>
               <tr>
+                {showEmployer && <th>Employer</th>}
                 <th>Vehicle</th>
                 <th className="num">Miles</th>
                 <th className="num">Higher rate</th>
@@ -133,31 +141,32 @@ export default function MileageSummary({ data, onMarginalRateChange, onEmployerR
               </tr>
             </thead>
             <tbody>
-              {byVehicle.map((v) => (
-                <tr key={v.vehicle}>
-                  <td>{VEHICLE_LABELS[v.vehicle]}</td>
-                  <td className="num">{formatMiles(v.miles)}</td>
+              {byGroup.map((g) => (
+                <tr key={g.key}>
+                  {showEmployer && <td>{employerLabel(g.employerName, g.employerId)}</td>}
+                  <td>{VEHICLE_LABELS[g.vehicle]}</td>
+                  <td className="num">{formatMiles(g.miles)}</td>
                   <td className="num">
-                    {formatMiles(v.firstBandMiles)} @ {rateLabel(v.rate.firstRatePence)}
+                    {formatMiles(g.firstBandMiles)} @ {rateLabel(g.rate.firstRatePence)}
                   </td>
                   <td className="num">
-                    {v.thresholdMiles == null
+                    {g.thresholdMiles == null
                       ? '—'
-                      : `${formatMiles(v.afterBandMiles)} @ ${rateLabel(v.rate.afterRatePence)}`}
+                      : `${formatMiles(g.afterBandMiles)} @ ${rateLabel(g.rate.afterRatePence)}`}
                   </td>
                   <td className="num">
-                    <Money pence={v.allowancePence} />
+                    <Money pence={g.allowancePence} />
                   </td>
                   <td className="num">
-                    <Money pence={v.reimbursedPence} />
+                    <Money pence={g.reimbursedPence} />
                   </td>
                   <td className="num">
-                    {v.excessPence > 0 ? (
+                    {g.excessPence > 0 ? (
                       <span className="muted">
-                        −<Money pence={v.excessPence} />
+                        −<Money pence={g.excessPence} />
                       </span>
                     ) : (
-                      <Money pence={v.shortfallPence} />
+                      <Money pence={g.shortfallPence} />
                     )}
                   </td>
                 </tr>
@@ -179,7 +188,11 @@ export default function MileageSummary({ data, onMarginalRateChange, onEmployerR
             value={employerRatePence}
             onChange={(e) => onEmployerRateChange(e.target.value)}
           />
-          <span className="field__hint">Used to pre-fill each new trip. 0 if unpaid.</span>
+          <span className="field__hint">
+            {data.employers.length > 0
+              ? 'Pre-fills a trip with no employer. Each employer has its own rate.'
+              : 'Used to pre-fill each new trip. 0 if unpaid.'}
+          </span>
         </div>
         <div className="field">
           <label htmlFor="mileage-marginal-rate">Your tax rate</label>

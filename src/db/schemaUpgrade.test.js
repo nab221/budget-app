@@ -228,4 +228,51 @@ describe('schema upgrades', () => {
     expect(inYear).toHaveLength(1);
     expect(inYear[0].miles).toBe(42.5);
   });
+
+  it('v6 → v7: keeps existing trips claimable as one unnamed employment', async () => {
+    // 1. Create and populate a v6 database (full prior chain).
+    const v6 = new Dexie(DB_NAME);
+    v6.version(1).stores(V1_STORES);
+    v6.version(2).stores({
+      transactions: '++id, date, kind, categoryId, source, importHash, debtId',
+    });
+    v6.version(3).stores({
+      people: '++id',
+      incomeEvents: '++id, personId, date, kind',
+    });
+    v6.version(4).stores({ balanceUpdates: '++id, debtId, date' });
+    v6.version(5).stores({
+      salaryPeriods: '++id, personId, effectiveFrom',
+      payslips: '++id, personId, month, &[personId+month]',
+    });
+    v6.version(6).stores({ mileageTrips: '++id, date, vehicle' });
+    await v6.open();
+    expect(v6.verno).toBe(6);
+    const tripId = await v6.mileageTrips.add({
+      date: '2026-05-01',
+      vehicle: 'car',
+      miles: 120,
+      purpose: 'Client visit',
+      reimbursedPence: 0,
+    });
+    v6.close();
+
+    // 2. Open the real v7 schema → in-place upgrade, no upgrade function.
+    await db.open();
+    expect(db.verno).toBe(SCHEMA_VERSION);
+
+    // 3. The pre-v7 trip survives with no employerId — which the engine reads
+    //    as one unnamed employment, exactly how it behaved before.
+    const trip = await db.mileageTrips.get(tripId);
+    expect(trip.miles).toBe(120);
+    expect(trip.employerId).toBeUndefined();
+
+    // 4. The new store works, and the employerId index queries cleanly.
+    expect(await db.employers.count()).toBe(0);
+    const employerId = await db.employers.add({ name: 'Acme', ratePencePerMile: 25 });
+    await db.mileageTrips.update(tripId, { employerId });
+    const forEmployer = await db.mileageTrips.where('employerId').equals(employerId).toArray();
+    expect(forEmployer).toHaveLength(1);
+    expect(forEmployer[0].id).toBe(tripId);
+  });
 });

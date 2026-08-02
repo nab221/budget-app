@@ -24,6 +24,7 @@
 import { db } from './schema.js';
 import { toPence, fromPence } from '../engine/currency.js';
 import { parseTaxCode } from '../engine/tax.js';
+import { VEHICLE_KINDS } from '../engine/mileage.js';
 import { dispatchMutation } from './events.js';
 
 // ---------------------------------------------------------------------------
@@ -115,9 +116,10 @@ const TRANSACTION_KINDS = ['income', 'spend'];
 const INCOME_EVENT_KINDS = ['dividend', 'salary-adjustment', 'other-income', 'sipp-contribution'];
 const TRANSACTION_SOURCES = ['manual', 'import', 'bill'];
 const DEBT_TYPES = ['credit-card', 'loan'];
-// Kept in step with `src/engine/mileage.js` (VEHICLE_KINDS) — the AMAP rate
-// table has one entry per kind.
-const MILEAGE_VEHICLES = ['car', 'motorcycle', 'bicycle'];
+// The AMAP rate table has one entry per vehicle kind, so the engine's list is
+// the authority — importing it means a new kind can never be priced by the
+// engine but rejected here.
+const MILEAGE_VEHICLES = VEHICLE_KINDS;
 
 function validateIncomeSource(data) {
   if (data.payDateRule !== undefined) {
@@ -203,7 +205,19 @@ function validatePayslip(data) {
   }
 }
 
-function validateMileageTrip(data) {
+function validateMileageTrip(data, mode) {
+  // `date` and `miles` have no defaults, and a row missing either is silently
+  // broken rather than loudly wrong: an undefined `date` drops out of the
+  // index every tax-year read uses, and undefined miles price as zero. Required
+  // on `add` only, so a partial `update` still works.
+  if (mode === 'add') {
+    if (data.date === undefined || data.date === null) {
+      throw new Error('mileageTrips.date is required');
+    }
+    if (data.miles === undefined || data.miles === null) {
+      throw new Error('mileageTrips.miles is required');
+    }
+  }
   if (data.date !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(String(data.date))) {
     throw new Error(`mileageTrips.date must be an ISO yyyy-MM-dd string; got "${data.date}"`);
   }
@@ -222,6 +236,31 @@ function validateMileageTrip(data) {
   // data-entry slip rather than a meaningful "money back".
   if (data.reimbursedPence !== undefined && Number(data.reimbursedPence) < 0) {
     throw new Error('mileageTrips.reimbursedPence must not be negative');
+  }
+  // null is meaningful: "no employer recorded", its own claim group.
+  if (
+    data.employerId !== undefined &&
+    data.employerId !== null &&
+    !Number.isInteger(data.employerId)
+  ) {
+    throw new Error(
+      `mileageTrips.employerId must be an employer id or null; got ${JSON.stringify(data.employerId)}`
+    );
+  }
+}
+
+function validateEmployer(data) {
+  if (data.name !== undefined && !String(data.name).trim()) {
+    throw new Error('employers.name is required');
+  }
+  // Pence PER MILE, not an amount — a whole number of pence, never negative.
+  if (data.ratePencePerMile !== undefined) {
+    const rate = Number(data.ratePencePerMile);
+    if (!Number.isInteger(rate) || rate < 0) {
+      throw new Error(
+        `employers.ratePencePerMile must be a whole number of pence per mile; got ${JSON.stringify(data.ratePencePerMile)}`
+      );
+    }
   }
 }
 
@@ -622,11 +661,40 @@ export const incomeEventsRepo = {
   },
 };
 
+export const employersRepo = {
+  // `ratePencePerMile` is deliberately NOT a pence field: it is a rate (pence
+  // per mile), not a money amount, so it is stored and read back verbatim
+  // rather than going through the pounds-at-the-edge translation.
+  ...createBaseRepository(db.employers, [], { ratePencePerMile: 0 }, validateEmployer),
+
+  /** Employers in name order — how every list of them is shown. */
+  async getAll() {
+    const rows = await db.employers.toArray();
+    rows.sort((a, b) => String(a.name).localeCompare(String(b.name), 'en-GB'));
+    return rows;
+  },
+
+  /**
+   * Delete an employer and UNASSIGN its trips rather than deleting them: the
+   * journeys still happened, and a trip with no employer is a valid claim
+   * group of its own. Cascade-deleting a year of mileage because a job ended
+   * would be the wrong kind of tidy.
+   * @param {number} id
+   */
+  async delete(id) {
+    await db.transaction('rw', db.employers, db.mileageTrips, async () => {
+      await db.mileageTrips.where('employerId').equals(id).modify({ employerId: null });
+      await db.employers.delete(id);
+    });
+    dispatchMutation();
+  },
+};
+
 export const mileageTripsRepo = {
   ...createBaseRepository(
     db.mileageTrips,
     ['reimbursedPence'],
-    { vehicle: 'car', reimbursedPence: 0, purpose: '' },
+    { vehicle: 'car', reimbursedPence: 0, purpose: '', employerId: null },
     validateMileageTrip
   ),
 

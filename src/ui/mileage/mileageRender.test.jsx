@@ -10,7 +10,7 @@
 import { resetDb } from '../../db/test-utils.js';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
-import { mileageTripsRepo } from '../../db/repositories.js';
+import { mileageTripsRepo, employersRepo } from '../../db/repositories.js';
 import { taxYearForDate, taxYearBounds } from '../../engine/tax.js';
 import Mileage from '../Mileage.jsx';
 
@@ -111,5 +111,89 @@ describe('Mileage tab (seeded)', () => {
     expect(screen.getAllByText('Motorcycle').length).toBe(2);
     expect(screen.getAllByText('£24.00').length).toBeGreaterThan(0);
     expect(screen.queryByText(/miles left at 45p/)).toBeNull();
+  });
+});
+
+describe('Mileage tab — multiple employers', () => {
+  it('prompts to add employers only when there is more than one job', async () => {
+    render(<Mileage />);
+    expect(await screen.findByRole('button', { name: 'Add employer' })).toBeTruthy();
+    expect(screen.getByText(/trips are claimed as one unnamed employment/)).toBeTruthy();
+  });
+
+  it('gives each employer its own 45p band meter and labels the columns', async () => {
+    const acme = await employersRepo.add({ name: 'Acme', ratePencePerMile: 0 });
+    const beta = await employersRepo.add({ name: 'Beta', ratePencePerMile: 0 });
+    // Acme is already at the line; Beta starts fresh.
+    await mileageTripsRepo.add({
+      date: inYear(10),
+      miles: 10000,
+      vehicle: 'car',
+      purpose: 'Acme year',
+      employerId: acme,
+    });
+    await mileageTripsRepo.add({
+      date: inYear(20),
+      miles: 100,
+      vehicle: 'car',
+      purpose: 'Beta visit',
+      employerId: beta,
+    });
+
+    render(<Mileage />);
+
+    expect(await screen.findByText('Beta visit')).toBeTruthy();
+    // Two meters: Acme exhausted, Beta with its own full allowance. Matched on
+    // whole text — "9,900 miles left" also contains "0 miles left".
+    const meters = screen.getAllByText(/miles left at 45p/).map((el) => el.textContent);
+    expect(meters).toEqual([
+      '0 miles left at 45p, then 25p.',
+      '9,900 miles left at 45p, then 25p.',
+    ]);
+    // Approved: 10,000 × 45p + 100 × 45p, both at the higher rate.
+    expect(screen.getAllByText('£4,545.00').length).toBeGreaterThan(0);
+    expect(screen.getByText(/Each employment gets its own 10,000 miles/)).toBeTruthy();
+    // The employer column appears in the breakdown and the ledger.
+    expect(screen.getAllByText('Employer').length).toBeGreaterThan(0);
+  });
+
+  it('keeps the employer labels hidden when only one job is in play', async () => {
+    const acme = await employersRepo.add({ name: 'Acme', ratePencePerMile: 0 });
+    await mileageTripsRepo.add({
+      date: inYear(10),
+      miles: 100,
+      vehicle: 'car',
+      purpose: 'Only job',
+      employerId: acme,
+    });
+
+    render(<Mileage />);
+
+    expect(await screen.findByText('Only job')).toBeTruthy();
+    // One employment: no per-row employer column, no allowance explainer.
+    expect(screen.queryByText(/Each employment gets its own 10,000 miles/)).toBeNull();
+    expect(screen.queryByRole('columnheader', { name: 'Employer' })).toBeNull();
+  });
+
+  it('shows an unassigned trip as its own employment alongside a named one', async () => {
+    const acme = await employersRepo.add({ name: 'Acme', ratePencePerMile: 0 });
+    await mileageTripsRepo.add({
+      date: inYear(10),
+      miles: 100,
+      vehicle: 'car',
+      purpose: 'For Acme',
+      employerId: acme,
+    });
+    await mileageTripsRepo.add({
+      date: inYear(11),
+      miles: 50,
+      vehicle: 'car',
+      purpose: 'Unassigned',
+    });
+
+    render(<Mileage />);
+
+    expect(await screen.findByText('Unassigned')).toBeTruthy();
+    expect(screen.getAllByText('No employer').length).toBeGreaterThan(0);
   });
 });

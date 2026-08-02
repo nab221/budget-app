@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-02
 **Status:** implemented
-**Spec:** amends `REFACTOR-SPEC.md` (amendment 2026-08-02 (h)); schema v6
+**Spec:** amends `REFACTOR-SPEC.md` (amendment 2026-08-02 (h)); schema v6 + v7
 
 ## 1. Purpose
 
@@ -24,6 +24,9 @@ Two things follow that a plain mile count doesn't tell you:
 - **The 10,000 line is per tax year and resets on 6 April.** Where you are
   against it decides what the *next* mile is worth, so it needs to be visible
   while the year is running, not worked out in April.
+- **It is also per employment.** Drive for two jobs and each gets its own
+  10,000 miles at 45p, and each is netted against its own employer's
+  reimbursement.
 - **What you claim is the shortfall, not the whole approved amount.** If the
   employer already reimburses (say 25p a mile), only the gap between AMAP and
   what they paid is claimable — as *Mileage Allowance Relief*, a deduction from
@@ -63,17 +66,28 @@ typed, until the user edits it by hand.
 One new store. Nothing computed is persisted — the band split, the running
 position, the claim, and the relief are all derived at read time.
 
+```text
+mileageTrips: '++id, date, vehicle, employerId'
+employers:    '++id, name'
 ```
-mileageTrips: '++id, date, vehicle'
-```
+
+`mileageTrips`:
 
 | Field | Type | Notes |
 |---|---|---|
-| `date` | ISO `yyyy-MM-dd` | indexed; a tax year is one range query |
-| `miles` | number | positive, stored to one decimal place |
+| `date` | ISO `yyyy-MM-dd` | indexed; a tax year is one range query. Required on add — an undefined date silently drops out of that index |
+| `miles` | number | positive, stored to one decimal place. Required on add |
 | `vehicle` | `'car' \| 'motorcycle' \| 'bicycle'` | indexed |
+| `employerId` | integer or `null` | indexed. `null` = no employer recorded, which is its own claim group |
 | `purpose` | string | why the journey was business travel |
-| `reimbursedPence` | integer pence at rest, **pounds at the repo edge** | what the employer paid for this trip |
+| `reimbursedPence` | integer pence at rest, **pounds at the repo edge** | what the employer paid for this trip. Follows the repository money convention: `add`/`update` take pounds and `toPence` them on the way in; `get`/`getAll` hand pounds back |
+
+`employers`:
+
+| Field | Type | Notes |
+|---|---|---|
+| `name` | string | indexed; required |
+| `ratePencePerMile` | integer pence **per mile** | a rate, not an amount — deliberately *not* a `*Pence` repo field, so it is stored verbatim with no pounds translation |
 
 Two settings, both defaulted in `SETTINGS_DEFAULTS`:
 
@@ -106,17 +120,24 @@ vehicle's year total against what the employer paid.
   sum of those.** Rounding the year in one go could differ by a penny or two,
   but then the ledger wouldn't add up to the headline — and it is the ledger the
   owner would check against.
-- **Vehicle kinds are netted separately, then summed.** HMRC works each kind out
-  on its own, so an over-payment on the bike can never quietly cancel a car
-  shortfall. `totals.shortfallPence` and `totals.excessPence` can both be
-  non-zero at once.
+- **The claim group is employment × vehicle kind.** HMRC works each pairing out
+  on its own, so an over-payment on the bike — or at another job — can never
+  quietly cancel a car shortfall. `totals.shortfallPence` and
+  `totals.excessPence` can both be non-zero at once.
+- **Employers are optional.** With none recorded, every trip is one unnamed
+  employment and the employer labels, the extra table column, and the
+  allowance explainer all stay hidden — the single-job screen is unchanged.
+  Deleting an employer *unassigns* its trips rather than deleting them: the
+  journeys still happened.
 - **Marginal rate is a picker, not derived from the Income tab.** The Income
   engine already computes a full per-person tax position, but reaching into it
   would mean picking a person, deciding whether the mileage belongs to them, and
   coupling two screens. The simpler option, per the spec rule — revisit if the
   owner wants the two linked.
-- **The 10,000-mile threshold is per tax year across all car/van trips.** HMRC
-  counts it per employment; a single user with one job is unaffected.
+- **Associated employments are not modelled.** Each employer here gets its own
+  10,000 miles. HMRC makes jobs with the same employer, or within one group of
+  companies, share a single allowance — record those as one employer. The
+  screen says so when more than one is in play.
 
 ### Non-goals
 
@@ -134,13 +155,15 @@ vehicle's year total against what the employer paid.
 
 | File | Role |
 |---|---|
-| `src/engine/mileage.js` | AMAP rates, band pricing, year build, relief (+ `mileage.test.js`, 30 tests) |
-| `src/db/schema.js` | v6 — the `mileageTrips` store |
-| `src/db/repositories.js` | `mileageTripsRepo` + validation |
-| `src/db/settings.js` | employer rate + marginal rate |
-| `src/db/mileageData.js` | pounds → pence adapter (+ `mileageData.test.js`, 12 tests) |
+| `src/engine/mileage.js` | AMAP rates, band pricing, per-group year build, relief (+ `mileage.test.js`, 39 tests) |
+| `src/db/schema.js` | v6 — the `mileageTrips` store; v7 — `employers` + `employerId` |
+| `src/db/repositories.js` | `mileageTripsRepo`, `employersRepo` + validation |
+| `src/db/settings.js` | fallback employer rate + marginal rate |
+| `src/db/mileageData.js` | pounds → pence adapter (+ `mileageData.test.js`, 19 tests) |
 | `src/ui/Mileage.jsx` | the tab |
 | `src/ui/mileage/MileageSummary.jsx` | KPIs, band meter, breakdown, rate controls |
 | `src/ui/mileage/TripList.jsx` | month-grouped ledger |
 | `src/ui/mileage/TripForm.jsx` | add / edit a trip |
-| `src/ui/mileage/mileageRender.test.jsx` | tab integration test, 5 tests |
+| `src/ui/mileage/EmployerList.jsx`, `EmployerForm.jsx` | manage employments and their rates |
+| `src/ui/mileage/format.js` | mile / rate / employer display helpers shared by the screens |
+| `src/ui/mileage/mileageRender.test.jsx` | tab integration test, 9 tests |

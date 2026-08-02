@@ -109,7 +109,10 @@ export const settings = {
   setMileageEmployerRatePence: (pencePerMile) =>
     setSetting('mileageEmployerRatePence', Math.max(0, Math.round(Number(pencePerMile) || 0))),
   getMileageMarginalRate: () => getSetting('mileageMarginalRate'),
-  setMileageMarginalRate: (rate) => setSetting('mileageMarginalRate', Number(rate) || 0),
+  // Clamped to 0–1: a rate outside that would make `computeRelief` report a
+  // refund bigger than the claim, or a negative one.
+  setMileageMarginalRate: (rate) =>
+    setSetting('mileageMarginalRate', Math.min(1, Math.max(0, Number(rate) || 0))),
 
   // Backup bookkeeping
   getLastExportAt: () => getSetting('lastExportAt'),

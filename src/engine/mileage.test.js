@@ -7,6 +7,7 @@ import {
   fromTenths,
   priceMiles,
   buildMileageYear,
+  groupKeyFor,
   computeRelief,
   claimRoute,
   P87_LIMIT_PENCE,
@@ -121,7 +122,7 @@ describe('buildMileageYear', () => {
   it('returns empty totals for no trips', () => {
     const out = buildMileageYear({ trips: [], table: TABLE });
     expect(out.trips).toEqual([]);
-    expect(out.byVehicle).toEqual([]);
+    expect(out.byGroup).toEqual([]);
     expect(out.totals).toMatchObject({
       tripCount: 0,
       miles: 0,
@@ -129,6 +130,7 @@ describe('buildMileageYear', () => {
       reimbursedPence: 0,
       shortfallPence: 0,
       excessPence: 0,
+      employerCount: 0,
     });
   });
 
@@ -142,8 +144,8 @@ describe('buildMileageYear', () => {
     expect(out.trips[0].allowancePence).toBe(4500);
     expect(out.trips[1].allowancePence).toBe(11273);
     expect(out.totals.allowancePence).toBe(15773);
-    expect(out.byVehicle[0].milesToThreshold).toBe(9649.5);
-    expect(out.byVehicle[0].overThreshold).toBe(false);
+    expect(out.byGroup[0].milesToThreshold).toBe(9649.5);
+    expect(out.byGroup[0].overThreshold).toBe(false);
   });
 
   it('drops to 25p only after the cumulative 10,000-mile line', () => {
@@ -158,10 +160,10 @@ describe('buildMileageYear', () => {
     expect(second.firstBandMiles).toBe(10);
     expect(second.afterBandMiles).toBe(10);
     expect(second.allowancePence).toBe(700);
-    expect(out.byVehicle[0].firstBandMiles).toBe(10000);
-    expect(out.byVehicle[0].afterBandMiles).toBe(10);
-    expect(out.byVehicle[0].milesToThreshold).toBe(0);
-    expect(out.byVehicle[0].overThreshold).toBe(true);
+    expect(out.byGroup[0].firstBandMiles).toBe(10000);
+    expect(out.byGroup[0].afterBandMiles).toBe(10);
+    expect(out.byGroup[0].milesToThreshold).toBe(0);
+    expect(out.byGroup[0].overThreshold).toBe(true);
   });
 
   it('prices in date order regardless of the order trips are passed in', () => {
@@ -192,13 +194,13 @@ describe('buildMileageYear', () => {
       ],
       table: TABLE,
     });
-    const byKind = Object.fromEntries(out.byVehicle.map((v) => [v.vehicle, v]));
+    const byKind = Object.fromEntries(out.byGroup.map((v) => [v.vehicle, v]));
     expect(byKind.car.allowancePence).toBe(10000 * 45 + 100 * 25);
     expect(byKind.motorcycle.allowancePence).toBe(100 * 24);
     expect(byKind.bicycle.allowancePence).toBe(10 * 20);
     // A flat-rate vehicle has no threshold to report.
     expect(byKind.motorcycle.milesToThreshold).toBeNull();
-    expect(out.byVehicle.map((v) => v.vehicle)).toEqual(VEHICLE_KINDS);
+    expect(out.byGroup.map((v) => v.vehicle)).toEqual(VEHICLE_KINDS);
   });
 
   it('nets employer reimbursement over the year into a shortfall', () => {
@@ -261,6 +263,131 @@ describe('buildMileageYear', () => {
     });
     expect(out.trips[1].milesBefore).toBe(100);
     expect(out.trips[1].milesAfter).toBe(150);
+  });
+
+  it('does not mutate the trips passed in', () => {
+    const input = [trip(1, '2026-04-10', 100)];
+    const snapshot = JSON.parse(JSON.stringify(input));
+    buildMileageYear({ trips: input, table: TABLE });
+    expect(input).toEqual(snapshot);
+  });
+});
+
+describe('buildMileageYear — multiple employers', () => {
+  const EMPLOYERS = [
+    { id: 1, name: 'Acme' },
+    { id: 2, name: 'Beta' },
+  ];
+
+  it('gives each employment its own 10,000 miles at the higher rate', () => {
+    const out = buildMileageYear({
+      trips: [
+        trip(1, '2026-04-10', 10000, { employerId: 1 }),
+        trip(2, '2026-04-11', 100, { employerId: 1 }), // Acme is past its line
+        trip(3, '2026-04-12', 100, { employerId: 2 }), // Beta starts fresh
+      ],
+      employers: EMPLOYERS,
+      table: TABLE,
+    });
+    const [acme, beta] = out.byGroup;
+    expect(acme.employerName).toBe('Acme');
+    expect(acme.allowancePence).toBe(10000 * 45 + 100 * 25);
+    expect(acme.milesToThreshold).toBe(0);
+    expect(beta.employerName).toBe('Beta');
+    expect(beta.allowancePence).toBe(100 * 45); // full 45p — its own allowance
+    expect(beta.milesToThreshold).toBe(9900);
+    expect(out.totals.employerCount).toBe(2);
+  });
+
+  it('splits a group per employment AND per vehicle kind', () => {
+    const out = buildMileageYear({
+      trips: [
+        trip(1, '2026-04-10', 100, { employerId: 1 }),
+        trip(2, '2026-04-11', 100, { employerId: 1, vehicle: 'motorcycle' }),
+        trip(3, '2026-04-12', 100, { employerId: 2 }),
+      ],
+      employers: EMPLOYERS,
+      table: TABLE,
+    });
+    expect(out.byGroup.map((g) => [g.employerName, g.vehicle])).toEqual([
+      ['Acme', 'car'],
+      ['Acme', 'motorcycle'],
+      ['Beta', 'car'],
+    ]);
+    expect(out.totals.employerCount).toBe(2);
+  });
+
+  it('treats a trip with no employer as its own employment', () => {
+    const out = buildMileageYear({
+      trips: [
+        trip(1, '2026-04-10', 10000, { employerId: 1 }),
+        trip(2, '2026-04-11', 100), // no employer — fresh allowance
+      ],
+      employers: EMPLOYERS,
+      table: TABLE,
+    });
+    const unassigned = out.byGroup.find((g) => g.employerId === null);
+    expect(unassigned.employerName).toBeNull();
+    expect(unassigned.allowancePence).toBe(100 * 45);
+    expect(out.totals.employerCount).toBe(2);
+  });
+
+  it('never lets one employer’s over-payment cancel another’s shortfall', () => {
+    const out = buildMileageYear({
+      trips: [
+        // Acme: AMAP £45, pays nothing → £45 to claim.
+        trip(1, '2026-04-10', 100, { employerId: 1 }),
+        // Beta: AMAP £45, pays £60 → £15 taxable excess.
+        trip(2, '2026-04-11', 100, { employerId: 2, reimbursedPence: 6000 }),
+      ],
+      employers: EMPLOYERS,
+      table: TABLE,
+    });
+    expect(out.totals.shortfallPence).toBe(4500);
+    expect(out.totals.excessPence).toBe(1500);
+  });
+
+  it('orders groups by the employer list, unassigned last', () => {
+    const out = buildMileageYear({
+      trips: [
+        trip(1, '2026-04-10', 10),
+        trip(2, '2026-04-11', 10, { employerId: 2 }),
+        trip(3, '2026-04-12', 10, { employerId: 1 }),
+      ],
+      employers: EMPLOYERS,
+      table: TABLE,
+    });
+    expect(out.byGroup.map((g) => g.employerId)).toEqual([1, 2, null]);
+  });
+
+  it('keeps a trip pointing at a deleted employer in its own group', () => {
+    const out = buildMileageYear({
+      trips: [trip(1, '2026-04-10', 100, { employerId: 99 })],
+      employers: EMPLOYERS,
+      table: TABLE,
+    });
+    expect(out.byGroup).toHaveLength(1);
+    expect(out.byGroup[0].employerId).toBe(99);
+    expect(out.byGroup[0].employerName).toBeNull();
+    expect(out.totals.allowancePence).toBe(4500);
+  });
+
+  it('reports one employment when every trip is unassigned', () => {
+    const out = buildMileageYear({
+      trips: [trip(1, '2026-04-10', 10), trip(2, '2026-04-11', 10)],
+      table: TABLE,
+    });
+    expect(out.totals.employerCount).toBe(1);
+  });
+
+  it('tags each trip with its group and employer name', () => {
+    const out = buildMileageYear({
+      trips: [trip(1, '2026-04-10', 10, { employerId: 1 })],
+      employers: EMPLOYERS,
+      table: TABLE,
+    });
+    expect(out.trips[0].employerName).toBe('Acme');
+    expect(out.trips[0].groupKey).toBe(groupKeyFor(1, 'car'));
   });
 
   it('does not mutate the trips passed in', () => {

@@ -5,7 +5,7 @@
  * the ONLY place pounds→pence conversion happens for the mileage tracker).
  */
 
-import { mileageTripsRepo } from './repositories.js';
+import { mileageTripsRepo, employersRepo } from './repositories.js';
 import { settings } from './settings.js';
 import { toPence } from '../engine/currency.js';
 import { taxYearBounds } from '../engine/tax.js';
@@ -31,8 +31,9 @@ export async function gatherMileageData(taxYearLabel, today = isoToday()) {
   const { startDate, endDate } = taxYearBounds(taxYearLabel);
   const { table, tableYear } = amapTable(taxYearLabel);
 
-  const [tripsRaw, marginalRate, employerRatePence] = await Promise.all([
+  const [tripsRaw, employers, marginalRate, employerRatePence] = await Promise.all([
     mileageTripsRepo.between(startDate, endDate), // pounds at the edge
+    employersRepo.getAll(), // name order; `ratePencePerMile` is raw pence/mile
     settings.getMileageMarginalRate(),
     settings.getMileageEmployerRatePence(),
   ]);
@@ -42,11 +43,12 @@ export async function gatherMileageData(taxYearLabel, today = isoToday()) {
     date: t.date,
     vehicle: t.vehicle,
     miles: t.miles,
+    employerId: t.employerId ?? null,
     purpose: t.purpose,
     reimbursedPence: toPence(t.reimbursedPence), // pounds → pence
   }));
 
-  const year = buildMileageYear({ trips, table });
+  const year = buildMileageYear({ trips, employers, table });
   const reliefPence = computeRelief(year.totals.shortfallPence, marginalRate);
 
   return {
@@ -56,11 +58,14 @@ export async function gatherMileageData(taxYearLabel, today = isoToday()) {
     endDate,
     table,
     inProgress: today >= startDate && today <= endDate,
+    employers,
     marginalRate,
+    // The fallback pence-per-mile for a trip with no employer; each employer
+    // carries its own rate.
     employerRatePence,
     reliefPence,
     route: claimRoute(year.totals.shortfallPence),
-    ...year, // trips, byVehicle, totals
+    ...year, // trips, byGroup, totals
   };
 }
 

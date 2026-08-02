@@ -27,15 +27,25 @@ Approved Mileage Allowance Payments (AMAP) position at read time.
   amount, paid, claim, refund estimate), a 45p-band meter per car/van, a per-vehicle
   breakdown, and the trips grouped by month with edit/delete. A trip straddling the
   10,000-mile line is tagged with its split.
-- **Data model (schema v6 — additive)**: one store, `mileageTrips`
-  (`++id, date, vehicle`) holding date, miles, vehicle, purpose, and `reimbursedPence`.
-  Two settings: `mileageEmployerRatePence` (pence per mile, pre-fills a new trip) and
-  `mileageMarginalRate`. Only the trips are stored — the band split, running position,
-  claim, and relief are all computed at read time.
+- **Multiple employments** — HMRC works AMAP out per **employment**, so each job gets its
+  own 10,000 miles at the higher rate and is netted against its own employer's
+  reimbursement. The claim group is therefore employment × vehicle kind. Employers are
+  optional: with none recorded, every trip is one unnamed employment and the employer
+  labels stay hidden, so the single-job screen is unchanged. Deleting an employer
+  unassigns its trips rather than deleting them.
+- **Data model (schema v6 + v7 — additive)**: `mileageTrips`
+  (`++id, date, vehicle, employerId`) holding date, miles, vehicle, purpose,
+  `reimbursedPence`, and a nullable `employerId`; `employers` (`++id, name`) holding a
+  name and `ratePencePerMile` (a rate, so stored verbatim rather than pounds-at-edge).
+  Two settings: `mileageEmployerRatePence` (fallback pence per mile for a trip with no
+  employer) and `mileageMarginalRate`. Only the trips and employers are stored — the
+  band split, running position, claim, and relief are all computed at read time.
 - **Non-goals for this feature:** no passenger payments (5p/mile — tax-free only if the
   employer pays them, and no relief is claimable when they don't), no company-car
-  advisory fuel rates, no NI, and no P87/HMRC filing or export (the £2,500 Self
-  Assessment line is a hint only).
+  advisory fuel rates, no NI, no modelling of HMRC's **associated employments** rule
+  (jobs within one group of companies share a single allowance — record those as one
+  employer), and no P87/HMRC filing or export (the £2,500 Self Assessment line is a
+  hint only).
 
 Full rationale and the decisions taken where the spec was silent:
 `specs/2026-08-02-mileage-claim-design.md`.

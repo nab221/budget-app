@@ -1755,6 +1755,12 @@ body.privacy .chart:hover {
   text-align: right;
   white-space: nowrap;
 }
+.mileage-employers {
+  margin-top: 1rem;
+}
+.mileage-summary__employer {
+  font-weight: 600;
+}
 .tag--band {
   color: var(--accent);
   border-color: currentColor;

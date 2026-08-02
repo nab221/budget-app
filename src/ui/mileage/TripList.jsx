@@ -1,7 +1,7 @@
 import Money from '../components/Money.jsx';
 import { formatDay, formatPayMonth } from '../components/dates.js';
 import { VEHICLE_LABELS } from '../../engine/mileage.js';
-import { formatMiles } from './MileageSummary.jsx';
+import { formatMiles, employerLabel } from './format.js';
 
 /** Group claim-ordered trips into `{ month, trips, miles, allowancePence }`. */
 export function groupByMonth(trips) {
@@ -28,8 +28,10 @@ export function groupByMonth(trips) {
  * A trip that straddles the 10,000-mile line is tagged with its split.
  *
  * @param {object} props.trips - priced trips from `gatherMileageData`.
+ * @param {boolean} [props.showEmployer] - add the employer column (only worth
+ *   the width once the year's trips span more than one employment).
  */
-export default function TripList({ trips, onEdit, onDelete }) {
+export default function TripList({ trips, showEmployer = false, onEdit, onDelete }) {
   const groups = groupByMonth(trips);
 
   return (
@@ -47,17 +49,23 @@ export default function TripList({ trips, onEdit, onDelete }) {
               <thead>
                 <tr>
                   <th>Date</th>
+                  {showEmployer && <th>Employer</th>}
                   <th>Purpose</th>
                   <th className="num">Miles</th>
                   <th className="num">Approved</th>
                   <th className="num">Paid</th>
-                  <th className="mileage-table__actions" />
+                  <th className="mileage-table__actions">
+                    <span className="visually-hidden">Actions</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {group.trips.map((trip) => (
                   <tr key={trip.id}>
                     <td>{formatDay(trip.date)}</td>
+                    {showEmployer && (
+                      <td>{employerLabel(trip.employerName, trip.employerId)}</td>
+                    )}
                     <td>
                       {trip.purpose || <span className="muted">No purpose recorded</span>}
                       {trip.vehicle !== 'car' && (
