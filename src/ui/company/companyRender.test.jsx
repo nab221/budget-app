@@ -181,4 +181,21 @@ describe('Company tab draw calculator', () => {
     });
     await waitFor(() => expect(screen.getByLabelText('Amount to draw').value).toBe(''));
   });
+
+  it('defaults the date into the newly selected company year when stepping back', async () => {
+    await peopleRepo.add({ name: 'Anderson' });
+
+    render(<Company />);
+    await screen.findByLabelText('Amount to draw');
+    fireEvent.click(screen.getByRole('button', { name: 'Previous company year' }));
+
+    // The previous year has loaded once the navigator label changes…
+    const previousFy = `FY${Number(CURRENT_FY.slice(2)) - 1}`;
+    await screen.findByText(new RegExp(`Company year ${previousFy}`));
+    // …and the calculator's date must have moved into that year, not stayed on today.
+    await waitFor(() => {
+      expect(screen.getByLabelText('Dated').value).toBe(`${previousFy.slice(2)}-04-01`);
+    });
+    expect(screen.queryByText(/outside company year/)).toBeNull();
+  });
 });

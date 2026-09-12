@@ -143,7 +143,7 @@ export default function Company() {
         <>
           <CompanySummary data={data} />
           <DrawCalculator
-            key={fy}
+            key={data.financialYear}
             data={data}
             onRecord={(payload) => incomeEventsRepo.add(payload)}
           />
