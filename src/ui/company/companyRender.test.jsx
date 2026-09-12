@@ -96,7 +96,10 @@ describe('Company tab ledger', () => {
     await peopleRepo.add({ name: 'Wife' });
 
     render(<Company />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Record dividend' }));
+    // The button renders disabled until the people have loaded; wait for the
+    // summary (which only renders with people) before clicking it.
+    await screen.findByText('Dividends drawn');
+    fireEvent.click(screen.getByRole('button', { name: 'Record dividend' }));
 
     const person = screen.getByLabelText('Person');
     fireEvent.change(person, { target: { value: String(a) } });
