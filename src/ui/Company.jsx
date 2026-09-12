@@ -10,6 +10,12 @@ import EmptyState from './components/EmptyState.jsx';
 import { formatDay } from './components/dates.js';
 import CompanySummary from './company/CompanySummary.jsx';
 import { fyTitle } from './company/format.js';
+import { incomeEventsRepo } from '../db/repositories.js';
+import Modal from './components/Modal.jsx';
+import ConfirmDialog from './components/ConfirmDialog.jsx';
+import DividendForm from './company/DividendForm.jsx';
+import DividendLedger from './company/DividendLedger.jsx';
+import { formatGBP } from '../engine/currency.js';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -34,6 +40,27 @@ export default function Company() {
   const currentFy = financialYearForDate(today());
   const bounds = financialYearBounds(fy);
   const people = data?.people ?? [];
+
+  const [recording, setRecording] = useState(false);
+  const [editing, setEditing] = useState(null); // raw repo row (pounds)
+  const [confirmDelete, setConfirmDelete] = useState(null); // pence-domain ledger row
+
+  const record = async (payload) => {
+    await incomeEventsRepo.add(payload);
+    setRecording(false);
+  };
+  const save = async (payload) => {
+    await incomeEventsRepo.update(editing.id, payload);
+    setEditing(null);
+  };
+  const remove = async () => {
+    await incomeEventsRepo.delete(confirmDelete.id);
+    setConfirmDelete(null);
+  };
+  // The ledger carries pence-domain rows; the edit form needs the pounds row back.
+  const openEdit = async (ev) => {
+    setEditing(await incomeEventsRepo.get(ev.id));
+  };
 
   return (
     <div className="screen">
@@ -69,7 +96,14 @@ export default function Company() {
               </button>
             )}
           </div>
-          {/* Task 7 adds the "Record dividend" button here. */}
+          <button
+            type="button"
+            className="btn btn--primary"
+            disabled={people.length === 0}
+            onClick={() => setRecording(true)}
+          >
+            Record dividend
+          </button>
         </div>
       </header>
 
@@ -78,6 +112,23 @@ export default function Company() {
           No corporation-tax rules recorded for {fyTitle(data.financialYear)} — figures use
           the {fyTitle(data.tableYear)} rules.
         </p>
+      )}
+
+      {recording && (
+        <Modal title="Record dividend" onClose={() => setRecording(false)}>
+          <DividendForm people={people} onSubmit={record} onCancel={() => setRecording(false)} />
+        </Modal>
+      )}
+      {editing && (
+        <Modal title={`Edit dividend — ${formatDay(editing.date)}`} onClose={() => setEditing(null)}>
+          <DividendForm
+            key={editing.id}
+            people={people}
+            initial={editing}
+            onSubmit={save}
+            onCancel={() => setEditing(null)}
+          />
+        </Modal>
       )}
 
       {loading && !data ? (
@@ -91,9 +142,30 @@ export default function Company() {
         <>
           <CompanySummary data={data} />
           {/* Task 8 adds <DrawCalculator> here. */}
-          {/* Task 7 adds <DividendLedger> here. */}
+          {data.events.length === 0 ? (
+            <EmptyState
+              title={`No dividends drawn in ${fyTitle(fy)}`}
+              hint="Record a dividend here or on the Income tab — either way it counts against this company year."
+            />
+          ) : (
+            <DividendLedger events={data.events} onEdit={openEdit} onDelete={setConfirmDelete} />
+          )}
         </>
       )}
+
+      <ConfirmDialog
+        open={!!confirmDelete}
+        title="Delete dividend"
+        message={
+          confirmDelete
+            ? `Delete the dividend of ${formatGBP(confirmDelete.amountPence)} on ${formatDay(confirmDelete.date)}? It disappears from the Income tab too. This can't be undone.`
+            : ''
+        }
+        confirmLabel="Delete dividend"
+        danger
+        onConfirm={remove}
+        onCancel={() => setConfirmDelete(null)}
+      />
     </div>
   );
 }

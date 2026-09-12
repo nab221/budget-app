@@ -9,7 +9,7 @@
  */
 import { resetDb } from '../../db/test-utils.js';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import { peopleRepo, incomeEventsRepo } from '../../db/repositories.js';
 import { financialYearForDate, financialYearBounds } from '../../engine/corporation-tax.js';
 import Company from '../Company.jsx';
@@ -73,5 +73,59 @@ describe('Company tab (seeded)', () => {
     expect(await screen.findByText(/Past £50,000.00 of profit/)).toBeTruthy();
     expect(screen.getByText(/each further pound costs 26.5%/)).toBeTruthy();
     expect(screen.getAllByText('£22,750.00').length).toBeGreaterThan(0);
+  });
+});
+
+describe('Company tab ledger', () => {
+  it('lists every dividend from both people, newest first, with a note', async () => {
+    const a = await peopleRepo.add({ name: 'Anderson' });
+    const b = await peopleRepo.add({ name: 'Wife' });
+    await incomeEventsRepo.add({ personId: a, date: inYear(10), kind: 'dividend', amountPence: 5400, note: 'Q1 draw' });
+    await incomeEventsRepo.add({ personId: b, date: inYear(20), kind: 'dividend', amountPence: 2700, note: 'Summer' });
+
+    render(<Company />);
+
+    expect(await screen.findByText('Q1 draw')).toBeTruthy();
+    const rows = screen.getAllByRole('row').filter((r) => /Q1 draw|Summer/.test(r.textContent));
+    expect(rows[0].textContent).toMatch(/Summer/); // newest first
+    expect(rows[1].textContent).toMatch(/Q1 draw/);
+  });
+
+  it('records a dividend for a chosen person through the same incomeEvents store', async () => {
+    const a = await peopleRepo.add({ name: 'Anderson' });
+    await peopleRepo.add({ name: 'Wife' });
+
+    render(<Company />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Record dividend' }));
+
+    const person = screen.getByLabelText('Person');
+    fireEvent.change(person, { target: { value: String(a) } });
+    // EventForm's Amount label has no htmlFor, so find the currency input
+    // inside the open dialog rather than by label.
+    const amount = screen.getByRole('dialog').querySelector('.currency-input input');
+    fireEvent.change(amount, { target: { value: '1000' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add dividend draw' }));
+
+    await waitFor(async () => {
+      const rows = await incomeEventsRepo.getAll();
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ personId: a, kind: 'dividend', amountPence: 1000 });
+    });
+    // Appears in the KPI row and in the ledger.
+    expect((await screen.findAllByText('£1,000.00')).length).toBeGreaterThan(0);
+  });
+
+  it('deletes a dividend after confirming', async () => {
+    const a = await peopleRepo.add({ name: 'Anderson' });
+    await incomeEventsRepo.add({ personId: a, date: inYear(10), kind: 'dividend', amountPence: 5400, note: 'Q1 draw' });
+
+    render(<Company />);
+    expect(await screen.findByText('Q1 draw')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete dividend' }));
+
+    await waitFor(async () => {
+      expect(await incomeEventsRepo.getAll()).toHaveLength(0);
+    });
   });
 });
