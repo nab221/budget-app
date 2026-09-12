@@ -121,3 +121,108 @@ export function financialYearTable(label) {
 export function ctPaymentDate(label) {
   return `${fyStartYear(label) + 2}-01-01`;
 }
+
+// ---------------------------------------------------------------------------
+// The tax, and its inverse
+// ---------------------------------------------------------------------------
+
+/**
+ * The CT rate on the NEXT pound of profit at a given profit level: 19% below
+ * the lower limit, the marginal-relief rate (main + fraction = 26.5%) from
+ * the lower limit up to but not including the upper limit, the main rate
+ * from there. Used for "what does one more pound cost" wording.
+ */
+export function marginalRateAt(profitPence, table) {
+  const profit = Math.max(0, Math.round(profitPence || 0));
+  if (profit < table.lowerLimitPence) return table.smallRate;
+  if (profit < table.upperLimitPence) return table.mainRate + table.marginalReliefFraction;
+  return table.mainRate;
+}
+
+/**
+ * Corporation tax on a full-year profit.
+ *
+ * In the marginal band HMRC's formula is: main rate on the whole profit, less
+ * marginal relief of `fraction × (upper limit − profit)`. Rounded to the
+ * penny at the end of each term, never mid-way.
+ *
+ * @param {number} profitPence - integer pence; negative or junk → 0.
+ * @param {object} table - a `CT_TABLES` entry.
+ * @returns {{ taxPence: number, reliefPence: number,
+ *             band: 'small'|'marginal'|'main', marginalRate: number,
+ *             effectiveRate: number }}
+ *   `band` follows HMRC's wording (£50,000 "or less" is small; £250,000 "or
+ *   more" is main); `marginalRate` is the rate on the next pound, so at
+ *   exactly £50,000 it is already 26.5%.
+ */
+export function corporationTax(profitPence, table) {
+  const profit = Math.max(0, Math.round(profitPence || 0));
+  const { smallRate, mainRate, lowerLimitPence, upperLimitPence, marginalReliefFraction } = table;
+
+  let band;
+  let taxPence;
+  let reliefPence = 0;
+  if (profit <= lowerLimitPence) {
+    band = 'small';
+    taxPence = Math.round(profit * smallRate);
+  } else if (profit >= upperLimitPence) {
+    band = 'main';
+    taxPence = Math.round(profit * mainRate);
+  } else {
+    band = 'marginal';
+    reliefPence = Math.round((upperLimitPence - profit) * marginalReliefFraction);
+    taxPence = Math.round(profit * mainRate) - reliefPence;
+  }
+
+  return {
+    taxPence,
+    reliefPence,
+    band,
+    marginalRate: marginalRateAt(profit, table),
+    effectiveRate: profit > 0 ? taxPence / profit : 0,
+  };
+}
+
+/**
+ * The smallest integer profit whose after-CT amount is at least `netPence`
+ * — i.e. the profit a company must earn to pay that much out as dividends.
+ *
+ * Closed form per band (net = profit − CT):
+ *   small     net = (1 − small) × P                    → P = net / (1 − small)
+ *   marginal  net = (1 − main − f) × P + f × upper     → P = (net − f × upper) / (1 − main − f)
+ *   main      net = (1 − main) × P                     → P = net / (1 − main)
+ * then nudged by a few pence so the rounded tax satisfies the inequality
+ * exactly — the ledger total, the CT, and the profit must reconcile to the
+ * penny on screen. The profit can leave up to a penny MORE than the net.
+ *
+ * @param {number} netPence - integer pence of dividends; negative or junk → 0.
+ * @returns {number} integer pence of profit.
+ */
+export function profitForNetDividends(netPence, table) {
+  const net = Math.max(0, Math.round(netPence || 0));
+  if (net === 0) return 0;
+  const { smallRate, mainRate, lowerLimitPence, upperLimitPence, marginalReliefFraction: f } = table;
+  const netAt = (p) => p - corporationTax(p, table).taxPence;
+
+  let guess;
+  if (net <= netAt(lowerLimitPence)) guess = net / (1 - smallRate);
+  else if (net < netAt(upperLimitPence)) guess = (net - f * upperLimitPence) / (1 - mainRate - f);
+  else guess = net / (1 - mainRate);
+
+  // Start a couple of pence below the real-valued solution and walk up to the
+  // first integer profit that works. Rounding moves the answer by at most a
+  // penny or two, so this loop runs a handful of times; the cap is a guard.
+  let profit = Math.max(0, Math.floor(guess) - 2);
+  for (let i = 0; i < 20 && netAt(profit) < net; i += 1) profit += 1;
+  return profit;
+}
+
+/**
+ * Pence of CT per pound of DIVIDEND at a given rate on profit. £1 of dividend
+ * needs £1 / (1 − rate) of profit, of which rate / (1 − rate) is CT:
+ * 23.5p at 19%, 36.1p at 26.5%, 33.3p at 25%. This is the number the "keep
+ * 20%" rule of thumb gets wrong in the marginal band.
+ */
+export function setAsidePerPound(rate) {
+  return rate / (1 - rate);
+}
