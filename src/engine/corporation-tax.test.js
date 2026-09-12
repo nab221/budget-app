@@ -11,6 +11,9 @@ import {
   corporationTax,
   profitForNetDividends,
   setAsidePerPound,
+  companyTotals,
+  buildCompanyYear,
+  previewDraw,
 } from './corporation-tax.js';
 
 const T = CT_TABLES.FY2026;
@@ -142,5 +145,136 @@ describe('setAsidePerPound', () => {
     expect(setAsidePerPound(0.19)).toBeCloseTo(0.2346, 4);
     expect(setAsidePerPound(0.265)).toBeCloseTo(0.3605, 4);
     expect(setAsidePerPound(0.25)).toBeCloseTo(0.3333, 4);
+  });
+});
+
+describe('companyTotals', () => {
+  it('reads as zeros with no dividends but still knows the next-pound rate', () => {
+    const t = companyTotals(0, T);
+    expect(t).toMatchObject({
+      dividendPence: 0,
+      profitPence: 0,
+      ctPence: 0,
+      effectiveRate: 0,
+      band: 'small',
+      marginalRate: 0.19,
+      headroomProfitPence: 5_000_000,
+      headroomDividendPence: 4_050_000,
+    });
+    expect(t.averageSetAsidePerPound).toBeCloseTo(0.2346, 4);
+    expect(t.marginalSetAsidePerPound).toBeCloseTo(0.2346, 4);
+  });
+
+  it('derives profit, CT, and headroom from the dividends', () => {
+    const t = companyTotals(810_000, T); // £8,100 drawn
+    expect(t.profitPence).toBe(1_000_000);
+    expect(t.ctPence).toBe(190_000);
+    expect(t.headroomProfitPence).toBe(4_000_000);
+    expect(t.headroomDividendPence).toBe(3_240_000); // £40,000 × 81%
+    expect(t.averageSetAsidePerPound).toBeCloseTo(190_000 / 810_000, 10);
+  });
+
+  it('flips to the marginal band past £50,000 of profit', () => {
+    const t = companyTotals(7_725_000, T); // £77,250 drawn ← £100,000 profit
+    expect(t.band).toBe('marginal');
+    expect(t.profitPence).toBe(10_000_000);
+    expect(t.ctPence).toBe(2_275_000);
+    expect(t.marginalRate).toBeCloseTo(0.265, 10);
+    expect(t.marginalSetAsidePerPound).toBeCloseTo(0.3605, 4);
+    expect(t.headroomProfitPence).toBe(0);
+    expect(t.headroomDividendPence).toBe(0);
+  });
+});
+
+describe('buildCompanyYear', () => {
+  const people = [
+    { id: 1, name: 'Anderson' },
+    { id: 2, name: 'Wife' },
+  ];
+  const events = [
+    { id: 10, personId: 1, date: '2026-05-01', kind: 'dividend', note: 'Q1', amountPence: 540_000 },
+    { id: 11, personId: 2, date: '2026-05-01', kind: 'dividend', note: '', amountPence: 270_000 },
+    { id: 12, personId: 1, date: '2026-08-01', kind: 'sipp-contribution', note: '', amountPence: 100_000 },
+    { id: 13, personId: 2, date: '2026-04-15', kind: 'dividend', note: '', amountPence: 100 },
+  ];
+
+  it('pools both people, ignores other kinds, and orders newest first', () => {
+    const year = buildCompanyYear({ dividendEvents: events, people, table: T });
+    expect(year.events.map((e) => e.id)).toEqual([11, 10, 13]);
+    expect(year.events[0].personName).toBe('Wife');
+    expect(year.dividendPence).toBe(810_100);
+    expect(year.profitPence).toBe(profitForNetDividends(810_100, T));
+    expect(year.ctPence).toBe(corporationTax(year.profitPence, T).taxPence);
+  });
+
+  it('splits the total per person in people order, with shares', () => {
+    const year = buildCompanyYear({ dividendEvents: events, people, table: T });
+    expect(year.perPerson).toEqual([
+      { personId: 1, name: 'Anderson', dividendPence: 540_000, share: 540_000 / 810_100 },
+      { personId: 2, name: 'Wife', dividendPence: 270_100, share: 270_100 / 810_100 },
+    ]);
+  });
+
+  it('keeps counting a dividend whose person is unknown', () => {
+    const year = buildCompanyYear({
+      dividendEvents: [{ id: 1, personId: 99, date: '2026-05-01', kind: 'dividend', amountPence: 100 }],
+      people,
+      table: T,
+    });
+    expect(year.dividendPence).toBe(100);
+    expect(year.events[0].personName).toBe(null);
+    expect(year.perPerson).toEqual([
+      { personId: 1, name: 'Anderson', dividendPence: 0, share: 0 },
+      { personId: 2, name: 'Wife', dividendPence: 0, share: 0 },
+      { personId: 99, name: null, dividendPence: 100, share: 1 },
+    ]);
+  });
+
+  it('is empty-safe', () => {
+    const year = buildCompanyYear({ table: T });
+    expect(year.events).toEqual([]);
+    expect(year.perPerson).toEqual([]);
+    expect(year.dividendPence).toBe(0);
+  });
+});
+
+describe('previewDraw', () => {
+  it('prices a draw that stays in the small band', () => {
+    const p = previewDraw({ dividendPence: 810_000, extraDividendPence: 100_000, table: T });
+    expect(p.before.profitPence).toBe(1_000_000);
+    expect(p.after.dividendPence).toBe(910_000);
+    expect(p.after.profitPence).toBe(1_123_457); // £11,234.57
+    expect(p.after.ctPence).toBe(213_457);
+    expect(p.extraCtPence).toBe(23_457); // £234.57
+    expect(p.extraProfitPence).toBe(123_457);
+    expect(p.rateOnExtraProfit).toBeCloseTo(0.19, 3);
+    expect(p.setAsidePerPound).toBeCloseTo(0.2346, 3);
+    expect(p.crossesLowerLimit).toBe(false);
+    expect(p.crossesUpperLimit).toBe(false);
+  });
+
+  it('flags and blends a draw that crosses £50,000 of profit', () => {
+    // £40,000 drawn (£49,382.72 profit) + £5,000 → past the lower limit.
+    const p = previewDraw({ dividendPence: 4_000_000, extraDividendPence: 500_000, table: T });
+    expect(p.before.band).toBe('small');
+    expect(p.after.band).toBe('marginal');
+    expect(p.crossesLowerLimit).toBe(true);
+    expect(p.rateOnExtraProfit).toBeGreaterThan(0.19);
+    expect(p.rateOnExtraProfit).toBeLessThan(0.265);
+  });
+
+  it('prices a main-band draw at 25%', () => {
+    const p = previewDraw({ dividendPence: 22_500_000, extraDividendPence: 750_000, table: T });
+    expect(p.extraProfitPence).toBe(1_000_000);
+    expect(p.extraCtPence).toBe(250_000);
+    expect(p.rateOnExtraProfit).toBeCloseTo(0.25, 10);
+  });
+
+  it('treats a zero or junk draw as no change', () => {
+    const p = previewDraw({ dividendPence: 810_000, extraDividendPence: null, table: T });
+    expect(p.extraDividendPence).toBe(0);
+    expect(p.extraCtPence).toBe(0);
+    expect(p.after).toEqual(p.before);
+    expect(p.rateOnExtraProfit).toBe(0.19);
   });
 });

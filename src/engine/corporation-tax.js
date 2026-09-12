@@ -226,3 +226,133 @@ export function profitForNetDividends(netPence, table) {
 export function setAsidePerPound(rate) {
   return rate / (1 - rate);
 }
+
+// ---------------------------------------------------------------------------
+// The company-year build
+// ---------------------------------------------------------------------------
+
+/**
+ * Everything the headline needs from one number: the year's dividends.
+ *
+ * @param {number} dividendPence - integer pence drawn so far.
+ * @param {object} table - a `CT_TABLES` entry.
+ * @returns {{ dividendPence, profitPence, ctPence, effectiveRate, band,
+ *   marginalRate, averageSetAsidePerPound, marginalSetAsidePerPound,
+ *   headroomProfitPence, headroomDividendPence }}
+ *   `headroom*` are how much more profit / how many more pounds of dividend
+ *   fit under the £50k line (zero once past it). `averageSetAsidePerPound` is
+ *   CT ÷ dividends for the year so far; with nothing drawn it reads as the
+ *   marginal figure so the screen never shows a meaningless 0.
+ */
+export function companyTotals(dividendPence, table) {
+  const dividends = Math.max(0, Math.round(dividendPence || 0));
+  const profitPence = profitForNetDividends(dividends, table);
+  const ct = corporationTax(profitPence, table);
+  const marginalSetAsidePerPound = setAsidePerPound(ct.marginalRate);
+  const headroomProfitPence = Math.max(0, table.lowerLimitPence - profitPence);
+  return {
+    dividendPence: dividends,
+    profitPence,
+    ctPence: ct.taxPence,
+    effectiveRate: ct.effectiveRate,
+    band: ct.band,
+    marginalRate: ct.marginalRate,
+    averageSetAsidePerPound: dividends > 0 ? ct.taxPence / dividends : marginalSetAsidePerPound,
+    marginalSetAsidePerPound,
+    headroomProfitPence,
+    headroomDividendPence: Math.round(headroomProfitPence * (1 - table.smallRate)),
+  };
+}
+
+/** Events newest first: by date, then by id so a same-day pair is stable. */
+function newestFirst(events) {
+  return [...events].sort((a, b) => {
+    if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+    return (b.id ?? 0) - (a.id ?? 0);
+  });
+}
+
+/**
+ * Pool a company year's dividend events (both people draw from the same
+ * company) and work out the profit and CT they imply.
+ *
+ * Nothing here is persisted: the Company screen recomputes this on every
+ * read, per the "never persist computed rows" rule.
+ *
+ * @param {object} args
+ * @param {Array<{ id?: number, personId: number, date: string, kind: string,
+ *   note?: string, amountPence: number }>} [args.dividendEvents] - integer
+ *   pence; anything whose `kind` is not `'dividend'` is ignored, so a caller
+ *   may pass a year's whole event list.
+ * @param {Array<{ id: number, name: string }>} [args.people] - names the
+ *   events and orders the per-person split.
+ * @param {object} args.table - a `CT_TABLES` entry.
+ * @returns {{ events: Array<object>, perPerson: Array<object> } & ReturnType<typeof companyTotals>}
+ */
+export function buildCompanyYear({ dividendEvents = [], people = [], table }) {
+  const nameOf = new Map(people.map((p) => [p.id, p.name]));
+
+  const events = newestFirst(
+    dividendEvents
+      .filter((e) => e.kind === 'dividend')
+      .map((e) => ({
+        ...e,
+        amountPence: Math.max(0, Math.round(e.amountPence || 0)),
+        personName: nameOf.get(e.personId) ?? null,
+      }))
+  );
+
+  const byPerson = new Map(people.map((p) => [p.id, 0]));
+  let dividendPence = 0;
+  for (const e of events) {
+    dividendPence += e.amountPence;
+    byPerson.set(e.personId, (byPerson.get(e.personId) || 0) + e.amountPence);
+  }
+
+  // People in the order given, then any personId the events mention that is
+  // not in the list (should not happen — deleting a person cascades to their
+  // events — but the total must still add up if it does).
+  const perPerson = [...byPerson.entries()].map(([personId, pence]) => ({
+    personId,
+    name: nameOf.get(personId) ?? null,
+    dividendPence: pence,
+    share: dividendPence > 0 ? pence / dividendPence : 0,
+  }));
+
+  return { events, perPerson, ...companyTotals(dividendPence, table) };
+}
+
+/**
+ * "If I draw £X more": the company picture before and after.
+ *
+ * @param {object} args
+ * @param {number} args.dividendPence - integer pence drawn so far this year.
+ * @param {number} args.extraDividendPence - the proposed draw; junk → 0.
+ * @param {object} args.table - a `CT_TABLES` entry.
+ * @returns {{ before: object, after: object, extraDividendPence: number,
+ *   extraCtPence: number, extraProfitPence: number, rateOnExtraProfit: number,
+ *   setAsidePerPound: number, crossesLowerLimit: boolean,
+ *   crossesUpperLimit: boolean }}
+ *   `rateOnExtraProfit` is blended when the draw straddles a band edge;
+ *   `setAsidePerPound` is CT per £1 of THIS draw.
+ */
+export function previewDraw({ dividendPence, extraDividendPence, table }) {
+  const extra = Math.max(0, Math.round(extraDividendPence || 0));
+  const before = companyTotals(dividendPence, table);
+  const after = companyTotals(before.dividendPence + extra, table);
+  const extraCtPence = after.ctPence - before.ctPence;
+  const extraProfitPence = after.profitPence - before.profitPence;
+  return {
+    before,
+    after,
+    extraDividendPence: extra,
+    extraCtPence,
+    extraProfitPence,
+    rateOnExtraProfit: extraProfitPence > 0 ? extraCtPence / extraProfitPence : after.marginalRate,
+    setAsidePerPound: extra > 0 ? extraCtPence / extra : after.marginalSetAsidePerPound,
+    crossesLowerLimit:
+      before.profitPence < table.lowerLimitPence && after.profitPence > table.lowerLimitPence,
+    crossesUpperLimit:
+      before.profitPence < table.upperLimitPence && after.profitPence > table.upperLimitPence,
+  };
+}
