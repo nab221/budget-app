@@ -7,7 +7,9 @@
 import { resetDb } from './test-utils.js';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { peopleRepo, incomeEventsRepo } from './repositories.js';
-import { gatherCompanyData } from './companyData.js';
+import { gatherCompanyData, previewPersonalDraw } from './companyData.js';
+import { computePersonTax, taxYearTable } from '../engine/tax.js';
+import { gatherIncomeData } from './incomeData.js';
 
 beforeEach(resetDb);
 
@@ -77,5 +79,45 @@ describe('gatherCompanyData', () => {
   it('flags a rate-table fallback for an unseeded year', async () => {
     const data = await gatherCompanyData('FY2020');
     expect(data.tableYear).toBe('FY2023');
+  });
+});
+
+describe('previewPersonalDraw', () => {
+  it('picks the PERSONAL tax year from the draw date and diffs the tax', async () => {
+    // £50,000 salary via the legacy annual field (no timeline rows needed).
+    // £30,000 salary keeps the draw inside the basic band with 40% headroom to spare.
+    const a = await peopleRepo.add({ name: 'Anderson', annualSalaryPence: 30000 });
+    await addDividend(a, '2026-05-01', 2000);
+
+    const preview = await previewPersonalDraw({ personId: a, amountPence: 1_000_000, date: '2026-07-01' });
+    expect(preview.taxYear).toBe('2026-27');
+    expect(preview.name).toBe('Anderson');
+
+    // Must equal a direct engine diff on the same year input.
+    const income = await gatherIncomeData('2026-27');
+    const person = income.people.find((p) => p.id === a);
+    const { table } = taxYearTable('2026-27');
+    const after = computePersonTax(
+      { ...person.input, dividendPence: person.input.dividendPence + 1_000_000 },
+      table
+    );
+    expect(preview.before.totalTaxPence).toBe(person.summary.totalTaxPence);
+    expect(preview.after.totalTaxPence).toBe(after.totalTaxPence);
+    expect(preview.extraTaxPence).toBe(after.totalTaxPence - person.summary.totalTaxPence);
+    expect(preview.extraTaxPence).toBeGreaterThan(0);
+    expect(preview.netInHandPence).toBe(1_000_000 - preview.extraTaxPence);
+    expect(preview.after.headroomToHigherRatePence).toBeLessThan(
+      preview.before.headroomToHigherRatePence
+    );
+  });
+
+  it('uses the earlier tax year for a draw dated 1–5 April', async () => {
+    const a = await peopleRepo.add({ name: 'Anderson' });
+    const preview = await previewPersonalDraw({ personId: a, amountPence: 100, date: '2026-04-03' });
+    expect(preview.taxYear).toBe('2025-26');
+  });
+
+  it('returns null for an unknown person', async () => {
+    expect(await previewPersonalDraw({ personId: 999, amountPence: 100, date: '2026-07-01' })).toBe(null);
   });
 });
