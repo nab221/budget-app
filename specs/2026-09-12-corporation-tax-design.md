@@ -1,7 +1,7 @@
 # Company tab — corporation tax on dividends: design
 
 **Date:** 2026-09-12
-**Status:** approved by owner (brainstorm 2026-09-12), not yet implemented
+**Status:** implemented
 **Spec:** amends `REFACTOR-SPEC.md` (amendment 2026-09-12 (j)); no schema change
 
 ## 1. Purpose
