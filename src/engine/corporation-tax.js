@@ -126,6 +126,9 @@ export function ctPaymentDate(label) {
 // The tax, and its inverse
 // ---------------------------------------------------------------------------
 
+/** Integer pence from any input: rounds, and turns negative or junk into 0. */
+const pence = (v) => Math.max(0, Math.round(Number(v) || 0));
+
 /**
  * The CT rate on the NEXT pound of profit at a given profit level: 19% below
  * the lower limit, the marginal-relief rate (main + fraction = 26.5%) from
@@ -133,7 +136,7 @@ export function ctPaymentDate(label) {
  * from there. Used for "what does one more pound cost" wording.
  */
 export function marginalRateAt(profitPence, table) {
-  const profit = Math.max(0, Math.round(profitPence || 0));
+  const profit = pence(profitPence);
   if (profit < table.lowerLimitPence) return table.smallRate;
   if (profit < table.upperLimitPence) return table.mainRate + table.marginalReliefFraction;
   return table.mainRate;
@@ -156,7 +159,7 @@ export function marginalRateAt(profitPence, table) {
  *   exactly £50,000 it is already 26.5%.
  */
 export function corporationTax(profitPence, table) {
-  const profit = Math.max(0, Math.round(profitPence || 0));
+  const profit = pence(profitPence);
   const { smallRate, mainRate, lowerLimitPence, upperLimitPence, marginalReliefFraction } = table;
 
   let band;
@@ -199,7 +202,7 @@ export function corporationTax(profitPence, table) {
  * @returns {number} integer pence of profit.
  */
 export function profitForNetDividends(netPence, table) {
-  const net = Math.max(0, Math.round(netPence || 0));
+  const net = pence(netPence);
   if (net === 0) return 0;
   const { smallRate, mainRate, lowerLimitPence, upperLimitPence, marginalReliefFraction: f } = table;
   const netAt = (p) => p - corporationTax(p, table).taxPence;
@@ -245,7 +248,7 @@ export function setAsidePerPound(rate) {
  *   marginal figure so the screen never shows a meaningless 0.
  */
 export function companyTotals(dividendPence, table) {
-  const dividends = Math.max(0, Math.round(dividendPence || 0));
+  const dividends = pence(dividendPence);
   const profitPence = profitForNetDividends(dividends, table);
   const ct = corporationTax(profitPence, table);
   const marginalSetAsidePerPound = setAsidePerPound(ct.marginalRate);
@@ -297,7 +300,7 @@ export function buildCompanyYear({ dividendEvents = [], people = [], table }) {
       .filter((e) => e.kind === 'dividend')
       .map((e) => ({
         ...e,
-        amountPence: Math.max(0, Math.round(e.amountPence || 0)),
+        amountPence: pence(e.amountPence),
         personName: nameOf.get(e.personId) ?? null,
       }))
   );
@@ -337,7 +340,7 @@ export function buildCompanyYear({ dividendEvents = [], people = [], table }) {
  *   `setAsidePerPound` is CT per £1 of THIS draw.
  */
 export function previewDraw({ dividendPence, extraDividendPence, table }) {
-  const extra = Math.max(0, Math.round(extraDividendPence || 0));
+  const extra = pence(extraDividendPence);
   const before = companyTotals(dividendPence, table);
   const after = companyTotals(before.dividendPence + extra, table);
   const extraCtPence = after.ctPence - before.ctPence;

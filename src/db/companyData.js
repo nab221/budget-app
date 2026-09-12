@@ -87,7 +87,7 @@ export async function previewPersonalDraw({ personId, amountPence, date }) {
   const person = income.people.find((p) => p.id === personId);
   if (!person) return null;
 
-  const extra = Math.max(0, Math.round(amountPence || 0));
+  const extra = Math.max(0, Math.round(Number(amountPence) || 0));
   const before = person.summary;
   const after = computePersonTax(
     { ...person.input, dividendPence: person.input.dividendPence + extra },

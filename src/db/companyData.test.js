@@ -120,4 +120,13 @@ describe('previewPersonalDraw', () => {
   it('returns null for an unknown person', async () => {
     expect(await previewPersonalDraw({ personId: 999, amountPence: 100, date: '2026-07-01' })).toBe(null);
   });
+
+  it('treats a junk amount as a draw of nothing, leaving the person unchanged', async () => {
+    const a = await peopleRepo.add({ name: 'Anderson', annualSalaryPence: 30000 });
+    await addDividend(a, '2026-05-01', 2000);
+    const preview = await previewPersonalDraw({ personId: a, amountPence: 'abc', date: '2026-07-01' });
+    expect(preview.extraTaxPence).toBe(0);
+    expect(preview.netInHandPence).toBe(0);
+    expect(preview.after.totalTaxPence).toBe(preview.before.totalTaxPence);
+  });
 });

@@ -108,6 +108,8 @@ describe('corporationTax', () => {
     expect(corporationTax(-500, T).taxPence).toBe(0);
     expect(corporationTax(undefined, T).taxPence).toBe(0);
     expect(corporationTax(0, T).effectiveRate).toBe(0);
+    expect(corporationTax('abc', T).taxPence).toBe(0);
+    expect(corporationTax('12.6', T).taxPence).toBe(2); // numeric strings still parse: 13p × 19%
   });
 });
 
@@ -137,6 +139,12 @@ describe('profitForNetDividends', () => {
       expect(netAt(p)).toBeGreaterThanOrEqual(net);
       expect(netAt(p - 1)).toBeLessThan(net);
     }
+  });
+
+  it('treats negative or junk net as zero', () => {
+    expect(profitForNetDividends(-5, T)).toBe(0);
+    expect(profitForNetDividends('abc', T)).toBe(0);
+    expect(profitForNetDividends(undefined, T)).toBe(0);
   });
 });
 
@@ -276,5 +284,9 @@ describe('previewDraw', () => {
     expect(p.extraCtPence).toBe(0);
     expect(p.after).toEqual(p.before);
     expect(p.rateOnExtraProfit).toBe(0.19);
+
+    const junk = previewDraw({ dividendPence: 810_000, extraDividendPence: 'abc', table: T });
+    expect(junk.after).toEqual(junk.before);
+    expect(junk.extraCtPence).toBe(0);
   });
 });
