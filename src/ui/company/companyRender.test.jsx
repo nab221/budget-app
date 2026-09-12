@@ -132,3 +132,53 @@ describe('Company tab ledger', () => {
     });
   });
 });
+
+describe('Company tab draw calculator', () => {
+  it('shows the company picture before and after a draw', async () => {
+    const a = await peopleRepo.add({ name: 'Anderson' });
+    // £8,100 drawn ← £10,000 profit, £1,900 CT.
+    await incomeEventsRepo.add({ personId: a, date: inYear(10), kind: 'dividend', amountPence: 8100 });
+
+    render(<Company />);
+    const amount = await screen.findByLabelText('Amount to draw');
+    fireEvent.change(amount, { target: { value: '1000' } });
+
+    // £9,100 net ← £11,234.57 profit, £2,134.57 CT: +£234.57 of CT on
+    // +£1,234.57 of profit. The sentence figures sit inside <Money> spans,
+    // so match on the paragraph's textContent.
+    expect((await screen.findAllByText('£11,234.57')).length).toBeGreaterThan(0);
+    expect(screen.getByText('£2,134.57')).toBeTruthy();
+    const sentence = (re) => (_, el) => el.tagName === 'P' && re.test(el.textContent);
+    expect(screen.getByText(sentence(/adds £234\.57 of corporation tax/))).toBeTruthy();
+    expect(screen.getByText(sentence(/needs £1,234\.57 more profit/))).toBeTruthy();
+    // Personal side, for the (only) person, in the tax year of the draw date.
+    expect(await screen.findByText(/For Anderson in tax year/)).toBeTruthy();
+    expect(screen.getByText('Net in hand')).toBeTruthy();
+  });
+
+  it('warns when a draw crosses the £50,000 profit line', async () => {
+    const a = await peopleRepo.add({ name: 'Anderson' });
+    await incomeEventsRepo.add({ personId: a, date: inYear(10), kind: 'dividend', amountPence: 40000 });
+
+    render(<Company />);
+    fireEvent.change(await screen.findByLabelText('Amount to draw'), { target: { value: '5000' } });
+
+    expect(await screen.findByText(/takes the year past £50,000 of profit/)).toBeTruthy();
+  });
+
+  it('records the previewed dividend and clears the amount', async () => {
+    const a = await peopleRepo.add({ name: 'Anderson' });
+
+    render(<Company />);
+    const amount = await screen.findByLabelText('Amount to draw');
+    fireEvent.change(amount, { target: { value: '2500' } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Record this dividend' }));
+
+    await waitFor(async () => {
+      const rows = await incomeEventsRepo.getAll();
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ personId: a, kind: 'dividend', amountPence: 2500 });
+    });
+    await waitFor(() => expect(screen.getByLabelText('Amount to draw').value).toBe(''));
+  });
+});

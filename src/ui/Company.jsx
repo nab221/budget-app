@@ -15,6 +15,7 @@ import Modal from './components/Modal.jsx';
 import ConfirmDialog from './components/ConfirmDialog.jsx';
 import DividendForm from './company/DividendForm.jsx';
 import DividendLedger from './company/DividendLedger.jsx';
+import DrawCalculator from './company/DrawCalculator.jsx';
 import { formatGBP } from '../engine/currency.js';
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -141,7 +142,11 @@ export default function Company() {
       ) : (
         <>
           <CompanySummary data={data} />
-          {/* Task 8 adds <DrawCalculator> here. */}
+          <DrawCalculator
+            key={fy}
+            data={data}
+            onRecord={(payload) => incomeEventsRepo.add(payload)}
+          />
           {data.events.length === 0 ? (
             <EmptyState
               title={`No dividends drawn in ${fyTitle(fy)}`}
