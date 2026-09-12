@@ -116,7 +116,8 @@ export default function EventForm({ kind, initial, onSubmit, onCancel }) {
         <p className="muted">
           Enter the amount you actually paid in. The provider adds 25% basic-rate relief
           on top, so the grossed-up amount (×1.25) is what counts — toward the £100k
-          childcare line and the pension annual allowance.
+          childcare line and the pension annual allowance. It also extends your basic-rate
+          band, so any higher-rate relief comes off the Self Assessment figure.
         </p>
       )}
       {error && <p className="form__error">{error}</p>}

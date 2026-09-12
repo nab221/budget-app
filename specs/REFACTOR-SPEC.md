@@ -6,6 +6,28 @@ historical reference only — none of their requirements carry over unless resta
 
 ---
 
+## ⚠ Amendment 2026-09-12 (i) — Relief-at-source pensions extend the basic-rate band
+
+Owner feedback on (g): adding a SIPP contribution moved the £100k line but left the
+income tax and the "Extra bill via Self Assessment" untouched. Amendment (b)'s
+simplification "basic-rate band extension not modelled" is **superseded**:
+
+- **Engine (`computePersonTax`)**: grossed-up personal pension contributions (the
+  person's annual personal-pension field + `sipp-contribution` events × 1.25 — both
+  relief at source) **extend the basic-rate band and the additional-rate threshold** by
+  the gross amount, as HMRC does, on top of reducing adjusted net income. The 40%
+  headroom / over-line figures move up by the same amount.
+- **PAYE vs Self Assessment split**: PAYE at source is **pension-blind** — the tax code
+  knows nothing of the contribution, so `payeTaxPence` is the salary taxed with the
+  standard band and the allowance tapered on gross income without the pension.
+  `selfAssessmentTaxPence` = total owed − PAYE = dividend tax + other-income tax −
+  **`pensionReliefPence`** (higher/additional-rate relief plus any allowance the lower
+  ANI restores). It can be **negative — a refund** — and the card says so.
+- Workplace pension via the payslip / timeline is net-pay (already out of taxable pay)
+  and never extends the band; salary sacrifice likewise. Unchanged.
+
+---
+
 ## ⚠ Amendment 2026-08-02 (h) — Mileage claim tracker
 
 The owner asked for a place to keep track of business mileage across a tax year, noting
@@ -298,8 +320,9 @@ This is a *tax-year planning* concern, entirely separate from the dormant
   before the higher-rate threshold.
 - **Documented simplifications** (chosen per the "simpler option" rule): National
   Insurance ignored (not income tax); student loans out of scope; personal pension
-  contributions reduce adjusted net income only (basic-rate band extension not
-  modelled); savings-interest allowances not modelled (other income treated as general
+  contributions ~~reduce adjusted net income only (basic-rate band extension not
+  modelled)~~ (superseded by amendment (i): they also extend the basic-rate band, with
+  the relief flowing through the Self Assessment figure); savings-interest allowances not modelled (other income treated as general
   income); rUK bands only (no Scottish rates); ~~tax codes not modelled — PAYE is
   estimated from the annual salary~~ (partially superseded by amendment (f): the PAYE
   check uses the person's tax code; the annual summary stays statutory).

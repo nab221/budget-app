@@ -15,8 +15,14 @@
  * - Personal allowance tapers £1 per £2 of adjusted net income over £100,000.
  * - Adjusted net income = all income (incl. dividends) − personal pension
  *   contributions. Salary sacrifice never reaches the salary figure at all.
+ * - Personal pension contributions (the annual field + SIPP events, both
+ *   grossed up) are relief at source, so they also EXTEND the basic-rate band
+ *   and the additional-rate threshold by the gross amount (amendment
+ *   2026-09-12 (i)). PAYE at source knows nothing of them — the higher-rate
+ *   relief (and any personal allowance the lower ANI restores) comes back via
+ *   Self Assessment, which is why the extra bill can go negative (a refund).
  * - Documented simplifications: no NI, no student loans, no savings-interest
- *   allowances, pension contributions do not extend the basic-rate band.
+ *   allowances.
  * - Tax codes (amendment 2026-07-12 (f)): `parseTaxCode` understands the common
  *   PAYE codes so the payslip check (salaryTimeline.js) can use the person's
  *   real free pay. The ANNUAL summary here stays the statutory computation —
@@ -285,25 +291,25 @@ function overlap(a, b, lo, hi) {
 }
 
 /**
- * Compute a person's income tax for one tax year.
- *
- * @param {{ nonDividendPence: number, dividendPence: number, pensionPence: number,
- *           otherEventTotalPence?: number }} input
- *   integer pence: non-dividend income (salary after sacrifice + adjustments +
- *   BIK + other), dividends, and personal pension contributions.
- *   `otherEventTotalPence` is the part of the non-dividend figure that came
- *   from gross-paid other-income events (consultancy fees…) — used only to
- *   split the non-dividend tax into a PAYE part and a Self Assessment part;
- *   it never changes the total.
- * @param {object} table - a TAX_YEAR_TABLES entry.
- * @returns {object} pence figures — see fields below.
+ * Tax on the taxable-income slice [from, to) walked through the three bands
+ * whose edges (in taxable-income space) are `basicEdge` and `higherEdge`.
  */
-export function computePersonTax(input, table) {
-  const nonDividend = Math.max(0, Math.round(input.nonDividendPence || 0));
-  const dividends = Math.max(0, Math.round(input.dividendPence || 0));
-  const pension = Math.max(0, Math.round(input.pensionPence || 0));
-  const otherEvents = Math.max(0, Math.round(input.otherEventTotalPence || 0));
+function bandTax(from, to, basicEdge, higherEdge, ir) {
+  return (
+    Math.round(overlap(from, to, 0, basicEdge) * ir.basic) +
+    Math.round(overlap(from, to, basicEdge, higherEdge) * ir.higher) +
+    Math.round(Math.max(0, to - Math.max(from, higherEdge)) * ir.additional)
+  );
+}
 
+/**
+ * The statutory computation for one set of inputs: personal allowance
+ * (tapered on adjusted net income), band edges (extended by relief-at-source
+ * pension contributions), and the non-dividend / other-income / dividend tax.
+ * `computePersonTax` runs it twice — once for real and once pension-blind,
+ * which is what PAYE deducts at source.
+ */
+function statutoryTax({ nonDividend, dividends, pension, otherEvents }, table) {
   const grossIncomePence = nonDividend + dividends;
   const adjustedNetIncomePence = Math.max(0, grossIncomePence - pension);
 
@@ -320,21 +326,20 @@ export function computePersonTax(input, table) {
   const ndTaxable = nonDividend - paOnNonDividend;
   const divTaxable = Math.max(0, dividends - paOnDividends);
 
-  // Band edges in taxable-income space. The additional rate bites above
-  // £125,140 of TOTAL income; with the allowance already subtracted that is
-  // (threshold − allowance) of taxable income. The allowance is always £0 by
-  // £125,140, so the edge never drops below the basic edge in practice.
-  const basicEdge = table.basicBandPence;
+  // Band edges in taxable-income space. Relief at source extends the basic
+  // band (and the additional-rate threshold) by the gross contribution. The
+  // additional rate bites above £125,140 of TOTAL income; with the allowance
+  // already subtracted that is (threshold − allowance) of taxable income. The
+  // allowance is always £0 by £125,140, so the edge never drops below the
+  // basic edge in practice.
+  const basicEdge = table.basicBandPence + pension;
   const higherEdge = Math.max(
     basicEdge,
-    table.additionalRateThresholdPence - personalAllowancePence
+    table.additionalRateThresholdPence - personalAllowancePence + pension
   );
 
   const ir = table.incomeRates;
-  const nonDividendTaxPence =
-    Math.round(overlap(0, ndTaxable, 0, basicEdge) * ir.basic) +
-    Math.round(overlap(0, ndTaxable, basicEdge, higherEdge) * ir.higher) +
-    Math.round(Math.max(0, ndTaxable - higherEdge) * ir.additional);
+  const nonDividendTaxPence = bandTax(0, ndTaxable, basicEdge, higherEdge, ir);
 
   // Gross-paid other income (consultancy fees…) never goes through PAYE, so
   // its tax is owed via Self Assessment. It sits at the TOP of the
@@ -342,48 +347,88 @@ export function computePersonTax(input, table) {
   // salary — so its tax is the band walk over the top slice of ndTaxable.
   const otherSlice = Math.min(otherEvents, nonDividend);
   const otherStart = Math.max(0, ndTaxable - otherSlice);
-  const otherIncomeTaxPence =
-    Math.round(overlap(otherStart, ndTaxable, 0, basicEdge) * ir.basic) +
-    Math.round(overlap(otherStart, ndTaxable, basicEdge, higherEdge) * ir.higher) +
-    Math.round(Math.max(0, ndTaxable - Math.max(otherStart, higherEdge)) * ir.additional);
+  const otherIncomeTaxPence = bandTax(otherStart, ndTaxable, basicEdge, higherEdge, ir);
 
   // Dividends stack on top of non-dividend taxable income. The dividend
   // allowance sits at the bottom of the stack: 0% tax, but band space used.
   const allowanceUsed = Math.min(table.dividendAllowancePence, divTaxable);
   const divStart = ndTaxable + allowanceUsed;
   const divEnd = ndTaxable + divTaxable;
-  const dr = table.dividendRates;
-  const dividendTaxPence =
-    Math.round(overlap(divStart, divEnd, 0, basicEdge) * dr.basic) +
-    Math.round(overlap(divStart, divEnd, basicEdge, higherEdge) * dr.higher) +
-    Math.round(Math.max(0, divEnd - Math.max(divStart, higherEdge)) * dr.additional);
+  const dividendTaxPence = bandTax(divStart, divEnd, basicEdge, higherEdge, table.dividendRates);
 
   return {
     grossIncomePence,
     adjustedNetIncomePence,
     personalAllowancePence,
-    // Tax on ALL non-dividend income (salary + BIK + other).
     nonDividendTaxPence,
-    // The split of the above: what PAYE deducts at source vs the part on
-    // gross-paid other income, owed later via Self Assessment. (BIK and the
-    // annual other-income field stay on the PAYE side — they are usually
-    // collected through the tax code.)
-    payeTaxPence: nonDividendTaxPence - otherIncomeTaxPence,
     otherIncomeTaxPence,
-    // The EXTRA bill dividends create, settled later via Self Assessment.
     dividendTaxPence,
-    // Everything settled via Self Assessment: dividends + gross other income.
-    selfAssessmentTaxPence: dividendTaxPence + otherIncomeTaxPence,
-    totalTaxPence: nonDividendTaxPence + dividendTaxPence,
+  };
+}
+
+/**
+ * Compute a person's income tax for one tax year.
+ *
+ * @param {{ nonDividendPence: number, dividendPence: number, pensionPence: number,
+ *           otherEventTotalPence?: number }} input
+ *   integer pence: non-dividend income (salary after sacrifice + adjustments +
+ *   BIK + other), dividends, and grossed-up personal pension contributions
+ *   (relief at source: the annual personal-pension field + SIPP events).
+ *   `otherEventTotalPence` is the part of the non-dividend figure that came
+ *   from gross-paid other-income events (consultancy fees…) — used only to
+ *   split the non-dividend tax into a PAYE part and a Self Assessment part;
+ *   it never changes the total.
+ * @param {object} table - a TAX_YEAR_TABLES entry.
+ * @returns {object} pence figures — see fields below.
+ */
+export function computePersonTax(input, table) {
+  const nonDividend = Math.max(0, Math.round(input.nonDividendPence || 0));
+  const dividends = Math.max(0, Math.round(input.dividendPence || 0));
+  const pension = Math.max(0, Math.round(input.pensionPence || 0));
+  const otherEvents = Math.max(0, Math.round(input.otherEventTotalPence || 0));
+
+  const real = statutoryTax({ nonDividend, dividends, pension, otherEvents }, table);
+  // What PAYE actually deducts at source: the tax code knows nothing about
+  // personal pension contributions (neither the extended band nor any
+  // allowance the lower ANI restores), so the salary is taxed as if there
+  // were none. The difference comes back through the Self Assessment return.
+  const atSource = statutoryTax({ nonDividend, dividends, pension: 0, otherEvents }, table);
+  const payeTaxPence = atSource.nonDividendTaxPence - atSource.otherIncomeTaxPence;
+  // The slice of that PAYE deduction the return hands back: relief at the
+  // higher/additional rate on the contribution, plus restored allowance.
+  const pensionReliefPence = payeTaxPence - (real.nonDividendTaxPence - real.otherIncomeTaxPence);
+  const totalTaxPence = real.nonDividendTaxPence + real.dividendTaxPence;
+
+  // The 40% line, as a total-income figure, moves up with the gross
+  // contribution (PA + basic band + extension).
+  const higherRateLinePence = table.higherRateThresholdPence + pension;
+
+  return {
+    grossIncomePence: real.grossIncomePence,
+    adjustedNetIncomePence: real.adjustedNetIncomePence,
+    personalAllowancePence: real.personalAllowancePence,
+    // Tax on ALL non-dividend income (salary + BIK + other), bands extended.
+    nonDividendTaxPence: real.nonDividendTaxPence,
+    // What PAYE deducts at source on the salary (BIK and the annual
+    // other-income field stay on the PAYE side — they are usually collected
+    // through the tax code). Pension-blind, see above.
+    payeTaxPence,
+    // Tax on gross-paid other income, owed later via Self Assessment.
+    otherIncomeTaxPence: real.otherIncomeTaxPence,
+    // The EXTRA bill dividends create, settled later via Self Assessment.
+    dividendTaxPence: real.dividendTaxPence,
+    // Higher-rate pension relief (and restored allowance) the return refunds.
+    pensionReliefPence,
+    // Everything settled via Self Assessment: total owed − what PAYE already
+    // took = dividends + gross other income − pension relief. Negative = refund.
+    selfAssessmentTaxPence: totalTaxPence - payeTaxPence,
+    totalTaxPence,
     // How much more could be drawn before the 40% band / the £100k line.
     // Extra dividends raise gross income and ANI 1:1, so these read directly
     // as "≈ £X more dividends before …".
-    headroomToHigherRatePence: Math.max(
-      0,
-      table.higherRateThresholdPence - grossIncomePence
-    ),
-    headroomTo100kPence: Math.max(0, table.taperThresholdPence - adjustedNetIncomePence),
-    overHigherRate: grossIncomePence > table.higherRateThresholdPence,
-    over100k: adjustedNetIncomePence > table.taperThresholdPence,
+    headroomToHigherRatePence: Math.max(0, higherRateLinePence - real.grossIncomePence),
+    headroomTo100kPence: Math.max(0, table.taperThresholdPence - real.adjustedNetIncomePence),
+    overHigherRate: real.grossIncomePence > higherRateLinePence,
+    over100k: real.adjustedNetIncomePence > table.taperThresholdPence,
   };
 }
