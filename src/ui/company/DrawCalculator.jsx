@@ -60,7 +60,6 @@ export default function DrawCalculator({ data, onRecord }) {
     setAmountPounds(null);
   };
 
-  const profitNeeded = company.after.profitPence - company.before.profitPence;
   const combinedTax = company.extraCtPence + (personal?.extraTaxPence ?? 0);
 
   return (
@@ -145,7 +144,7 @@ export default function DrawCalculator({ data, onRecord }) {
               </table>
               <p className="company-calc__sentence">
                 This draw adds <Money pence={company.extraCtPence} /> of corporation tax — set that
-                aside. The company needs <Money pence={profitNeeded} /> more profit to fund it
+                aside. The company needs <Money pence={company.extraProfitPence} /> more profit to fund it
                 ({formatRate(company.rateOnExtraProfit)} on the extra profit,{' '}
                 {formatPerPound(company.setAsidePerPound)} per £1 drawn).
               </p>
@@ -230,11 +229,11 @@ export default function DrawCalculator({ data, onRecord }) {
 
           {personal && (
             <p className="muted">
-              Of <Money pence={amountPence + company.extraCtPence} /> of profit:{' '}
+              Of <Money pence={company.extraProfitPence} /> of profit:{' '}
               <Money pence={company.extraCtPence} /> corporation tax,{' '}
               <Money pence={personal.extraTaxPence} /> personal tax,{' '}
               <Money pence={personal.netInHandPence} /> in {personal.name}'s pocket (
-              {formatRate(combinedTax / (amountPence + company.extraCtPence))} all-in).
+              {formatRate(combinedTax / company.extraProfitPence)} all-in).
             </p>
           )}
 

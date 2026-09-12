@@ -55,8 +55,8 @@ nearest known table, as the other tabs do.
 
 - **KPI row** — dividends drawn · **CT to set aside** · profit required
   (dividends + CT) · effective CT rate.
-- **Band meter** — profit required against the £50k small-profits limit and the £250k
-  main-rate limit, with one line under it: *"Next £1 of profit is taxed at 19% —
+- **Band meter** — profit required against the £50k small-profits limit (the £250k
+  main-rate limit is mentioned in the text once past £50k), with one line under it: *"Next £1 of profit is taxed at 19% —
   ≈ £X more dividends before the marginal band"*, or the marginal / main-rate
   equivalents once crossed. The dividend headroom is the profit gap × 81%.
 - **Set-aside rate** — pence of CT per £1 of dividend, both the year's average and
@@ -93,7 +93,8 @@ With an amount entered it shows:
 - A **Record this dividend** button writes the event (person, date, amount) and clears
   the calculator.
 
-With no people recorded the calculator is disabled with a hint.
+With no people recorded the tab shows a single empty state pointing to the Income tab and
+neither the summary nor the calculator is mounted (the simpler option).
 
 ## 3. Engine — `src/engine/corporation-tax.js`
 

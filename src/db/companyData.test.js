@@ -84,7 +84,6 @@ describe('gatherCompanyData', () => {
 
 describe('previewPersonalDraw', () => {
   it('picks the PERSONAL tax year from the draw date and diffs the tax', async () => {
-    // £50,000 salary via the legacy annual field (no timeline rows needed).
     // £30,000 salary keeps the draw inside the basic band with 40% headroom to spare.
     const a = await peopleRepo.add({ name: 'Anderson', annualSalaryPence: 30000 });
     await addDividend(a, '2026-05-01', 2000);

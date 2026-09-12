@@ -131,6 +131,29 @@ describe('Company tab ledger', () => {
       expect(await incomeEventsRepo.getAll()).toHaveLength(0);
     });
   });
+
+  it('edits a dividend in place, including moving it to the other person', async () => {
+    const a = await peopleRepo.add({ name: 'Anderson' });
+    const b = await peopleRepo.add({ name: 'Wife' });
+    const id = await incomeEventsRepo.add({ personId: a, date: inYear(10), kind: 'dividend', amountPence: 5400, note: 'Q1 draw' });
+
+    render(<Company />);
+    expect(await screen.findByText('Q1 draw')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.change(screen.getByLabelText('Person'), { target: { value: String(b) } });
+    const amount = dialog.querySelector('.currency-input input');
+    fireEvent.change(amount, { target: { value: '6000' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(async () => {
+      const row = await incomeEventsRepo.get(id);
+      expect(row).toMatchObject({ personId: b, kind: 'dividend', amountPence: 6000, note: 'Q1 draw' });
+    });
+    // The ledger and the per-person split both follow the same row.
+    expect((await screen.findAllByText('£6,000.00')).length).toBeGreaterThan(0);
+  });
 });
 
 describe('Company tab draw calculator', () => {

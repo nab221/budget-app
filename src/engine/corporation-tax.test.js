@@ -271,6 +271,14 @@ describe('previewDraw', () => {
     expect(p.rateOnExtraProfit).toBeLessThan(0.265);
   });
 
+  it('flags a draw that starts exactly on the £50,000 line', () => {
+    // £40,500 net ← exactly £50,000 profit; any draw from here is marginal-rate money.
+    const p = previewDraw({ dividendPence: 4_050_000, extraDividendPence: 100, table: T });
+    expect(p.before.profitPence).toBe(5_000_000);
+    expect(p.crossesLowerLimit).toBe(true);
+    expect(p.rateOnExtraProfit).toBeCloseTo(0.265, 2);
+  });
+
   it('prices a main-band draw at 25%', () => {
     const p = previewDraw({ dividendPence: 22_500_000, extraDividendPence: 750_000, table: T });
     expect(p.extraProfitPence).toBe(1_000_000);
