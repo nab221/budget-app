@@ -319,6 +319,74 @@ describe('computePersonTax — hand-worked HMRC examples (2026-27)', () => {
     expect(r.dividendTaxPence).toBe(Math.round(50000 * 0.3575));
   });
 
+  it('relief-at-source pension: higher-rate relief comes back via Self Assessment', () => {
+    // Salary £80,000 + dividends £20,000 + £10,000 gross SIPP (£8,000 paid).
+    // The gross contribution extends the basic band £37,700 → £47,700, so
+    // £10,000 of salary moves from 40% to 20%. PAYE at source is blind to the
+    // SIPP (£19,432 as before); the £2,000 comes back through the return.
+    const r = computePersonTax(
+      { nonDividendPence: 8000000, dividendPence: 2000000, pensionPence: 1000000 },
+      T26
+    );
+    expect(r.adjustedNetIncomePence).toBe(9000000);
+    expect(r.nonDividendTaxPence).toBe(1743200); // £9,540 basic + £7,892 higher
+    expect(r.payeTaxPence).toBe(1943200); // unchanged from the no-SIPP case
+    expect(r.dividendTaxPence).toBe(697125); // £19,500 still all in the 40% band
+    expect(r.pensionReliefPence).toBe(200000);
+    expect(r.selfAssessmentTaxPence).toBe(697125 - 200000);
+    expect(r.totalTaxPence).toBe(1743200 + 697125);
+    expect(r.headroomToHigherRatePence).toBe(0);
+    expect(r.overHigherRate).toBe(true);
+  });
+
+  it('relief-at-source pension: the extended band pulls dividends down to the ordinary rate', () => {
+    // Salary £46,170 + dividends £20,000 + £10,000 gross SIPP. Non-dividend
+    // taxable £33,600 is all basic rate either way; the band edge moving to
+    // £47,700 puts £13,600 more of the dividends at 10.75% instead of 35.75%.
+    const r = computePersonTax(
+      { nonDividendPence: 4617000, dividendPence: 2000000, pensionPence: 1000000 },
+      T26
+    );
+    expect(r.nonDividendTaxPence).toBe(672000);
+    expect(r.payeTaxPence).toBe(672000);
+    expect(r.pensionReliefPence).toBe(0);
+    // £13,600 × 10.75% + £5,900 × 35.75% (was £3,600 × 10.75% + £15,900 × 35.75%).
+    expect(r.dividendTaxPence).toBe(146200 + 210925);
+    expect(r.selfAssessmentTaxPence).toBe(146200 + 210925);
+    // The 40% line moves up by the gross contribution: £60,270 − £66,170 gross.
+    expect(r.headroomToHigherRatePence).toBe(0);
+    expect(r.overHigherRate).toBe(true);
+  });
+
+  it('relief-at-source pension: a basic-rate taxpayer gets nothing more back', () => {
+    const r = computePersonTax(
+      { nonDividendPence: 3000000, dividendPence: 0, pensionPence: 500000 },
+      T26
+    );
+    expect(r.nonDividendTaxPence).toBe(348600);
+    expect(r.payeTaxPence).toBe(348600);
+    expect(r.pensionReliefPence).toBe(0);
+    expect(r.selfAssessmentTaxPence).toBe(0);
+    // £30,000 → £50,270 is £20,270; the £5,000 contribution pushes the line up.
+    expect(r.headroomToHigherRatePence).toBe(2027000 + 500000);
+  });
+
+  it('relief-at-source pension over £100k: band extension + allowance restored = a refund', () => {
+    // Salary £110,000 + £10,000 gross SIPP: ANI back to £100,000, so the full
+    // £12,570 allowance returns (PAYE's tax code assumed £7,570) and the basic
+    // band extends. Nothing else is owed, so Self Assessment is a £4,000 refund.
+    const r = computePersonTax(
+      { nonDividendPence: 11000000, dividendPence: 0, pensionPence: 1000000 },
+      T26
+    );
+    expect(r.personalAllowancePence).toBe(1257000);
+    expect(r.nonDividendTaxPence).toBe(2943200); // £9,540 + £49,730 × 40%
+    expect(r.payeTaxPence).toBe(3343200); // as the £110,000 case without a pension
+    expect(r.pensionReliefPence).toBe(400000);
+    expect(r.selfAssessmentTaxPence).toBe(-400000);
+    expect(r.totalTaxPence).toBe(2943200);
+  });
+
   it('zero income is all zeros', () => {
     const r = computePersonTax({ nonDividendPence: 0, dividendPence: 0, pensionPence: 0 }, T26);
     expect(r.totalTaxPence).toBe(0);

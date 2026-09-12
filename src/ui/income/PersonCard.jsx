@@ -237,10 +237,20 @@ export default function PersonCard({
             <Money pence={summary.selfAssessmentTaxPence} />
           </span>
           <span className="stat__sub">
-            {summary.otherIncomeTaxPence > 0 ? (
+            {summary.otherIncomeTaxPence > 0 || summary.pensionReliefPence > 0 ? (
               <>
-                dividends ≈ <Money pence={summary.dividendTaxPence} /> · other income ≈{' '}
-                <Money pence={summary.otherIncomeTaxPence} />
+                dividends ≈ <Money pence={summary.dividendTaxPence} />
+                {summary.otherIncomeTaxPence > 0 && (
+                  <>
+                    {' '}· other income ≈ <Money pence={summary.otherIncomeTaxPence} />
+                  </>
+                )}
+                {summary.pensionReliefPence > 0 && (
+                  <>
+                    {' '}· less pension relief ≈ <Money pence={summary.pensionReliefPence} />
+                  </>
+                )}
+                {summary.selfAssessmentTaxPence < 0 && ' — a refund'}
               </>
             ) : (
               'from dividend draws, paid later'
