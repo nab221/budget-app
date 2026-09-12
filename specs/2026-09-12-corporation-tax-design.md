@@ -119,7 +119,10 @@ the UI shows the fallback banner — the flat-19% era is out of scope.
 - `financialYearBounds(label)` → `{ startDate: '2026-04-01', endDate: '2027-03-31' }`.
 - `shiftFinancialYear(label, delta)`, `financialYearTable(label)` →
   `{ table, tableYear }`.
-- `ctPaymentDate(label)` → ISO date of 1 January following year-end.
+- `ctPaymentDate(label)` → ISO date of 1 January following year-end. **Deliberately not
+  shifted by `banking-calendar`** (owner decision 2026-09-12): it is HMRC's statutory
+  deadline, not one of the owner's own payment dates, so shifting it to the next working
+  day would show a date that is already overdue. The one exception to the hard rule.
 
 ### Core functions
 
