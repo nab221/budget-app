@@ -6,6 +6,31 @@ historical reference only — none of their requirements carry over unless resta
 
 ---
 
+## ⚠ Amendment 2026-09-12 (j) — Company tab: corporation tax on dividends
+
+Both people draw dividends from the same limited company, and a dividend can only be
+paid out of profit **after** corporation tax. The owner's "draw 80%, keep 20% for CT"
+rule breaks once yearly profit passes £50,000 (marginal relief: 26.5% on each extra
+pound of profit, i.e. 36p of CT per £1 of dividend). A new top-level **Company** tab
+pools every `dividend` income event from both people by **company year (1 April –
+31 March**, owner-confirmed year-end), inverts the CT formula to show the profit those
+dividends imply and the **CT to set aside**, and has a **draw calculator**: "if I draw
+£X" → company before/after (extra CT, profit needed, rate on the extra profit) and the
+drawing person's before/after from the Income engine (extra Self Assessment tax, net in
+hand, 40% / £100k headroom). Full design and owner decisions:
+`specs/2026-09-12-corporation-tax-design.md`. In brief:
+
+- **Engine** `src/engine/corporation-tax.js`: FY-keyed `CT_TABLES` (19% to £50k, 25%
+  from £250k, 3/200 marginal relief), `corporationTax(profit)`, the inverse
+  `profitForNetDividends(net)`, `buildCompanyYear`, `previewDraw`. Pure, pence, tested.
+- **Data**: no schema change, no new stores or settings. The ledger *is* the existing
+  `incomeEvents` rows (kind `dividend`); edits on either tab are the same data.
+- **Assumptions**: profit = dividends + CT (no reserves, losses, or salaries), one
+  company with no associated companies, full 12-month period.
+- **Non-goals**: configurable year-end, apportionment across FYs, CT600 filing.
+
+---
+
 ## ⚠ Amendment 2026-09-12 (i) — Relief-at-source pensions extend the basic-rate band
 
 Owner feedback on (g): adding a SIPP contribution moved the £100k line but left the
