@@ -348,7 +348,7 @@ const hopeless = {
 describe('cardDomId', () => {
   it('is stable and safe for any key', () => {
     expect(cardDomId('debt', 7)).toBe('expense-card-debt-7');
-    expect(cardDomId('childcare', 'Childcare — Ada')).toBe('expense-card-childcare-Childcare_____Ada');
+    expect(cardDomId('childcare', 'Childcare — Ada')).toBe('expense-card-childcare-Childcare___Ada');
   });
 });
 
@@ -801,7 +801,7 @@ describe('describeKind / occurrenceDomId', () => {
   it('maps an occurrence to its card id', () => {
     expect(occurrenceDomId({ kind: 'bill', sourceId: 11 })).toBe('expense-card-bill-11');
     expect(occurrenceDomId({ kind: 'loan', debtId: 3 })).toBe('expense-card-debt-3');
-    expect(occurrenceDomId({ kind: 'childcare', label: 'Childcare — Ada' })).toBe('expense-card-childcare-Childcare_____Ada');
+    expect(occurrenceDomId({ kind: 'childcare', label: 'Childcare — Ada' })).toBe('expense-card-childcare-Childcare___Ada');
   });
 });
 ```

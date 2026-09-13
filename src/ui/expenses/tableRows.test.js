@@ -32,7 +32,7 @@ const hopeless = {
 describe('cardDomId', () => {
   it('is stable and safe for any key', () => {
     expect(cardDomId('debt', 7)).toBe('expense-card-debt-7');
-    expect(cardDomId('childcare', 'Childcare — Ada')).toBe('expense-card-childcare-Childcare_____Ada');
+    expect(cardDomId('childcare', 'Childcare — Ada')).toBe('expense-card-childcare-Childcare___Ada');
   });
 });
 
