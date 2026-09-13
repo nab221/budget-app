@@ -1,6 +1,6 @@
 # Expenses tab — Table and By-date views
 
-**Status:** Design approved by owner 2026-09-12, not yet implemented.
+**Status:** Implemented 2026-09-12 (plan: `specs/2026-09-12-expenses-views-plan.md`).
 **Relates to:** `REFACTOR-SPEC.md` Amendment 2026-07-07 (expenses-first), §4.3 Debts,
 `DASHBOARD-PLAN.md` (the Dashboard keeps its calendar and next-payments list; this
 adds scannable views to the tab where the rows are edited).
