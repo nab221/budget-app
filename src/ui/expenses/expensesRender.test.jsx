@@ -5,7 +5,7 @@
  */
 import { resetDb } from '../../db/test-utils.js';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, cleanup, fireEvent } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, act } from '@testing-library/react';
 
 vi.mock('pdfjs-dist', () => ({
   GlobalWorkerOptions: { workerSrc: '' },
@@ -131,6 +131,75 @@ describe('Expenses screen', () => {
     // £330 − £30 broadband = £300 (both the actual and the average show it).
     await screen.findAllByText('£300.00');
     expect(screen.getByText('Paused — not counted in totals')).toBeTruthy();
+  });
+
+  it('switches to the Table view, hides card actions, and remembers the view', async () => {
+    await seed();
+    const first = render(<Expenses />);
+    await screen.findByText('Visa');
+    expect(screen.getAllByRole('button', { name: 'Update balance' }).length).toBeGreaterThan(0);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Table' }));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(await screen.findByRole('heading', { name: 'Debts' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Recurring expenses' })).toBeTruthy();
+    // Debt totals: £1,000 + £5,000 balance; £50 + £250 payment.
+    expect(screen.getByText('£6,000.00')).toBeTruthy();
+    expect(screen.getByText('£300.00')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Update balance' })).toBeNull();
+    // The period strip is still there.
+    expect(screen.getByText('Going out — July 2026')).toBeTruthy();
+
+    first.unmount();
+    render(<Expenses />);
+    expect(await screen.findByRole('heading', { name: 'Debts' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Table' }).getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('jumps from a table row back to its highlighted card', async () => {
+    await seed();
+    render(<Expenses />);
+    await screen.findByText('Visa');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Table' }));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    await screen.findByRole('heading', { name: 'Debts' });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Car loan' }));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    // Back on Cards: the loan card is present, carries its id and the highlight.
+    const name = await screen.findByText('Car loan');
+    const card = name.closest('li');
+    expect(card.id).toMatch(/^expense-card-debt-\d+$/);
+    expect(card.className).toContain('is-highlight');
+    expect(screen.getByRole('button', { name: 'Cards' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.queryByRole('heading', { name: 'Debts' })).toBeNull();
+  });
+
+  it('shows the month by date with gone-out and still-to-go totals', async () => {
+    await seed();
+    render(<Expenses />);
+    await screen.findByText('Visa');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'By date' }));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // Today is Tue 7 Jul: nothing has gone out; all £330 is still to go.
+    expect(await screen.findByText('Still to go')).toBeTruthy();
+    expect(screen.getByText('Gone out so far').nextSibling.textContent).toBe('£0.00');
+    expect(screen.getByText('Still to go').nextSibling.textContent).toBe('£330.00');
+    expect(screen.getByText('Today — 7 Jul 2026')).toBeTruthy();
+    expect(screen.getByText('Bill · Utilities')).toBeTruthy();
+
+    // The Week period narrows the list to nothing.
+    fireEvent.click(screen.getByRole('button', { name: 'Week' }));
+    expect(screen.getByText(/Nothing goes out in this period/)).toBeTruthy();
   });
 });
 

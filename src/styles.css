@@ -1932,3 +1932,10 @@ body.privacy .chart:hover {
   padding-top: 0.8rem;
   border-top: 1px solid var(--border);
 }
+
+/* A card the Table / By date view just jumped to. */
+.card.is-highlight {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  transition: outline-color 0.4s ease;
+}

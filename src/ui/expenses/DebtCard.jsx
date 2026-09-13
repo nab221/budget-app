@@ -11,7 +11,15 @@ const today = () => new Date().toISOString().slice(0, 10);
  * "Update balance" quick-edit inline; full edit/delete are delegated up.
  * `nextPayment` is the computed next occurrence ({ date, isAdjusted }) or null.
  */
-export default function DebtCard({ debt, nextPayment, onUpdateBalance, onEdit, onDelete }) {
+export default function DebtCard({
+  debt,
+  nextPayment,
+  onUpdateBalance,
+  onEdit,
+  onDelete,
+  domId,
+  highlighted = false,
+}) {
   const [balancing, setBalancing] = useState(false);
   const [newBalance, setNewBalance] = useState(debt.balancePence);
   const [asOf, setAsOf] = useState(today());
@@ -39,7 +47,7 @@ export default function DebtCard({ debt, nextPayment, onUpdateBalance, onEdit, o
   const promoActive = isCard && debt.promoEndDate && debt.promoEndDate >= today();
 
   return (
-    <li className="card debt-card">
+    <li id={domId} className={`card debt-card${highlighted ? ' is-highlight' : ''}`}>
       <div className="debt-card__head">
         <span className="debt-card__name">{debt.name}</span>
         {promoActive && (

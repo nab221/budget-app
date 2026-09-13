@@ -19,11 +19,22 @@ export const FREQ_SUFFIX = {
  * next occurrence ({ date, isAdjusted, amountPence } — engine pence) or null
  * when the expense is paused or has ended.
  */
-export default function ExpenseCard({ bill, next, onToggleActive, onEdit, onDelete }) {
+export default function ExpenseCard({
+  bill,
+  next,
+  onToggleActive,
+  onEdit,
+  onDelete,
+  domId,
+  highlighted = false,
+}) {
   const paused = bill.active === false;
 
   return (
-    <li className={`card debt-card expense-card${paused ? ' is-inactive' : ''}`}>
+    <li
+      id={domId}
+      className={`card debt-card expense-card${paused ? ' is-inactive' : ''}${highlighted ? ' is-highlight' : ''}`}
+    >
       <div className="debt-card__head">
         <span className="debt-card__name">{bill.label}</span>
         {paused && <span className="badge">Paused</span>}

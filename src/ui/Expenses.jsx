@@ -34,8 +34,21 @@ import DebtForm from './expenses/DebtForm.jsx';
 import ExpenseCard from './expenses/ExpenseCard.jsx';
 import ExpenseForm from './expenses/ExpenseForm.jsx';
 import StatementImport from './expenses/StatementImport.jsx';
+import { getSetting, settings } from '../db/settings.js';
+import { cardDomId } from './expenses/cardIds.js';
+import { buildDebtRows, buildExpenseRows } from './expenses/tableRows.js';
+import { buildByDate } from './expenses/byDate.js';
+import DebtsTable from './expenses/DebtsTable.jsx';
+import ExpensesTable from './expenses/ExpensesTable.jsx';
+import ByDateList from './expenses/ByDateList.jsx';
 
 const PERIOD_NOUN = { week: 'week', month: 'month', year: 'year' };
+const VIEW_OPTIONS = [
+  { value: 'cards', label: 'Cards' },
+  { value: 'table', label: 'Table' },
+  { value: 'by-date', label: 'By date' },
+];
+const HIGHLIGHT_MS = 1500;
 
 /**
  * Expenses — the heart of the app: every committed outgoing as a card
@@ -45,16 +58,51 @@ const PERIOD_NOUN = { week: 'week', month: 'month', year: 'year' };
  */
 export default function Expenses() {
   const { data, loading } = useLiveData(async () => {
-    const [debts, bills, categories, children] = await Promise.all([
+    const [debts, bills, categories, children, payoffStrategy, payoffExtraPence] = await Promise.all([
       debtsRepo.getAll(),
       recurringBillsRepo.getAll(),
       categoriesRepo.getAll(),
       childrenRepo.getAll(),
+      getSetting('payoffStrategy'),
+      getSetting('payoffExtraPence'),
     ]);
-    return { debts, bills, categories, children };
+    return { debts, bills, categories, children, payoffStrategy, payoffExtraPence };
   }, []);
 
   const [period, setPeriod] = useState('month');
+  // View: null until the persisted choice has loaded (rendered as Cards).
+  const [view, setView] = useState(null);
+  const [highlightId, setHighlightId] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+    settings.getExpensesView().then((v) => {
+      if (alive) setView(v);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const changeView = (next) => {
+    setView(next);
+    settings.setExpensesView(next);
+  };
+
+  // Jump from a Table / By-date row back to its card: switch view, then once
+  // the cards are in the DOM scroll to it and flash it briefly.
+  const jumpToCard = (domId) => {
+    setHighlightId(domId);
+    changeView('cards');
+  };
+
+  useEffect(() => {
+    if (!highlightId || (view ?? 'cards') !== 'cards') return undefined;
+    const el = document.getElementById(highlightId);
+    if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'center' });
+    const t = setTimeout(() => setHighlightId(null), HIGHLIGHT_MS);
+    return () => clearTimeout(t);
+  }, [highlightId, view]);
   // adding: null | 'expense' | 'credit-card' | 'loan'; `picking` shows the chooser.
   const [adding, setAdding] = useState(null);
   const [picking, setPicking] = useState(false);
@@ -99,6 +147,32 @@ export default function Expenses() {
     for (const d of penceData.debts) m.set(d.id, nextDebtPayment(d, from));
     return m;
   }, [penceData, from]);
+
+  const strategy = data?.payoffStrategy === 'snowball' ? 'snowball' : 'avalanche';
+  const extraPence = data?.payoffExtraPence || 0;
+
+  const debtRows = useMemo(
+    () => buildDebtRows({ debts: penceData.debts, strategy, extraPence, fromStr: from }),
+    [penceData, strategy, extraPence, from]
+  );
+  const expenseRows = useMemo(
+    () =>
+      buildExpenseRows({
+        bills: penceData.recurringBills,
+        childcareDeposits: penceData.childcareDeposits,
+        categories,
+        fromStr: from,
+      }),
+    [penceData, categories, from]
+  );
+  const byDate = useMemo(
+    () => buildByDate(penceData, startStr, endStr, from),
+    [penceData, startStr, endStr, from]
+  );
+  const categoryByBillId = useMemo(() => {
+    const name = new Map(categories.map((c) => [c.id, c.name]));
+    return new Map(bills.map((b) => [b.id, name.get(b.categoryId) ?? null]));
+  }, [bills, categories]);
 
   const cards = debts.filter((d) => d.debtType === 'credit-card');
   const loans = debts.filter((d) => d.debtType === 'loan');
@@ -204,6 +278,8 @@ export default function Expenses() {
               key={d.id}
               debt={d}
               nextPayment={nextByDebt.get(d.id)}
+              domId={cardDomId('debt', d.id)}
+              highlighted={highlightId === cardDomId('debt', d.id)}
               onUpdateBalance={updateBalance}
               onEdit={() => setEditingDebt(d)}
               onDelete={() => setConfirmDelete({ kind: 'debt', row: d })}
@@ -231,6 +307,12 @@ export default function Expenses() {
       <section className="panel spending-summary">
         <div className="spending-summary__row">
           <PeriodSelector value={period} onChange={setPeriod} />
+          <PeriodSelector
+            value={view ?? 'cards'}
+            onChange={changeView}
+            options={VIEW_OPTIONS}
+            label="View"
+          />
           <div className="stat">
             <span className="stat__label">Going out — {periodLabel}</span>
             <Money pence={actualPence} className="stat__value" />
@@ -292,6 +374,19 @@ export default function Expenses() {
 
       {loading ? (
         <p className="muted">Loading…</p>
+      ) : (view ?? 'cards') === 'table' ? (
+        <>
+          <DebtsTable rows={debtRows} onJump={jumpToCard} />
+          <ExpensesTable rows={expenseRows} onJump={jumpToCard} />
+        </>
+      ) : (view ?? 'cards') === 'by-date' ? (
+        <ByDateList
+          byDate={byDate}
+          period={period}
+          todayStr={from}
+          categoryByBillId={categoryByBillId}
+          onJump={jumpToCard}
+        />
       ) : (
         <>
           {debtGroup(
@@ -323,6 +418,8 @@ export default function Expenses() {
                       key={b.id}
                       bill={b}
                       next={nextByBill.get(b.id)}
+                      domId={cardDomId('bill', b.id)}
+                      highlighted={highlightId === cardDomId('bill', b.id)}
                       onToggleActive={() => toggleBillActive(b)}
                       onEdit={() => setEditingBill(b)}
                       onDelete={() => setConfirmDelete({ kind: 'bill', row: b })}
@@ -354,7 +451,13 @@ export default function Expenses() {
                 {penceData.childcareDeposits.map((dep) => {
                   const next = nextChildcareDeposit(dep, from);
                   return (
-                    <li className="card debt-card expense-card" key={dep.label}>
+                    <li
+                      className={`card debt-card expense-card${
+                        highlightId === cardDomId('childcare', dep.label) ? ' is-highlight' : ''
+                      }`}
+                      id={cardDomId('childcare', dep.label)}
+                      key={dep.label}
+                    >
                       <div className="debt-card__head">
                         <span className="debt-card__name">{dep.label}</span>
                       </div>
