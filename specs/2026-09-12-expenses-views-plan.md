@@ -1432,7 +1432,7 @@ describe('ByDateList', () => {
     expect(screen.getByText('Card')).toBeTruthy();
     expect(screen.getByText('Loan')).toBeTruthy();
     // Running totals: £30 → £80 → £330.
-    expect(screen.getByText('£80.00')).toBeTruthy();
+    expect(screen.getByText('£80.00', { selector: '.bydate__running' })).toBeTruthy();
     expect(screen.getAllByText('£330.00').length).toBeGreaterThanOrEqual(1);
     // Today divider sits between the 20th and the 28th.
     expect(screen.getByText('Today — 21 Jul 2026')).toBeTruthy();
