@@ -14,6 +14,9 @@ import { db } from './schema.js';
 import { toPence, fromPence } from '../engine/currency.js';
 import { dispatchMutation } from './events.js';
 
+/** The Expenses tab's view switch values, in display order. */
+export const EXPENSES_VIEWS = ['cards', 'table', 'by-date'];
+
 export const SETTINGS_DEFAULTS = {
   currentBalancePence: null,
   balanceAsOf: null,
@@ -30,6 +33,8 @@ export const SETTINGS_DEFAULTS = {
   // shortfall into what the claim is actually worth as a refund.
   mileageEmployerRatePence: 0,
   mileageMarginalRate: 0.4,
+  // Expenses tab view (design 2026-09-12): 'cards' | 'table' | 'by-date'.
+  expensesView: 'cards',
 };
 
 /**
@@ -113,6 +118,12 @@ export const settings = {
   // refund bigger than the claim, or a negative one.
   setMileageMarginalRate: (rate) =>
     setSetting('mileageMarginalRate', Math.min(1, Math.max(0, Number(rate) || 0))),
+
+  // Expenses tab view. Anything outside EXPENSES_VIEWS is stored as 'cards'
+  // so a stale or hand-edited value can never blank the tab.
+  getExpensesView: () => getSetting('expensesView'),
+  setExpensesView: (view) =>
+    setSetting('expensesView', EXPENSES_VIEWS.includes(view) ? view : 'cards'),
 
   // Backup bookkeeping
   getLastExportAt: () => getSetting('lastExportAt'),
