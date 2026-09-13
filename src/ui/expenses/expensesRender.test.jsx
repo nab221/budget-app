@@ -5,13 +5,14 @@
  */
 import { resetDb } from '../../db/test-utils.js';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, cleanup, fireEvent } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, act } from '@testing-library/react';
 
 vi.mock('pdfjs-dist', () => ({
   GlobalWorkerOptions: { workerSrc: '' },
   getDocument: vi.fn(),
 }));
 import { debtsRepo, recurringBillsRepo, categoriesRepo } from '../../db/repositories.js';
+import { dispatchMutation } from '../../db/events.js';
 import Expenses from '../Expenses.jsx';
 import Dashboard from '../Dashboard.jsx';
 import DebtsTable from './DebtsTable.jsx';
@@ -190,15 +191,25 @@ describe('Expenses screen', () => {
     expect(screen.getByText(/Nothing goes out in this period/)).toBeTruthy();
   });
 
-  it('does not blank the tab while a view switch refetches', async () => {
+  it('keeps the current view on screen while data refetches after a mutation', async () => {
     await seed();
     render(<Expenses />);
     await screen.findByText('Visa');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Table' }));
-    // Synchronous: no "Loading…" flash, and the previous view's data is still there.
+    // A write anywhere dispatches db:mutated, which flips the loader to
+    // loading=true until the refetch resolves. Fire it directly so the
+    // assertion runs inside that window, deterministically.
+    act(() => {
+      dispatchMutation();
+    });
     expect(screen.queryByText('Loading…')).toBeNull();
     expect(screen.getByText('Visa')).toBeTruthy();
+
+    // Let the refetch settle before cleanup.
+    await screen.findByText('Visa');
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
   });
 });
 
