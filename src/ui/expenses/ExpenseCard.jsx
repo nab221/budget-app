@@ -1,7 +1,7 @@
 import Money from '../components/Money.jsx';
 import { formatDay } from '../components/dates.js';
 
-const FREQ_SUFFIX = {
+export const FREQ_SUFFIX = {
   weekly: '/ week',
   '2-weekly': 'every 2 weeks',
   '4-weekly': 'every 4 weeks',

@@ -1812,3 +1812,64 @@ body.privacy .chart:hover {
 .compare__after {
   font-weight: 600;
 }
+
+/* Expenses tab — Table view (design 2026-09-12) */
+.sort-btn {
+  font: inherit;
+  font-size: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.sort-btn.is-active {
+  color: var(--fg);
+}
+.sort-btn__arrow {
+  display: inline-block;
+  width: 1em;
+  margin-left: 0.2rem;
+  font-size: 0.7em;
+}
+.table .num .sort-btn {
+  text-align: right;
+}
+/* A row's name: looks like a link, jumps back to the card. */
+.rowlink {
+  font: inherit;
+  color: var(--accent);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+.rowlink:hover,
+.rowlink:focus-visible {
+  text-decoration: underline;
+}
+.expenses-table tr.is-inactive td {
+  opacity: 0.55;
+}
+/* Utilisation meter squeezed into a table cell. */
+.util--inline {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 6rem;
+}
+.util--inline .util__bar {
+  display: inline-block;
+  width: 3.5rem;
+}
+.util--inline .util__fill {
+  display: block;
+}
+.expenses-table .badge {
+  margin-left: 0.4rem;
+}

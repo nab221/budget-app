@@ -14,6 +14,8 @@ vi.mock('pdfjs-dist', () => ({
 import { debtsRepo, recurringBillsRepo, categoriesRepo } from '../../db/repositories.js';
 import Expenses from '../Expenses.jsx';
 import Dashboard from '../Dashboard.jsx';
+import DebtsTable from './DebtsTable.jsx';
+import ExpensesTable from './ExpensesTable.jsx';
 
 beforeEach(async () => {
   await resetDb();
@@ -149,5 +151,90 @@ describe('Minimal dashboard', () => {
   it('shows an empty state when nothing is set up', async () => {
     render(<Dashboard />);
     await screen.findByText('Nothing set up yet');
+  });
+});
+
+// Hand-built rows in the shape buildDebtRows / buildExpenseRows return (pence).
+const debtRows = [
+  { id: 1, domId: 'expense-card-debt-1', name: 'Visa', type: 'Card', balancePence: 100000, ratePercent: 24, promoActive: false, promoEndDate: null, postPromoApr: null, paymentPence: 3000, interestPence: 2000, utilisation: 50, creditLimitPence: 200000, payoffMonth: '2030-06', neverClears: false, nextDate: '2026-07-20', nextAdjusted: false },
+  { id: 2, domId: 'expense-card-debt-2', name: 'Promo card', type: 'Card', balancePence: 50000, ratePercent: 0, promoActive: true, promoEndDate: '2026-12-31', postPromoApr: 29, paymentPence: 2500, interestPence: 0, utilisation: null, creditLimitPence: null, payoffMonth: '2028-03', neverClears: false, nextDate: '2026-08-05', nextAdjusted: false },
+  { id: 3, domId: 'expense-card-debt-3', name: 'Car loan', type: 'Loan', balancePence: 500000, ratePercent: 6, promoActive: false, promoEndDate: null, postPromoApr: null, paymentPence: 25000, interestPence: 2500, utilisation: null, creditLimitPence: null, payoffMonth: null, neverClears: true, nextDate: '2026-08-01', nextAdjusted: true },
+];
+const expenseRows = [
+  { id: 11, domId: 'expense-card-bill-11', kind: 'bill', name: 'Broadband', category: 'Utilities', amountPence: 3000, frequency: 'monthly', perMonthPence: 3000, perYearPence: 36000, nextDate: '2026-07-15', nextAdjusted: false, status: 'active' },
+  { id: 12, domId: 'expense-card-bill-12', kind: 'bill', name: 'Gym', category: 'Uncategorised', amountPence: 4000, frequency: 'monthly', perMonthPence: 0, perYearPence: 0, nextDate: null, nextAdjusted: false, status: 'paused' },
+  { id: 'childcare:Ada', domId: 'expense-card-childcare-Ada', kind: 'childcare', name: 'Childcare — Ada', category: 'Childcare', amountPence: 40000, frequency: 'monthly', perMonthPence: 40000, perYearPence: 480000, nextDate: '2026-08-03', nextAdjusted: true, status: 'active' },
+];
+
+const bodyNames = () =>
+  Array.from(document.querySelectorAll('tbody tr td:first-child')).map((td) => td.textContent);
+
+describe('DebtsTable', () => {
+  it('renders rows sorted by rate descending with totals, badges and payoff', () => {
+    render(<DebtsTable rows={debtRows} onJump={() => {}} />);
+    expect(screen.getByRole('heading', { name: 'Debts' })).toBeTruthy();
+    expect(bodyNames()).toEqual(['Visa', 'Car loan', 'Promo card']);
+    expect(screen.getByRole('columnheader', { name: /Rate/ }).getAttribute('aria-sort')).toBe('descending');
+    // Totals: £6,500 balance, £305 payment, £45 interest.
+    expect(screen.getByText('£6,500.00')).toBeTruthy();
+    expect(screen.getByText('£305.00')).toBeTruthy();
+    expect(screen.getByText('£45.00')).toBeTruthy();
+    // Promo badge with the post-promo rate in its tooltip; never-clearing loan; shifted tag.
+    expect(screen.getByText('0% until 31 Dec 2026').getAttribute('title')).toBe('Then 29%');
+    expect(screen.getByText('Never')).toBeTruthy();
+    expect(screen.getByText('Jun 2030')).toBeTruthy();
+    expect(screen.getByText('shifted')).toBeTruthy();
+    // Utilisation only where there is a limit.
+    expect(screen.getByText('50%')).toBeTruthy();
+    // Read-only: no card actions.
+    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Update balance' })).toBeNull();
+  });
+
+  it('toggles a column ascending then descending and jumps on a name click', () => {
+    const onJump = vi.fn();
+    render(<DebtsTable rows={debtRows} onJump={onJump} />);
+    const balance = screen.getByRole('button', { name: /Balance/ });
+    fireEvent.click(balance);
+    expect(bodyNames()).toEqual(['Promo card', 'Visa', 'Car loan']);
+    expect(screen.getByRole('columnheader', { name: /Balance/ }).getAttribute('aria-sort')).toBe('ascending');
+    fireEvent.click(balance);
+    expect(bodyNames()).toEqual(['Car loan', 'Visa', 'Promo card']);
+    expect(screen.getByRole('columnheader', { name: /Balance/ }).getAttribute('aria-sort')).toBe('descending');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Car loan' }));
+    expect(onJump).toHaveBeenCalledWith('expense-card-debt-3');
+  });
+
+  it('shows an empty state with no debts', () => {
+    render(<DebtsTable rows={[]} onJump={() => {}} />);
+    expect(screen.getByText(/No credit cards or loans yet/)).toBeTruthy();
+  });
+});
+
+describe('ExpensesTable', () => {
+  it('renders rows sorted by per-month descending with totals and status', () => {
+    render(<ExpensesTable rows={expenseRows} onJump={() => {}} />);
+    expect(screen.getByRole('heading', { name: 'Recurring expenses' })).toBeTruthy();
+    expect(bodyNames()).toEqual(['Childcare — Ada', 'Broadband', 'Gym']);
+    // Totals exclude the paused row: £430 / month, £5,160 / year.
+    expect(screen.getByText('£430.00')).toBeTruthy();
+    expect(screen.getByText('£5,160.00')).toBeTruthy();
+    expect(screen.getByText('Paused')).toBeTruthy();
+    expect(screen.getAllByText('Active')).toHaveLength(2);
+    expect(screen.getByText('Utilities')).toBeTruthy();
+    expect(screen.getByText('Childcare')).toBeTruthy();
+    expect(screen.getByText('shifted')).toBeTruthy();
+    // Paused row is muted.
+    expect(screen.getByRole('button', { name: 'Gym' }).closest('tr').className).toContain('is-inactive');
+  });
+
+  it('sorts by name and jumps on a name click', () => {
+    const onJump = vi.fn();
+    render(<ExpensesTable rows={expenseRows} onJump={onJump} />);
+    fireEvent.click(screen.getByRole('button', { name: /^Name/ }));
+    expect(bodyNames()).toEqual(['Broadband', 'Childcare — Ada', 'Gym']);
+    fireEvent.click(screen.getByRole('button', { name: 'Broadband' }));
+    expect(onJump).toHaveBeenCalledWith('expense-card-bill-11');
   });
 });
