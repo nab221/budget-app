@@ -372,7 +372,10 @@ export default function Expenses() {
         </Modal>
       )}
 
-      {loading ? (
+      {/* A settings write (e.g. changeView) dispatches db:mutated, which
+          re-runs the loader with loading=true; only blank the tab on the very
+          first load so a view switch or jump-to-card doesn't flash away. */}
+      {loading && !data ? (
         <p className="muted">Loading…</p>
       ) : (view ?? 'cards') === 'table' ? (
         <>

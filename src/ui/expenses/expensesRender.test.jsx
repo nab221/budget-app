@@ -5,7 +5,7 @@
  */
 import { resetDb } from '../../db/test-utils.js';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, cleanup, fireEvent, act } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 
 vi.mock('pdfjs-dist', () => ({
   GlobalWorkerOptions: { workerSrc: '' },
@@ -139,10 +139,7 @@ describe('Expenses screen', () => {
     await screen.findByText('Visa');
     expect(screen.getAllByRole('button', { name: 'Update balance' }).length).toBeGreaterThan(0);
 
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Table' }));
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    fireEvent.click(screen.getByRole('button', { name: 'Table' }));
     expect(await screen.findByRole('heading', { name: 'Debts' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Recurring expenses' })).toBeTruthy();
     // Debt totals: £1,000 + £5,000 balance; £50 + £250 payment.
@@ -162,16 +159,10 @@ describe('Expenses screen', () => {
     await seed();
     render(<Expenses />);
     await screen.findByText('Visa');
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Table' }));
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    fireEvent.click(screen.getByRole('button', { name: 'Table' }));
     await screen.findByRole('heading', { name: 'Debts' });
 
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Car loan' }));
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    fireEvent.click(screen.getByRole('button', { name: 'Car loan' }));
     // Back on Cards: the loan card is present, carries its id and the highlight.
     const name = await screen.findByText('Car loan');
     const card = name.closest('li');
@@ -185,10 +176,7 @@ describe('Expenses screen', () => {
     await seed();
     render(<Expenses />);
     await screen.findByText('Visa');
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'By date' }));
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    fireEvent.click(screen.getByRole('button', { name: 'By date' }));
 
     // Today is Tue 7 Jul: nothing has gone out; all £330 is still to go.
     expect(await screen.findByText('Still to go')).toBeTruthy();
@@ -200,6 +188,17 @@ describe('Expenses screen', () => {
     // The Week period narrows the list to nothing.
     fireEvent.click(screen.getByRole('button', { name: 'Week' }));
     expect(screen.getByText(/Nothing goes out in this period/)).toBeTruthy();
+  });
+
+  it('does not blank the tab while a view switch refetches', async () => {
+    await seed();
+    render(<Expenses />);
+    await screen.findByText('Visa');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Table' }));
+    // Synchronous: no "Loading…" flash, and the previous view's data is still there.
+    expect(screen.queryByText('Loading…')).toBeNull();
+    expect(screen.getByText('Visa')).toBeTruthy();
   });
 });
 
