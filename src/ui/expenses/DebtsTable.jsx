@@ -64,11 +64,12 @@ export default function DebtsTable({ rows, onJump }) {
                     <Money pence={r.balancePence} />
                   </td>
                   <td className="num">
-                    {r.ratePercent}%
-                    {r.promoActive && (
+                    {r.promoActive ? (
                       <span className="badge badge--promo" title={`Then ${r.postPromoApr}%`}>
                         0% until {formatDay(r.promoEndDate)}
                       </span>
+                    ) : (
+                      `${r.ratePercent}%`
                     )}
                   </td>
                   <td className="num">

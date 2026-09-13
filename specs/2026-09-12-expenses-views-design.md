@@ -41,10 +41,10 @@ One row per credit card and loan.
 | Type | Card / Loan |
 | Balance | `balancePence` |
 | Rate | `effectiveApr` (insights.js) today. A card in its 0% promo shows 0% with the existing "0% until date" badge and the post-promo rate in the title tooltip. |
-| Payment | card: `resolveMinPayment` (override wins); loan: fixed monthly payment |
+| Payment | card: `creditCardMinPence` (engine/plan.js; honours the override, pence-native — the pounds-edge `resolveMinPayment` wrapper is for the cards); loan: fixed monthly payment |
 | Interest / month | `monthlyInterestPence(...).byDebt` (insights.js) — same as Dashboard |
 | Utilisation | inline bar + %, cards with a limit only; blank otherwise |
-| Payoff | month the debt clears under the persisted Payoff strategy and extra: cards from `simulatePayoff(...).resultsByDebt`, loans from `simulateLoanPayoff`. Uses the existing adapters in `src/ui/payoff/payoffModel.js`; if an adapter is missing it is added there. |
+| Payoff | month the debt clears under the persisted Payoff strategy and extra: cards from `simulatePayoff(...).resultsByDebt`, loans from `simulateLoanPayoff(loans, 'term-reduction', 0, …)`, both through the engine's `toFinanceDebts` (`src/engine/payoff.js`), computed in `tableRows.js`; a run at `SIMULATION_CAP_MONTHS` shows "Never". |
 | Next payment | `nextDebtPayment`, with the "shifted" tag |
 
 Default sort: Rate descending. Totals row: Balance, Payment, Interest / month.
@@ -108,6 +108,8 @@ All under `src/ui/expenses/`:
 - `byDate.js` — pure: groups occurrences by day, adds running totals, splits at
   today, rolls days into months.
 - `DebtsTable.jsx`, `ExpensesTable.jsx`, `ByDateList.jsx` — components.
+- `SortHeader.jsx` — one sortable `<th>` (button, arrow, `aria-sort`) shared by both tables.
+- `cardIds.js` — `cardDomId(kind, key)`, the stable DOM id every card carries and rows jump to.
 - `Expenses.jsx` — gains view state, the View control, and jump-to-card highlight.
 - `src/db/settings.js` — the new key and accessors.
 

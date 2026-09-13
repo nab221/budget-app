@@ -63,7 +63,7 @@ describe('expensesView', () => {
     expect(await settings.getExpensesView()).toBe('cards');
   });
 
-  it('is listed in the defaults so getAllSettings includes it', async () => {
+  it('exposes the default and the allowed views', async () => {
     expect(SETTINGS_DEFAULTS.expensesView).toBe('cards');
     expect(EXPENSES_VIEWS).toEqual(['cards', 'table', 'by-date']);
   });

@@ -1835,9 +1835,6 @@ body.privacy .chart:hover {
   margin-left: 0.2rem;
   font-size: 0.7em;
 }
-.table .num .sort-btn {
-  text-align: right;
-}
 /* A row's name: looks like a link, jumps back to the card. */
 .rowlink {
   font: inherit;

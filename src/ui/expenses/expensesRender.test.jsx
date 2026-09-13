@@ -173,6 +173,25 @@ describe('Expenses screen', () => {
     expect(screen.queryByRole('heading', { name: 'Debts' })).toBeNull();
   });
 
+  it('clears a pending jump highlight when leaving Cards before it fires', async () => {
+    await seed();
+    render(<Expenses />);
+    await screen.findByText('Visa');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Table' }));
+    await screen.findByRole('heading', { name: 'Debts' });
+    fireEvent.click(screen.getByRole('button', { name: 'Car loan' }));
+    const highlighted = await screen.findByText('Car loan');
+    expect(highlighted.closest('li').className).toContain('is-highlight');
+
+    fireEvent.click(screen.getByRole('button', { name: 'By date' }));
+    await screen.findByText('Still to go');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cards' }));
+    const again = await screen.findByText('Car loan');
+    expect(again.closest('li').className).not.toContain('is-highlight');
+  });
+
   it('shows the month by date with gone-out and still-to-go totals', async () => {
     await seed();
     render(<Expenses />);
@@ -261,7 +280,10 @@ describe('DebtsTable', () => {
     expect(screen.getByText('£305.00')).toBeTruthy();
     expect(screen.getByText('£45.00')).toBeTruthy();
     // Promo badge with the post-promo rate in its tooltip; never-clearing loan; shifted tag.
-    expect(screen.getByText('0% until 31 Dec 2026').getAttribute('title')).toBe('Then 29%');
+    const promoBadge = screen.getByText('0% until 31 Dec 2026');
+    expect(promoBadge.getAttribute('title')).toBe('Then 29%');
+    // The Rate cell shows only the badge during a promo, not "0%0% until…".
+    expect(promoBadge.closest('td').textContent).toBe('0% until 31 Dec 2026');
     expect(screen.getByText('Never')).toBeTruthy();
     expect(screen.getByText('Jun 2030')).toBeTruthy();
     expect(screen.getByText('shifted')).toBeTruthy();

@@ -76,9 +76,13 @@ export default function Expenses() {
 
   useEffect(() => {
     let alive = true;
-    settings.getExpensesView().then((v) => {
-      if (alive) setView(v);
-    });
+    settings
+      .getExpensesView()
+      .then((v) => {
+        if (alive) setView(v);
+      })
+      // A failed read just leaves the tab on Cards.
+      .catch(() => {});
     return () => {
       alive = false;
     };
@@ -86,7 +90,9 @@ export default function Expenses() {
 
   const changeView = (next) => {
     setView(next);
-    settings.setExpensesView(next);
+    if (next !== 'cards') setHighlightId(null);
+    // A failed write only loses the remembered view.
+    settings.setExpensesView(next).catch(() => {});
   };
 
   // Jump from a Table / By-date row back to its card: switch view, then once
