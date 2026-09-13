@@ -1873,3 +1873,62 @@ body.privacy .chart:hover {
 .expenses-table .badge {
   margin-left: 0.4rem;
 }
+
+/* Expenses tab — By date view (design 2026-09-12) */
+.bydate .day-group.is-past,
+.bydate .bydate__month.is-past > .bydate__month-head {
+  opacity: 0.55;
+}
+.bydate__kind {
+  margin-left: 0.5rem;
+  font-size: 0.8rem;
+}
+.bydate__running {
+  flex: 0 0 6.5rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+}
+.bydate__today {
+  margin: 0.8rem 0;
+  padding: 0.3rem 0.6rem;
+  border-left: 3px solid var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.bydate__month + .bydate__month {
+  margin-top: 0.4rem;
+}
+.bydate__month-head {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  width: 100%;
+  font: inherit;
+  color: var(--fg);
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  padding: 0.45rem 0;
+  cursor: pointer;
+  text-align: left;
+}
+.bydate__month-name {
+  flex: 1;
+  font-weight: 600;
+}
+.bydate__month-total {
+  font-variant-numeric: tabular-nums;
+}
+.bydate__month-days {
+  padding: 0.4rem 0 0.6rem 1rem;
+}
+.bydate__footer {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--border);
+}

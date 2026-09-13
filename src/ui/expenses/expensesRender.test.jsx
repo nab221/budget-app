@@ -16,6 +16,8 @@ import Expenses from '../Expenses.jsx';
 import Dashboard from '../Dashboard.jsx';
 import DebtsTable from './DebtsTable.jsx';
 import ExpensesTable from './ExpensesTable.jsx';
+import ByDateList from './ByDateList.jsx';
+import { buildByDate } from './byDate.js';
 
 beforeEach(async () => {
   await resetDb();
@@ -236,5 +238,64 @@ describe('ExpensesTable', () => {
     expect(bodyNames()).toEqual(['Broadband', 'Childcare — Ada', 'Gym']);
     fireEvent.click(screen.getByRole('button', { name: 'Broadband' }));
     expect(onJump).toHaveBeenCalledWith('expense-card-bill-11');
+  });
+});
+
+describe('ByDateList', () => {
+  // Engine-shape pence data: bill 15th, Visa 20th, loan 28th each month.
+  const data = {
+    recurringBills: [
+      { id: 11, label: 'Broadband', amountPence: 3000, frequency: 'monthly', nextDueDate: '2026-07-15', dueDayAnchor: 15, adjustToWorkingDay: false, active: true },
+    ],
+    debts: [
+      { id: 1, name: 'Visa', debtType: 'credit-card', balancePence: 100000, apr: 0, minPaymentOverridePence: 5000, paymentDayOfMonth: 20 },
+      { id: 3, name: 'Car loan', debtType: 'loan', balancePence: 500000, interestRate: 6, fixedMonthlyPaymentPence: 25000, paymentDayOfMonth: 28 },
+    ],
+    childcareDeposits: [],
+  };
+  const cats = new Map([[11, 'Utilities']]);
+  const statValue = (label) => screen.getByText(label).nextSibling.textContent;
+
+  it('lists a month by day with kinds, running totals, a today divider and the footer', () => {
+    const byDate = buildByDate(data, '2026-07-01', '2026-08-01', '2026-07-21');
+    const onJump = vi.fn();
+    render(<ByDateList byDate={byDate} period="month" todayStr="2026-07-21" categoryByBillId={cats} onJump={onJump} />);
+
+    expect(screen.getByText('15 Jul 2026')).toBeTruthy();
+    expect(screen.getByText('Bill · Utilities')).toBeTruthy();
+    expect(screen.getByText('Card')).toBeTruthy();
+    expect(screen.getByText('Loan')).toBeTruthy();
+    // Running totals: £30 → £80 → £330.
+    expect(screen.getByText('£80.00', { selector: '.bydate__running' })).toBeTruthy();
+    expect(screen.getAllByText('£330.00').length).toBeGreaterThanOrEqual(1);
+    // Today divider sits between the 20th and the 28th.
+    expect(screen.getByText('Today — 21 Jul 2026')).toBeTruthy();
+    expect(statValue('Gone out so far')).toBe('£80.00');
+    expect(statValue('Still to go')).toBe('£250.00');
+    expect(statValue('Period total')).toBe('£330.00');
+    // Past days are muted.
+    expect(screen.getByText('15 Jul 2026').closest('.day-group').className).toContain('is-past');
+    expect(screen.getByText('28 Jul 2026').closest('.day-group').className).not.toContain('is-past');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Broadband' }));
+    expect(onJump).toHaveBeenCalledWith('expense-card-bill-11');
+  });
+
+  it('rolls the year up into months that expand on click', () => {
+    const byDate = buildByDate(data, '2026-07-01', '2027-01-01', '2026-07-21');
+    render(<ByDateList byDate={byDate} period="year" todayStr="2026-07-21" categoryByBillId={cats} onJump={() => {}} />);
+
+    // Six month rows, collapsed: no day headings yet.
+    expect(screen.getByRole('button', { name: /Jul 2026/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Dec 2026/ })).toBeTruthy();
+    expect(screen.queryByText('15 Jul 2026')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Aug 2026/ }));
+    expect(screen.getByText('15 Aug 2026')).toBeTruthy(); // adjustToWorkingDay is false, so the 15th stays
+  });
+
+  it('shows an empty state when nothing is due', () => {
+    const byDate = buildByDate({ recurringBills: [], debts: [], childcareDeposits: [] }, '2026-07-01', '2026-08-01', '2026-07-21');
+    render(<ByDateList byDate={byDate} period="month" todayStr="2026-07-21" categoryByBillId={cats} onJump={() => {}} />);
+    expect(screen.getByText(/Nothing goes out in this period/)).toBeTruthy();
   });
 });
