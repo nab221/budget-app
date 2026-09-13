@@ -1,6 +1,6 @@
 import { resetDb } from './test-utils.js';
 import { describe, it, expect, beforeEach } from 'vitest';
-import { getSetting, setSetting, settings, SETTINGS_DEFAULTS } from './settings.js';
+import { getSetting, setSetting, settings, SETTINGS_DEFAULTS, EXPENSES_VIEWS } from './settings.js';
 
 beforeEach(resetDb);
 
@@ -15,6 +15,7 @@ describe('settings defaults', () => {
     expect(await getSetting('currentBalancePence')).toBe(null);
     expect(await getSetting('balanceAsOf')).toBe(null);
     expect(await getSetting('lastExportAt')).toBe(null);
+    expect(await getSetting('expensesView')).toBe('cards');
   });
 
   it('exposes the defaults table', () => {
@@ -45,5 +46,25 @@ describe('set/get round-trip', () => {
 
   it('currentBalancePounds returns null while unset', async () => {
     expect(await settings.getCurrentBalancePounds()).toBe(null);
+  });
+});
+
+describe('expensesView', () => {
+  it('defaults to cards and round-trips a valid view', async () => {
+    expect(await settings.getExpensesView()).toBe('cards');
+    await settings.setExpensesView('table');
+    expect(await settings.getExpensesView()).toBe('table');
+    await settings.setExpensesView('by-date');
+    expect(await settings.getExpensesView()).toBe('by-date');
+  });
+
+  it('falls back to cards for an unknown value', async () => {
+    await settings.setExpensesView('bogus');
+    expect(await settings.getExpensesView()).toBe('cards');
+  });
+
+  it('is listed in the defaults so getAllSettings includes it', async () => {
+    expect(SETTINGS_DEFAULTS.expensesView).toBe('cards');
+    expect(EXPENSES_VIEWS).toEqual(['cards', 'table', 'by-date']);
   });
 });
