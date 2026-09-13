@@ -367,4 +367,42 @@ describe('ByDateList', () => {
     render(<ByDateList byDate={byDate} period="month" todayStr="2026-07-21" categoryByBillId={cats} onJump={() => {}} />);
     expect(screen.getByText(/Nothing goes out in this period/)).toBeTruthy();
   });
+
+  it('shows a day total only when the day has more than one row', () => {
+    // Move the Visa payment onto the 15th so it shares a day with the bill.
+    const sameDayData = {
+      ...data,
+      debts: data.debts.map((d) => (d.name === 'Visa' ? { ...d, paymentDayOfMonth: 15 } : d)),
+    };
+    const byDate = buildByDate(sameDayData, '2026-07-01', '2026-08-01', '2026-07-21');
+    render(<ByDateList byDate={byDate} period="month" todayStr="2026-07-21" categoryByBillId={cats} onJump={() => {}} />);
+
+    const totals = document.querySelectorAll('.day-group__total');
+    expect(totals.length).toBe(1);
+    expect(totals[0].textContent).toBe('£80.00');
+    // The loan's day (28th) has a single row, so no day total there.
+    expect(screen.getByText('28 Jul 2026').closest('.day-group').querySelector('.day-group__total')).toBeNull();
+  });
+
+  it('renders the today divider after everything when the whole period is past', () => {
+    const byDate = buildByDate(data, '2026-07-01', '2026-08-01', '2026-07-31');
+    render(<ByDateList byDate={byDate} period="month" todayStr="2026-07-31" categoryByBillId={cats} onJump={() => {}} />);
+
+    const divider = document.querySelector('.bydate__today');
+    expect(divider.nextElementSibling.className).toContain('bydate__footer');
+    expect(statValue('Still to go')).toBe('£0.00');
+  });
+
+  it('marks a year-view month is-past only when every day in it is, with the divider between', () => {
+    const byDate = buildByDate(data, '2026-07-01', '2027-01-01', '2026-08-25');
+    render(<ByDateList byDate={byDate} period="year" todayStr="2026-08-25" categoryByBillId={cats} onJump={() => {}} />);
+
+    const julMonth = screen.getByRole('button', { name: /Jul 2026/ }).closest('.bydate__month');
+    const augMonth = screen.getByRole('button', { name: /Aug 2026/ }).closest('.bydate__month');
+    expect(julMonth.className).toContain('is-past');
+    expect(augMonth.className).not.toContain('is-past');
+
+    const divider = document.querySelector('.bydate__today');
+    expect(divider.nextElementSibling).toBe(augMonth);
+  });
 });
