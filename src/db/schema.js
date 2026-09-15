@@ -66,9 +66,18 @@ import Dexie from 'dexie';
  *      EMPLOYMENT, so a trip has to know which job it was for. Existing trips
  *      simply have no `employerId` and read back as one unnamed employment,
  *      which is exactly how they behaved before — so no upgrade function.
+ * v8 — additive only (Pension tab, spec amendment 2026-09-15 (k)): a
+ *      `pensionYears` store, unique per person + tax year, holding the
+ *      USER-ENTERED pension input amount (from a Pension Savings Statement or
+ *      the owner's own reconstruction) and an optional pensionable-earnings
+ *      override. Estimates, carry-forward and headroom are computed at read
+ *      time and never stored. `people` also gains three non-indexed fields —
+ *      `pensionScheme`, `pensionAnchorPence`, `pensionAnchorDate` — which need
+ *      no schema change; rows without them read back as '' / 0 / '' through
+ *      the repository (SIPP-only tracking). New store only, no upgrade function.
  */
 
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 
 export const db = new Dexie('BudgetAppV4');
 
@@ -146,6 +155,12 @@ db.version(7).stores({
   mileageTrips: '++id, date, vehicle, employerId',
 });
 
+// v8 — additive: the `pensionYears` store. `&[personId+taxYear]` makes the
+// entered figure unique per person-year at the DB level (like payslips).
+db.version(8).stores({
+  pensionYears: '++id, personId, taxYear, &[personId+taxYear]',
+});
+
 // The ordered list of table names — the single source of truth for backup /
 // wipe operations so a new table never gets silently missed.
 export const TABLE_NAMES = [
@@ -164,6 +179,7 @@ export const TABLE_NAMES = [
   'payslips',
   'mileageTrips',
   'employers',
+  'pensionYears',
 ];
 
 // Another tab upgraded the schema: close this connection and reload so the

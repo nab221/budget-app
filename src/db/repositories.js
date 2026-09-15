@@ -25,6 +25,7 @@ import { db } from './schema.js';
 import { toPence, fromPence } from '../engine/currency.js';
 import { parseTaxCode } from '../engine/tax.js';
 import { VEHICLE_KINDS } from '../engine/mileage.js';
+import { SCHEMES } from '../engine/pension.js';
 import { dispatchMutation } from './events.js';
 
 // ---------------------------------------------------------------------------
@@ -188,6 +189,38 @@ function validatePerson(data) {
     throw new Error(
       `people.taxCode must be a recognised PAYE code (e.g. 1257L, K475, BR, D0, NT) or blank; got "${data.taxCode}"`
     );
+  }
+  // Blank = no defined-benefit scheme (SIPP-only tracking on the Pension tab).
+  if (data.pensionScheme !== undefined && data.pensionScheme !== '' && !SCHEMES[data.pensionScheme]) {
+    throw new Error(
+      `people.pensionScheme must be one of ${Object.keys(SCHEMES).join(', ')} or blank; got "${data.pensionScheme}"`
+    );
+  }
+  if (
+    data.pensionAnchorDate !== undefined &&
+    data.pensionAnchorDate !== '' &&
+    !/^\d{4}-\d{2}-\d{2}$/.test(String(data.pensionAnchorDate))
+  ) {
+    throw new Error(
+      `people.pensionAnchorDate must be an ISO yyyy-MM-dd string or blank; got "${data.pensionAnchorDate}"`
+    );
+  }
+  if (data.pensionAnchorPence !== undefined && Number(data.pensionAnchorPence) < 0) {
+    throw new Error('people.pensionAnchorPence must not be negative');
+  }
+}
+
+function validatePensionYear(data, mode) {
+  if (mode === 'add' && !Number.isInteger(data.personId)) {
+    throw new Error(`pensionYears.personId is required; got ${JSON.stringify(data.personId)}`);
+  }
+  if (data.taxYear !== undefined && !/^\d{4}-\d{2}$/.test(String(data.taxYear))) {
+    throw new Error(`pensionYears.taxYear must be a "yyyy-yy" label like 2025-26; got "${data.taxYear}"`);
+  }
+  for (const f of ['piaPence', 'pensionableEarningsPence']) {
+    if (data[f] !== undefined && data[f] !== null && Number(data[f]) < 0) {
+      throw new Error(`pensionYears.${f} must be null or non-negative; got ${JSON.stringify(data[f])}`);
+    }
   }
 }
 
@@ -534,6 +567,7 @@ export const peopleRepo = {
       'pensionAnnualPence',
       'benefitsInKindPence',
       'otherIncomePence',
+      'pensionAnchorPence',
     ],
     {
       annualSalaryPence: 0,
@@ -542,13 +576,17 @@ export const peopleRepo = {
       benefitsInKindPence: 0,
       otherIncomePence: 0,
       taxCode: '',
+      pensionScheme: '',
+      pensionAnchorPence: 0,
+      pensionAnchorDate: '',
     },
     validatePerson
   ),
 
   /**
-   * Delete a person AND their income events, salary periods, and payslips in
-   * one transaction, so no orphan rows point at a person that no longer exists.
+   * Delete a person AND their income events, salary periods, payslips, and
+   * pension years in one transaction, so no orphan rows point at a person
+   * that no longer exists.
    * @param {number} id
    */
   async delete(id) {
@@ -558,10 +596,12 @@ export const peopleRepo = {
       db.incomeEvents,
       db.salaryPeriods,
       db.payslips,
+      db.pensionYears,
       async () => {
         await db.incomeEvents.where('personId').equals(id).delete();
         await db.salaryPeriods.where('personId').equals(id).delete();
         await db.payslips.where('personId').equals(id).delete();
+        await db.pensionYears.where('personId').equals(id).delete();
         await db.people.delete(id);
       }
     );
@@ -639,6 +679,42 @@ export const payslipsRepo = {
         return this.update(existing.id, data);
       }
       return this.add({ ...data, personId });
+    });
+  },
+};
+
+export const pensionYearsRepo = {
+  ...createBaseRepository(
+    db.pensionYears,
+    // null passes through untouched: "not entered" is a real state.
+    ['piaPence', 'pensionableEarningsPence'],
+    { piaPence: null, pensionableEarningsPence: null, note: '' },
+    validatePensionYear
+  ),
+
+  /** A person's rows, oldest tax year first. Pounds at the edge. */
+  async forPerson(personId) {
+    const rows = await db.pensionYears.where('personId').equals(personId).toArray();
+    rows.sort((a, b) => (a.taxYear < b.taxYear ? -1 : 1));
+    return rows.map(this._fromStorage);
+  },
+
+  /**
+   * One row per person-year: update in place if the year already has one,
+   * insert otherwise (the year form always goes through here).
+   * @param {number} personId
+   * @param {string} taxYear - "2025-26"
+   * @param {object} data - pounds-at-edge fields (piaPence, pensionableEarningsPence, note).
+   */
+  async upsert(personId, taxYear, data) {
+    validatePensionYear({ ...data, taxYear }, 'update');
+    return db.transaction('rw', db.pensionYears, async () => {
+      const existing = await db.pensionYears
+        .where('[personId+taxYear]')
+        .equals([personId, taxYear])
+        .first();
+      if (existing) return this.update(existing.id, data);
+      return this.add({ ...data, personId, taxYear });
     });
   },
 };
