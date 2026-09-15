@@ -7,6 +7,8 @@ import {
   anchorOpeningYear,
   estimatePia,
   rollForward,
+  estimatePiaFromClosing,
+  rollBackward,
   buildPensionYear,
 } from './pension.js';
 import { TAX_YEAR_TABLES } from './tax.js';
@@ -160,6 +162,65 @@ describe('rollForward', () => {
     expect(rollForward({ ...base, anchorOpeningYear: '2021-22', targetYear: '2023-24' })).toBe(null);
     expect(rollForward({ ...base, anchorOpeningYear: '2026-27', targetYear: '2028-29' })).toBe(null); // no 2027-28 CPI
     expect(rollForward({ ...base, anchorOpeningYear: '2026-27', targetYear: '2027-28', cpiByYear: { '2026-27': 0.038 } }).openingPence).toBeGreaterThan(100);
+  });
+});
+
+describe('estimatePiaFromClosing', () => {
+  it('reverses the 2025-26 step: £7,900.18 closing, £1,246.15 earned → £6,447.70 opening, PIA ≈ £21,486', () => {
+    const r = estimatePiaFromClosing({ scheme: 'nhs-2015', closingPence: 790_018, cpi: 0.017, earnedPence: 124_615 });
+    expect(r.openingPence).toBe(644_770);
+    expect(r.upratedOpeningPence).toBe(655_731);
+    expect(Math.abs(r.piaPence - 2_148_600)).toBeLessThan(100);
+  });
+
+  it('clamps the opening at zero when earned exceeds closing', () => {
+    const r = estimatePiaFromClosing({ scheme: 'lgps-2014', closingPence: 1_000, cpi: 0.02, earnedPence: 5_000 });
+    expect(r.openingPence).toBe(0);
+    expect(r.piaPence).toBe(16_000); // 16 × closing
+  });
+
+  it('rejects an unknown scheme', () => {
+    expect(() => estimatePiaFromClosing({ scheme: 'uss', closingPence: 0, cpi: 0, earnedPence: 0 })).toThrow(/scheme/);
+  });
+});
+
+describe('rollBackward', () => {
+  const base = { scheme: 'nhs-2015', anchorPence: 790_018, anchorOpeningYear: '2026-27', earnedByYear: NHS_EARNED };
+
+  it('rebuilds every year back to 2022-23 from the anchor, newest first', () => {
+    const r = rollBackward({ ...base, targetYear: '2022-23' });
+    expect(r.chain.map((c) => [c.taxYear, c.openingPence, c.closingPence])).toEqual([
+      ['2025-26', 644_770, 790_018],
+      ['2024-25', 495_727, 644_770],
+      ['2023-24', 364_764, 495_727],
+      ['2022-23', 280_982, 364_764],
+    ]);
+    expect(r.openingPence).toBe(280_982);
+    expect(r.closingPence).toBe(364_764);
+    const within = (pia, pounds) => expect(Math.abs(pia - pounds * 100)).toBeLessThan(100);
+    within(r.chain[0].piaPence, 21486);
+    within(r.chain[1].piaPence, 18533);
+    within(r.chain[2].piaPence, 15060);
+    within(r.chain[3].piaPence, 12012);
+    expect(r.chain[0].earnedPence).toBe(124_615);
+  });
+
+  it('stops one year back when that is the target', () => {
+    const r = rollBackward({ ...base, targetYear: '2025-26' });
+    expect(r.chain).toHaveLength(1);
+    expect(r.openingPence).toBe(644_770);
+  });
+
+  it('returns null before 2022-23, at or after the anchor year, on a missing pension-earned row, or a missing CPI', () => {
+    expect(rollBackward({ ...base, targetYear: '2021-22' })).toBe(null);
+    expect(rollBackward({ ...base, targetYear: '2026-27' })).toBe(null);
+    expect(rollBackward({ ...base, targetYear: '2027-28' })).toBe(null);
+    const { '2024-25': _gap, ...withGap } = NHS_EARNED;
+    expect(rollBackward({ ...base, earnedByYear: withGap, targetYear: '2023-24' })).toBe(null);
+    expect(rollBackward({ ...base, earnedByYear: withGap, targetYear: '2025-26' })).not.toBe(null);
+    const { '2024-25': _cpi, ...cpiGap } = SEPTEMBER_CPI;
+    expect(rollBackward({ ...base, cpiByYear: cpiGap, targetYear: '2023-24' })).toBe(null);
+    expect(rollBackward({ ...base, scheme: 'uss', targetYear: '2025-26' })).toBe(null);
   });
 });
 

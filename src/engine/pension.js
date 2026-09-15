@@ -165,6 +165,61 @@ export function rollForward({
   return { openingPence: opening, chain };
 }
 
+/**
+ * One BACKWARD step: from a year's closing pension and the statement's
+ * "pension earned", the opening pension and that year's input amount, in
+ * full and rounded once. opening = (closing − earned) ÷ (1 + CPI + real),
+ * clamped at zero; PIA = 16 × (closing − opening × (1 + CPI)).
+ * @returns {{ openingPence: number, upratedOpeningPence: number, piaPence: number }}
+ */
+export function estimatePiaFromClosing({ scheme, closingPence, cpi, earnedPence }) {
+  const s = schemeOf(scheme);
+  const closing = pence(closingPence);
+  const rate = Number(cpi) || 0;
+  const openingExact = Math.max(0, (closing - pence(earnedPence)) / (1 + rate + s.realRevaluation));
+  const upratedExact = openingExact * (1 + rate);
+  return {
+    openingPence: Math.round(openingExact),
+    upratedOpeningPence: Math.round(upratedExact),
+    piaPence: Math.max(0, Math.round(PIA_FACTOR * (closing - upratedExact))),
+  };
+}
+
+/**
+ * Roll a statement anchor BACKWARDS to `targetYear`. The anchor is the
+ * closing pension of the year before its opening year; each step back needs
+ * that year's "pension earned" and CPI, and its opening becomes the previous
+ * year's closing (rounded once per year). Null when the target is before
+ * 2022-23, at or after the anchor's opening year (forward territory), or any
+ * year on the way lacks a pension-earned figure or a CPI. `chain` is newest
+ * first — the order it was computed — and its last entry is `targetYear`.
+ * @returns {{ openingPence: number, closingPence: number, chain: Array<{ taxYear, openingPence, closingPence, upratedOpeningPence, piaPence, cpi, earnedPence }> } | null}
+ */
+export function rollBackward({
+  scheme,
+  anchorPence,
+  anchorOpeningYear: fromYear,
+  targetYear,
+  cpiByYear = SEPTEMBER_CPI,
+  earnedByYear = {},
+}) {
+  if (!SCHEMES[scheme]) return null;
+  if (String(targetYear) < FIRST_ESTIMATE_YEAR || String(targetYear) >= String(fromYear)) return null;
+  let closing = pence(anchorPence);
+  const chain = [];
+  let year = shiftTaxYear(fromYear, -1);
+  for (;;) {
+    const cpi = cpiByYear[year];
+    const earnedPence = numberOrNull(earnedByYear, year);
+    if (typeof cpi !== 'number' || earnedPence == null) return null;
+    const step = estimatePiaFromClosing({ scheme, closingPence: closing, cpi, earnedPence });
+    chain.push({ taxYear: year, closingPence: closing, cpi, earnedPence, ...step });
+    if (year === targetYear) return { openingPence: step.openingPence, closingPence: closing, chain };
+    closing = step.openingPence;
+    year = shiftTaxYear(year, -1);
+  }
+}
+
 /** The window's labels, oldest first: taxYear − 3 … taxYear. */
 export function windowYears(taxYear) {
   const out = [];
