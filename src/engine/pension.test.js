@@ -9,6 +9,7 @@ import {
   rollForward,
   buildPensionYear,
 } from './pension.js';
+import { TAX_YEAR_TABLES } from './tax.js';
 
 describe('tables', () => {
   it('seeds both career-average schemes', () => {
@@ -30,6 +31,17 @@ describe('annualAllowanceForYear', () => {
     expect(annualAllowanceForYear('2023-24')).toEqual({ allowancePence: 6_000_000, fromTable: true });
     expect(annualAllowanceForYear('2026-27')).toEqual({ allowancePence: 6_000_000, fromTable: true });
     expect(annualAllowanceForYear('2035-36')).toEqual({ allowancePence: 6_000_000, fromTable: false });
+  });
+
+  it('clamps years before the seeded range to the OLDEST table, not the newest', () => {
+    const newest = '2099-00';
+    TAX_YEAR_TABLES[newest] = { ...TAX_YEAR_TABLES['2026-27'], pensionAnnualAllowancePence: 9_999_900 };
+    try {
+      expect(annualAllowanceForYear('2023-24').allowancePence).toBe(6_000_000); // oldest table's figure
+      expect(annualAllowanceForYear('2030-31')).toEqual({ allowancePence: 9_999_900, fromTable: false });
+    } finally {
+      delete TAX_YEAR_TABLES[newest];
+    }
   });
 });
 

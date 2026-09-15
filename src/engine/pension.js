@@ -19,7 +19,7 @@
  * zero carry-forward; the high-income taper is a warning, not a computation.
  */
 
-import { TAX_YEAR_TABLES, taxYearForDate, shiftTaxYear } from './tax.js';
+import { TAX_YEAR_TABLES, taxYearTable, taxYearForDate, shiftTaxYear } from './tax.js';
 
 export const SCHEMES = {
   'nhs-2015': { label: 'NHS 2015', accrualDenominator: 54, realRevaluation: 0.015 },
@@ -55,22 +55,34 @@ export function cpiForYear(label) {
   return typeof v === 'number' ? v : null;
 }
 
-const NEWEST_TABLE_YEAR = Object.keys(TAX_YEAR_TABLES).sort().at(-1);
-
 /**
  * The annual allowance for a tax year: £40,000 before 2023-24, the tax table
- * from then on (falling back to the newest table beyond its seeded years).
- * `fromTable` means "the allowance for this year is known" — true for every
- * label up to and including the newest seeded tax-table year, false only for
- * later, unknown years — which is what the fallback banner and the `*`
- * marker report.
+ * from then on. A label before the seeded range takes the OLDEST table (via
+ * `taxYearTable`, so a future Budget row can never rewrite the £60,000
+ * history that carry-forward relies on); a label with no seeded row of its
+ * own otherwise falls back to the newest table, read live so a table added
+ * later is picked up immediately — nothing is cached at module load.
+ * `fromTable` means "the allowance for this year is known precisely": true
+ * for a label with its own seeded row, or one that clamps down to the oldest
+ * table (a defined historical fact); false whenever the newest table's
+ * figure is only a best-available guess — which is what the fallback banner
+ * and the `*` marker report.
  * @returns {{ allowancePence: number, fromTable: boolean }}
  */
 export function annualAllowanceForYear(label) {
   const key = String(label);
   if (key < '2023-24') return { allowancePence: PRE_2023_ALLOWANCE_PENCE, fromTable: true };
-  const seeded = TAX_YEAR_TABLES[key] ?? TAX_YEAR_TABLES[NEWEST_TABLE_YEAR];
-  return { allowancePence: seeded.pensionAnnualAllowancePence, fromTable: key <= NEWEST_TABLE_YEAR };
+  const known = Object.keys(TAX_YEAR_TABLES).sort();
+  const oldest = known[0];
+  if (key < oldest) {
+    const { table } = taxYearTable(key);
+    return { allowancePence: table.pensionAnnualAllowancePence, fromTable: true };
+  }
+  if (TAX_YEAR_TABLES[key]) {
+    return { allowancePence: TAX_YEAR_TABLES[key].pensionAnnualAllowancePence, fromTable: true };
+  }
+  const newest = known[known.length - 1];
+  return { allowancePence: TAX_YEAR_TABLES[newest].pensionAnnualAllowancePence, fromTable: false };
 }
 
 /**
