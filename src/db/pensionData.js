@@ -32,8 +32,8 @@ function labelsBetween(from, to) {
  * for the viewed tax year and the three before it, and return a pence-domain
  * snapshot: per person, the anchor, the entered rows, the pensionable
  * earnings per year (override, else the timeline's gross salary, else the
- * legacy annual salary), grossed-up SIPP per year, and `buildPensionYear`'s
- * result.
+ * legacy annual salary), the statement's pension earned per year, grossed-up
+ * SIPP per year, and `buildPensionYear`'s result.
  *
  * @param {string} taxYearLabel - e.g. "2026-27".
  * @returns {Promise<{ taxYear: string, people: Array<object> }>}
@@ -76,6 +76,7 @@ export async function gatherPensionData(taxYearLabel) {
         piaPence: r.piaPence == null ? null : toPence(r.piaPence), // pounds → pence
         pensionableEarningsPence:
           r.pensionableEarningsPence == null ? null : toPence(r.pensionableEarningsPence), // pounds → pence
+        pensionEarnedPence: r.pensionEarnedPence == null ? null : toPence(r.pensionEarnedPence), // pounds → pence
       }));
     const rowByYear = new Map(rows.map((r) => [r.taxYear, r]));
 
@@ -105,6 +106,11 @@ export async function gatherPensionData(taxYearLabel) {
       labels.map((label) => [label, annualPersonalPence + Math.round((netByYear[label] || 0) * RELIEF_AT_SOURCE_GROSS_UP)]),
     );
 
+    // The statement's "pension earned" per year — the back-chain's input, and
+    // the accrual in place of earnings ÷ denominator where a year has one.
+    const earnedByYear = {};
+    for (const r of rows) if (r.pensionEarnedPence != null) earnedByYear[r.taxYear] = r.pensionEarnedPence;
+
     return {
       id: p.id,
       name: p.name,
@@ -112,7 +118,8 @@ export async function gatherPensionData(taxYearLabel) {
       anchor,
       rows,
       earningsByYear,
-      ...buildPensionYear({ taxYear: taxYearLabel, scheme, anchor, rows, earningsByYear, sippGrossByYear }),
+      earnedByYear,
+      ...buildPensionYear({ taxYear: taxYearLabel, scheme, anchor, rows, earningsByYear, earnedByYear, sippGrossByYear }),
     };
   });
 

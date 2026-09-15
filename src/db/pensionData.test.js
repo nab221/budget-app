@@ -77,6 +77,27 @@ describe('gatherPensionData', () => {
     expect(me.current.estimate.earningsSource).toBe('timeline');
   });
 
+  it('back-chains the years before the anchor from the statement pension earned', async () => {
+    const p = await peopleRepo.add({
+      name: 'Anderson',
+      pensionScheme: 'nhs-2015',
+      pensionAnchorPence: 7900.18,
+      pensionAnchorDate: '2026-03-31',
+    });
+    await salaryPeriodsRepo.add({ personId: p, effectiveFrom: '1900-01-01', annualSalaryPence: 70000 });
+    await pensionYearsRepo.upsert(p, '2023-24', { pensionEarnedPence: 886.5 });
+    await pensionYearsRepo.upsert(p, '2024-25', { pensionEarnedPence: 1083.93 });
+    await pensionYearsRepo.upsert(p, '2025-26', { pensionEarnedPence: 1246.15, note: 'from the NHS site' });
+
+    const me = (await gatherPensionData('2026-27')).people[0];
+    expect(me.rows.find((r) => r.taxYear === '2025-26')).toMatchObject({ pensionEarnedPence: 124_615, piaPence: null });
+    expect(me.earnedByYear).toEqual({ '2023-24': 88_650, '2024-25': 108_393, '2025-26': 124_615 });
+    expect(me.years.map((y) => y.piaSource)).toEqual(['estimate', 'estimate', 'estimate', 'estimate']);
+    expect(me.years.map((y) => y.estimate.openingPence)).toEqual([364_764, 495_727, 644_770, 790_018]);
+    expect(me.years.map((y) => y.estimate.earnedSource)).toEqual(['statement', 'statement', 'statement', 'earnings']);
+    expect(Math.abs(me.carryForwardPence - 12_492_100)).toBeLessThan(300);
+  });
+
   it('falls back to the legacy annual salary when a person has no salary periods', async () => {
     const p = await peopleRepo.add({ name: 'A', annualSalaryPence: 60000, pensionScheme: 'nhs-2015', pensionAnchorPence: 1000, pensionAnchorDate: '2026-03-31' });
     const me = (await gatherPensionData('2026-27')).people[0];
