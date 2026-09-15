@@ -25,11 +25,19 @@ export default function PensionCard({ entry, summary, onEditDetails, onEditYear 
   const est = current.estimate;
   const taper = summary && summary.adjustedNetIncomePence > TAPER_THRESHOLD_INCOME_PENCE;
 
-  // A prior year the back-chain could reach but has no pension-earned row for.
+  // A prior year the back-chain could reach but has no pension-earned figure entered.
   const needsEarned =
     !!scheme &&
     !!anchor &&
-    years.slice(0, -1).some((y) => y.piaSource === 'none' && y.taxYear >= FIRST_ESTIMATE_YEAR && y.taxYear < anchor.openingYear);
+    years
+      .slice(0, -1)
+      .some(
+        (y) =>
+          y.piaSource === 'none' &&
+          y.taxYear >= FIRST_ESTIMATE_YEAR &&
+          y.taxYear < anchor.openingYear &&
+          !rows.some((r) => r.taxYear === y.taxYear && r.pensionEarnedPence != null)
+      );
 
   return (
     <li className="card pension-card">

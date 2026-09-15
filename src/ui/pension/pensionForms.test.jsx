@@ -48,6 +48,15 @@ describe('PensionYearForm', () => {
     expect(onSubmit).toHaveBeenCalledWith({ piaPence: 21486, pensionableEarningsPence: 67292.1, pensionEarnedPence: null, note: 'PSS received' });
   });
 
+  it('prefills the pension-earned figure and submits an edit to it', () => {
+    const onSubmit = vi.fn();
+    render(<PensionYearForm taxYear="2025-26" initial={{ pensionEarnedPence: 1246.15 }} onSubmit={onSubmit} onCancel={() => {}} />);
+    expect(screen.getByLabelText('Pension earned').value).toBe('1246.15');
+    fireEvent.change(screen.getByLabelText('Pension earned'), { target: { value: '1300' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(onSubmit).toHaveBeenCalledWith({ piaPence: null, pensionableEarningsPence: null, pensionEarnedPence: 1300, note: '' });
+  });
+
   it('rejects a negative figure', () => {
     const onSubmit = vi.fn();
     render(<PensionYearForm taxYear="2025-26" initial={null} onSubmit={onSubmit} onCancel={() => {}} />);

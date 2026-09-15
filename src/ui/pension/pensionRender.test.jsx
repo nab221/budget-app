@@ -75,6 +75,8 @@ describe('Pension tab', () => {
     const p = await seedOwner();
     render(<Pension initialTaxYear="2026-27" />);
     await screen.findByText('Anderson');
+    // Entered years need no pension-earned prompt even without a pension-earned row.
+    expect(screen.queryByText(/Enter each year’s pension earned/)).toBeNull();
 
     const rows = screen.getAllByRole('row').filter((r) => /^20\d\d-\d\d/.test(r.textContent));
     expect(rows.map((r) => r.textContent.slice(0, 7))).toEqual(['2023-24', '2024-25', '2025-26', '2026-27']);
@@ -139,6 +141,24 @@ describe('Pension tab', () => {
     expect(rows[0].textContent).toMatch(/£3,647\.64/); // 2023-24 opening
     expect(rows[0].textContent).toMatch(/£15,059\.43/); // 2023-24 PIA, within £1 of the TRS £15,060
     expect(screen.queryByText(/Enter each year’s pension earned/)).toBeNull();
+  });
+
+  it('does not prompt for pension earned when the only reachable prior year has it, even with a missing CPI beyond it', async () => {
+    const p = await peopleRepo.add({
+      name: 'Anderson',
+      pensionScheme: 'nhs-2015',
+      pensionAnchorPence: 7900.18,
+      pensionAnchorDate: '2026-03-31',
+    });
+    await salaryPeriodsRepo.add({ personId: p, effectiveFrom: '1900-01-01', annualSalaryPence: 70000 });
+    await pensionYearsRepo.upsert(p, '2023-24', { pensionEarnedPence: 886.5 });
+    await pensionYearsRepo.upsert(p, '2024-25', { pensionEarnedPence: 1083.93 });
+    await pensionYearsRepo.upsert(p, '2025-26', { pensionEarnedPence: 1246.15 });
+    render(<Pension initialTaxYear="2028-29" />);
+    await screen.findByText('Anderson');
+
+    expect(screen.queryByText(/Enter each year’s pension earned/)).toBeNull();
+    expect(await screen.findByText(/No September CPI/)).toBeTruthy();
   });
 
   it('labels the accrual as from the statement when this year has a pension-earned figure', async () => {

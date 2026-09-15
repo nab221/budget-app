@@ -130,7 +130,8 @@ export function estimatePia({ scheme, openingPence, cpi, earningsPence, earnedPe
 
 /**
  * Roll a statement anchor forward to the opening pension of `targetYear`,
- * one tax year at a time: closing = opening × (1 + CPI + real) + accrual (the year's pension earned when known, else earnings ÷ denominator),
+ * one tax year at a time: closing = opening × (1 + CPI + real) + accrual
+ * (the year's pension earned when known, else earnings ÷ denominator),
  * rounded once per year. Null when the target is before the
  * anchor's opening year, before 2022-23 (pre-2022 revaluation timing is not
  * modelled), or any CPI on the way is missing.
@@ -210,7 +211,7 @@ export function rollBackward({
   let closing = pence(anchorPence);
   const chain = [];
   let year = shiftTaxYear(fromYear, -1);
-  for (;;) {
+  while (year >= targetYear) {
     const cpi = cpiByYear[year];
     const earnedPence = numberOrNull(earnedByYear, year);
     if (typeof cpi !== 'number' || earnedPence == null) return null;
@@ -220,6 +221,7 @@ export function rollBackward({
     closing = step.openingPence;
     year = shiftTaxYear(year, -1);
   }
+  return null;
 }
 
 /** The window's labels, oldest first: taxYear − 3 … taxYear. */
