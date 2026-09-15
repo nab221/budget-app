@@ -25,7 +25,7 @@ export default function PensionYearForm({ taxYear, initial, onSubmit, onCancel }
     const piaPence = optional(pia);
     const pensionableEarningsPence = optional(earnings);
     if ((piaPence != null && piaPence < 0) || (pensionableEarningsPence != null && pensionableEarningsPence < 0)) {
-      setError('Figures can\'t be negative.');
+      setError('Figures can’t be negative.');
       return;
     }
     try {

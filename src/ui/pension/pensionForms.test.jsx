@@ -53,7 +53,7 @@ describe('PensionYearForm', () => {
     render(<PensionYearForm taxYear="2025-26" initial={null} onSubmit={onSubmit} onCancel={() => {}} />);
     fireEvent.change(screen.getByLabelText('Pension input amount'), { target: { value: '-5' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-    expect(screen.getByText(/can't be negative/)).toBeTruthy();
+    expect(screen.getByText(/can’t be negative/)).toBeTruthy();
     expect(onSubmit).not.toHaveBeenCalled();
   });
 });
