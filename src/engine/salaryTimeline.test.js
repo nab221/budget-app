@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   monthsOfTaxYear,
   projectedMonthPence,
+  projectedYearSalaryPence,
   buildMonthlyPay,
   expectedPayeYtd,
 } from './salaryTimeline.js';
@@ -321,5 +322,41 @@ describe('expectedPayeYtd', () => {
     expect(br.expectedPence).toBe(300000); // £15,000 × 20%
     expect(br.taxCode).toBe('BR');
     expect(expectedPayeYtd(threeMonths(0), TABLE, 'NT').expectedPence).toBe(0);
+  });
+});
+
+describe('projectedYearSalaryPence', () => {
+  it('rounds once for the year, so a salary that is not divisible by 12 is exact', () => {
+    expect(projectedYearSalaryPence([{ effectiveFrom: '1900-01-01', annualSalaryPence: 7_000_000 }], '2026-27')).toBe(7_000_000);
+    expect(projectedYearSalaryPence([{ effectiveFrom: '1900-01-01', annualSalaryPence: 4_000_000 }], '2026-27')).toBe(4_000_000);
+  });
+
+  it('is the annual salary for one full-year rate', () => {
+    expect(projectedYearSalaryPence(FLAT_60K, '2026-27')).toBe(6_000_000);
+  });
+
+  it('ignores sacrifice, workplace pension and BIK — pensionable pay is the gross salary', () => {
+    const periods = [
+      {
+        effectiveFrom: '1900-01-01',
+        annualSalaryPence: 6_000_000,
+        salarySacrificePence: 600_000,
+        workplacePensionAnnualPence: 500_000,
+        bikAnnualPence: 100_000,
+      },
+    ];
+    expect(projectedYearSalaryPence(periods, '2026-27')).toBe(6_000_000);
+  });
+
+  it('pro-rates a raise from 1 October by month', () => {
+    const periods = [
+      { effectiveFrom: '1900-01-01', annualSalaryPence: 6_000_000 },
+      { effectiveFrom: '2026-10-01', annualSalaryPence: 7_200_000 },
+    ];
+    expect(projectedYearSalaryPence(periods, '2026-27')).toBe(6 * 500_000 + 6 * 600_000);
+  });
+
+  it('is 0 with no periods', () => {
+    expect(projectedYearSalaryPence([], '2026-27')).toBe(0);
   });
 });

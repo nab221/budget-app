@@ -6,6 +6,44 @@ historical reference only — none of their requirements carry over unless resta
 
 ---
 
+## ⚠ Amendment 2026-09-15 (k) — Pension tab: defined-benefit input amounts + carry-forward
+
+Both people are in career-average **defined-benefit** schemes (owner: NHS 2015; wife:
+LGPS 2014, both joined after their scheme's career-average start), and the owner
+intends to contribute to a SIPP without breaching the pension annual allowance.
+Amendment (g)'s meter measures the NHS pension by the payslip contributions, which is
+the defined-*contribution* rule; HMRC measures a DB scheme by the **pension input
+amount**: `16 × (closing pension − opening pension × (1 + CPI))`. (g)'s "no 3-year
+carry-forward" simplification is **superseded**. A new top-level **Pension** tab, after
+Company, with the Income-style tax-year navigator. Full design and owner decisions:
+`specs/2026-09-15-pension-panel-design.md`. In brief:
+
+- **Engine** `src/engine/pension.js`: `SCHEMES` (NHS 2015: accrual 1/54, revaluation
+  CPI + 1.5%; LGPS 2014: 1/49, CPI + 0%), `SEPTEMBER_CPI` by tax year (seeded
+  2019-20 → 2026-27; a missing year switches the estimate off, no fallback),
+  `annualAllowanceForYear` (£40k before 2023-24, then the tax tables), `rollForward`
+  from a statement **anchor**, `estimatePia`, and `buildPensionYear` — the viewed year
+  plus the three before it, allowance used (input amount + grossed-up personal/SIPP),
+  carry-forward consumed oldest first, SIPP headroom gross and net (÷ 1.25).
+  `computePensionAllowance` in `tax.js` is removed. Pure, pence, tested against the
+  owner's reconstructed NHS figures.
+- **Data — schema v8, additive**: `people` gains `pensionScheme`, `pensionAnchorPence`,
+  `pensionAnchorDate` (non-indexed; blank = SIPP-only). New store `pensionYears`
+  (`&[personId+taxYear]`): an optional **entered** input amount (Pension Savings
+  Statement or the owner's own figure — entered always beats the estimate) and an
+  optional pensionable-earnings override; otherwise earnings come from the salary
+  timeline (`projectedYearSalaryPence`). User-entered rows only; nothing computed is
+  stored. `gatherIncomeData` exposes the result as `entry.pension`, and the Income
+  card's meter reads it, so both tabs show one set of figures.
+- **Assumptions**: post-2022 revaluation timing (no estimates before 2022-23); a prior
+  year over its allowance contributes zero carry-forward; a year with no data
+  contributes zero; the high-income taper is a warning at £200k adjusted net income,
+  not a computation.
+- **Non-goals**: taper, MPAA, relevant-earnings cap, LGPS 50/50, NHS 1995/2008 and
+  pre-2014 LGPS tranches, McCloud, CPI editing in the UI, statement PDF import.
+
+---
+
 ## ⚠ Amendment 2026-09-12 (j) — Company tab: corporation tax on dividends
 
 Both people draw dividends from the same limited company, and a dividend can only be

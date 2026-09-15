@@ -157,4 +157,19 @@ describe('Income tab (seeded)', () => {
     expect(screen.getAllByText('Projected')).toHaveLength(12 - entered.length);
     expect(screen.getByText(/PAYE check/)).toBeTruthy();
   });
+
+  it('the allowance meter reads the pension engine: SIPP-only person shows carry-forward (amendment (k))', async () => {
+    const p = await peopleRepo.add({ name: 'Anderson', annualSalaryPence: 60000 });
+    await incomeEventsRepo.add({ personId: p, date: startDate, kind: 'sipp-contribution', amountPence: 800 });
+
+    render(<Income />);
+
+    expect(await screen.findByText(/Pension annual allowance \(£60,000\)/)).toBeTruthy();
+    expect(screen.getByText(/No NHS\/LGPS input amount for this year/)).toBeTruthy();
+    // £1,000 gross SIPP used; headroom = £60,000 − £1,000 + 3 × £60,000 carry-forward.
+    expect(
+      screen.getByText((_, el) => el.tagName === 'SPAN' && /£239,000\.00 more gross pension/.test(el.textContent))
+    ).toBeTruthy();
+    expect(screen.queryByText(/carry-forward isn/)).toBeNull();
+  });
 });

@@ -275,4 +275,35 @@ describe('schema upgrades', () => {
     expect(forEmployer).toHaveLength(1);
     expect(forEmployer[0].id).toBe(tripId);
   });
+
+  it('v7 → v8: preserves rows and adds a unique-per-person-year pensionYears store', async () => {
+    const v7 = new Dexie(DB_NAME);
+    v7.version(1).stores(V1_STORES);
+    v7.version(2).stores({ transactions: '++id, date, kind, categoryId, source, importHash, debtId' });
+    v7.version(3).stores({ people: '++id', incomeEvents: '++id, personId, date, kind' });
+    v7.version(4).stores({ balanceUpdates: '++id, debtId, date' });
+    v7.version(5).stores({
+      salaryPeriods: '++id, personId, effectiveFrom',
+      payslips: '++id, personId, month, &[personId+month]',
+    });
+    v7.version(6).stores({ mileageTrips: '++id, date, vehicle' });
+    v7.version(7).stores({ employers: '++id, name', mileageTrips: '++id, date, vehicle, employerId' });
+    await v7.open();
+    expect(v7.verno).toBe(7);
+    const personId = await v7.people.add({ name: 'A', annualSalaryPence: 6000000 });
+    v7.close();
+
+    await db.open();
+    expect(db.verno).toBe(SCHEMA_VERSION);
+    const person = await db.people.get(personId);
+    expect(person.name).toBe('A');
+    expect(person.pensionScheme).toBeUndefined(); // undefined until written; the pension adapter treats it as blank
+
+    expect(await db.pensionYears.count()).toBe(0);
+    await db.pensionYears.add({ personId, taxYear: '2025-26', piaPence: 2148600, pensionableEarningsPence: null, note: '' });
+    await expect(
+      db.pensionYears.add({ personId, taxYear: '2025-26', piaPence: 1, pensionableEarningsPence: null, note: '' })
+    ).rejects.toThrow();
+    expect(await db.pensionYears.where('personId').equals(personId).count()).toBe(1);
+  });
 });

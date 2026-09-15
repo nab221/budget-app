@@ -8,7 +8,6 @@ import {
   parseTaxCode,
   buildPersonYearInput,
   computePersonTax,
-  computePensionAllowance,
 } from './tax.js';
 
 const T26 = TAX_YEAR_TABLES['2026-27'];
@@ -160,31 +159,6 @@ describe('buildPersonYearInput', () => {
     // A SIPP payment is not income — the income stacks are untouched.
     expect(input.nonDividendPence).toBe(6000000 - 600000 + 100000 + 50000);
     expect(input.dividendPence).toBe(0);
-  });
-});
-
-describe('computePensionAllowance', () => {
-  it('sums workplace and personal against the £60,000 allowance', () => {
-    const use = computePensionAllowance(
-      { workplacePence: 500000, personalPence: 150000 },
-      T26
-    );
-    expect(use.usedPence).toBe(650000);
-    expect(use.allowancePence).toBe(6000000);
-    expect(use.headroomPence).toBe(5350000);
-    expect(use.over).toBe(false);
-  });
-
-  it('flags contributions over the allowance', () => {
-    const use = computePensionAllowance({ workplacePence: 6100000 }, T26);
-    expect(use.over).toBe(true);
-    expect(use.headroomPence).toBe(0);
-  });
-
-  it('treats missing inputs as zero', () => {
-    const use = computePensionAllowance({}, T26);
-    expect(use.usedPence).toBe(0);
-    expect(use.headroomPence).toBe(6000000);
   });
 });
 

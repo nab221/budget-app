@@ -249,38 +249,6 @@ export function buildPersonYearInput(person, events, salaryOverridePence = null)
   };
 }
 
-/**
- * How much of the pension ANNUAL ALLOWANCE a person's contributions use
- * (amendment 2026-07-12 (g)). £60,000 for 2025-26/2026-27.
- *
- * Documented simplifications (chosen per the "simpler option" rule): no
- * high-income taper (bites only when threshold income > £200k AND adjusted
- * income > £260k), no 3-year carry-forward, no MPAA. Employer contributions
- * and pension paid via salary sacrifice are not tracked — the sacrifice
- * figure on the timeline can be a car, so it never counts here.
- *
- * @param {{ workplacePence?: number, personalPence?: number }} input - integer
- *   pence: before-tax workplace contributions for the year (payslip actuals +
- *   timeline projections) and grossed-up personal/SIPP contributions.
- * @param {object} table - a TAX_YEAR_TABLES entry.
- * @returns {{ usedPence, workplacePence, personalPence, allowancePence,
- *             headroomPence, over }}
- */
-export function computePensionAllowance(input, table) {
-  const workplacePence = Math.max(0, Math.round(input.workplacePence || 0));
-  const personalPence = Math.max(0, Math.round(input.personalPence || 0));
-  const usedPence = workplacePence + personalPence;
-  const allowancePence = table.pensionAnnualAllowancePence;
-  return {
-    usedPence,
-    workplacePence,
-    personalPence,
-    allowancePence,
-    headroomPence: Math.max(0, allowancePence - usedPence),
-    over: usedPence > allowancePence,
-  };
-}
-
 // ---------------------------------------------------------------------------
 // The tax computation
 // ---------------------------------------------------------------------------
