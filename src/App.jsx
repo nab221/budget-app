@@ -6,6 +6,7 @@ import Payoff from './ui/Payoff.jsx';
 import Childcare from './ui/Childcare.jsx';
 import Mileage from './ui/Mileage.jsx';
 import Company from './ui/Company.jsx';
+import Pension from './ui/Pension.jsx';
 import Settings from './ui/Settings.jsx';
 import { useLiveData } from './db/useLiveData.js';
 import { settings } from './db/settings.js';
@@ -20,6 +21,7 @@ const TABS = [
   { id: 'childcare', label: 'Childcare', Component: Childcare },
   { id: 'mileage', label: 'Mileage', Component: Mileage },
   { id: 'company', label: 'Company', Component: Company },
+  { id: 'pension', label: 'Pension', Component: Pension },
 ];
 
 export default function App() {
