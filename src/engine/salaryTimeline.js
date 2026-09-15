@@ -135,6 +135,27 @@ export function projectedMonthPensionPence(periods, yyyyMM) {
   return dayWeightedMonthPence(periods, yyyyMM, monthlyPensionRateOf);
 }
 
+/** A period's gross annual salary per month — before sacrifice, workplace
+ * pension and BIK. The pensionable-earnings proxy for the Pension tab. */
+function monthlySalaryRateOf(period) {
+  return Math.round(Math.max(0, Math.round(Number(period.annualSalaryPence) || 0)) / 12);
+}
+
+/**
+ * Projected gross salary for a whole tax year from the timeline: the 12 pay
+ * months' day-weighted annual salary ÷ 12 (amendment (k) — the default
+ * pensionable earnings when no override is entered).
+ * @param {Array<object>} periods - pence-domain salary periods.
+ * @param {string} taxYear - e.g. "2026-27".
+ * @returns {number} pence
+ */
+export function projectedYearSalaryPence(periods, taxYear) {
+  return monthsOfTaxYear(taxYear).reduce(
+    (sum, month) => sum + dayWeightedMonthPence(periods, month, monthlySalaryRateOf),
+    0
+  );
+}
+
 /**
  * Build the 12 pay-month rows for one person's tax year.
  *
