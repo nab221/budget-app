@@ -1,7 +1,7 @@
 # Pension tab — annual allowance with defined-benefit input amounts: design
 
 **Date:** 2026-09-15
-**Status:** approved, not yet implemented
+**Status:** implemented
 **Spec:** amends `REFACTOR-SPEC.md` (amendment 2026-09-15 (k)); schema v8 (additive)
 
 ## 1. Purpose
@@ -150,8 +150,7 @@ export const RELIEF_AT_SOURCE_GROSS_UP = 1.25;
   ```
 
   Per year, `piaPence` is the entered figure when the row has one, else the estimate
-  when the roll-forward reaches that year, else null with source `'none'` (used = SIPP
-  only, unused = allowance − SIPP, never negative).
+  when the roll-forward reaches that year, else null with source `'none'`. For a scheme member such a year is unknown and contributes zero unused allowance (§1); for a person with no scheme it is complete on SIPP data alone, so unused = allowance − SIPP, never negative.
 
 ### Decisions
 
