@@ -282,26 +282,29 @@ describe('gatherIncomeData', () => {
     expect(person.input.sippGrossPence).toBe(100000);
     // ANI: £60,000 − £1,000 grossed-up SIPP.
     expect(person.summary.adjustedNetIncomePence).toBe(5900000);
-    expect(person.pensionAllowance.personalPence).toBe(100000);
-    expect(person.pensionAllowance.usedPence).toBe(100000);
-    expect(person.pensionAllowance.over).toBe(false);
+    expect(person.pension.current.sippGrossPence).toBe(100000);
+    expect(person.pension.current.usedPence).toBe(100000);
+    expect(person.pension.over).toBe(false);
   });
 
-  it('the allowance tracker sums payslip pension actuals with timeline projections', async () => {
+  it('payslip pension contributions no longer count toward the annual allowance (amendment (k))', async () => {
     const p = await peopleRepo.add({ name: 'Anderson' });
     await salaryPeriodsRepo.add({
       personId: p,
       effectiveFrom: '1900-01-01',
       annualSalaryPence: 60000,
-      workplacePensionAnnualPence: 6000, // £500/month expected
+      workplacePensionAnnualPence: 6000,
     });
     await payslipsRepo.upsert(p, { month: '2026-04', taxablePence: 4500, pensionPence: 709.71 });
 
     const data = await gatherIncomeData('2026-27', '2026-04-30');
     const person = data.people[0];
-    // April actual £709.71 + 11 projected months at £500.
-    expect(person.pensionAllowance.workplacePence).toBe(70971 + 11 * 50000);
-    expect(person.pensionAllowance.headroomPence).toBe(6000000 - (70971 + 11 * 50000));
+    // The month grid still carries the contribution…
+    expect(person.monthly[0].pensionPence).toBe(70971);
+    // …but a DB scheme is measured by its input amount, so with no scheme set
+    // the person is tracked on SIPP alone.
+    expect(person.pension.current.usedPence).toBe(0);
+    expect(person.pension.current.piaSource).toBe('none');
   });
 
   it('payslipsRepo.upsert keeps one payslip per person-month', async () => {

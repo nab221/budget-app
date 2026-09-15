@@ -94,11 +94,13 @@ function PeriodRow({ period, onEdit, onDelete }) {
 
 /**
  * A person's tax-year card (spec §4.8, income redesign amendment (c)):
- * headline income figures, the two threshold meters (£50,270 / £100,000),
- * the tax split, the salary timeline (dated rates), the Apr–Mar month grid
- * (payslip actuals over projections, running total, PAYE check), and the
- * year's dividend draws and other gross income. Everything displayed here is
- * computed at read time by `gatherIncomeData` — nothing persisted.
+ * headline income figures, the two threshold meters (£50,270 / £100,000)
+ * plus the pension annual allowance meter (reads the Pension engine's
+ * `entry.pension`), the tax split, the salary timeline (dated rates), the
+ * Apr–Mar month grid (payslip actuals over projections, running total, PAYE
+ * check), and the year's dividend draws and other gross income. Everything
+ * displayed here is computed at read time by `gatherIncomeData` — nothing
+ * persisted.
  *
  * @param {object} props.entry - one entry from `gatherIncomeData().people`.
  * @param {object} props.table - the tax-year rate table in force (thresholds).
@@ -128,7 +130,7 @@ export default function PersonCard({
     periods,
     monthly,
     payeCheck,
-    pensionAllowance,
+    pension,
     usingLegacySalary,
   } = entry;
 
@@ -198,27 +200,24 @@ export default function PersonCard({
         overText={`Over ${poundsLabel(table.taperThresholdPence)} — the household loses Tax-Free Childcare and free hours.`}
       />
       <ThresholdMeter
-        label={`Pension annual allowance (${poundsLabel(table.pensionAnnualAllowancePence)})`}
-        valuePence={pensionAllowance.usedPence}
-        limitPence={table.pensionAnnualAllowancePence}
-        headroomPence={pensionAllowance.headroomPence}
-        headroomText="more pension contributions before the allowance"
-        over={pensionAllowance.over}
-        overText="Over the annual allowance — the excess is taxed, unless unused allowance from the last 3 years covers it (carry-forward isn’t tracked here)."
+        label={`Pension annual allowance (${poundsLabel(pension.current.allowancePence)})`}
+        valuePence={pension.current.usedPence}
+        limitPence={pension.current.allowancePence}
+        headroomPence={pension.headroomGrossPence}
+        headroomText="more gross pension before the allowance, incl. carry-forward"
+        over={pension.over}
+        overText="Over the annual allowance even after carry-forward — the excess is taxed at your marginal rate. See the Pension tab."
       />
       <p className="muted">
-        Pension so far: workplace <Money pence={pensionAllowance.workplacePence} /> · personal
-        &amp; SIPP <Money pence={pensionAllowance.personalPence} />
-        {input.sippPaidTotalPence > 0 && (
+        {pension.current.piaSource === 'none' ? (
+          'No NHS/LGPS input amount for this year'
+        ) : (
           <>
-            {' '}
-            (SIPP <Money pence={input.sippPaidTotalPence} /> paid → <Money
-              pence={input.sippGrossPence}
-            />{' '}
-            with relief)
+            NHS/LGPS input <Money pence={pension.current.piaPence} /> ({pension.current.piaSource})
           </>
         )}
-        . Employer contributions and pension via salary sacrifice aren’t counted.
+        {' · '}personal &amp; SIPP <Money pence={pension.current.sippGrossPence} />
+        {' · '}carry-forward <Money pence={pension.carryForwardPence} /> — details on the Pension tab.
       </p>
 
       <div className="person-card__tax">

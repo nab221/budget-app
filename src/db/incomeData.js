@@ -12,9 +12,9 @@ import {
   taxYearTable,
   buildPersonYearInput,
   computePersonTax,
-  computePensionAllowance,
 } from '../engine/tax.js';
 import { monthsOfTaxYear, buildMonthlyPay, expectedPayeYtd } from '../engine/salaryTimeline.js';
+import { gatherPensionData } from './pensionData.js';
 
 /** Today as an ISO 'yyyy-MM-dd' — overridable so tests are deterministic. */
 const isoToday = () => new Date().toISOString().slice(0, 10);
@@ -45,11 +45,12 @@ export async function gatherIncomeData(taxYearLabel, today = isoToday()) {
   const months = monthsOfTaxYear(taxYearLabel);
   const todayMonth = String(today).slice(0, 7);
 
-  const [peopleRaw, eventsRaw, periodsRaw, payslipsRaw] = await Promise.all([
+  const [peopleRaw, eventsRaw, periodsRaw, payslipsRaw, pensionData] = await Promise.all([
     peopleRepo.getAll(), // pounds at the edge
     incomeEventsRepo.between(startDate, endDate), // pounds at the edge
     salaryPeriodsRepo.getAll(), // pounds at the edge
     payslipsRepo.betweenMonths(months[0], months[11]), // pounds at the edge
+    gatherPensionData(taxYearLabel),
   ]);
 
   const people = peopleRaw.map((p) => {
@@ -122,11 +123,6 @@ export async function gatherIncomeData(taxYearLabel, today = isoToday()) {
     });
     const yearSalaryPence = monthly[monthly.length - 1].cumulativePence;
     const input = buildPersonYearInput(personPence, events, yearSalaryPence);
-    // Annual-allowance use (amendment (g)): workplace = the 12 months' pension
-    // contributions (payslip actuals over projections, like pay); personal =
-    // the annual personal-pension field + grossed-up SIPP events, which is
-    // exactly the input's pensionPence.
-    const workplacePensionYearPence = monthly.reduce((sum, row) => sum + row.pensionPence, 0);
     return {
       id: p.id,
       name: p.name,
@@ -139,10 +135,9 @@ export async function gatherIncomeData(taxYearLabel, today = isoToday()) {
       input,
       summary: computePersonTax(input, table),
       payeCheck: expectedPayeYtd(monthly, table, p.taxCode),
-      pensionAllowance: computePensionAllowance(
-        { workplacePence: workplacePensionYearPence, personalPence: input.pensionPence },
-        table
-      ),
+      // Annual-allowance position (amendment (k)): computed by the pension
+      // adapter from the person's scheme anchor, entered years and SIPP events.
+      pension: pensionData.people.find((x) => x.id === p.id) ?? null,
     };
   });
 
