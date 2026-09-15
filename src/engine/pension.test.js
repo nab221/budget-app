@@ -328,4 +328,68 @@ describe('buildPensionYear', () => {
     expect(y.years.map((r) => r.piaSource)).toEqual(['none', 'none', 'none', 'none']);
     expect(y.cpiMissing).toEqual([]);
   });
+
+  describe('back-chain from the statement anchor', () => {
+    const anchor2026 = { pence: 790_018, date: '2026-03-31', openingYear: '2026-27' };
+    const within = (pia, pounds) => expect(Math.abs(pia - pounds * 100)).toBeLessThan(100);
+
+    it('estimates the three prior years from pension earned and matches the TRS PIAs within £1', () => {
+      const y = buildPensionYear({
+        taxYear: '2026-27',
+        scheme: 'nhs-2015',
+        anchor: anchor2026,
+        rows: [],
+        earningsByYear: { '2026-27': 7_000_000 },
+        earnedByYear: NHS_EARNED,
+        sippGrossByYear: {},
+      });
+      expect(y.years.map((r) => r.piaSource)).toEqual(['estimate', 'estimate', 'estimate', 'estimate']);
+      within(y.years[0].piaPence, 15060);
+      within(y.years[1].piaPence, 18533);
+      within(y.years[2].piaPence, 21486);
+      expect(y.years.map((r) => r.estimate.openingPence)).toEqual([364_764, 495_727, 644_770, 790_018]);
+      expect(y.years.map((r) => r.estimate.closingPence)).toEqual([495_727, 644_770, 790_018, 961_519]);
+      expect(y.years.map((r) => r.estimate.earnedSource)).toEqual(['statement', 'statement', 'statement', 'earnings']);
+      expect(y.years[2].estimate.earnedPence).toBe(124_615);
+      expect(y.current.estimate.earnedPence).toBe(Math.round(7_000_000 / 54));
+      expect(Math.abs(y.carryForwardPence - 12_492_100)).toBeLessThan(300);
+      expect(y.cpiMissing).toEqual([]);
+    });
+
+    it('a missing pension-earned row stops the chain and is not a CPI gap', () => {
+      const { '2024-25': _gap, ...withGap } = NHS_EARNED;
+      const y = buildPensionYear({ taxYear: '2026-27', scheme: 'nhs-2015', anchor: anchor2026, rows: [], earningsByYear: {}, earnedByYear: withGap, sippGrossByYear: {} });
+      expect(y.years.map((r) => r.piaSource)).toEqual(['none', 'none', 'estimate', 'estimate']);
+      expect(y.years.slice(0, 2).map((r) => r.unusedPence)).toEqual([0, 0]);
+      expect(y.cpiMissing).toEqual([]);
+    });
+
+    it('a missing CPI on the chain switches off that year and the years behind it, and lists them', () => {
+      const { '2024-25': _cpi, ...cpiGap } = SEPTEMBER_CPI;
+      const y = buildPensionYear({ taxYear: '2026-27', scheme: 'nhs-2015', anchor: anchor2026, rows: [], earningsByYear: {}, earnedByYear: NHS_EARNED, sippGrossByYear: {}, cpiByYear: cpiGap });
+      expect(y.years.map((r) => r.piaSource)).toEqual(['none', 'none', 'estimate', 'estimate']);
+      expect(y.cpiMissing).toEqual(['2023-24', '2024-25']);
+    });
+
+    it('a forward year with a pension-earned figure uses it instead of earnings ÷ 54', () => {
+      const y = buildPensionYear({ taxYear: '2026-27', scheme: 'nhs-2015', anchor: anchor2026, rows: [], earningsByYear: { '2026-27': 7_000_000 }, earnedByYear: { '2026-27': 130_000 }, sippGrossByYear: {} });
+      expect(y.current.estimate.earnedSource).toBe('statement');
+      expect(y.current.estimate.earnedPence).toBe(130_000);
+      expect(y.current.estimate.closingPence).toBe(961_889); // 790,018 × 1.053 + 130,000
+    });
+
+    it('an entered PIA still beats a back-chained estimate', () => {
+      const y = buildPensionYear({ taxYear: '2026-27', scheme: 'nhs-2015', anchor: anchor2026, rows: [{ taxYear: '2025-26', piaPence: 2_150_000 }], earningsByYear: {}, earnedByYear: NHS_EARNED, sippGrossByYear: {} });
+      expect(y.years[2]).toMatchObject({ piaSource: 'entered', piaPence: 2_150_000 });
+      within(y.years[2].estimate.piaPence, 21486);
+    });
+
+    it('reaches 2022-23 but never back-chains before it, and that is not a CPI gap', () => {
+      const y = buildPensionYear({ taxYear: '2024-25', scheme: 'nhs-2015', anchor: { pence: 364_764, date: '2023-03-31', openingYear: '2023-24' }, rows: [], earningsByYear: {}, earnedByYear: { ...NHS_EARNED, '2021-22': 50_000 }, sippGrossByYear: {} });
+      expect(y.years.map((r) => r.taxYear)).toEqual(['2021-22', '2022-23', '2023-24', '2024-25']);
+      expect(y.years.map((r) => r.piaSource)).toEqual(['none', 'estimate', 'estimate', 'estimate']);
+      expect(y.years[1].estimate.openingPence).toBe(280_982); // 2022-23, one step back from the anchor
+      expect(y.cpiMissing).toEqual([]);
+    });
+  });
 });

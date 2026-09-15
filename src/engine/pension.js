@@ -11,8 +11,10 @@
  * opening × (1 + CPI + real revaluation) + pensionable earnings ÷ accrual.
  *
  * The user enters one ANCHOR (accrued pension at a statement date); the engine
- * rolls it forward year by year. An entered figure (Pension Savings Statement
- * or the owner's own reconstruction) always beats the estimate.
+ * rolls it forward year by year, and BACKWARDS through the statement's
+ * per-year "pension earned" for the years before it. An entered figure
+ * (Pension Savings Statement or the owner's own reconstruction) always beats
+ * the estimate.
  *
  * Documented simplifications: post-April-2022 revaluation timing only (no
  * estimates before 2022-23); a prior year over its own allowance contributes
@@ -233,6 +235,11 @@ export function windowYears(taxYear) {
  * personal/SIPP contributions, used and unused; then the carry-forward,
  * SIPP headroom (gross and the net payment), and the over/chargeable verdict.
  *
+ * Years from the anchor's opening year onward are rolled FORWARD from it;
+ * years before it are rolled BACKWARD through the statement's per-year
+ * "pension earned" (`earnedByYear`) — a gap in those rows stops the chain and
+ * leaves the earlier years unknown (source 'none').
+ *
  * A scheme member's year with neither an entered figure nor an estimate is
  * unknown — it contributes ZERO carry-forward (conservative). A person with no
  * scheme is complete on SIPP data alone, so their unused is allowance − SIPP.
@@ -245,35 +252,65 @@ export function buildPensionYear({
   anchor = null,
   rows = [],
   earningsByYear = {},
+  earnedByYear = {},
   sippGrossByYear = {},
   cpiByYear = SEPTEMBER_CPI,
 }) {
   const rowByYear = new Map((rows || []).map((r) => [r.taxYear, r]));
   const cpiMissing = [];
   const canEstimate = !!(scheme && SCHEMES[scheme] && anchor && anchor.openingYear && anchor.openingYear >= FIRST_ESTIMATE_YEAR);
+  const anchorArgs = canEstimate ? { scheme, anchorPence: anchor.pence, anchorOpeningYear: anchor.openingYear, cpiByYear } : null;
+
+  /** True when any CPI from `from` to `to` inclusive is missing. */
+  const cpiGapBetween = (from, to) => {
+    for (let y = from; y <= to; y = shiftTaxYear(y, 1)) if (typeof cpiByYear[y] !== 'number') return true;
+    return false;
+  };
 
   const years = windowYears(taxYear).map((label) => {
     const { allowancePence, fromTable } = annualAllowanceForYear(label);
     const row = rowByYear.get(label) || null;
     const earningsPence = pence(earningsByYear[label]);
     const earningsSource = row && row.pensionableEarningsPence != null ? 'override' : 'timeline';
+    const earnedEntered = numberOrNull(earnedByYear, label);
 
     let estimate = null;
-    if (canEstimate && label >= anchor.openingYear && label >= FIRST_ESTIMATE_YEAR) {
-      const rolled = rollForward({
-        scheme,
-        anchorPence: anchor.pence,
-        anchorOpeningYear: anchor.openingYear,
-        targetYear: label,
-        cpiByYear,
-        earningsByYear,
-      });
-      const cpi = cpiByYear[label];
-      if (rolled && typeof cpi === 'number') {
-        const est = estimatePia({ scheme, openingPence: rolled.openingPence, cpi, earningsPence });
-        estimate = { openingPence: rolled.openingPence, cpi, ...est, earningsPence, earningsSource };
+    if (canEstimate && label >= FIRST_ESTIMATE_YEAR) {
+      if (label >= anchor.openingYear) {
+        const rolled = rollForward({ ...anchorArgs, targetYear: label, earningsByYear, earnedByYear });
+        const cpi = cpiByYear[label];
+        if (rolled && typeof cpi === 'number') {
+          const est = estimatePia({ scheme, openingPence: rolled.openingPence, cpi, earningsPence, earnedPence: earnedEntered });
+          estimate = {
+            openingPence: rolled.openingPence,
+            cpi,
+            ...est,
+            earningsPence,
+            earningsSource,
+            earnedPence: earnedEntered != null ? earnedEntered : Math.round(earningsPence / SCHEMES[scheme].accrualDenominator),
+            earnedSource: earnedEntered != null ? 'statement' : 'earnings',
+          };
+        } else {
+          cpiMissing.push(label);
+        }
       } else {
-        cpiMissing.push(label);
+        const rolled = rollBackward({ ...anchorArgs, targetYear: label, earnedByYear });
+        if (rolled) {
+          const step = rolled.chain[rolled.chain.length - 1];
+          estimate = {
+            openingPence: step.openingPence,
+            cpi: step.cpi,
+            closingPence: step.closingPence,
+            upratedOpeningPence: step.upratedOpeningPence,
+            piaPence: step.piaPence,
+            earningsPence,
+            earningsSource,
+            earnedPence: step.earnedPence,
+            earnedSource: 'statement',
+          };
+        } else if (cpiGapBetween(label, shiftTaxYear(anchor.openingYear, -1))) {
+          cpiMissing.push(label);
+        }
       }
     }
 
