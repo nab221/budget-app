@@ -78,6 +78,14 @@ describe('estimatePia', () => {
     expect(Math.abs(est.piaPence - Math.round((16 * 4_000_000) / 49))).toBeLessThan(100);
   });
 
+  it('uses the statement pension earned as the accrual when given, ignoring earnings', () => {
+    const est = estimatePia({ scheme: 'nhs-2015', openingPence: 644_770, cpi: 0.017, earningsPence: 0, earnedPence: 124_615 });
+    expect(est.closingPence).toBe(790_018);
+    expect(Math.abs(est.piaPence - 2_148_600)).toBeLessThan(100);
+    const derived = estimatePia({ scheme: 'nhs-2015', openingPence: 644_770, cpi: 0.017, earningsPence: 6_729_210, earnedPence: null });
+    expect(derived.closingPence).toBe(790_018); // null → earnings ÷ 54, as before
+  });
+
   it('never goes negative and treats junk as zero', () => {
     const est = estimatePia({ scheme: 'lgps-2014', openingPence: 'x', cpi: 0.02, earningsPence: null });
     expect(est).toEqual({ closingPence: 0, upratedOpeningPence: 0, piaPence: 0 });
@@ -98,6 +106,14 @@ const NHS_EARNINGS = {
   '2026-27': 7_000_000,
 };
 
+// The same years as the site shows them: "pension earned" = earnings ÷ 54.
+const NHS_EARNED = {
+  '2022-23': 70_857,
+  '2023-24': 88_650,
+  '2024-25': 108_393,
+  '2025-26': 124_615,
+};
+
 describe('rollForward', () => {
   it('reproduces the TRS balances year by year, rounding once per year', () => {
     const r = rollForward({
@@ -114,6 +130,23 @@ describe('rollForward', () => {
       ['2025-26', 790_018],
     ]);
     expect(r.openingPence).toBe(790_018);
+  });
+
+  it('uses pension earned in place of earnings ÷ 54 for the years that have it', () => {
+    const r = rollForward({
+      scheme: 'nhs-2015',
+      anchorPence: 280_982,
+      anchorOpeningYear: '2022-23',
+      targetYear: '2026-27',
+      earningsByYear: {},
+      earnedByYear: NHS_EARNED,
+    });
+    expect(r.chain.map((c) => [c.taxYear, c.closingPence])).toEqual([
+      ['2022-23', 364_764],
+      ['2023-24', 495_727],
+      ['2024-25', 644_770],
+      ['2025-26', 790_018],
+    ]);
   });
 
   it('is the anchor itself for the anchor opening year', () => {

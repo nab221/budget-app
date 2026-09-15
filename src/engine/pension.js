@@ -102,18 +102,22 @@ function schemeOf(key) {
   return scheme;
 }
 
+/** `map[label]` when it is a number, else null ("not entered"). */
+const numberOrNull = (map, label) => (typeof map?.[label] === 'number' ? map[label] : null);
+
 /**
  * One year's pension input amount from its opening pension, computed in full
  * (revaluation and accrual on one side, CPI uprating on the other) and rounded
- * once at the end.
+ * once at the end. The accrual is the statement's "pension earned" when
+ * `earnedPence` is a number, else pensionable earnings ÷ the scheme's accrual.
  * @returns {{ closingPence: number, upratedOpeningPence: number, piaPence: number }}
  */
-export function estimatePia({ scheme, openingPence, cpi, earningsPence }) {
+export function estimatePia({ scheme, openingPence, cpi, earningsPence, earnedPence = null }) {
   const s = schemeOf(scheme);
   const opening = pence(openingPence);
-  const earnings = pence(earningsPence);
   const rate = Number(cpi) || 0;
-  const closingExact = opening * (1 + rate + s.realRevaluation) + earnings / s.accrualDenominator;
+  const accrualExact = typeof earnedPence === 'number' ? pence(earnedPence) : pence(earningsPence) / s.accrualDenominator;
+  const closingExact = opening * (1 + rate + s.realRevaluation) + accrualExact;
   const upratedExact = opening * (1 + rate);
   return {
     closingPence: Math.round(closingExact),
@@ -124,8 +128,8 @@ export function estimatePia({ scheme, openingPence, cpi, earningsPence }) {
 
 /**
  * Roll a statement anchor forward to the opening pension of `targetYear`,
- * one tax year at a time: closing = opening × (1 + CPI + real) + earnings ÷
- * accrual, rounded once per year. Null when the target is before the
+ * one tax year at a time: closing = opening × (1 + CPI + real) + accrual (the year's pension earned when known, else earnings ÷ denominator),
+ * rounded once per year. Null when the target is before the
  * anchor's opening year, before 2022-23 (pre-2022 revaluation timing is not
  * modelled), or any CPI on the way is missing.
  * @returns {{ openingPence: number, chain: Array<{ taxYear, openingPence, closingPence, cpi }> } | null}
@@ -137,6 +141,7 @@ export function rollForward({
   targetYear,
   cpiByYear = SEPTEMBER_CPI,
   earningsByYear = {},
+  earnedByYear = {},
 }) {
   if (!SCHEMES[scheme]) return null;
   if (String(fromYear) < FIRST_ESTIMATE_YEAR || String(targetYear) < String(fromYear)) return null;
@@ -146,7 +151,13 @@ export function rollForward({
   while (year < targetYear) {
     const cpi = cpiByYear[year];
     if (typeof cpi !== 'number') return null;
-    const { closingPence } = estimatePia({ scheme, openingPence: opening, cpi, earningsPence: earningsByYear[year] || 0 });
+    const { closingPence } = estimatePia({
+      scheme,
+      openingPence: opening,
+      cpi,
+      earningsPence: earningsByYear[year] || 0,
+      earnedPence: numberOrNull(earnedByYear, year),
+    });
     chain.push({ taxYear: year, openingPence: opening, closingPence, cpi });
     opening = closingPence;
     year = shiftTaxYear(year, 1);
