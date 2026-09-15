@@ -25,9 +25,9 @@ describe('tables', () => {
 });
 
 describe('annualAllowanceForYear', () => {
-  it('is £40,000 before 2023-24 and the tax table from then on', () => {
-    expect(annualAllowanceForYear('2022-23')).toEqual({ allowancePence: 4_000_000, fromTable: false });
-    expect(annualAllowanceForYear('2023-24')).toEqual({ allowancePence: 6_000_000, fromTable: false });
+  it('is £40,000 before 2023-24 and the tax table from then on, fromTable true for every known year', () => {
+    expect(annualAllowanceForYear('2022-23')).toEqual({ allowancePence: 4_000_000, fromTable: true });
+    expect(annualAllowanceForYear('2023-24')).toEqual({ allowancePence: 6_000_000, fromTable: true });
     expect(annualAllowanceForYear('2026-27')).toEqual({ allowancePence: 6_000_000, fromTable: true });
     expect(annualAllowanceForYear('2035-36')).toEqual({ allowancePence: 6_000_000, fromTable: false });
   });
@@ -208,5 +208,18 @@ describe('buildPensionYear', () => {
     const y = buildPensionYear({ taxYear: '2028-29', scheme: 'nhs-2015', anchor: { pence: 790_018, date: '2026-03-31', openingYear: '2026-27' }, rows: [], earningsByYear: {}, sippGrossByYear: {} });
     expect(y.years.map((r) => r.piaSource)).toEqual(['none', 'estimate', 'none', 'none']);
     expect(y.cpiMissing).toEqual(['2027-28', '2028-29']);
+  });
+
+  it('an anchor before 2022-23 produces no estimate anywhere, and is not a CPI gap', () => {
+    const y = buildPensionYear({
+      taxYear: '2026-27',
+      scheme: 'nhs-2015',
+      anchor: { pence: 100_000, date: '2021-03-31', openingYear: '2021-22' },
+      rows: [],
+      earningsByYear: {},
+      sippGrossByYear: {},
+    });
+    expect(y.years.map((r) => r.piaSource)).toEqual(['none', 'none', 'none', 'none']);
+    expect(y.cpiMissing).toEqual([]);
   });
 });

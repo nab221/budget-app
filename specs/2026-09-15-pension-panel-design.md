@@ -110,9 +110,10 @@ export const RELIEF_AT_SOURCE_GROSS_UP = 1.25;
 - `cpiForYear(label)` → the rate or **null** when the year is not seeded. No fallback:
   a wrong CPI silently mis-states the estimate, so a missing year switches the estimate
   off and the UI shows the fallback banner instead.
-- `annualAllowanceForYear(label)` → `TAX_YEAR_TABLES[label].pensionAnnualAllowancePence`
-  when seeded; otherwise £40,000 for labels before `2023-24`, else the newest table's
-  figure. Returned with `{ allowancePence, fromTable: boolean }` so the UI can flag it.
+- `annualAllowanceForYear(label)` → the allowance for the year; `fromTable` is true for
+  every year up to the newest seeded tax-table year (£40,000 before 2023-24 and £60,000
+  from then on are known facts) and false only for later, unknown years, which is what
+  the fallback banner and the `*` marker report.
 - `anchorOpeningYear(anchorDate)` → the tax year the anchor OPENS: the statement figure
   is the value at the end of the tax year containing the date (31 March 2026 → end of
   2025-26 → opens `2026-27`).
@@ -137,7 +138,7 @@ export const RELIEF_AT_SOURCE_GROSS_UP = 1.25;
       { taxYear, allowancePence, allowanceFromTable,
         piaPence, piaSource: 'entered' | 'estimate' | 'none',
         estimate: { openingPence, cpi, closingPence, earningsPence, earningsSource } | null,
-        sippGrossPence, usedPence, unusedPence }
+        sippGrossPence, usedPence, unusedPence, carriedPence }
     ],
     current: /* the last entry */,
     carryForwardPence,        // sum of prior unused, after the current year's excess eats it oldest-first
@@ -145,7 +146,9 @@ export const RELIEF_AT_SOURCE_GROSS_UP = 1.25;
     headroomGrossPence,       // what can still go in, gross
     headroomNetPence,         // headroomGross ÷ 1.25 — the payment actually made
     over, chargeablePence,    // excess beyond allowance + carry-forward
-    cpiMissing: [labels],     // years whose estimate was switched off
+    cpiMissing: [labels],     // years whose estimate was switched off — an anchor that
+                              // opens before 2022-23 produces no estimate and is NOT a
+                              // CPI gap — the card says so
   }
   ```
 
@@ -197,7 +200,7 @@ export const RELIEF_AT_SOURCE_GROSS_UP = 1.25;
   pence at this edge; groups SIPP events by `taxYearForDate`; builds
   `earningsByYear` from the timeline (override where a row has one, from the anchor's
   opening year to `taxYear`); returns `{ taxYear, people: [{ id, name, scheme, anchor,
-  rows, ...buildPensionYear }] }`. Nothing persisted.
+  rows, earningsByYear, ...buildPensionYear }] }`. Nothing persisted.
 - **`gatherIncomeData`** calls `gatherPensionData(taxYear)` and attaches each person's
   result as `entry.pension` (replacing `entry.pensionAllowance`). The Pension tab reads
   `gatherIncomeData` too — it needs `summary.adjustedNetIncomePence` for the taper
@@ -206,7 +209,7 @@ export const RELIEF_AT_SOURCE_GROSS_UP = 1.25;
 ## 4. Screen — Pension tab, after Company
 
 **Header** — "Pension" plus the Income-style tax-year navigator (‹ / › / Today), labelled
-*2026-27 · 6 Apr 2026 – 5 Apr 2027*. A banner when any year in the window lacks a
+*Tax year 2026-27* with *6 Apr 2026 – 5 Apr 2027* beneath it. A banner when any year in the window lacks a
 September CPI (*"No CPI for 2027-28 yet — estimates for that year are off; add it to
 `SEPTEMBER_CPI` after the September figure is published"*) or when an allowance fell
 back to the newest table.

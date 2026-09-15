@@ -39,8 +39,8 @@ function labelsBetween(from, to) {
  * @returns {Promise<{ taxYear: string, people: Array<object> }>}
  */
 export async function gatherPensionData(taxYearLabel) {
-  const window = windowYears(taxYearLabel);
-  const windowStart = taxYearBounds(window[0]).startDate;
+  const labels = windowYears(taxYearLabel);
+  const windowStart = taxYearBounds(labels[0]).startDate;
   const { endDate } = taxYearBounds(taxYearLabel);
 
   const [peopleRaw, periodsRaw, rowsRaw, eventsRaw] = await Promise.all([
@@ -80,7 +80,7 @@ export async function gatherPensionData(taxYearLabel) {
     const rowByYear = new Map(rows.map((r) => [r.taxYear, r]));
 
     // Earnings for every year the roll-forward or the window can touch.
-    const firstYear = anchor && anchor.openingYear < window[0] ? anchor.openingYear : window[0];
+    const firstYear = anchor && anchor.openingYear < labels[0] ? anchor.openingYear : labels[0];
     const earningsByYear = {};
     for (const label of labelsBetween(firstYear, taxYearLabel)) {
       const override = rowByYear.get(label)?.pensionableEarningsPence;
@@ -89,17 +89,21 @@ export async function gatherPensionData(taxYearLabel) {
     }
 
     // Grossed-up personal contributions per window year: the annual
-    // personal-pension field (entered gross) every year + SIPP events × 1.25
-    // in the tax year of their date — the Income engine's definition.
+    // personal-pension field (entered gross) every year + SIPP events summed
+    // net then grossed up ×1.25 ONCE per year — the Income engine's
+    // `buildPersonYearInput` definition (sum net pence for the year, round
+    // once), not per-event rounding.
     const annualPersonalPence = toPence(p.pensionAnnualPence); // pounds → pence
-    const sippGrossByYear = Object.fromEntries(window.map((label) => [label, annualPersonalPence]));
+    const netByYear = {};
     for (const ev of eventsRaw) {
       if (ev.personId !== p.id || ev.kind !== 'sipp-contribution') continue;
       const label = taxYearForDate(ev.date);
-      if (label in sippGrossByYear) {
-        sippGrossByYear[label] += Math.round(toPence(ev.amountPence) * RELIEF_AT_SOURCE_GROSS_UP); // pounds → pence
-      }
+      if (!labels.includes(label)) continue;
+      netByYear[label] = (netByYear[label] || 0) + toPence(ev.amountPence); // pounds → pence
     }
+    const sippGrossByYear = Object.fromEntries(
+      labels.map((label) => [label, annualPersonalPence + Math.round((netByYear[label] || 0) * RELIEF_AT_SOURCE_GROSS_UP)]),
+    );
 
     return {
       id: p.id,

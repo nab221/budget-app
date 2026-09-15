@@ -93,6 +93,17 @@ describe('gatherPensionData', () => {
     expect(me.carryForwardPence).toBe(18_000_000);
   });
 
+  it('grosses up SIPP once per year, summing net pence before rounding (matches tax.js)', async () => {
+    const p = await peopleRepo.add({ name: 'A' });
+    await sipp(p, '2026-04-10', 10.01);
+    await sipp(p, '2026-05-10', 10.01);
+
+    const me = (await gatherPensionData('2026-27')).people[0];
+    expect(me.current.sippGrossPence).toBe(2503);
+    const income = await gatherIncomeData('2026-27');
+    expect(income.people[0].input.sippGrossPence).toBe(2503);
+  });
+
   it('a pre-v8 person row with no pension fields is tracked as SIPP-only', async () => {
     const id = await db.people.add({ name: 'Legacy', annualSalaryPence: 6_000_000 }); // raw row, no pension fields
     const me = (await gatherPensionData('2026-27')).people.find((p) => p.id === id);

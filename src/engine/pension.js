@@ -19,7 +19,7 @@
  * zero carry-forward; the high-income taper is a warning, not a computation.
  */
 
-import { TAX_YEAR_TABLES, taxYearTable, taxYearForDate, shiftTaxYear } from './tax.js';
+import { TAX_YEAR_TABLES, taxYearForDate, shiftTaxYear } from './tax.js';
 
 export const SCHEMES = {
   'nhs-2015': { label: 'NHS 2015', accrualDenominator: 54, realRevaluation: 0.015 },
@@ -55,16 +55,22 @@ export function cpiForYear(label) {
   return typeof v === 'number' ? v : null;
 }
 
+const NEWEST_TABLE_YEAR = Object.keys(TAX_YEAR_TABLES).sort().at(-1);
+
 /**
- * The annual allowance for a tax year: the tax table where seeded, £40,000
- * for years before 2023-24, else the newest table's figure.
+ * The annual allowance for a tax year: £40,000 before 2023-24, the tax table
+ * from then on (falling back to the newest table beyond its seeded years).
+ * `fromTable` means "the allowance for this year is known" — true for every
+ * label up to and including the newest seeded tax-table year, false only for
+ * later, unknown years — which is what the fallback banner and the `*`
+ * marker report.
  * @returns {{ allowancePence: number, fromTable: boolean }}
  */
 export function annualAllowanceForYear(label) {
-  const seeded = TAX_YEAR_TABLES[label];
-  if (seeded) return { allowancePence: seeded.pensionAnnualAllowancePence, fromTable: true };
-  if (String(label) < '2023-24') return { allowancePence: PRE_2023_ALLOWANCE_PENCE, fromTable: false };
-  return { allowancePence: taxYearTable(label).table.pensionAnnualAllowancePence, fromTable: false };
+  const key = String(label);
+  if (key < '2023-24') return { allowancePence: PRE_2023_ALLOWANCE_PENCE, fromTable: true };
+  const seeded = TAX_YEAR_TABLES[key] ?? TAX_YEAR_TABLES[NEWEST_TABLE_YEAR];
+  return { allowancePence: seeded.pensionAnnualAllowancePence, fromTable: key <= NEWEST_TABLE_YEAR };
 }
 
 /**
@@ -166,7 +172,7 @@ export function buildPensionYear({
 }) {
   const rowByYear = new Map((rows || []).map((r) => [r.taxYear, r]));
   const cpiMissing = [];
-  const canEstimate = !!(scheme && SCHEMES[scheme] && anchor && anchor.openingYear);
+  const canEstimate = !!(scheme && SCHEMES[scheme] && anchor && anchor.openingYear && anchor.openingYear >= FIRST_ESTIMATE_YEAR);
 
   const years = windowYears(taxYear).map((label) => {
     const { allowancePence, fromTable } = annualAllowanceForYear(label);

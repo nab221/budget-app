@@ -1,7 +1,7 @@
 // src/ui/pension/PensionCard.jsx
 import Money from '../components/Money.jsx';
 import { formatDay } from '../components/dates.js';
-import { SCHEMES, TAPER_THRESHOLD_INCOME_PENCE } from '../../engine/pension.js';
+import { SCHEMES, TAPER_THRESHOLD_INCOME_PENCE, FIRST_ESTIMATE_YEAR } from '../../engine/pension.js';
 import { formatGBP } from '../../engine/currency.js';
 import PensionYearsTable from './PensionYearsTable.jsx';
 
@@ -134,9 +134,11 @@ export default function PensionCard({ entry, summary, onEditDetails, onEditYear 
           <p className="muted">
             {!scheme || !anchor
               ? 'No estimate without a scheme and a statement anchor.'
-              : current.taxYear < anchor.openingYear
-                ? `The anchor opens ${anchor.openingYear}; earlier years are entered, not estimated.`
-                : 'No estimate — the September CPI for this year is not recorded yet.'}
+              : anchor.openingYear < FIRST_ESTIMATE_YEAR
+                ? 'The anchor predates 2022-23 — enter a statement figure dated 31 March 2022 or later.'
+                : current.taxYear < anchor.openingYear
+                  ? `The anchor opens ${anchor.openingYear}; earlier years are entered, not estimated.`
+                  : 'No estimate — the September CPI for this year is not recorded yet.'}
           </p>
         )}
       </section>

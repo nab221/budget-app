@@ -1954,6 +1954,10 @@ body.privacy .chart:hover {
 .pension-years th {
   padding: 0.35rem 0.6rem;
 }
+.pension-years td:first-child,
+.pension-years .num {
+  white-space: nowrap;
+}
 .pension-years__actions {
   text-align: right;
   white-space: nowrap;

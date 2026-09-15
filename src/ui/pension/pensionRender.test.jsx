@@ -52,6 +52,7 @@ describe('Pension tab', () => {
     expect(screen.getAllByText('£124,921.00').length).toBeGreaterThan(0);
     expect(screen.getByText('SIPP headroom')).toBeTruthy();
     expect(screen.getByText(inSpan(/£157,284\.22 gross · pay in £125,827\.38/))).toBeTruthy();
+    expect(screen.queryByText(/No rate table/)).toBeNull();
   });
 
   it('shows this year’s estimate with its inputs', async () => {
@@ -127,6 +128,20 @@ describe('Pension tab', () => {
     await seedOwner();
     render(<Pension initialTaxYear="2028-29" />);
     expect(await screen.findByText(/No September CPI for 2027-28, 2028-29/)).toBeTruthy();
+    expect(screen.getByText(/No rate table for 2027-28, 2028-29/)).toBeTruthy();
+  });
+
+  it('treats an anchor before 2022-23 as no estimate, not a missing CPI', async () => {
+    await peopleRepo.add({
+      name: 'Wife',
+      pensionScheme: 'nhs-2015',
+      pensionAnchorPence: 100,
+      pensionAnchorDate: '2021-03-31',
+    });
+    render(<Pension initialTaxYear="2026-27" />);
+    await screen.findByText('Wife');
+    expect(screen.getByText(/The anchor predates 2022-23 — enter a statement figure dated 31 March 2022 or later\./)).toBeTruthy();
+    expect(screen.queryByText(/No September CPI/)).toBeNull();
   });
 
   it('steps between tax years', async () => {
