@@ -135,25 +135,29 @@ export function projectedMonthPensionPence(periods, yyyyMM) {
   return dayWeightedMonthPence(periods, yyyyMM, monthlyPensionRateOf);
 }
 
-/** A period's gross annual salary per month — before sacrifice, workplace
- * pension and BIK. The pensionable-earnings proxy for the Pension tab. */
-function monthlySalaryRateOf(period) {
-  return Math.round(Math.max(0, Math.round(Number(period.annualSalaryPence) || 0)) / 12);
+/** A period's gross annual salary — before sacrifice, workplace pension and
+ * BIK. The pensionable-earnings proxy for the Pension tab. Kept as an ANNUAL
+ * rate so the year total rounds once, not twelve times. */
+function annualSalaryRateOf(period) {
+  return Math.max(0, Math.round(Number(period.annualSalaryPence) || 0));
 }
 
 /**
- * Projected gross salary for a whole tax year from the timeline: the 12 pay
- * months' day-weighted annual salary ÷ 12 (amendment (k) — the default
- * pensionable earnings when no override is entered).
+ * Projected gross salary for a whole tax year from the timeline (amendment
+ * (k) — the default pensionable earnings when no override is entered): each
+ * pay month contributes the day-weighted annual rate in force, the twelve are
+ * summed and divided by 12, rounded once — so a full-year £70,000 rate is
+ * exactly 7,000,000p, not 12 × round(583,333.33).
  * @param {Array<object>} periods - pence-domain salary periods.
  * @param {string} taxYear - e.g. "2026-27".
  * @returns {number} pence
  */
 export function projectedYearSalaryPence(periods, taxYear) {
-  return monthsOfTaxYear(taxYear).reduce(
-    (sum, month) => sum + dayWeightedMonthPence(periods, month, monthlySalaryRateOf),
+  const annualWeighted = monthsOfTaxYear(taxYear).reduce(
+    (sum, month) => sum + dayWeightedMonthPence(periods, month, annualSalaryRateOf),
     0
   );
+  return Math.round(annualWeighted / 12);
 }
 
 /**

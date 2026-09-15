@@ -326,6 +326,11 @@ describe('expectedPayeYtd', () => {
 });
 
 describe('projectedYearSalaryPence', () => {
+  it('rounds once for the year, so a salary that is not divisible by 12 is exact', () => {
+    expect(projectedYearSalaryPence([{ effectiveFrom: '1900-01-01', annualSalaryPence: 7_000_000 }], '2026-27')).toBe(7_000_000);
+    expect(projectedYearSalaryPence([{ effectiveFrom: '1900-01-01', annualSalaryPence: 4_000_000 }], '2026-27')).toBe(4_000_000);
+  });
+
   it('is the annual salary for one full-year rate', () => {
     expect(projectedYearSalaryPence(FLAT_60K, '2026-27')).toBe(6_000_000);
   });
