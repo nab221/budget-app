@@ -217,7 +217,7 @@ function validatePensionYear(data, mode) {
   if (data.taxYear !== undefined && !/^\d{4}-\d{2}$/.test(String(data.taxYear))) {
     throw new Error(`pensionYears.taxYear must be a "yyyy-yy" label like 2025-26; got "${data.taxYear}"`);
   }
-  for (const f of ['piaPence', 'pensionableEarningsPence']) {
+  for (const f of ['piaPence', 'pensionableEarningsPence', 'pensionEarnedPence']) {
     if (data[f] !== undefined && data[f] !== null && Number(data[f]) < 0) {
       throw new Error(`pensionYears.${f} must be null or non-negative; got ${JSON.stringify(data[f])}`);
     }
@@ -687,8 +687,8 @@ export const pensionYearsRepo = {
   ...createBaseRepository(
     db.pensionYears,
     // null passes through untouched: "not entered" is a real state.
-    ['piaPence', 'pensionableEarningsPence'],
-    { piaPence: null, pensionableEarningsPence: null, note: '' },
+    ['piaPence', 'pensionableEarningsPence', 'pensionEarnedPence'],
+    { piaPence: null, pensionableEarningsPence: null, pensionEarnedPence: null, note: '' },
     validatePensionYear
   ),
 
@@ -704,7 +704,7 @@ export const pensionYearsRepo = {
    * insert otherwise (the year form always goes through here).
    * @param {number} personId
    * @param {string} taxYear - "2025-26"
-   * @param {object} data - pounds-at-edge fields (piaPence, pensionableEarningsPence, note).
+   * @param {object} data - pounds-at-edge fields (piaPence, pensionableEarningsPence, pensionEarnedPence, note).
    */
   async upsert(personId, taxYear, data) {
     validatePensionYear({ ...data, taxYear }, 'update');

@@ -69,4 +69,19 @@ describe('pensionYearsRepo', () => {
     expect(await db.pensionYears.count()).toBe(1);
     expect((await db.pensionYears.toArray())[0].personId).toBe(b);
   });
+
+  it('stores pensionEarnedPence as pence, reads it back as pounds, keeps null, rejects negatives', async () => {
+    const p = await peopleRepo.add({ name: 'A' });
+    const id = await pensionYearsRepo.add({ personId: p, taxYear: '2025-26', pensionEarnedPence: 1246.15 });
+    expect(await db.pensionYears.get(id)).toMatchObject({ pensionEarnedPence: 124615, piaPence: null, pensionableEarningsPence: null });
+    expect(await pensionYearsRepo.get(id)).toMatchObject({ pensionEarnedPence: 1246.15 });
+
+    const bare = await pensionYearsRepo.add({ personId: p, taxYear: '2024-25' });
+    expect((await db.pensionYears.get(bare)).pensionEarnedPence).toBe(null);
+
+    await pensionYearsRepo.upsert(p, '2025-26', { pensionEarnedPence: null });
+    expect((await db.pensionYears.get(id)).pensionEarnedPence).toBe(null);
+
+    await expect(pensionYearsRepo.add({ personId: p, taxYear: '2023-24', pensionEarnedPence: -1 })).rejects.toThrow(/pensionEarnedPence/);
+  });
 });
