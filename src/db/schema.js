@@ -73,8 +73,10 @@ import Dexie from 'dexie';
  *      override. Estimates, carry-forward and headroom are computed at read
  *      time and never stored. `people` also gains three non-indexed fields —
  *      `pensionScheme`, `pensionAnchorPence`, `pensionAnchorDate` — which need
- *      no schema change; rows without them read back as '' / 0 / '' through
- *      the repository (SIPP-only tracking). New store only, no upgrade function.
+ *      no schema change; rows without them read back `undefined` through the
+ *      repository (defaults apply on `add` only) and are treated as blank —
+ *      SIPP-only tracking — by the pension adapter and the forms. New store
+ *      only, no upgrade function.
  */
 
 export const SCHEMA_VERSION = 8;

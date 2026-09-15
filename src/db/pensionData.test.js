@@ -6,6 +6,7 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { resetDb } from './test-utils.js';
+import { db } from './schema.js';
 import { peopleRepo, salaryPeriodsRepo, incomeEventsRepo, pensionYearsRepo } from './repositories.js';
 import { gatherPensionData } from './pensionData.js';
 import { gatherIncomeData } from './incomeData.js';
@@ -90,6 +91,15 @@ describe('gatherPensionData', () => {
     expect(me.anchor).toBe(null);
     expect(me.current).toMatchObject({ piaSource: 'none', sippGrossPence: 100_000, usedPence: 100_000 });
     expect(me.carryForwardPence).toBe(18_000_000);
+  });
+
+  it('a pre-v8 person row with no pension fields is tracked as SIPP-only', async () => {
+    const id = await db.people.add({ name: 'Legacy', annualSalaryPence: 6_000_000 }); // raw row, no pension fields
+    const me = (await gatherPensionData('2026-27')).people.find((p) => p.id === id);
+    expect(me.scheme).toBe(null);
+    expect(me.anchor).toBe(null);
+    expect(me.current.piaSource).toBe('none');
+    expect(me.earningsByYear['2026-27']).toBe(6_000_000);
   });
 });
 

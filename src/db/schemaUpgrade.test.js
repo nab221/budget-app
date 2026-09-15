@@ -297,7 +297,7 @@ describe('schema upgrades', () => {
     expect(db.verno).toBe(SCHEMA_VERSION);
     const person = await db.people.get(personId);
     expect(person.name).toBe('A');
-    expect(person.pensionScheme).toBeUndefined(); // read back as '' by the repo
+    expect(person.pensionScheme).toBeUndefined(); // undefined until written; the pension adapter treats it as blank
 
     expect(await db.pensionYears.count()).toBe(0);
     await db.pensionYears.add({ personId, taxYear: '2025-26', piaPence: 2148600, pensionableEarningsPence: null, note: '' });
