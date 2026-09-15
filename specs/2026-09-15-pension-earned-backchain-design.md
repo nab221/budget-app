@@ -1,7 +1,7 @@
 # Pension tab — back-chaining prior years from "pension earned": design
 
 **Date:** 2026-09-15
-**Status:** approved, not yet implemented
+**Status:** implemented
 **Spec:** extends `2026-09-15-pension-panel-design.md` (amendment (k)); no schema version bump
 
 ## 1. Purpose

@@ -35,6 +35,14 @@ Company, with the Income-style tax-year navigator. Full design and owner decisio
   timeline (`projectedYearSalaryPence`). User-entered rows only; nothing computed is
   stored. `gatherIncomeData` exposes the result as `entry.pension`, and the Income
   card's meter reads it, so both tabs show one set of figures.
+- **Back-chain from "pension earned"** (2026-09-15, additive, no schema bump): the NHS/LGPS
+  site gives the current accrued pension and each year's *pension earned* but no PIA and
+  no past statements. `pensionYears` rows gain `pensionEarnedPence`; the engine rolls the
+  anchor **backwards** through consecutive years that have it
+  (`opening = (closing − earned) ÷ (1 + CPI + real)`), so the carry-forward years are
+  estimated, and uses it as the accrual in forward years. A gap stops the chain; the year
+  form, table (opening/closing columns) and card surface it. Design:
+  `specs/2026-09-15-pension-earned-backchain-design.md`.
 - **Assumptions**: post-2022 revaluation timing (no estimates before 2022-23); a prior
   year over its allowance contributes zero carry-forward; a year with no data
   contributes zero; the high-income taper is a warning at £200k adjusted net income,
