@@ -110,10 +110,11 @@ export const RELIEF_AT_SOURCE_GROSS_UP = 1.25;
 - `cpiForYear(label)` → the rate or **null** when the year is not seeded. No fallback:
   a wrong CPI silently mis-states the estimate, so a missing year switches the estimate
   off and the UI shows the fallback banner instead.
-- `annualAllowanceForYear(label)` → the allowance for the year; `fromTable` is true for
-  every year up to the newest seeded tax-table year (£40,000 before 2023-24 and £60,000
-  from then on are known facts) and false only for later, unknown years, which is what
-  the fallback banner and the `*` marker report.
+- `annualAllowanceForYear(label)` → the allowance for the year; `fromTable` is true when
+  the year has its own seeded tax-table row or clamps DOWN to the oldest one (£40,000
+  before 2023-24 and £60,000 from then on are known facts, and a later Budget row can
+  never rewrite them) and false only for later, unknown years, which take the newest
+  table's figure — what the fallback banner and the `*` marker report.
 - `anchorOpeningYear(anchorDate)` → the tax year the anchor OPENS: the statement figure
   is the value at the end of the tax year containing the date (31 March 2026 → end of
   2025-26 → opens `2026-27`).
