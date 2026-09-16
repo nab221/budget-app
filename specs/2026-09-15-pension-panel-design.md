@@ -4,6 +4,9 @@
 **Status:** implemented
 **Spec:** amends `REFACTOR-SPEC.md` (amendment 2026-09-15 (k)); schema v8 (additive)
 
+**See also:** `2026-09-15-pension-earned-backchain-design.md` — prior years estimated
+backwards from the statement's "pension earned" (adds `pensionEarnedPence`, `rollBackward`).
+
 ## 1. Purpose
 
 Both people are in **defined-benefit** public-sector pensions: the owner in the

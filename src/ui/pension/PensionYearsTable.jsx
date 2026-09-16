@@ -4,7 +4,7 @@ import Money from '../components/Money.jsx';
 const SOURCE_LABEL = { entered: 'entered', estimate: 'estimate', none: 'none' };
 
 /**
- * The four-year window: allowance, pension input amount (with its source),
+ * The four-year window: opening and closing pension (from the estimate), allowance, pension input amount (with its source),
  * SIPP gross, used, unused / carry-forward, and an Edit per year. Public
  * constants (the allowance) are plain text; the owner's figures go through
  * <Money> so the privacy blur applies.
@@ -19,6 +19,8 @@ export default function PensionYearsTable({ years, onEditYear }) {
         <thead>
           <tr>
             <th>Tax year</th>
+            <th className="num">Opening</th>
+            <th className="num">Closing</th>
             <th className="num">Allowance</th>
             <th className="num">Pension input</th>
             <th>Source</th>
@@ -33,6 +35,8 @@ export default function PensionYearsTable({ years, onEditYear }) {
           {years.map((y) => (
             <tr key={y.taxYear} className={y.piaSource === 'none' ? 'is-inactive' : ''}>
               <td>{y.taxYear}</td>
+              <td className="num">{y.estimate ? <Money pence={y.estimate.openingPence} /> : <span className="muted">—</span>}</td>
+              <td className="num">{y.estimate ? <Money pence={y.estimate.closingPence} /> : <span className="muted">—</span>}</td>
               <td className="num">
                 <Money pence={y.allowancePence} />
                 {!y.allowanceFromTable && <span className="muted"> *</span>}

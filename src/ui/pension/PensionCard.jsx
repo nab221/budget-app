@@ -25,6 +25,20 @@ export default function PensionCard({ entry, summary, onEditDetails, onEditYear 
   const est = current.estimate;
   const taper = summary && summary.adjustedNetIncomePence > TAPER_THRESHOLD_INCOME_PENCE;
 
+  // A prior year the back-chain could reach but has no pension-earned figure entered.
+  const needsEarned =
+    !!scheme &&
+    !!anchor &&
+    years
+      .slice(0, -1)
+      .some(
+        (y) =>
+          y.piaSource === 'none' &&
+          y.taxYear >= FIRST_ESTIMATE_YEAR &&
+          y.taxYear < anchor.openingYear &&
+          !rows.some((r) => r.taxYear === y.taxYear && r.pensionEarnedPence != null)
+      );
+
   return (
     <li className="card pension-card">
       <div className="debt-card__head">
@@ -119,7 +133,10 @@ export default function PensionCard({ entry, summary, onEditDetails, onEditYear 
             </div>
             <div>
               <dt>Accrual added</dt>
-              <dd><Money pence={Math.round(est.earningsPence / SCHEMES[scheme].accrualDenominator)} /></dd>
+              <dd>
+                <Money pence={est.earnedPence} />
+                {est.earnedSource === 'statement' && <span className="muted"> (from statement)</span>}
+              </dd>
             </div>
             <div>
               <dt>Closing pension</dt>
@@ -137,11 +154,15 @@ export default function PensionCard({ entry, summary, onEditDetails, onEditYear 
               : anchor.openingYear < FIRST_ESTIMATE_YEAR
                 ? 'The anchor predates 2022-23 — enter a statement figure dated 31 March 2022 or later.'
                 : current.taxYear < anchor.openingYear
-                  ? `The anchor opens ${anchor.openingYear}; earlier years are entered, not estimated.`
+                  ? `The anchor opens ${anchor.openingYear}; enter this year’s pension earned from the statement (and each year between) to estimate it backwards.`
                   : 'No estimate — the September CPI for this year is not recorded yet.'}
           </p>
         )}
       </section>
+
+      {needsEarned && (
+        <p className="muted">Enter each year’s pension earned from the statement to fill the years before it.</p>
+      )}
 
       <PensionYearsTable years={yearsWithNotes} onEditYear={onEditYear} />
     </li>
